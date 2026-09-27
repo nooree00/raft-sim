@@ -13,7 +13,10 @@ namespace Raft.Gates;
 /// push. Entries are dealt round-robin to up to four workers; each worker has its own worktree at
 /// HEAD, at a fixed path so incremental builds stay valid, built once, and runs its share
 /// sequentially. (Phase 1: one worker reached 781 s of the 900 s ceiling at 68 entries; the ceiling
-/// forced this change rather than running the harness less often.) A result counts only if it is the expected one for the expected reason:
+/// forced this change rather than running the harness less often. At 78 entries four workers took
+/// 868 s on GitHub, and phase 1's last five entries would cross 900 s: the ceiling is raised to
+/// 20 minutes as a stopgap, reported, with the structural fix a register row promised to P2.)
+/// A result counts only if it is the expected one for the expected reason:
 ///   - a patch that does not apply, or a target test that did not run, is a harness error;
 ///   - a build failure is `build-error`, never "caught";
 ///   - a code patch whose build leaves every assembly byte-identical is `not-compiled-in`,
@@ -33,7 +36,7 @@ internal static class Sabotage
     {
         var rest = args.ToList();
         var only = Options.Take(rest, "--only")?.Split(',', StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
-        var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "15", System.Globalization.CultureInfo.InvariantCulture));
+        var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "20", System.Globalization.CultureInfo.InvariantCulture));
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
         var workersOption = Options.Take(rest, "--workers");
         var f = new Findings();
