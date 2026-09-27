@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Shrinker.cs b/src/Raft.Simulation/Shrinker.cs
+index 8964f06..1771194 100644
+--- a/src/Raft.Simulation/Shrinker.cs
++++ b/src/Raft.Simulation/Shrinker.cs
+@@ -94,7 +94,7 @@ public static class Shrinker
+                     break;
+                 }
+ 
+-                n = Math.Min(n * 2, faults.Count);
++                break;
+             }
+         }
+ 

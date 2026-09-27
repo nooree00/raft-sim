@@ -1,0 +1,5 @@
+description: A candidate counts if it fails in any way, not only with the target signature
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ShrinkerTests.ThePlantedTwoFaultBugShrinksToAHandfulOfEventsContainingBoth
+expect: caught

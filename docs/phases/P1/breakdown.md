@@ -44,7 +44,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-trace-1, S-trace-2
 - **Verifiable here:** yes — the table test runs locally; the checklist is checked against `docs/references/raft-extended.pdf`.
 - **Prediction:** Figure 2 alone is insufficient for at least three rows, which must cite text outside it: persisting the candidate's own vote before it sends RequestVote (§5.2/§8, spec A7), the leader counting its own entry toward a majority only once durable, and the election timer being reset on granting a vote (Figure 2 states it only inside the candidate-conversion rule). **Observable:** the table's source column cites text outside Figure 2 for three or more rows.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — six rows cite text outside their figure (three or more, as predicted: the candidate's own vote persisted before RequestVote, the leader's own entry counted once durable, §6 and §8 rows), but one of my three examples was wrong: the election timer reset on granting a vote *is* in Figure 2, in the follower rules.
 
 ### P1-02 — Core interface types
 
@@ -53,7 +53,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-core-1
 - **Verifiable here:** yes — local build and the architecture tests.
 - **Prediction:** Expressing effects as a sealed hierarchy of records makes the compiler emit references to `System.Runtime.CompilerServices` types not yet on the allowlist (`IsExternalInit` is there; I expect `RequiredMemberAttribute` / `SetsRequiredMembersAttribute` or `NullableAttribute` on generic effect payloads). **Observable:** the ambient scan fails on its first run after this task, listing a CompilerServices type that is not on the allowlist.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — right in mechanism: the ambient scan failed on its first run listing CompilerServices types missing from the allowlist; wrong in which — `PreserveBaseOverridesAttribute`, `ExtensionAttribute` and `RuntimeHelpers`, not the required-member or nullable attributes I named.
 
 ### P1-03 — Deterministic randomness streams
 
@@ -62,7 +62,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-rng-1, S-rng-2
 - **Verifiable here:** yes — local.
 - **Prediction:** With a weak mixer (for instance XOR-combining the component hashes) streams whose purposes differ in one character come out correlated. **Observable:** the independence test on the first mixer I write measures a correlation above 0.1 between the first 1,000 draws of two such purposes.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — the first mixer showed no correlation, and neither did the weak XOR combine the prediction named, tried on purpose: the SplitMix64 expansion that seeds xoshiro256** decorrelates the streams regardless.
 
 ### P1-04 — Trivial protocol and the simulation runner
 
@@ -71,7 +71,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-sim-1, S-sim-2
 - **Verifiable here:** yes — local.
 - **Prediction:** A ten-minute simulated run with ticks every simulated millisecond is dominated by tick dispatch, not messages. **Observable:** the first version takes more than one second of wall time for the ten-minute run, and a profile shows most steps are ticks that change nothing.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — ten simulated minutes at 1-unit ticks took 1.6 s of wall time for 1.87 M steps, 96% of them ticks that changed nothing.
 
 ### P1-05 — Network faults
 
@@ -80,7 +80,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-net-1, S-net-2, S-net-3, S-net-4, S-net-5
 - **Verifiable here:** yes — local.
 - **Prediction:** .NET's `PriorityQueue` is not stable, so if two deliveries at the same logical time were ordered by the heap alone, removing an unrelated event would change their order — breaking the shrinker's precondition that removing one fault leaves other draws alone. **Observable:** a test that removes one unrelated message from a schedule and compares the relative delivery order of two same-time messages fails if the sequence-number tiebreak is removed (S-net-5 checks exactly this).
-- **Outcome:** pending
+- **Outcome:** right (evidence) — S-net-5 (order by the heap alone, no sequence tiebreak) turns the same-time-order test red: `PriorityQueue` is not stable.
 
 ### P1-06 — Disk faults and the persist barrier
 
@@ -89,7 +89,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-disk-1, S-disk-2, S-disk-3, S-disk-4
 - **Verifiable here:** yes — local.
 - **Prediction:** My first barrier holds back only the sends emitted in the same step as a persist, not sends from a later step that follow an earlier, still-pending persist. **Observable:** a test where step 1 persists on a slow disk and step 2 sends without persisting shows step 2's send released before step 1's persist is durable.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — having written the prediction, I built the barrier per node from the start (each held send records the disk's issued count); the step-1/step-2 test passed on its first run, and S-disk-4 shows it would have caught the per-step version.
 
 ### P1-07 — Node lifecycle and clock faults
 
@@ -98,7 +98,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-life-1, S-life-2, S-life-3
 - **Verifiable here:** yes — local.
 - **Prediction:** My first pause delivers the ticks missed during the pause one by one on resume, so a ten-minute pause costs 600,000 steps. **Observable:** a ten-minute simulated pause takes more than one second of wall time, and the node's step count jumps by the number of missed ticks rather than by one.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — having written the prediction, resume delivers one tick covering the pause from the start; a ten-minute pause costs one step (LifecycleFaultTests), so the observable could not occur.
 
 ### P1-08 — Determinism across processes, canonical trace, ambient scan of the simulator
 
@@ -107,7 +107,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-det-1, S-det-2, S-det-3, S-det-4
 - **Verifiable here:** yes — local; the separate processes run in the pinned image.
 - **Prediction:** The first cross-process comparison passes, because `Dictionary` and `HashSet` enumeration order depends on insertion and removal history, not on hash codes, so per-process string-hash randomisation does not reach the trace; a sabotage that merely enumerates a `HashSet<string>` survives, and S-det-1 must order by `GetHashCode` explicitly to go red. **Observable:** first run green; a plain-`HashSet` variant of S-det-1 survives the harness.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the first cross-process comparison was byte-identical, and the plain-`HashSet` variant (S-det-4, `expect: survived`) survives the harness; S-det-1 needs an explicit `GetHashCode` order to go red.
 
 ### P1-09 — Schedule generator, serialization and the reproduction round trip
 
@@ -116,7 +116,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-sched-1, S-sched-2, S-sched-3
 - **Verifiable here:** yes — local.
 - **Prediction:** Per-window fault probabilities compound over a long run, so my first generator puts a partition in nearly every schedule. **Observable:** P1-10's first report shows "had a partition" at 90% or more.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — 91% of 200 generated schedules contain a partition (P1-10's report: asymmetric-block 182/200).
 
 ### P1-10 — Coverage measured from what happened
 
@@ -125,7 +125,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-cov-1, S-cov-2, S-cov-3
 - **Verifiable here:** yes — local.
 - **Prediction:** The trivial counter node persists on nearly every step, so almost every crash lands with unsynced writes. **Observable:** "crashed" and "crashed with unsynced writes" report identical counts in the first report, and the identical-counts rule fails the build.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — crashed 153/200, crashed with unsynced writes 8/200. The node persists once per 100 ticks and a write is in flight for 1–3 units, so a crash at a random time finds a write in flight about 2% of the time. The identical-counts rule did not fire; it now compares the sets of executions (equal counts over different sets are a note: dropped and clock-skewed, 148 each).
 
 ### P1-11 — Shrinker
 
@@ -134,7 +134,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-shrink-1, S-shrink-2, S-shrink-3
 - **Verifiable here:** yes — local.
 - **Prediction:** Crash and restart are separate events, so removing a restart alone leaves a node down for good, which changes the failure signature; the shrinker cannot remove such pairs one event at a time and stalls above the minimum. **Observable:** the first shrink of the planted bug keeps extra restart or heal events — more than twice the minimal size — until paired events are shrunk as a unit. (Added at review, before implementation.) For the ordering case the reviewer expects a removal-only shrinker to stall; I predict it does not: removal preserves the relative order of the events it keeps, and a failing schedule necessarily contains the failing order, so removal reaches the two events in their failing order. What removal cannot do is say that the order is the cause — hence the swap probe. **Observable:** on the ordering case, removal alone yields exactly the two events in the failing order, and the swap probe marks that pair order-sensitive.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the ordering half right: on the ordering case removal alone returned exactly [Drop, Duplicate] in the failing order, and the swap probe marked that pair. The paired-events half wrong in mechanism and short on the observable: an unpaired Restart, Heal or Unpause is a no-op in the runner, so ddmin removes them one at a time. The first shrink of the planted bug did stall above the minimum — 6 events against 3 (twice, not more than twice), in 239 runs — but for another reason: fault times are absolute, and a noise crash and restart of n2 redraws n2's stagger, which is what puts the planted crash inside a write window; an unhealed partition was kept because it made the duplicate meet an announcement rather than an echo (a flaw in the plant, fixed: any repeated delivery now triggers it). After that, 5 events in 124 runs, still with the phase-setting crash and restart (docs/findings.md).
 
 ### P1-12 — Every commit gets the gates and the harness (register row, promised to P1)
 

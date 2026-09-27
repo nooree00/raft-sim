@@ -89,3 +89,11 @@ finding: what happened, why no existing check caught it, what now catches it.
   `git worktree prune` inside the container, where a worktree outside the mounted repository looks
   missing; my scratch worktree's metadata was removed (its files were not). Harmless in CI; locally,
   scratch worktrees must live where the container can see them.
+- **A 1-minimal schedule can keep events whose only role is timing.** Fault times are absolute. The
+  planted duplicate-then-crash bug needs the crash inside a 1–3-unit write window; an earlier noise
+  crash and restart of the same node redraws its stagger and so decides where the windows fall.
+  Removing that pair moves the windows away from the planted crash, so ddmin must keep it: the result
+  is 1-minimal (no single removal still fails) but 5 events against a conceptual 3. *Not a shrinker
+  bug:* the result fails for the right signature and cannot lose an event. *Consequence for phase 3:*
+  a shrunk Raft schedule can contain faults that matter only because they shift timing; the swap
+  probe does not detect this. Moving faults in time is not something the shrinker tries.

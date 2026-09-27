@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Shrinker.cs b/src/Raft.Simulation/Shrinker.cs
+index 8964f06..a1b7df8 100644
+--- a/src/Raft.Simulation/Shrinker.cs
++++ b/src/Raft.Simulation/Shrinker.cs
+@@ -30,7 +30,7 @@ public static class Shrinker
+         bool Fails(IReadOnlyList<Fault> faults)
+         {
+             runs++;
+-            return signaturesOf(new FaultSchedule(faults)).Contains(signature);
++            return signaturesOf(new FaultSchedule(faults)).Count > 0;
+         }
+ 
+         if (!Fails(failing.Faults))

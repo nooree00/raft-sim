@@ -1,0 +1,15 @@
+diff --git a/src/Raft.Simulation/Shrinker.cs b/src/Raft.Simulation/Shrinker.cs
+index 8964f06..f802bae 100644
+--- a/src/Raft.Simulation/Shrinker.cs
++++ b/src/Raft.Simulation/Shrinker.cs
+@@ -198,8 +198,8 @@ public static class Shrinker
+     {
+         var (a, b) = (faults[i], faults[i + 1]);
+         var result = faults.ToList();
+-        result[i] = Retimed(b, a.At);
+-        result[i + 1] = Retimed(a, b.At);
++        result[i] = b;
++        result[i + 1] = a;
+         return result;
+     }
+ 

@@ -1,0 +1,5 @@
+description: ddmin never refines its granularity: it stops when no half can be removed, short of 1-minimal
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ShrinkerTests.ASyntheticFailureShrinksToExactlyItsCause
+expect: caught
