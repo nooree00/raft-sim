@@ -47,3 +47,14 @@ finding: what happened, why no existing check caught it, what now catches it.
   the harness, on the assumption that documentation cannot break it — false whenever a sabotage
   patches documentation. *Now:* S-reg-1 no longer depends on the report's absence; and the harness
   runs locally before every push, documentation included.
+
+## Phase 1
+
+- **Lock-file-carrying sabotage patches went stale a third time** (S-layer-1/2/5, when P1-03 added a
+  project). *Caught by* the local harness run before the push, as apply/build errors. *Now:* the
+  cause is removed rather than the patches regenerated again — dependency sabotages declare
+  `restore: force` and carry no lock-file changes; the harness re-evaluates restore for that build
+  only, and the revert's baseline-hash check proves the tree came back.
+- **Two test-baseline miscounts in one task**: I wrote 9 for a project that runs 7, and missed that
+  a new layering-table row adds two theory cases elsewhere. *Caught by* the floor, both times,
+  before the push.

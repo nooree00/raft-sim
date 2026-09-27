@@ -4,3 +4,4 @@ project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.CoreReferencesNothing
 expect: caught
 changes-assemblies: no
+restore: force

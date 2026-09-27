@@ -31,6 +31,13 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
     /// <summary>"host" for entries that need the runner host (docker); run by scripts/host-sabotages.sh.</summary>
     public bool RunsOnHost => Fields.GetValueOrDefault("runner", "container") == "host";
 
+    /// <summary>
+    /// "force" for a patch that changes the dependency graph (a project or package reference): the
+    /// harness re-evaluates restore itself, with locked mode off for this build only, so the patch
+    /// need not carry lock-file changes — which went stale with every new project.
+    /// </summary>
+    public bool ForceRestore => Fields.GetValueOrDefault("restore", "locked") == "force";
+
     public bool ChangesAssemblies => Fields.GetValueOrDefault("changes-assemblies", "yes") == "yes";
 
     public string? Get(string key) => Fields.TryGetValue(key, out var v) ? v : null;
@@ -75,6 +82,7 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         f.Require(spec.Get("build") is null or "yes" or "no", $"{id}: build must be yes or no");
         f.Require(spec.Get("changes-assemblies") is null or "yes" or "no", $"{id}: changes-assemblies must be yes or no");
         f.Require(spec.Get("runner") is null or "container" or "host", $"{id}: runner must be container or host");
+        f.Require(spec.Get("restore") is null or "locked" or "force", $"{id}: restore must be locked or force");
         f.Require(!spec.RunsOnHost || spec.Kind == "command", $"{id}: a host entry is a command");
         if (spec.Kind == "test")
         {

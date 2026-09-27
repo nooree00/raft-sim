@@ -1,0 +1,5 @@
+description: Purposes hashed with string.GetHashCode, which .NET randomizes per process
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RandomnessTests.GoldenValuesAreStableAcrossProcessesAndVersions
+expect: caught

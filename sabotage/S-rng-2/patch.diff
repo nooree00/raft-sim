@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Randomness.cs b/src/Raft.Simulation/Randomness.cs
+index ef05345..bdd4d40 100644
+--- a/src/Raft.Simulation/Randomness.cs
++++ b/src/Raft.Simulation/Randomness.cs
+@@ -16,7 +16,7 @@ public sealed class Streams
+     public ulong Seed { get; }
+ 
+     /// <summary>A stateful stream for one purpose, independent of every other purpose.</summary>
+-    public IRandomSource For(string purpose) => new Xoshiro256(Mix.Combine(Seed, Mix.Hash(purpose)));
++    public IRandomSource For(string purpose) => new Xoshiro256(Mix.Combine(Seed, 0));
+ 
+     /// <summary>A single stateless draw: the <paramref name="index"/>-th value for a purpose.</summary>
+     public ulong At(string purpose, ulong index) => Mix.SplitMix64(Mix.Combine(Mix.Combine(Seed, Mix.Hash(purpose)), index));

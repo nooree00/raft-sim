@@ -1,0 +1,19 @@
+diff --git a/src/Raft.Simulation/Randomness.cs b/src/Raft.Simulation/Randomness.cs
+index ef05345..2ff4671 100644
+--- a/src/Raft.Simulation/Randomness.cs
++++ b/src/Raft.Simulation/Randomness.cs
+@@ -29,13 +29,7 @@ public static class Mix
+     public static ulong Hash(string text)
+     {
+         ArgumentNullException.ThrowIfNull(text);
+-        var h = 0xcbf29ce484222325UL;
+-        foreach (var b in System.Text.Encoding.UTF8.GetBytes(text))
+-        {
+-            h = (h ^ b) * 0x100000001b3UL;
+-        }
+-
+-        return h;
++        return (ulong)(uint)text.GetHashCode();
+     }
+ 
+     /// <summary>The SplitMix64 finalizer: a bijective avalanche of one 64-bit value.</summary>

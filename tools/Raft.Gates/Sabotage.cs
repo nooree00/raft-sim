@@ -201,7 +201,7 @@ internal static class Sabotage
 
         if (spec.Build)
         {
-            var build = Build(wt);
+            var build = Build(wt, forceRestore: spec.ForceRestore);
             if (!build.Ok)
             {
                 return Done("build-error", FirstError(build));
@@ -261,7 +261,18 @@ internal static class Sabotage
     private static List<TestResult> Matching(IEnumerable<TestResult> results, string target) =>
         results.Where(r => r.Name == target || r.Name.StartsWith(target + "(", StringComparison.Ordinal)).ToList();
 
-    private static ProcessResult Build(string wt) => Proc.Run("dotnet", wt, "build", "Raft.slnx", "-nologo", "-v:q", "-warnaserror");
+    private static ProcessResult Build(string wt, bool forceRestore = false)
+    {
+        if (!forceRestore)
+        {
+            return Proc.Run("dotnet", wt, "build", "Raft.slnx", "-nologo", "-v:q", "-warnaserror");
+        }
+
+        var restore = Proc.Run("dotnet", wt, "restore", "Raft.slnx", "--force-evaluate", "-p:RestoreLockedMode=false", "-nologo", "-v:q");
+        return restore.Ok
+            ? Proc.Run("dotnet", wt, "build", "Raft.slnx", "--no-restore", "-nologo", "-v:q", "-warnaserror")
+            : restore;
+    }
 
     private static ProcessResult Bash(string wt, string command, IReadOnlyDictionary<string, string> env) =>
         Proc.RunWithEnv("bash", wt, env, "-c", command);

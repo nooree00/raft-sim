@@ -1,0 +1,5 @@
+description: Every purpose gets the same stream
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RandomnessTests.PurposesDifferingInOneCharacterAreUncorrelated
+expect: caught
