@@ -4,7 +4,7 @@ The simulator, before any Raft (spec §7, §11 phase 1). Format as in
 `docs/phases/P0/breakdown.md`, parsed by `gates breakdown`; outcomes will say `(evidence)` or
 `(forcing)`.
 
-**Done when** (spec §11, with the amendment proposed at the end): a seeded execution of three
+**Done when** (spec §11, as amended at review): a seeded execution of three
 trivial-protocol nodes reproduces byte-identically across separate processes; every fault in §7 is
 injectable and proven to fire by its effect; the node↔world interface contract is written and
 traced against every input and output Figure 2 needs; the generated distribution is measured and no
@@ -20,9 +20,9 @@ first if phase 1 runs long, because it closes a detection gap that affects every
 shrinker, to phase 3 — it must exist before phase 3's 10,000-execution runs produce failures worth
 shrinking, and not later. Moving it is a spec change, argued first.
 
-## Decisions this breakdown asks for
+## Decisions (all approved at review)
 
-1. **No Serilog in phase 1.** Spec §3 names it for the drivers, but the simulator's trace is its
+1. **No Serilog** — dropped from spec §3 entirely, not deferred. Spec §3 names it for the drivers, but the simulator's trace is its
    own canonical format (P1-08), because byte-identity across processes is the requirement and a
    logging library's formatting is not something to hold byte-identical. Proposal: defer Serilog to
    phase 9 (the TCP host), where a person reads logs, or drop it.
@@ -129,11 +129,11 @@ shrinking, and not later. Moving it is a spec change, argued first.
 
 ### P1-11 — Shrinker
 
-- **Task:** Delta debugging over a failing schedule's fault events, then over each remaining event's parameters; every candidate is re-run through the runner; a candidate counts only if it fails with the same failure signature (which property, which node); the result is checked to be 1-minimal (removing any single remaining event makes it pass). Proven on a planted bug: a variant of the counter protocol that violates its property only when a crash with unsynced writes and a duplicate delivery coincide, hidden in a generated schedule of at least 100 events; the shrinker must return a schedule of at most a handful of events containing both.
+- **Task:** Delta debugging over a failing schedule's fault events, then over each remaining event's parameters; every candidate is re-run through the runner; a candidate counts only if it fails with the same failure signature (which property, which node); the result is checked to be 1-minimal (removing any single remaining event makes it pass). Proven on a planted bug: a variant of the counter protocol that violates its property only when a crash with unsynced writes and a duplicate delivery coincide, hidden in a generated schedule of at least 100 events; the shrinker must return a schedule of at most a handful of events containing both. A second planted case, added at review: a bug whose cause is the *order* of two faults — it fails only when fault A precedes fault B, and passes if either is removed or the two are swapped. After shrinking, a swap probe tries each adjacent pair of the result in reverse order and reports the pairs whose order is part of the cause.
 - **Vacuity:** A shrinker that accepts any failing candidate converges on whatever fails most easily — possibly a different bug, or a runner crash. Guarded by the failure-signature rule and a second planted bug with a different signature in the same schedule.
-- **Sabotage:** S-shrink-1, S-shrink-2
+- **Sabotage:** S-shrink-1, S-shrink-2, S-shrink-3
 - **Verifiable here:** yes — local.
-- **Prediction:** Crash and restart are separate events, so removing a restart alone leaves a node down for good, which changes the failure signature; the shrinker cannot remove such pairs one event at a time and stalls above the minimum. **Observable:** the first shrink of the planted bug keeps extra restart or heal events — more than twice the minimal size — until paired events are shrunk as a unit.
+- **Prediction:** Crash and restart are separate events, so removing a restart alone leaves a node down for good, which changes the failure signature; the shrinker cannot remove such pairs one event at a time and stalls above the minimum. **Observable:** the first shrink of the planted bug keeps extra restart or heal events — more than twice the minimal size — until paired events are shrunk as a unit. (Added at review, before implementation.) For the ordering case the reviewer expects a removal-only shrinker to stall; I predict it does not: removal preserves the relative order of the events it keeps, and a failing schedule necessarily contains the failing order, so removal reaches the two events in their failing order. What removal cannot do is say that the order is the cause — hence the swap probe. **Observable:** on the ordering case, removal alone yields exactly the two events in the failing order, and the swap probe marks that pair order-sensitive.
 - **Outcome:** pending
 
 ### P1-12 — Every commit gets the gates and the harness (register row, promised to P1)

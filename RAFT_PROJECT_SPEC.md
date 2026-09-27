@@ -40,9 +40,10 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
 
 - .NET 10, C# 14, nullable enabled, warnings as errors
 - xUnit, and a hand-rolled generator and shrinker (see §7)
-- Serilog for structured logs, in the drivers only (`Raft.Simulation`,
-  `Raft.Host`). `Raft.Core` emits structured events as *outputs* (§4, §9); it
-  does not log.
+- No logging library. `Raft.Core` emits structured events as *outputs* (§4,
+  §9); the simulator writes them into its own canonical trace, which must be
+  byte-identical across processes. A logging library is a phase-9 question, to
+  be argued on its own merits.
 - Docker Compose for the multi-process phase only
 
 Pin the SDK image **by digest**, not by tag — a tag, even an exact-patch tag,
@@ -112,7 +113,8 @@ What this decision does and does not remove:
   honour it, and the simulator must be able to violate it deliberately, as a
   sabotage. (Disk acknowledgements as inputs are more faithful and more
   complex; that is a register item, not a phase-1 design.)
-- **Logging is an output.** Core emits structured events; drivers log them.
+- **Logging is an output.** Core emits structured events; drivers record them
+  (the simulator in its canonical trace).
 - **The state machine is injected** as a pure interface (apply, snapshot,
   restore), which compaction and `InstallSnapshot` need.
 - **The project graph cannot enforce this**, because `DateTime`, `Random`,
@@ -437,7 +439,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | Phase | Deliverable | Done when |
 |---|---|---|
 | 0 | Repo, CI, gates, `AGENTS.md`, layering test, known-bad histories | CI green on a clean clone; every test project that exists runs at least one real test (test-count floor); the layering and ambient-dependency tests proven non-vacuous; a secret scan; the known-bad and Herlihy–Wing histories classified by a brute-force oracle |
-| 1 | The simulator, before any Raft | A seeded execution of three trivial-protocol nodes (echo plus a persisted counter — not do-nothing nodes, which give network faults nothing to act on) reproduces byte-identically across separate processes; every fault in §7 is injectable and has a test proving it fires, by its effect; the node↔world interface contract is written and traced against every input and output Figure 2 needs |
+| 1 | The simulator, before any Raft | A seeded execution of three trivial-protocol nodes (echo plus a persisted counter — not do-nothing nodes, which give network faults nothing to act on) reproduces byte-identically across separate processes; every fault in §7 is injectable and has a test proving it fires, by its effect; the node↔world interface contract is written and traced against every input and output Figure 2 needs; the generated distribution is measured from what happened and no dimension is zero; a planted failure — including one whose cause is the order of two faults — shrinks to its minimal schedule |
 | 2 | The checker's rejecting half | The WGL checker rejects every known-bad history, agrees with the brute-force oracle on random small histories, and rejects histories produced by a deliberately broken non-Raft store in the simulator |
 | 3 | Leader election, with `currentTerm`/`votedFor` persistence and the §6 disruption rule | Invariants 1, 8, 9 and 11 hold across 10,000 seeded executions including partitions (asymmetric included) and crashes; the fsynced-then-lost positive control goes red; distribution reported |
 | 4 | Log replication + log persistence | Invariants 2–7 and 10 hold; the election restriction (§5.4.1) re-tested now that logs are non-empty; a crash-during-write test passes; committed entries survive any crash schedule, including all nodes |

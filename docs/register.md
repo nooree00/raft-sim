@@ -12,3 +12,4 @@ it; a `dropped` row cites the commit that changed the spec to drop it. Every met
 | Disk acknowledgements as inputs to Core, instead of the ordered effect list with a persist barrier (spec §4) — decide, with measurements | P10 | open | — |
 | Visualiser for a failing execution: timeline of nodes, terms, messages (spec §9, optional) | P10 | open | — |
 | Every-commit check covers build and tests only: `gates each-commit` does not run the gates or the sabotage harness on non-head commits, so a non-head commit that is gate- or harness-red goes undetected — the same shape as a CI that is not running | P1 | open | — |
+| Message codec canonical form: two encodings of the same message must not both decode, or a corruption that yields a valid alternative encoding is invisible — decide and write down when Core takes the codec | P3 | open | — |
