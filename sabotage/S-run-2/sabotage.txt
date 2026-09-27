@@ -1,0 +1,5 @@
+description: A commit with no run at all passes silently
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.VerifyRunTests.ACommitWithNoRunFails
+expect: caught

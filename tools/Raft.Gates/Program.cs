@@ -11,8 +11,10 @@ internal static class Program
         ["each-commit"] = ("build and fast-test every non-head commit in the pushed range (spec §12)", EachCommit.Run),
         ["preflight"] = ("environment and pinning checks (spec §3, §10)", Preflight.Run),
         ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
+        ["verify-run"] = ("the ci run for --sha completed green with every required job", VerifyRun.RunOne),
         ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),
         ["register"] = ("deferred-items register vs phase status; every NotImplementedException listed (spec §12)", Register.Run),
+        ["reports"] = ("each phase report's certifying commit has a green ci run (spec §12)", VerifyRun.RunReports),
         ["sabotage"] = ("run every sabotage/ entry from a committed tree; each must give its expected result", Sabotage.Run),
         ["testcount"] = ("per-project executed-test counts against ci/test-baseline.txt", TestCount.Run),
     };

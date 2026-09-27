@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/VerifyRun.cs b/tools/Raft.Gates/VerifyRun.cs
+index 44b613e..f29fdc2 100644
+--- a/tools/Raft.Gates/VerifyRun.cs
++++ b/tools/Raft.Gates/VerifyRun.cs
+@@ -98,7 +98,7 @@ internal static class VerifyRun
+         var id = latest.GetProperty("id").GetInt64();
+         var status = latest.GetProperty("status").GetString();
+         var conclusion = latest.TryGetProperty("conclusion", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+-        if (status != "completed" || conclusion != "success")
++        if (status != "completed")
+         {
+             f.Fail($"{sha[..7]}: run {id} is {status}/{conclusion ?? "none"}");
+             return;

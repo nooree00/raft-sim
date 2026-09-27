@@ -1,0 +1,5 @@
+description: A completed but failed run is accepted
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.VerifyRunTests.ARedRunFails
+expect: caught

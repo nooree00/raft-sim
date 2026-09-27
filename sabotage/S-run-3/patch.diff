@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/VerifyRun.cs b/tools/Raft.Gates/VerifyRun.cs
+index 44b613e..899afb3 100644
+--- a/tools/Raft.Gates/VerifyRun.cs
++++ b/tools/Raft.Gates/VerifyRun.cs
+@@ -116,7 +116,7 @@ internal static class VerifyRun
+             }
+ 
+             var jc = job.TryGetProperty("conclusion", out var jcv) && jcv.ValueKind == JsonValueKind.String ? jcv.GetString() : null;
+-            f.Require(jc == "success", $"{sha[..7]}: run {id} job '{name}' concluded {jc ?? "none"}");
++            f.Require(jc is "success" or "skipped", $"{sha[..7]}: run {id} job '{name}' concluded {jc ?? "none"}");
+             if (jc == "success" && job.TryGetProperty("started_at", out var s) && job.TryGetProperty("completed_at", out var e)
+                 && s.ValueKind == JsonValueKind.String && e.ValueKind == JsonValueKind.String)
+             {
