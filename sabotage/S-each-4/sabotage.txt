@@ -1,0 +1,5 @@
+description: A listed commit with no matrix job is skipped instead of failing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitMatrixTests.ACommitWithNoJobFails
+expect: caught

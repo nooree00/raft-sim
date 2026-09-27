@@ -1,0 +1,12 @@
+diff --git a/tools/Raft.Gates/EachCommitMatrix.cs b/tools/Raft.Gates/EachCommitMatrix.cs
+index f36670f..9582c98 100644
+--- a/tools/Raft.Gates/EachCommitMatrix.cs
++++ b/tools/Raft.Gates/EachCommitMatrix.cs
+@@ -86,6 +86,7 @@ internal static class EachCommitMatrix
+             return;
+         }
+ 
++        expected = listed;
+         if (!listed.SequenceEqual(expected, StringComparer.Ordinal))
+         {
+             f.Fail($"the list job named {listed.Count} commit(s) but the range holds {expected.Count}: " +

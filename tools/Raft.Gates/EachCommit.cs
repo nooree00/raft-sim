@@ -1,13 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
 namespace Raft.Gates;
 
 /// <summary>
-/// Spec §12, "every commit green": GitHub Actions runs only a push's head, so this builds and runs
-/// the fast checks of every other commit in the pushed range, each with that commit's own scripts,
-/// in a worktree. `--since` is the push's `before` SHA. When that is all zeros (a new branch) or
+/// Spec §12, "every commit green", run locally: GitHub Actions runs only a push's head, so this runs
+/// the checks of every other commit in the pushed range, each with that commit's own scripts, in a
+/// worktree, one after another. CI runs the same checks as a matrix (EachCommitMatrix). `--since` is the push's `before` SHA. When that is all zeros (a new branch) or
 /// not in the fetched history (after a force-push), the range falls back to the merge-base with
 /// origin/main.
 /// Vacuity risk: an empty range checks nothing — so a range that should hold commits but resolves
@@ -15,10 +16,12 @@ namespace Raft.Gates;
 /// </summary>
 internal static class EachCommit
 {
-    /// <summary>Each commit's own scripts; commits from before CI existed have none and say so.</summary>
-    public const string DefaultCheck =
-        "if [ -x scripts/ci-build.sh ] && [ -x scripts/ci-test.sh ]; then scripts/ci-build.sh && scripts/ci-test.sh; " +
-        "else echo 'no CI scripts at this commit (pre-CI history)'; fi";
+    /// <summary>
+    /// Each commit's own preflight, build, gates, tests and harness, sequenced by the head's
+    /// scripts/ci-commit.sh — the same sequence as CI's per-commit matrix jobs (P1-12). Commits
+    /// from before the gate scripts are reported by it as pre-gate.
+    /// </summary>
+    public const string DefaultCheck = "\"$RAFT_HEAD_ROOT/scripts/ci-commit.sh\" checks";
 
     public static Findings Run(Repo repo, string[] args)
     {
@@ -28,24 +31,8 @@ internal static class EachCommit
         var check = Options.Take(rest, "--check") ?? DefaultCheck;
         var f = new Findings();
 
-        var head = repo.Git("rev-parse", "HEAD").StdOut.Trim();
-        var start = ResolveStart(repo, since, baseRef, f);
-        if (start is null)
-        {
-            return f;
-        }
-
-        if (start == head)
-        {
-            f.Note("range is empty: the push added no commits");
-            return f;
-        }
-
-        var commits = repo.Git("rev-list", "--reverse", $"{start}..{head}").StdOut
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(c => c != head).ToList();
-        var total = commits.Count + 1;
-        f.Note($"range {start[..7]}..{head[..7]}: {total} commit(s); the head gets the full run, {commits.Count} checked here");
-        if (commits.Count == 0)
+        var commits = NonHeadCommits(repo, since, baseRef, f);
+        if (commits is null || commits.Count == 0)
         {
             return f;
         }
@@ -68,7 +55,7 @@ internal static class EachCommit
                 Proc.Run("git", wt, "checkout", "-q", "--detach", c);
                 Proc.Run("git", wt, "clean", "-fdq");
                 var subject = Proc.Run("git", wt, "log", "-1", "--format=%s").StdOut.Trim();
-                var r = Proc.Run("bash", wt, "-c", check);
+                var r = Proc.RunWithEnv("bash", wt, new Dictionary<string, string> { ["RAFT_HEAD_ROOT"] = repo.Root }, "-c", check);
                 if (r.Ok)
                 {
                     f.Note($"{c[..7]} ok   {subject}");
@@ -86,6 +73,28 @@ internal static class EachCommit
         }
 
         return f;
+    }
+
+    /// <summary>The range's commits other than HEAD, oldest first; null (with a failure) if the range cannot be resolved.</summary>
+    internal static List<string>? NonHeadCommits(Repo repo, string since, string baseRef, Findings f)
+    {
+        var head = repo.Git("rev-parse", "HEAD").StdOut.Trim();
+        var start = ResolveStart(repo, since, baseRef, f);
+        if (start is null)
+        {
+            return null;
+        }
+
+        if (start == head)
+        {
+            f.Note("range is empty: the push added no commits");
+            return [];
+        }
+
+        var commits = repo.Git("rev-list", "--reverse", $"{start}..{head}").StdOut
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(c => c != head).ToList();
+        f.Note($"range {start[..7]}..{head[..7]}: {commits.Count + 1} commit(s); the head gets the full run, {commits.Count} checked here");
+        return commits;
     }
 
     internal static string? ResolveStart(Repo repo, string since, string baseRef, Findings f)

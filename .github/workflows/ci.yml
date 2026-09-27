@@ -41,21 +41,79 @@ jobs:
       - name: sabotage
         run: scripts/ci-sabotage.sh
 
-  each-commit:
-    # GitHub runs only a push's head; this builds and fast-tests every other commit in the push.
+  each-commit-list:
+    # GitHub runs only a push's head (it gets the full run in `build`); this names every other
+    # commit in the push, for the matrix below.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PUSH_BEFORE: ${{ github.event.before }}
+    outputs:
+      commits: ${{ steps.list.outputs.commits }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: list
+        id: list
+        run: scripts/ci-each-commit-list.sh
+
+  each-commit-run:
+    # One job per commit, each running that commit's own preflight, build, gates, tests and
+    # sabotage harness. A commit from before the gate scripts is classified pre-gate; its checks
+    # step is skipped, and the collect job reports it as pre-gate, not passed.
+    needs: each-commit-list
+    if: needs.each-commit-list.result == 'success' && needs.each-commit-list.outputs.count != '0'
+    name: commit ${{ matrix.commit }}
+    strategy:
+      fail-fast: false
+      matrix:
+        commit: ${{ fromJSON(needs.each-commit-list.outputs.commits) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
-      PUSH_BEFORE: ${{ github.event.before }}
+      CI: 'true'
+      COMMIT: ${{ matrix.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - name: every commit in the push
-        run: scripts/ci-each-commit.sh
+      - name: classify
+        id: classify
+        run: scripts/ci-commit.sh classify "$COMMIT"
+      - name: checks
+        if: steps.classify.outputs.kind == 'gated'
+        run: scripts/ci-commit.sh run "$COMMIT"
+
+  each-commit:
+    # The required check. It always runs (a skipped required check counts as passing on GitHub)
+    # and requires exactly one result per commit in the range, recomputed here, not trusted from
+    # the list job.
+    needs: [each-commit-list, each-commit-run]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PUSH_BEFORE: ${{ github.event.before }}
+      EACH_COMMIT_LIST: ${{ needs.each-commit-list.outputs.commits }}
+      EACH_COMMIT_LIST_RESULT: ${{ needs.each-commit-list.result }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: one result per commit
+        run: scripts/ci-each-commit-collect.sh
 
   secrets:
     # On the runner host: gitleaks runs as a digest-pinned container, which needs docker.

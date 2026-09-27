@@ -143,7 +143,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 - **Sabotage:** S-each-3, S-each-4
 - **Verifiable here:** partial — the collect logic is tested locally on fixtures; the matrix itself only in CI, read back through the GitHub tools.
 - **Prediction:** On a new branch the range falls back to the merge-base with main and includes commits from before the gates existed; my first matrix fails on them instead of classifying them as pre-gate. **Observable:** the first run of the new job on a fresh branch is red on a phase-0 commit that has no `tools/Raft.Gates`.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — the task text itself requires pre-gate classification, so the first version classified from the start (`scripts/ci-commit.sh classify`: gated only if the commit has its own build, test and gates scripts); on this repository the three commits before `scripts/ci-gates.sh` classify as pre-gate and later ones as gated. Not observed on a fresh branch: this branch's pushes carry only gated commits, and a fresh branch is not something I can create and delete here (P0: branch deletion is refused).
 
 ## Sabotage ids
 

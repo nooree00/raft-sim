@@ -10,7 +10,7 @@ names the script that enforces it, or says plainly that nothing does.
 | Predict before implementing | `gates trailers`: each task's first `Task:` commit must descend from the commit that introduced its current prediction | CI, build job |
 | Every non-documentation commit names its task | `gates trailers` (`Task: Pn-nn` trailer) | CI, build job |
 | Sabotage is a standing practice, from a committed tree | `gates sabotage` (container) and `scripts/host-sabotages.sh` (host), every push | CI, build and secrets jobs |
-| Every commit green | `gates each-commit` over the pushed range; the head gets the full run | CI, each-commit job |
+| Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit running that commit's own preflight, build, gates, tests and harness (`scripts/ci-commit.sh`; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per commit. Locally: `gates each-commit`, the same checks one after another. The head gets the full run | CI, each-commit-list / commit SHA / each-commit jobs |
 | Keep a register; unimplemented throws and is listed | `gates register` | CI, build job |
 | A phase report certifies the commit that contains it | `gates reports` (`gates verify-run --sha`) | CI, build job |
 | No test project runs zero tests; counts change only visibly | `gates testcount` against `ci/test-baseline.txt` | CI, build job |

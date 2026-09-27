@@ -8,7 +8,9 @@ internal static class Program
 {
     private static readonly Dictionary<string, (string Help, Func<Repo, string[], Findings> Run)> Commands = new(StringComparer.Ordinal)
     {
-        ["each-commit"] = ("build and fast-test every non-head commit in the pushed range (spec §12)", EachCommit.Run),
+        ["each-commit"] = ("run every non-head commit's own checks, one after another (local; spec §12)", EachCommit.Run),
+        ["each-commit-list"] = ("the push's non-head commits as JSON, for CI's per-commit matrix", EachCommitMatrix.List),
+        ["each-commit-collect"] = ("one passing (or pre-gate) matrix job per commit in the range", EachCommitMatrix.Collect),
         ["preflight"] = ("environment and pinning checks (spec §3, §10)", Preflight.Run),
         ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
         ["verify-run"] = ("the ci run for --sha completed green with every required job", VerifyRun.RunOne),
@@ -26,7 +28,7 @@ internal static class Program
             Console.Error.WriteLine("usage: gates <command> [--root DIR] [options]");
             foreach (var (name, (help, _)) in Commands.OrderBy(c => c.Key, StringComparer.Ordinal))
             {
-                Console.Error.WriteLine($"  {name,-12} {help}");
+                Console.Error.WriteLine($"  {name,-20} {help}");
             }
 
             return 2;
