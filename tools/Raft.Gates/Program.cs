@@ -11,6 +11,7 @@ internal static class Program
         ["preflight"] = ("environment and pinning checks (spec §3, §10)", Preflight.Run),
         ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
         ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),
+        ["register"] = ("deferred-items register vs phase status; every NotImplementedException listed (spec §12)", Register.Run),
         ["sabotage"] = ("run every sabotage/ entry from a committed tree; each must give its expected result", Sabotage.Run),
         ["testcount"] = ("per-project executed-test counts against ci/test-baseline.txt", TestCount.Run),
     };

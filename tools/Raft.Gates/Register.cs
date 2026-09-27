@@ -1,0 +1,334 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Text.RegularExpressions;
+
+namespace Raft.Gates;
+
+/// <summary>
+/// Spec §12: the register of deferred items, and "unimplemented throws and is listed".
+///   - every row's promised phase exists in the spec's phase table;
+///   - an open row promised to a completed phase fails;
+///   - a done row names a test method that exists in the built test assemblies;
+///   - a dropped row cites a commit that changed RAFT_PROJECT_SPEC.md;
+///   - every method in the built src/ assemblies that constructs a NotImplementedException —
+///     including lambdas and local functions, which compile into nested generated types — is
+///     named in an open row.
+/// Vacuity risks: an empty register (guarded: at least one row), a status file that never marks a
+/// phase complete (guarded: a completed phase needs its report), a malformed row silently skipped
+/// (guarded: every table row must parse).
+/// </summary>
+internal static partial class Register
+{
+    internal sealed record Row(string Item, string Phase, string Status, string Evidence);
+
+    public static Findings Run(Repo repo, string[] args)
+    {
+        var f = new Findings();
+        var phases = SpecPhases(repo);
+        f.Require(phases.Count > 0, "no phases parsed from RAFT_PROJECT_SPEC.md §11");
+        var completed = CompletedPhases(repo, f);
+        var rows = Rows(repo, f);
+        f.Require(rows.Count > 0, "docs/register.md has no rows");
+
+        var testMethods = new Lazy<HashSet<string>>(() => BuiltMethods(repo, "tests/"));
+        foreach (var r in rows)
+        {
+            f.Require(phases.Contains(r.Phase), $"'{r.Item}': promised to unknown phase '{r.Phase}'");
+            switch (r.Status)
+            {
+                case "open":
+                    f.Require(!completed.Contains(r.Phase), $"'{r.Item}': open, but promised to {r.Phase}, which is complete");
+                    break;
+                case "done":
+                    f.Require(testMethods.Value.Contains(r.Evidence), $"'{r.Item}': done, but no test named '{r.Evidence}' in the built test assemblies");
+                    break;
+                case "dropped":
+                    var touched = repo.Git("show", "--name-only", "--format=", r.Evidence);
+                    f.Require(touched.Ok && touched.StdOut.Split('\n').Contains("RAFT_PROJECT_SPEC.md"),
+                        $"'{r.Item}': dropped, but '{r.Evidence}' is not a commit that changed RAFT_PROJECT_SPEC.md");
+                    break;
+                default:
+                    f.Fail($"'{r.Item}': status '{r.Status}' is not open, done or dropped");
+                    break;
+            }
+        }
+
+        var openText = string.Join("\n", rows.Where(r => r.Status == "open").Select(r => r.Item));
+        var throwing = NotImplementedSites(repo, f);
+        foreach (var site in throwing)
+        {
+            f.Require(openText.Contains(site, StringComparison.Ordinal), $"{site} throws NotImplementedException but no open register row names it");
+        }
+
+        f.Note($"{rows.Count} rows, completed phases [{string.Join(", ", completed.Order(StringComparer.Ordinal))}], {throwing.Count} NotImplementedException sites");
+        return f;
+    }
+
+    internal static HashSet<string> SpecPhases(Repo repo) =>
+        repo.ReadText("RAFT_PROJECT_SPEC.md").Split('\n')
+            .Select(l => SpecPhaseRow().Match(l)).Where(m => m.Success)
+            .Select(m => "P" + m.Groups["n"].Value).ToHashSet(StringComparer.Ordinal);
+
+    internal static HashSet<string> CompletedPhases(Repo repo, Findings f)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        var path = repo.PathOf("docs/phases/status.md");
+        if (!File.Exists(path))
+        {
+            f.Fail("docs/phases/status.md missing");
+            return set;
+        }
+
+        foreach (var line in File.ReadAllLines(path).Where(l => l.StartsWith("- P", StringComparison.Ordinal)))
+        {
+            var m = StatusLine().Match(line);
+            if (!m.Success)
+            {
+                f.Fail($"docs/phases/status.md: unparseable line '{line}'");
+                continue;
+            }
+
+            if (m.Groups["state"].Value == "complete")
+            {
+                var phase = m.Groups["p"].Value;
+                set.Add(phase);
+                f.Require(File.Exists(repo.PathOf($"docs/phases/{phase}/report.md")), $"{phase} marked complete without docs/phases/{phase}/report.md");
+            }
+        }
+
+        return set;
+    }
+
+    internal static List<Row> Rows(Repo repo, Findings f)
+    {
+        var rows = new List<Row>();
+        var path = repo.PathOf("docs/register.md");
+        if (!File.Exists(path))
+        {
+            f.Fail("docs/register.md missing");
+            return rows;
+        }
+
+        var inTable = false;
+        foreach (var line in File.ReadAllLines(path))
+        {
+            if (!line.StartsWith('|'))
+            {
+                inTable = false;
+                continue;
+            }
+
+            var cells = line.Trim().Trim('|').Split('|').Select(c => c.Trim()).ToArray();
+            if (!inTable)
+            {
+                inTable = true;
+                if (!cells.SequenceEqual(["Item", "Promised", "Status", "Evidence"]))
+                {
+                    f.Fail($"docs/register.md: table header must be | Item | Promised | Status | Evidence |, got '{line}'");
+                }
+
+                continue;
+            }
+
+            if (cells.All(c => c.Length > 0 && c.All(ch => ch is '-' or ':')))
+            {
+                continue;
+            }
+
+            if (cells.Length != 4 || cells[0].Length == 0)
+            {
+                f.Fail($"docs/register.md: malformed row '{line}'");
+                continue;
+            }
+
+            rows.Add(new Row(cells[0], cells[1], cells[2], cells[3]));
+        }
+
+        return rows;
+    }
+
+    /// <summary>"Namespace.Type.Method" for every method defined in the built assemblies of projects under a prefix.</summary>
+    internal static HashSet<string> BuiltMethods(Repo repo, string prefix)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (_, md) in Assemblies(repo, prefix))
+        {
+            foreach (var h in md.MethodDefinitions)
+            {
+                var m = md.GetMethodDefinition(h);
+                set.Add(TypeName(md, m.GetDeclaringType()) + "." + md.GetString(m.Name));
+            }
+        }
+
+        return set;
+    }
+
+    /// <summary>
+    /// User-facing names ("Namespace.Type.Method") of methods whose IL constructs a
+    /// NotImplementedException. Compiler-generated nested types and lambda/local-function names
+    /// are mapped back to the enclosing type and the source method.
+    /// </summary>
+    internal static List<string> NotImplementedSites(Repo repo, Findings f)
+    {
+        var sites = new SortedSet<string>(StringComparer.Ordinal);
+        var assemblies = Assemblies(repo, "src/");
+        f.Require(assemblies.Count > 0, "no built src/ assemblies to scan — build first");
+        foreach (var (pe, md) in assemblies)
+        {
+            foreach (var h in md.MethodDefinitions)
+            {
+                var m = md.GetMethodDefinition(h);
+                if (m.RelativeVirtualAddress == 0)
+                {
+                    continue;
+                }
+
+                var il = pe.GetMethodBody(m.RelativeVirtualAddress).GetILBytes()!;
+                if (ConstructsNotImplemented(md, il))
+                {
+                    sites.Add(UserFacingName(md, m));
+                }
+            }
+        }
+
+        return sites.ToList();
+    }
+
+    private static bool ConstructsNotImplemented(MetadataReader md, byte[] il)
+    {
+        for (var i = 0; i < il.Length;)
+        {
+            var op = il[i] == 0xFE ? OpCodeTable.TwoByte[il[i + 1]] : OpCodeTable.OneByte[il[i]];
+            var size = il[i] == 0xFE ? 2 : 1;
+            if (op == OpCodes.Newobj)
+            {
+                var token = BitConverter.ToInt32(il, i + size);
+                var handle = MetadataTokens.EntityHandle(token);
+                if (handle.Kind == HandleKind.MemberReference)
+                {
+                    var parent = md.GetMemberReference((MemberReferenceHandle)handle).Parent;
+                    if (parent.Kind == HandleKind.TypeReference)
+                    {
+                        var tr = md.GetTypeReference((TypeReferenceHandle)parent);
+                        if (md.GetString(tr.Namespace) == "System" && md.GetString(tr.Name) == "NotImplementedException")
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            i += size + OpCodeTable.OperandSize(op, il, i + size);
+        }
+
+        return false;
+    }
+
+    private static string UserFacingName(MetadataReader md, MethodDefinition m)
+    {
+        var method = md.GetString(m.Name);
+        var type = m.GetDeclaringType();
+        // Walk out of compiler-generated nested types (<>c, <>c__DisplayClass0_0, <M>d__1).
+        while (true)
+        {
+            var td = md.GetTypeDefinition(type);
+            var name = md.GetString(td.Name);
+            if (!name.StartsWith('<'))
+            {
+                break;
+            }
+
+            var owner = GeneratedOwner().Match(name);
+            if (owner.Success && owner.Groups["m"].Value.Length > 0)
+            {
+                method = owner.Groups["m"].Value;
+            }
+
+            type = td.GetDeclaringType();
+        }
+
+        var source = GeneratedOwner().Match(method);
+        if (source.Success && source.Groups["m"].Value.Length > 0)
+        {
+            method = source.Groups["m"].Value;
+        }
+
+        return TypeName(md, type) + "." + method;
+    }
+
+    private static string TypeName(MetadataReader md, TypeDefinitionHandle h)
+    {
+        var td = md.GetTypeDefinition(h);
+        var declaring = td.GetDeclaringType();
+        return declaring.IsNil
+            ? (md.GetString(td.Namespace) is { Length: > 0 } ns ? ns + "." : "") + md.GetString(td.Name)
+            : TypeName(md, declaring) + "+" + md.GetString(td.Name);
+    }
+
+    private static List<(PEReader Pe, MetadataReader Md)> Assemblies(Repo repo, string prefix)
+    {
+        var list = new List<(PEReader, MetadataReader)>();
+        foreach (var project in repo.ProjectFiles().Where(p => p.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            var name = Path.GetFileNameWithoutExtension(project);
+            var dll = repo.PathOf(Path.Combine(Path.GetDirectoryName(project)!, "bin", "Debug", "net10.0", name + ".dll"));
+            if (File.Exists(dll))
+            {
+                var pe = new PEReader(new MemoryStream(File.ReadAllBytes(dll)));
+                list.Add((pe, pe.GetMetadataReader()));
+            }
+        }
+
+        return list;
+    }
+
+    [GeneratedRegex(@"^\|\s*(?<n>\d+)\s*\|")]
+    private static partial Regex SpecPhaseRow();
+
+    [GeneratedRegex(@"^- (?<p>P\d+): (?<state>in progress|complete)\b")]
+    private static partial Regex StatusLine();
+
+    [GeneratedRegex(@"^<(?<m>[^>]*)>")]
+    private static partial Regex GeneratedOwner();
+}
+
+/// <summary>Opcode lookup and operand sizes, from System.Reflection.Emit.OpCodes.</summary>
+internal static class OpCodeTable
+{
+    public static readonly OpCode[] OneByte = new OpCode[256];
+    public static readonly OpCode[] TwoByte = new OpCode[256];
+
+    static OpCodeTable()
+    {
+        foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            var op = (OpCode)field.GetValue(null)!;
+            var value = (ushort)op.Value;
+            if (op.Size == 1)
+            {
+                OneByte[value] = op;
+            }
+            else
+            {
+                TwoByte[value & 0xFF] = op;
+            }
+        }
+    }
+
+    public static int OperandSize(OpCode op, byte[] il, int at) => op.OperandType switch
+    {
+        OperandType.InlineNone => 0,
+        OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+        OperandType.InlineVar => 2,
+        OperandType.InlineI8 or OperandType.InlineR => 8,
+        OperandType.InlineSwitch => 4 + 4 * BitConverter.ToInt32(il, at),
+        _ => 4,
+    };
+}

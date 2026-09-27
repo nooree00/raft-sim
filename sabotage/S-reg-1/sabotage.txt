@@ -1,0 +1,6 @@
+description: P0 is marked complete while a row promised to P0 is still open
+kind: command
+build: no
+command: dotnet "$GATES" register
+expect: caught
+message: open, but promised to P0, which is complete

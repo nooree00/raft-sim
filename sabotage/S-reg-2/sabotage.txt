@@ -1,0 +1,6 @@
+description: A row is marked done, citing a test that does not exist
+kind: command
+build: no
+command: dotnet "$GATES" register
+expect: caught
+message: no test named 'Raft.Checker.Tests.NoSuchTests.Visualised'

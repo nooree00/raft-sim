@@ -1,0 +1,6 @@
+description: An unimplemented method that is not in the register
+kind: command
+build: yes
+command: dotnet "$GATES" register
+expect: caught
+message: Raft.Core.Sabotage.Direct throws NotImplementedException

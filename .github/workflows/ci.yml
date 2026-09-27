@@ -25,10 +25,10 @@ jobs:
           fetch-depth: 0
       - name: preflight
         run: scripts/ci-preflight.sh
-      - name: gates
-        run: scripts/ci-gates.sh
       - name: build
         run: scripts/ci-build.sh
+      - name: gates
+        run: scripts/ci-gates.sh
       - name: test
         run: scripts/ci-test.sh
       - name: sabotage

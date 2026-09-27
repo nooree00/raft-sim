@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/Sabotage.cs b/src/Raft.Core/Sabotage.cs
+new file mode 100644
+index 0000000..c83addc
+--- /dev/null
++++ b/src/Raft.Core/Sabotage.cs
+@@ -0,0 +1,6 @@
++namespace Raft.Core;
++
++internal static class Sabotage
++{
++    internal static int Direct() => throw new System.NotImplementedException();
++}

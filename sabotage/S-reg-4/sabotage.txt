@@ -1,0 +1,6 @@
+description: The same throw inside a lambda, which compiles into a generated nested type (P0-08's prediction)
+kind: command
+build: yes
+command: dotnet "$GATES" register
+expect: caught
+message: Raft.Core.Sabotage.Later throws NotImplementedException
