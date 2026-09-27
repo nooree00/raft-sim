@@ -1,0 +1,6 @@
+description: A Figure 2 item (the follower's election timeout) loses its traceability row
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.TraceabilityTests.EveryChecklistItemHasExactlyOneRowAndNoRowIsInvented
+expect: caught
+changes-assemblies: no

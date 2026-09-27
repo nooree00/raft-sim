@@ -6,7 +6,7 @@ the paper's Figure 2 (plus Figure 13, §6 and §8) in the table at the end. Spec
 
 ## 1. The node
 
-A node is a deterministic, closed state machine: `INode.Step(Input) → IReadOnlyList<Effect>`. It
+A node is a deterministic, closed state machine: `INode.Handle(Input) → IReadOnlyList<Effect>`. It
 holds mutable state, but everything it sees arrives as an input or through its construction
 context, and everything it does leaves as an effect. Same construction, same inputs → same effects,
 byte for byte.
@@ -104,10 +104,10 @@ simulator faults (phases 1's fault kinds) that exercise the rule.
 | F2-02 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-lose-synced |
 | F2-03 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-lose-synced |
 | F2-04 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-torn, crash-reordered |
-| F2-05 | `Raft.Core.INode.Step` | Figure 2 (volatile: rebuilt after restart) | crash-pending |
-| F2-06 | `Raft.Core.INode.Step`, `Raft.Core.IStateMachine.Apply` | Figure 2 (volatile: replayed after restart) | crash-pending |
-| F2-07 | `Raft.Core.INode.Step` | Figure 2 | partition, drop |
-| F2-08 | `Raft.Core.INode.Step` | Figure 2 | partition, drop, duplicate |
+| F2-05 | `Raft.Core.INode.Handle` | Figure 2 (volatile: rebuilt after restart) | crash-pending |
+| F2-06 | `Raft.Core.INode.Handle`, `Raft.Core.IStateMachine.Apply` | Figure 2 (volatile: replayed after restart) | crash-pending |
+| F2-07 | `Raft.Core.INode.Handle` | Figure 2 | partition, drop |
+| F2-08 | `Raft.Core.INode.Handle` | Figure 2 | partition, drop, duplicate |
 | F2-09 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, delay, reorder, partition |
 | F2-10 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, reorder |
 | F2-11 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delay, reorder, pause |
@@ -143,10 +143,10 @@ simulator faults (phases 1's fault kinds) that exercise the rule.
 | F13-08 | `Raft.Core.PersistAppend`, `Raft.Core.PersistRename` | Figure 13 | crash-pending |
 | F13-09 | `Raft.Core.PersistDelete` | Figure 13 | crash-pending |
 | F13-10 | `Raft.Core.IStateMachine.Restore` | Figure 13 | crash-pending |
-| S6-01 | `Raft.Core.Receive`, `Raft.Core.INode.Step` | §6 | reorder, crash-pending |
+| S6-01 | `Raft.Core.Receive`, `Raft.Core.INode.Handle` | §6 | reorder, crash-pending |
 | S6-02 | `Raft.Core.Receive` | §6 | partition |
 | S6-03 | `Raft.Core.NodeContext.Peers`, `Raft.Core.Send` | §6 | partition, delay |
-| S6-04 | `Raft.Core.INode.Step` | §6 | partition |
+| S6-04 | `Raft.Core.INode.Handle` | §6 | partition |
 | S6-05 | `Raft.Core.Tick`, `Raft.Core.Receive` | §6 (implemented with election, spec §5) | partition, pause, skew |
 | S8-01 | `Raft.Core.ClientRequest` | §8 | duplicate, drop |
 | S8-02 | `Raft.Core.PersistAppend` | §8 | crash-pending |

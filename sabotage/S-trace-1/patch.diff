@@ -1,0 +1,12 @@
+diff --git a/docs/design/node-interface.md b/docs/design/node-interface.md
+index 66cb982..8f86d80 100644
+--- a/docs/design/node-interface.md
++++ b/docs/design/node-interface.md
+@@ -122,7 +122,6 @@ simulator faults (phases 1's fault kinds) that exercise the rule.
+ | F2-20 | `Raft.Core.IStateMachine.Apply` | Figure 2 | crash-pending |
+ | F2-21 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: spec §8 — the new term is durable before anything that depends on it is sent | crash-pending, pause, partition |
+ | F2-22 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | drop, partition |
+-| F2-23 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | partition, pause, skew, drop |
+ | F2-24 | `Raft.Core.Tick`, `Raft.Core.PersistAppend`, `Raft.Core.Send`, `Raft.Core.IRandomSource` | Figure 2, and *outside*: spec §8 (amendment A7) — the vote for self is durable before any RequestVote leaves | crash-pending, barrier-violation, skew |
+ | F2-25 | `Raft.Core.Receive` | Figure 2 | duplicate, partition |
+ | F2-26 | `Raft.Core.Receive` | Figure 2 | delay, reorder |

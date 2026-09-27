@@ -1,0 +1,6 @@
+description: A row traces a rule to a member that does not exist in Raft.Core
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.TraceabilityTests.EveryMemberARowNamesExistsInRaftCore
+expect: caught
+changes-assemblies: no

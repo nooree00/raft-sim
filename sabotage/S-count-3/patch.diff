@@ -1,8 +1,8 @@
 diff --git a/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs b/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
-index 5498368..7e68698 100644
+index 6225127..d2337ae 100644
 --- a/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
 +++ b/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
-@@ -68,7 +68,7 @@ public sealed class AmbientDependencyTests
+@@ -88,7 +88,7 @@ public sealed class AmbientDependencyTests
  
      private static string CorePath => typeof(Raft.Core.Term).Assembly.Location;
  
@@ -11,7 +11,7 @@ index 5498368..7e68698 100644
      public void CoreIsARealImplementationAssemblyWithTypes()
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
-@@ -82,7 +82,7 @@ public sealed class AmbientDependencyTests
+@@ -102,7 +102,7 @@ public sealed class AmbientDependencyTests
          Assert.DoesNotContain("System.Runtime.CompilerServices.ReferenceAssemblyAttribute", attributes);
      }
  
@@ -20,7 +20,7 @@ index 5498368..7e68698 100644
      public void EveryReferencedTypeIsOnTheAllowlist()
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
-@@ -95,7 +95,7 @@ public sealed class AmbientDependencyTests
+@@ -115,7 +115,7 @@ public sealed class AmbientDependencyTests
          Assert.True(illegal.Count == 0, "Raft.Core references types outside the allowlist:\n  " + string.Join("\n  ", illegal));
      }
  
@@ -29,8 +29,17 @@ index 5498368..7e68698 100644
      public void NoDeniedMemberIsReferenced()
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
-@@ -115,7 +115,7 @@ public sealed class AmbientDependencyTests
+@@ -135,7 +135,7 @@ public sealed class AmbientDependencyTests
          Assert.True(illegal.Count == 0, "Raft.Core references denied members: " + string.Join(", ", illegal));
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void RestrictedTypesAreUsedOnlyThroughTheirAllowedMembers()
+     {
+         using var pe = new PEReader(File.OpenRead(CorePath));
+@@ -161,7 +161,7 @@ public sealed class AmbientDependencyTests
+         Assert.True(illegal.Count == 0, "Raft.Core uses restricted types through members outside their allowlist: " + string.Join(", ", illegal.Distinct()));
      }
  
 -    [Fact]
@@ -38,7 +47,7 @@ index 5498368..7e68698 100644
      public void EveryAssemblyReferenceIsOnTheAllowlist()
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
-@@ -126,7 +126,7 @@ public sealed class AmbientDependencyTests
+@@ -172,7 +172,7 @@ public sealed class AmbientDependencyTests
          Assert.True(illegal.Count == 0, "Raft.Core references assemblies outside the allowlist: " + string.Join(", ", illegal));
      }
  
@@ -48,10 +57,10 @@ index 5498368..7e68698 100644
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
 diff --git a/tests/Raft.Architecture.Tests/LayeringTests.cs b/tests/Raft.Architecture.Tests/LayeringTests.cs
-index 4f593d7..fc1f88d 100644
+index d2b090e..3d96822 100644
 --- a/tests/Raft.Architecture.Tests/LayeringTests.cs
 +++ b/tests/Raft.Architecture.Tests/LayeringTests.cs
-@@ -31,7 +31,7 @@ public sealed class LayeringTests
+@@ -33,7 +33,7 @@ public sealed class LayeringTests
          ["Raft.Architecture.Tests"] = ("tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj", ["Raft.Core"], ["xunit.v3.mtp-v2"]),
      };
  
@@ -60,7 +69,7 @@ index 4f593d7..fc1f88d 100644
      public void EveryProjectOnDiskIsInTheTableAndViceVersa()
      {
          var onDisk = ProjectGraph.ProjectFilesOnDisk();
-@@ -41,7 +41,7 @@ public sealed class LayeringTests
+@@ -43,7 +43,7 @@ public sealed class LayeringTests
          Assert.Equal(inTable, onDisk);
      }
  
@@ -69,7 +78,7 @@ index 4f593d7..fc1f88d 100644
      public void EveryProjectInTheTableIsInTheSolution()
      {
          var inSolution = ProjectGraph.ProjectFilesInSolution();
-@@ -52,7 +52,7 @@ public sealed class LayeringTests
+@@ -54,7 +54,7 @@ public sealed class LayeringTests
  
      public static TheoryData<string> Projects() => new(Table.Keys.Order(StringComparer.Ordinal));
  
@@ -78,7 +87,7 @@ index 4f593d7..fc1f88d 100644
      [MemberData(nameof(Projects))]
      public void ProjectReferencesFollowThePartialOrder(string name)
      {
-@@ -63,7 +63,7 @@ public sealed class LayeringTests
+@@ -65,7 +65,7 @@ public sealed class LayeringTests
          Assert.True(illegal.Count == 0, $"{name} references {string.Join(", ", illegal)}; allowed: [{string.Join(", ", allowed)}]");
      }
  
@@ -87,7 +96,7 @@ index 4f593d7..fc1f88d 100644
      [MemberData(nameof(Projects))]
      public void NoPackageAssemblyOrFrameworkReferencesOutsideTheTable(string name)
      {
-@@ -76,7 +76,7 @@ public sealed class LayeringTests
+@@ -78,7 +78,7 @@ public sealed class LayeringTests
          Assert.True(evaluated.ExplicitFrameworkReferences.Count == 0, $"{name} has framework references {string.Join(", ", evaluated.ExplicitFrameworkReferences)}");
      }
  
@@ -96,3 +105,39 @@ index 4f593d7..fc1f88d 100644
      public void CoreReferencesNothing()
      {
          var evaluated = ProjectGraph.Evaluate(Table["Raft.Core"].Path);
+diff --git a/tests/Raft.Architecture.Tests/TraceabilityTests.cs b/tests/Raft.Architecture.Tests/TraceabilityTests.cs
+index 25d5333..0e2dd8b 100644
+--- a/tests/Raft.Architecture.Tests/TraceabilityTests.cs
++++ b/tests/Raft.Architecture.Tests/TraceabilityTests.cs
+@@ -32,11 +32,11 @@ public sealed partial class TraceabilityTests
+             .Select(m => (m.Groups["id"].Value, m.Groups["rest"].Value.Split('|').Select(c => c.Trim()).ToArray()))
+             .ToList();
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void TheChecklistHasEveryTranscribedItem() =>
+         Assert.Equal(ChecklistItems, ChecklistIds().Distinct().Count());
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void EveryChecklistItemHasExactlyOneRowAndNoRowIsInvented()
+     {
+         var ids = ChecklistIds();
+@@ -51,7 +51,7 @@ public sealed partial class TraceabilityTests
+         Assert.True(duplicated.Count == 0, "items with more than one row: " + string.Join(", ", duplicated));
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void EveryRowNamesASourceAndTheFaultsThatStressIt()
+     {
+         foreach (var (id, cells) in TableRows())
+@@ -61,7 +61,7 @@ public sealed partial class TraceabilityTests
+         }
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void EveryMemberARowNamesExistsInRaftCore()
+     {
+         var core = typeof(Raft.Core.INode).Assembly;

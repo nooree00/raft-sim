@@ -21,7 +21,7 @@ namespace Raft.Architecture.Tests;
 /// assembly actually loaded by this test, and a check that it is not a reference assembly).
 /// Residual: a randomized hash reached through an allowed generic (EqualityComparer&lt;string&gt;)
 /// is not visible here; the cross-process determinism check (phase 1) covers it.
-/// Sabotages: S-amb-1..7.
+/// Sabotages: S-amb-1..7, S-core-1.
 /// </summary>
 public sealed class AmbientDependencyTests
 {
@@ -53,6 +53,26 @@ public sealed class AmbientDependencyTests
         "System.Runtime.CompilerServices.IsReadOnlyAttribute", "System.Runtime.CompilerServices.RefSafetyRulesAttribute",
         "System.Runtime.CompilerServices.RuntimeCompatibilityAttribute", "System.Runtime.Versioning.TargetFrameworkAttribute",
         "System.Runtime.CompilerServices.NullableAttribute", "System.Runtime.CompilerServices.NullableContextAttribute",
+        "System.Runtime.CompilerServices.ExtensionAttribute", "System.Runtime.CompilerServices.PreserveBaseOverridesAttribute",
+        // Phase 1 interface types (docs/design/node-interface.md): immutable payloads, and the
+        // types a delegate declaration emits (BeginInvoke/EndInvoke are never called on .NET).
+        "System.ReadOnlyMemory`1", "System.MulticastDelegate", "System.AsyncCallback", "System.IAsyncResult",
+        "System.IFormatProvider",
+        // Allowed only through the members listed in RestrictedMembers below.
+        "System.Globalization.CultureInfo", "System.Type", "System.RuntimeTypeHandle",
+        "System.Runtime.CompilerServices.RuntimeHelpers",
+    };
+
+    /// <summary>
+    /// Types whose other members are ambient or nondeterministic: CultureInfo.CurrentCulture reads
+    /// process state; Type offers reflection; RuntimeHelpers.GetHashCode is an identity hash that
+    /// differs per run. Only the members records and invariant formatting need are allowed.
+    /// </summary>
+    private static readonly Dictionary<string, HashSet<string>> RestrictedMembers = new(StringComparer.Ordinal)
+    {
+        ["System.Globalization.CultureInfo"] = new(StringComparer.Ordinal) { "get_InvariantCulture" },
+        ["System.Type"] = new(StringComparer.Ordinal) { "GetTypeFromHandle", "op_Equality", "op_Inequality" },
+        ["System.Runtime.CompilerServices.RuntimeHelpers"] = new(StringComparer.Ordinal) { "EnsureSufficientExecutionStack" },
     };
 
     /// <summary>Members of otherwise-allowed types that are not deterministic across processes.</summary>
@@ -113,6 +133,32 @@ public sealed class AmbientDependencyTests
 
         var illegal = used.Where(DeniedMembers.Contains).Distinct().ToList();
         Assert.True(illegal.Count == 0, "Raft.Core references denied members: " + string.Join(", ", illegal));
+    }
+
+    [Fact]
+    public void RestrictedTypesAreUsedOnlyThroughTheirAllowedMembers()
+    {
+        using var pe = new PEReader(File.OpenRead(CorePath));
+        var md = pe.GetMetadataReader();
+
+        var illegal = new List<string>();
+        foreach (var h in md.MemberReferences)
+        {
+            var mr = md.GetMemberReference(h);
+            if (mr.Parent.Kind != HandleKind.TypeReference)
+            {
+                continue;
+            }
+
+            var type = FullName(md, (TypeReferenceHandle)mr.Parent);
+            var member = md.GetString(mr.Name);
+            if (RestrictedMembers.TryGetValue(type, out var allowed) && !allowed.Contains(member))
+            {
+                illegal.Add(type + "::" + member);
+            }
+        }
+
+        Assert.True(illegal.Count == 0, "Raft.Core uses restricted types through members outside their allowlist: " + string.Join(", ", illegal.Distinct()));
     }
 
     [Fact]
