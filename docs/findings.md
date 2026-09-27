@@ -58,3 +58,18 @@ finding: what happened, why no existing check caught it, what now catches it.
 - **Two test-baseline miscounts in one task**: I wrote 9 for a project that runs 7, and missed that
   a new layering-table row adds two theory cases elsewhere. *Caught by* the floor, both times,
   before the push.
+- **A latent runner bug: a write could never complete.** Disk latency was drawn per write, so a
+  later write could be scheduled to complete before an earlier one; its completion then saw another
+  write at the head of the queue, took itself for lost, and every send behind it was held forever.
+  *Not caught* because the counter protocol writes once per 100 units against 1–3 units of latency,
+  so writes never overlapped. *Found* by reasoning while designing the slow-disk fault, before any
+  test hit it. *Now:* completion times are monotone in issue order.
+- **The traceability table traced F2-13 to members that cannot carry it.** "Delete the existing
+  entry and all that follow" was traced to append and write-at, neither of which can shrink a file.
+  This is exactly the residual the P1-01 task named (a member that exists but cannot carry its rule),
+  found when the torn-write fault showed the trivial protocol could not drop a torn tail either.
+  *Now:* `PersistTruncate`, and F2-13 re-traced. Residual: the same class may hide in other rows until
+  phase 3 uses them.
+- **The canonical trace was ambiguous.** A field value containing spaces and `=` split into different
+  fields on reading. *Caught by* a disk-fault test that parsed it. *Now:* the trace rejects such
+  values at write time, and the contract says so for node events.

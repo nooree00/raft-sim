@@ -30,8 +30,11 @@ public sealed class Trace
 
     public string Text() => string.Join('\n', _lines) + "\n";
 
+    /// <summary>A value may not contain a space, '=' or a newline: one line splits one way only.</summary>
     private static string Format(object v) => v switch
     {
+        string s when s.Length == 0 || s.AsSpan().IndexOfAny(" =\n\r") >= 0 =>
+            throw new ArgumentException($"trace value '{s}' is empty or contains a space, '=' or a newline"),
         string s => s,
         long l => l.ToString(CultureInfo.InvariantCulture),
         int i => i.ToString(CultureInfo.InvariantCulture),

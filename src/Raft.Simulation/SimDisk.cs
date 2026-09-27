@@ -14,6 +14,8 @@ public sealed class SimDisk
 {
     private readonly SortedDictionary<string, byte[]> _durable = new(StringComparer.Ordinal);
     private readonly List<PendingWrite> _pending = [];
+    private (string File, byte[]? Before)? _lastCompleted;
+    private long _lastCompleteAt;
 
     public long IssuedCount { get; private set; }
 
@@ -27,9 +29,15 @@ public sealed class SimDisk
     public IReadOnlyDictionary<string, ReadOnlyMemory<byte>> Snapshot() =>
         _durable.ToDictionary(kv => kv.Key, kv => new ReadOnlyMemory<byte>((byte[])kv.Value.Clone()), StringComparer.Ordinal);
 
-    public PendingWrite Issue(Persist op, long completeAt)
+    /// <summary>
+    /// Issues a write. Writes complete in issue order, so a write never completes before one issued
+    /// earlier (a per-write latency draw alone would allow that, and the later write would then
+    /// never complete).
+    /// </summary>
+    public PendingWrite Issue(Persist op, long earliestCompletion)
     {
-        var w = new PendingWrite(++IssuedCount, op, completeAt);
+        _lastCompleteAt = Math.Max(earliestCompletion, _lastCompleteAt);
+        var w = new PendingWrite(++IssuedCount, op, _lastCompleteAt);
         _pending.Add(w);
         return w;
     }
@@ -44,14 +52,71 @@ public sealed class SimDisk
         return w;
     }
 
-    /// <summary>On a crash: pending writes are lost.</summary>
-    public int LosePending()
+    /// <summary>
+    /// A crash: what becomes of the writes in flight (docs/design/node-interface.md §4), and, for the
+    /// positive control only, of the last completed one. Returns a description for the trace.
+    /// </summary>
+    public IReadOnlyList<(string Key, object Value)> Crash(DiskLoss mode, Func<ulong> draw)
     {
-        var n = _pending.Count;
+        var pending = _pending.ToList();
         _pending.Clear();
         CompletedCount = IssuedCount;
-        return n;
+        switch (mode)
+        {
+            case DiskLoss.Pending:
+                return [("lost", pending.Count)];
+            case DiskLoss.Torn:
+                if (pending.Count > 0 && Data(pending[0].Op) is { Length: >= 2 } data)
+                {
+                    var keep = 1 + (int)(draw() % (ulong)(data.Length - 1));
+                    Apply(pending[0].Op switch
+                    {
+                        PersistAppend a => a with { Data = data[..keep] },
+                        PersistWriteAt w => w with { Data = data[..keep] },
+                        var other => other,
+                    });
+                    return [("torn", pending[0].Seq), ("kept", keep), ("of", data.Length), ("lost", pending.Count - 1)];
+                }
+
+                return [("torn", "none"), ("lost", pending.Count)];
+            case DiskLoss.Reordered:
+                var survivors = pending.Where(_ => (draw() & 1) == 1).ToList();
+                foreach (var w in survivors)
+                {
+                    Apply(w.Op);
+                }
+
+                return [("survived", Seqs(survivors)), ("pending", Seqs(pending))];
+            case DiskLoss.LoseSynced:
+                if (_lastCompleted is { } last)
+                {
+                    if (last.Before is null)
+                    {
+                        _durable.Remove(last.File);
+                    }
+                    else
+                    {
+                        _durable[last.File] = last.Before;
+                    }
+
+                    _lastCompleted = null;
+                    return [("lostsynced", last.File), ("lost", pending.Count)];
+                }
+
+                return [("lostsynced", "none"), ("lost", pending.Count)];
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode));
+        }
     }
+
+    private static string Seqs(List<PendingWrite> ws) => ws.Count == 0 ? "none" : string.Join(',', ws.Select(w => w.Seq));
+
+    private static ReadOnlyMemory<byte>? Data(Persist op) => op switch
+    {
+        PersistAppend a => a.Data,
+        PersistWriteAt w => w.Data,
+        _ => null,
+    };
 
     public ulong Digest()
     {
@@ -78,6 +143,7 @@ public sealed class SimDisk
 
     private void Apply(Persist op)
     {
+        _lastCompleted = (op.File, _durable.TryGetValue(op.File, out var before) ? before : null);
         switch (op)
         {
             case PersistAppend a:
@@ -95,6 +161,13 @@ public sealed class SimDisk
                 if (_durable.Remove(r.File, out var content))
                 {
                     _durable[r.To] = content;
+                }
+
+                break;
+            case PersistTruncate t:
+                if (_durable.TryGetValue(t.File, out var cur) && cur.Length > t.Length)
+                {
+                    _durable[t.File] = cur[..(int)t.Length];
                 }
 
                 break;

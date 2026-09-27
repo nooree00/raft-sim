@@ -20,13 +20,16 @@ public sealed class EchoCounterNode : INode
     public const long Period = 100;
 
     private readonly NodeContext _ctx;
+    private readonly long _validLength;
+    private readonly long _fileLength;
     private long _counter;
     private long _sinceLast;
 
     public EchoCounterNode(NodeContext ctx)
     {
         _ctx = ctx;
-        _counter = Recover(ctx.Files);
+        (_counter, _validLength) = Recover(ctx.Files);
+        _fileLength = ctx.Files.TryGetValue(File, out var f) ? f.Length : 0;
         // Stagger nodes so their periods do not align: an injected-randomness draw.
         _sinceLast = ctx.Random.NextLong(Period);
     }
@@ -41,6 +44,11 @@ public sealed class EchoCounterNode : INode
         {
             Recovered = _counter;
             effects.Add(new Emit("recovered", [new Field("value", Str(_counter))]));
+            if (_fileLength > _validLength)
+            {
+                // A torn or corrupt tail: drop it before appending, or later records land after garbage.
+                effects.Add(new PersistTruncate(File, _validLength));
+            }
         }
 
         switch (input)
@@ -87,17 +95,18 @@ public sealed class EchoCounterNode : INode
         return buf;
     }
 
-    /// <summary>The last valid record's value; a torn or corrupt tail is ignored.</summary>
-    public static long Recover(IReadOnlyDictionary<string, ReadOnlyMemory<byte>> files)
+    /// <summary>The last valid record's value, and the length of the valid prefix; a torn or corrupt tail is ignored.</summary>
+    public static (long Value, long ValidLength) Recover(IReadOnlyDictionary<string, ReadOnlyMemory<byte>> files)
     {
         if (!files.TryGetValue(File, out var mem))
         {
-            return 0;
+            return (0, 0);
         }
 
         var span = mem.Span;
         long value = 0;
-        for (var at = 0; at + 16 <= span.Length; at += 16)
+        var at = 0;
+        for (; at + 16 <= span.Length; at += 16)
         {
             var rec = span.Slice(at, 16);
             if (BinaryPrimitives.ReadInt32LittleEndian(rec) != 8 ||
@@ -109,7 +118,7 @@ public sealed class EchoCounterNode : INode
             value = BinaryPrimitives.ReadInt64LittleEndian(rec[4..]);
         }
 
-        return value;
+        return (value, at);
     }
 
     private static uint Checksum(ReadOnlySpan<byte> bytes)

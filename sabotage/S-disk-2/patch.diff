@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/SimDisk.cs b/src/Raft.Simulation/SimDisk.cs
+index 171c696..b1c9d21 100644
+--- a/src/Raft.Simulation/SimDisk.cs
++++ b/src/Raft.Simulation/SimDisk.cs
+@@ -68,7 +68,7 @@ public sealed class SimDisk
+             case DiskLoss.Torn:
+                 if (pending.Count > 0 && Data(pending[0].Op) is { Length: >= 2 } data)
+                 {
+-                    var keep = 1 + (int)(draw() % (ulong)(data.Length - 1));
++                    var keep = data.Length + (int)(draw() * 0);
+                     Apply(pending[0].Op switch
+                     {
+                         PersistAppend a => a with { Data = data[..keep] },

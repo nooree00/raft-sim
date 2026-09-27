@@ -34,5 +34,8 @@ public sealed record PersistWriteAt(string File, long Offset, ReadOnlyMemory<byt
 /// <summary>Atomically replace <paramref name="To"/> with <paramref name="File"/>.</summary>
 public sealed record PersistRename(string File, string To) : Persist(File);
 
+/// <summary>Shorten a file to <paramref name="Length"/> bytes (truncating a log, dropping a torn tail).</summary>
+public sealed record PersistTruncate(string File, long Length) : Persist(File);
+
 /// <summary>Remove a file.</summary>
 public sealed record PersistDelete(string File) : Persist(File);

@@ -1,0 +1,5 @@
+description: A torn write keeps the whole record
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.DiskFaultTests.ATornWriteLeavesAPrefixThatRecoveryTruncates
+expect: caught

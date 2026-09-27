@@ -55,11 +55,20 @@ public sealed class Simulator
         public Queue<(Effect Effect, long Barrier)> Held { get; } = new();
 
         public long LastTick { get; set; }
+
+        public long SlowLatency { get; set; }
+
+        public long SlowUntil { get; set; }
+
+        public long ViolateBarrierUntil { get; set; } = -1;
     }
+
+    private List<NodeId> _ids = [];
 
     public Trace Run()
     {
         var ids = Enumerable.Range(1, _config.Nodes).Select(i => new NodeId(i)).ToList();
+        _ids = ids;
         foreach (var id in ids)
         {
             _hosts.Add(new Host(id));
@@ -106,6 +115,24 @@ public sealed class Simulator
             case LinkFault lf:
                 _armed.Add(lf);
                 break;
+            case Crash c:
+                CrashNode(_hosts[c.Node.Value - 1], c.Loss);
+                break;
+            case Restart r:
+                var host = _hosts[r.Node.Value - 1];
+                if (host.Node is null)
+                {
+                    Start(host, _ids);
+                }
+
+                break;
+            case SlowDisk sd:
+                _hosts[sd.Node.Value - 1].SlowLatency = sd.Latency;
+                _hosts[sd.Node.Value - 1].SlowUntil = sd.Until;
+                break;
+            case BarrierViolation bv:
+                _hosts[bv.Node.Value - 1].ViolateBarrierUntil = bv.Until;
+                break;
             default:
                 throw new System.ArgumentException($"unknown fault {fault.GetType().Name}");
         }
@@ -114,8 +141,25 @@ public sealed class Simulator
     private static string Describe(Fault f) => f switch
     {
         LinkFault l => $"{l.From}->{l.To}",
+        Crash c => $"{c.Node}:{c.Loss}",
+        NodeFault n => n.Node.ToString(),
         _ => "-",
     };
+
+    private void CrashNode(Host h, DiskLoss loss)
+    {
+        if (h.Node is null)
+        {
+            return;
+        }
+
+        h.Node = null;
+        var dropped = h.Held.Count;
+        h.Held.Clear();
+        var draws = _streams.For($"crash:{h.Id}:{h.Incarnation}");
+        var disk = h.Disk.Crash(loss, draws.NextUInt64);
+        Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
+    }
 
     /// <summary>The earliest armed one-shot fault on a link, consumed by the first message it meets.</summary>
     private LinkFault? TakeArmed(NodeId from, NodeId to)
@@ -163,6 +207,11 @@ public sealed class Simulator
             {
                 case Persist p:
                     var latency = Between($"disk:{h.Id}", (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
+                    if (_now < h.SlowUntil)
+                    {
+                        latency = System.Math.Max(latency, h.SlowLatency);
+                    }
+
                     var w = h.Disk.Issue(p, _now + latency);
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
                     At(w.CompleteAt, () => CompleteWrite(h, w));
@@ -185,7 +234,7 @@ public sealed class Simulator
     {
         if (h.Disk.Pending.Count == 0 || h.Disk.Pending[0].Seq != w.Seq)
         {
-            return; // lost in a crash
+            return; // lost in a crash (writes complete in issue order, so nothing else can be first)
         }
 
         h.Disk.CompleteNext();
@@ -196,7 +245,8 @@ public sealed class Simulator
     /// <summary>The persist barrier: release held effects, in order, whose barrier write is durable.</summary>
     private void Release(Host h)
     {
-        while (h.Held.Count > 0 && h.Held.Peek().Barrier <= h.Disk.CompletedCount)
+        var violate = _now < h.ViolateBarrierUntil;
+        while (h.Held.Count > 0 && (violate || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
         {
             var (effect, _) = h.Held.Dequeue();
             if (effect is Send s)

@@ -33,6 +33,37 @@ public sealed record Partition(long At, NodeId From, NodeId To) : LinkFault(At, 
 /// <summary>From <c>At</c>, From→To carries messages again.</summary>
 public sealed record Heal(long At, NodeId From, NodeId To) : LinkFault(At, From, To);
 
+/// <summary>What a crash does to a node's disk (docs/design/node-interface.md §4).</summary>
+public enum DiskLoss
+{
+    /// <summary>Writes in flight are lost; completed writes are durable.</summary>
+    Pending,
+
+    /// <summary>The oldest write in flight survives as a prefix (a torn final record); the rest are lost.</summary>
+    Torn,
+
+    /// <summary>An arbitrary subset of the writes in flight survives (reordered completion).</summary>
+    Reordered,
+
+    /// <summary>Positive control only: the disk also loses its last completed write. Raft cannot survive it.</summary>
+    LoseSynced,
+}
+
+/// <summary>A fault on one node.</summary>
+public abstract record NodeFault(long At, NodeId Node) : Fault(At);
+
+/// <summary>The node crashes: its object is discarded, held messages vanish, its disk meets <c>Loss</c>.</summary>
+public sealed record Crash(long At, NodeId Node, DiskLoss Loss) : NodeFault(At, Node);
+
+/// <summary>The node is rebuilt from what its disk kept.</summary>
+public sealed record Restart(long At, NodeId Node) : NodeFault(At, Node);
+
+/// <summary>Until <c>Until</c>, the node's writes take at least <c>Latency</c> to complete.</summary>
+public sealed record SlowDisk(long At, NodeId Node, long Latency, long Until) : NodeFault(At, Node);
+
+/// <summary>Positive control only: until <c>Until</c>, the node's sends ignore the persist barrier.</summary>
+public sealed record BarrierViolation(long At, NodeId Node, long Until) : NodeFault(At, Node);
+
 /// <summary>An explicit list of faults.</summary>
 public sealed record FaultSchedule(IReadOnlyList<Fault> Faults)
 {

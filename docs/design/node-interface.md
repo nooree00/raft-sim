@@ -34,9 +34,10 @@ Effects are an **ordered list**. The order is part of the contract (§4).
 | `PersistAppend(File, Data)` | Append bytes to a file. |
 | `PersistWriteAt(File, Offset, Data)` | Write bytes at an offset, creating the file if needed (snapshot chunks, Figure 13). Not atomic. |
 | `PersistRename(File, To)` | Atomically replace `To` with `File` (atomic snapshot replacement, spec §8). |
+| `PersistTruncate(File, Length)` | Shorten a file: truncate a log after a conflict (F2-13), drop a torn tail on recovery (spec §8). Added in P1-06, when the torn-write fault showed nothing else could shrink a file. |
 | `PersistDelete(File)` | Remove a file. |
 | `ClientResponse(RequestId, Payload)` | Answer a client. |
-| `Emit(Name, Fields)` | A structured event for the trace (spec §9). No effect on the world. |
+| `Emit(Name, Fields)` | A structured event for the trace (spec §9). No effect on the world. Field values may not contain a space, `=` or a newline, so a trace line splits one way only. |
 
 Messages are bytes, not objects (decided at the phase-1 review): the simulator can then model size
 and byte-level corruption, and the TCP host reuses the same encoding. The codec's canonical-form
@@ -112,7 +113,7 @@ simulator faults (phases 1's fault kinds) that exercise the rule.
 | F2-10 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, reorder |
 | F2-11 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delay, reorder, pause |
 | F2-12 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | drop, reorder, crash-pending |
-| F2-13 | `Raft.Core.Receive`, `Raft.Core.PersistAppend`, `Raft.Core.PersistWriteAt` | Figure 2, and *outside*: §5.3 — truncate only on an actual conflict, so a stale or duplicated AppendEntries must not truncate | duplicate, reorder, delay |
+| F2-13 | `Raft.Core.Receive`, `Raft.Core.PersistTruncate`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: §5.3 — truncate only on an actual conflict, so a stale or duplicated AppendEntries must not truncate | duplicate, reorder, delay |
 | F2-14 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2 | duplicate, reorder |
 | F2-15 | `Raft.Core.Receive` | Figure 2 | reorder, duplicate |
 | F2-16 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, delay, partition |

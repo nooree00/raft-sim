@@ -1,0 +1,16 @@
+diff --git a/src/Raft.Simulation/SimDisk.cs b/src/Raft.Simulation/SimDisk.cs
+index 171c696..b651294 100644
+--- a/src/Raft.Simulation/SimDisk.cs
++++ b/src/Raft.Simulation/SimDisk.cs
+@@ -64,6 +64,11 @@ public sealed class SimDisk
+         switch (mode)
+         {
+             case DiskLoss.Pending:
++                foreach (var kept in pending)
++                {
++                    Apply(kept.Op);
++                }
++
+                 return [("lost", pending.Count)];
+             case DiskLoss.Torn:
+                 if (pending.Count > 0 && Data(pending[0].Op) is { Length: >= 2 } data)

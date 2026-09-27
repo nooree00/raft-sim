@@ -1,0 +1,5 @@
+description: The barrier-violation positive control is inert: the fault is injected but sends still wait
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.DiskFaultTests.PositiveControlViolatingTheBarrierBreaksDurability
+expect: caught
