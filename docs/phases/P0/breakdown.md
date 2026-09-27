@@ -65,7 +65,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-tool-1, S-tool-2, S-tool-3
 - **Verifiable here:** yes — the same image digest runs locally under Docker.
 - **Prediction:** The SDK's analyzers together with the xUnit analyzers raise a warning-as-error in a test project on the very first build, most likely CA1707 on underscore test names. **Observable:** the first `dotnet build` fails in a test project, not in `src/`.
-- **Outcome:** wrong — the first build of a test project raised no analyzer error: I had not used underscore names. The Recommended analyzers did bite, but in tools/ (CA1861, CA1865, CA1859), never in a test project.
+- **Outcome:** wrong (evidence) — the first build of a test project raised no analyzer error: I had not used underscore names. The Recommended analyzers did bite, but in tools/ (CA1861, CA1865, CA1859), never in a test project.
 
 ### P0-02 — Solution skeleton
 
@@ -74,7 +74,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-skel-1
 - **Verifiable here:** yes — local build and the layering test.
 - **Prediction:** The templates enable `ImplicitUsings`, which brings `System.Threading.Tasks` and `System.Net.Http` into scope in Core, so Core gets ambient namespaces by default. **Observable:** the P0-04 scan flags a reference as soon as a real type uses one; I disable implicit usings in Core.
-- **Outcome:** wrong — the mechanism never arose: I wrote the csproj files by hand and Directory.Build.props disables implicit usings, so no template-added namespace reached Core.
+- **Outcome:** wrong (forcing) — the mechanism never arose: I wrote the csproj files by hand and Directory.Build.props disables implicit usings, so no template-added namespace reached Core. (The prediction itself named the fix: "I disable implicit usings in Core".)
 
 ### P0-03 — Layering test
 
@@ -83,7 +83,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-layer-1, S-layer-2, S-layer-3, S-layer-4, S-layer-5
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** `project.assets.json` flattens transitive project references, so a direct-edge check over it treats Host → Core-through-Kv as direct. **Observable:** a false violation, or a wrongly allowed edge, on the first run — direct edges must come from MSBuild evaluation, with the assets file used only for packages.
-- **Outcome:** partly — the assets file's `targets` section does flatten transitive project references (checked on Host), but its `projectFileDependencyGroups` section lists direct ones only; I used MSBuild evaluation from the start, so the false violation could not occur.
+- **Outcome:** partly (forcing) — the assets file's `targets` section does flatten transitive project references (checked on Host), but its `projectFileDependencyGroups` section lists direct ones only; I used MSBuild evaluation from the start, so the false violation could not occur. (The prediction steered me to MSBuild evaluation before the first run.)
 
 ### P0-04 — Ambient-dependency scan of Raft.Core
 
@@ -92,7 +92,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-amb-1, S-amb-2, S-amb-3, S-amb-4, S-amb-5, S-amb-6, S-amb-7
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** Attributes the compiler adds on its own (nullable attributes, `RefSafetyRules`, `Debuggable`, `TargetFramework`, assembly-info attributes) are not in my first allowlist. **Observable:** the first run on the placeholder Core fails, listing `System.Runtime.CompilerServices.*` and `System.Diagnostics.DebuggableAttribute`.
-- **Outcome:** right — the first run on the placeholder Core failed listing exactly DebuggableAttribute, the CompilerServices attributes, TargetFrameworkAttribute and the assembly-info attributes; they are now a separate allowlist group.
+- **Outcome:** right (evidence) — the first run on the placeholder Core failed listing exactly DebuggableAttribute, the CompilerServices attributes, TargetFrameworkAttribute and the assembly-info attributes; they are now a separate allowlist group.
 
 ### P0-10 — Preflight
 
@@ -101,7 +101,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-pre-1, S-pre-2, S-pre-3, S-pre-4, S-pre-5, S-pre-6
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** `dotnet msbuild -getProperty` reports a property's value at evaluation time, before any target runs, so a value overridden inside a *target* in `Directory.Build.targets` will not show. **Observable:** a target-based variant of S-pre-3 survives, and the value has to be read from the compiler invocation instead.
-- **Outcome:** right — a TreatWarningsAsErrors=false set inside a target is invisible to evaluation and the build passed with a live CS0219 warning; the effect is now guarded by the CI build's command-line -warnaserror (S-pre-6).
+- **Outcome:** right (evidence) — a TreatWarningsAsErrors=false set inside a target is invisible to evaluation and the build passed with a live CS0219 warning; the effect is now guarded by the CI build's command-line -warnaserror (S-pre-6).
 
 ### P0-05 — CI workflow
 
@@ -110,7 +110,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-ci-1, S-pre-4; manual: one deliberately red run on `claude/blissful-goodall-358smj-sabotage`, run id recorded in the phase report, branch deleted afterwards
 - **Verifiable here:** partial — the scripts run locally in the image; the live run can only be read through the GitHub tools.
 - **Prediction:** In a container job the checkout is owned by a different user, so git inside the gates fails with "detected dubious ownership"; and there is no Docker socket inside the job, so gitleaks must be a separate job on the runner. **Observable:** the first run's first git-using step fails on a git command.
-- **Outcome:** partly — dubious ownership: right, the first CI run failed on the preflight's git calls (actions/checkout marks the tree safe only under a temporary HOME). No Docker socket: wrong, the runner mounts /var/run/docker.sock into container jobs; it is the image that lacks the docker CLI.
+- **Outcome:** partly (evidence) — dubious ownership: right, the first CI run failed on the preflight's git calls (actions/checkout marks the tree safe only under a temporary HOME). No Docker socket: wrong, the runner mounts /var/run/docker.sock into container jobs; it is the image that lacks the docker CLI.
 
 ### P0-06 — Test-count floor and duration record
 
@@ -119,16 +119,16 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-count-1, S-count-2, S-count-3
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** xunit.v3 runs on Microsoft.Testing.Platform, which ignores `--logger trx` (it wants `--report-trx`). **Observable:** zero TRX files on the first run, and the floor goes red.
-- **Outcome:** partly — zero TRX files, right; but `--logger trx` is not ignored, it is rejected (exit 5, zero tests run), so it could not have produced a false green. The floor later caught a different loss: two assemblies' TRX files colliding on a timestamp name.
+- **Outcome:** partly (evidence) — zero TRX files, right; but `--logger trx` is not ignored, it is rejected (exit 5, zero tests run), so it could not have produced a false green. The floor later caught a different loss: two assemblies' TRX files colliding on a timestamp name.
 
 ### P0-07 — Breakdown gate and prediction-order gate
 
 - **Task:** `gates breakdown`: every task in every `docs/phases/P*/breakdown.md` has all fields, non-placeholder; every sabotage id resolves under `sabotage/`; `gates trailers`: every commit reachable from HEAD that changes anything outside the documentation allowlist (`docs/**`, root `*.md`) carries a `Task:` trailer naming a task that exists, and the first commit carrying a task's trailer comes after the commit that introduced that task's `Prediction` line; at report time no `Outcome` is `pending`.
 - **Vacuity:** The heading format drifts, zero tasks parse and the gate passes; a shallow clone shows one commit, so the order check passes trivially; the gate checks that text is present, not that it is good — prose quality stays the reviewer's.
-- **Sabotage:** S-bd-1, S-bd-2, S-bd-3, S-bd-4, S-bd-5
+- **Sabotage:** S-bd-1, S-bd-2, S-bd-3, S-bd-4, S-bd-5, S-bd-6
 - **Verifiable here:** yes — local, with fixture repositories.
 - **Prediction:** (Revised before implementation. The review's prediction — that the three pre-gate commits have no trailer and the gate lists them — is withdrawn: the rule exempts documentation-only commits, which those three are, so it could only be wrong by construction.) Classifying a commit as documentation-only needs its changed paths, and `git diff-tree --name-only <sha>` prints nothing for a root commit unless given `--root`, so a root commit is classified as touching no paths and exempted for the wrong reason. **Observable:** a fixture whose root commit adds a `src/` file passes the gate when it should fail.
-- **Outcome:** partly — the mechanism is real (S-bd-5: without --root the root-commit fixture passes), but the observable never occurred, because writing the prediction made me write --root.
+- **Outcome:** partly (forcing) — the mechanism is real (S-bd-5: without --root the root-commit fixture passes), but the observable never occurred, because writing the prediction made me write --root.
 
 ### P0-08 — Register gate and unimplemented-code scan
 
@@ -137,7 +137,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-reg-1, S-reg-2, S-reg-3, S-reg-4
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** A throw inside a lambda or local function compiles into a compiler-generated nested type; if I walk only the declared types' methods, it is missed. **Observable:** S-reg-4 survives on the first run.
-- **Outcome:** wrong — the lambda case (S-reg-4) was caught on the first run: the metadata method table lists the generated nested types' methods too, and the name maps back to Raft.Core.Sabotage.Later.
+- **Outcome:** wrong (forcing) — the lambda case (S-reg-4) was caught on the first run: the metadata method table lists the generated nested types' methods too, and the name maps back to Raft.Core.Sabotage.Later. (The prediction named the pitfall; I walked the whole method table because of it.)
 
 ### P0-09 — Sabotage harness
 
@@ -146,7 +146,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-meta-1, S-meta-2, S-meta-3
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** (Revised before implementation for the decided design — the review's prediction, a full restore and build per sabotage, no longer applies.) The in-place revert via `git checkout -- <files>` gives the reverted file a new modification time, so the *next* sabotage's incremental build recompiles the previously patched project as well; with deterministic builds that is harmless to correctness but costs a recompile per sabotage. **Observable:** per-sabotage build time is roughly two projects' compile time, not one, and the final baseline-hash check passes.
-- **Outcome:** partly — every code sabotage is followed by a rebuild after revert (a revert always changes the dll, whose PDB id hashes the source), and the baseline hashes reproduce; but the cost is dominated by the target project's test run (the architecture tests' MSBuild evaluations), ~10 s per sabotage. 33 sabotages in 251 s in CI.
+- **Outcome:** partly (evidence) — every code sabotage is followed by a rebuild after revert (a revert always changes the dll, whose PDB id hashes the source), and the baseline hashes reproduce; but the cost is dominated by the target project's test run (the architecture tests' MSBuild evaluations), ~10 s per sabotage. 33 sabotages in 251 s in CI.
 
 ### P0-11 — Secret scan
 
@@ -155,7 +155,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-sec-1, S-sec-2
 - **Verifiable here:** yes — the Docker Hub image pulls here.
 - **Prediction:** The first full-history scan flags the committed PDF: its compressed streams contain high-entropy strings that trip the generic API-key rule. **Observable:** a finding in `docs/references/raft-extended.pdf`, fixed with an allowlist entry for that single file, not a directory.
-- **Outcome:** wrong — no finding in the PDF, because gitleaks never scanned it: it skips binary files (208 KB scanned in all; the PDF alone is 554 KB). Recorded as a known limit in scripts/secret-scan.sh.
+- **Outcome:** wrong (evidence) — no finding in the PDF, because gitleaks never scanned it: it skips binary files (208 KB scanned in all; the PDF alone is 554 KB). Recorded as a known limit in scripts/secret-scan.sh.
 
 ### P0-12 — CI-run verification for pushes and reports
 
@@ -164,7 +164,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-run-1, S-run-2, S-run-3
 - **Verifiable here:** partial — the logic runs offline against recorded API responses; the live API only from CI, whose result I can read.
 - **Prediction:** Under restricted default permissions the workflow's `GITHUB_TOKEN` cannot read Actions. **Observable:** a 403 on the first live call, fixed with an explicit `permissions: actions: read`.
-- **Outcome:** wrong — a probe on the sabotage branch (run 36335951168) called the Actions API with only `contents: read` declared and got answers, not a 403 (the repository is public, so run data is readable regardless). The call also proved the missing-job rule live: the old run on 6e6dc04 was rejected for lacking each-commit, secrets and readme-walk. `actions: read` is declared anyway.
+- **Outcome:** wrong (evidence) — a probe on the sabotage branch (run 36335951168) called the Actions API with only `contents: read` declared and got answers, not a 403 (the repository is public, so run data is readable regardless). The call also proved the missing-job rule live: the old run on 6e6dc04 was rejected for lacking each-commit, secrets and readme-walk. `actions: read` is declared anyway.
 
 ### P0-13 — Every commit green
 
@@ -173,7 +173,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-each-1, S-each-2
 - **Verifiable here:** yes — local, with a fixture repository.
 - **Prediction:** After a rebase or force-push the `before` SHA is not in the fetched history. **Observable:** `git rev-list` fails with "bad revision"; the fallback is the merge-base with `main`.
-- **Outcome:** partly — `git rev-list` over an unknown before SHA does fail (exit 128), but git says "Invalid revision range", not "bad revision"; a test pins the real message.
+- **Outcome:** partly (evidence) — `git rev-list` over an unknown before SHA does fail (exit 128), but git says "Invalid revision range", not "bad revision"; a test pins the real message.
 
 ### P0-14 — README, AGENTS.md and a README walk in a clean container
 
@@ -182,7 +182,7 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-readme-1, S-readme-2
 - **Verifiable here:** partial — the scripted walk is verifiable here; the person's walk should be the reviewer's, not mine, since I wrote the README.
 - **Prediction:** On a stock Ubuntu 24.04 host — this machine — the README's first `dotnet build` stops with "A compatible .NET SDK was not found": apt offers 10.0.104 (1xx band) and `latestPatch` does not cross feature bands. **Observable:** a walk without the container stops at step 1, so the README must lead with the container.
-- **Outcome:** right — with Ubuntu's own dotnet-sdk-10.0 installed on this host (now 10.0.112, 1xx band), a build without the container is refused: "Install the [10.0.401] .NET SDK or update global.json" (wording differs from the prediction).
+- **Outcome:** right (evidence) — with Ubuntu's own dotnet-sdk-10.0 installed on this host (now 10.0.112, 1xx band), a build without the container is refused: "Install the [10.0.401] .NET SDK or update global.json" (wording differs from the prediction).
 
 ### P0-15 — Known-bad histories and a brute-force oracle
 
@@ -191,4 +191,4 @@ enough by not rebuilding what a sabotage does not touch:
 - **Sabotage:** S-hist-1, S-hist-2, S-hist-3, S-hist-4, S-hist-5
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** My first "lost write" history is accidentally linearizable: the lost write's response overlaps the read that should expose it. **Observable:** the oracle returns linearizable for `lost-write` on the first run.
-- **Outcome:** wrong — my first lost-write history was rejected, as intended, on the first run.
+- **Outcome:** wrong (forcing) — my first lost-write history was rejected, as intended, on the first run. (Having predicted the overlap error, I wrote the history to avoid it.)

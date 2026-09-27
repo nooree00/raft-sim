@@ -1,0 +1,12 @@
+diff --git a/tools/Raft.Gates/Breakdown.cs b/tools/Raft.Gates/Breakdown.cs
+index 4038381..9df72af 100644
+--- a/tools/Raft.Gates/Breakdown.cs
++++ b/tools/Raft.Gates/Breakdown.cs
+@@ -233,6 +233,6 @@ internal static partial class Breakdown
+     /// so it could not come true and is a checklist item. "evidence": the work was not altered by
+     /// it, so it could have been wrong. Only evidence counts as a test of the prediction.
+     /// </summary>
+-    [GeneratedRegex(@"^(right|wrong|partly) \((evidence|forcing)\) — \S")]
++    [GeneratedRegex(@"^(right|wrong|partly) (\((evidence|forcing)\) )?— \S")]
+     private static partial Regex OutcomeLine();
+ }

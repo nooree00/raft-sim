@@ -1,14 +1,14 @@
 # Phase 0 — report
 
-**Status: not complete.** Everything in the breakdown is built, in CI, and sabotaged, but two
-register rows promised to P0 are open, and `docs/phases/status.md` says `P0: in progress`:
+**Status: accepted by the reviewer; one register row promised to P0 is open** — the person's cold
+walk of the README, which the reviewer is doing — so `docs/phases/status.md` still says
+`P0: in progress`.
 
-1. **Herlihy & Wing published example histories** (P0-15). The paper is unreachable from the
-   build environment (the egress proxy blocks every host that serves it), and I did not transcribe
-   verdicts from memory, since that would make them mine. Needs the PDF committed under
-   `docs/references/`.
-2. **The person's cold walk** of the README. The scripted walk passes (below); the person's walk is
-   the reviewer's, not mine — I wrote the README.
+**Update after acceptance.** The Herlihy & Wing paper was supplied and committed
+(`docs/references/herlihy-wing-1990.pdf`). Fig. 1's H1–H4 are transcribed as the paper's literal
+event lists and the oracle agrees with every published verdict; Theorem 1 (locality) is a property
+test over 400 seeded two-key histories. Sabotages S-hist-4 and S-hist-5 prove both. That register
+row is done.
 
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
@@ -67,16 +67,20 @@ Gates 39.
 
 ## Predictions
 
-15 made, before each task, each with a mechanism and an observable. **Right 3** (P0-04, P0-10,
-P0-14), **partly 6** (P0-03, P0-05, P0-06, P0-07, P0-09, P0-13), **wrong 6** (P0-01, P0-02,
-P0-08, P0-11, P0-12, P0-15). Two predictions were revised before implementation, with the reason
+15 made, before each task, each with a mechanism and an observable. They are counted in two
+classes (reviewer's rule, now enforced by `gates breakdown`): a **forcing** prediction changed the
+work, so it could not come true — a checklist item; an **evidence** prediction did not, so it
+could have been wrong.
+
+- **Evidence (10):** right 3 (P0-04, P0-10, P0-14), partly 4 (P0-05, P0-06, P0-09, P0-13),
+  wrong 3 (P0-01, P0-11, P0-12).
+- **Forcing (5):** partly 2 (P0-03, P0-07), wrong 3 (P0-02, P0-08, P0-15). Two predictions were revised before implementation, with the reason
 recorded (P0-07: the original was wrong by construction given the rule's documentation
 exemption; P0-09: the decided harness design no longer matched it). Per-task outcomes are in
 `breakdown.md`.
 
-What the wrong ones say: three (P0-02, P0-07, P0-15) were about a slip I then did not make —
-writing the prediction down changed what I wrote, which makes the prediction a checklist item
-rather than a test. The informative wrong ones are P0-11 (gitleaks never scanned the PDF at all —
+What the forcing ones say: writing the prediction down changed what I wrote — a forcing
+function, not evidence about my model of the system. The informative wrong ones are P0-11 (gitleaks never scanned the PDF at all —
 a real limit, now recorded) and P0-12 (the token can read runs because the repository is public).
 
 ## Findings

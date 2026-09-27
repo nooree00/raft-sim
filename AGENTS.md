@@ -6,7 +6,7 @@ names the script that enforces it, or says plainly that nothing does.
 
 | Rule (spec §12) | Enforced by | Runs |
 |---|---|---|
-| A breakdown for every phase: vacuity risk, sabotage, verifiability, prediction, outcome per task | `gates breakdown` | CI, build job |
+| A breakdown for every phase: vacuity risk, sabotage, verifiability, prediction, outcome (evidence or forcing) per task | `gates breakdown` | CI, build job |
 | Predict before implementing | `gates trailers`: each task's first `Task:` commit must descend from the commit that introduced its current prediction | CI, build job |
 | Every non-documentation commit names its task | `gates trailers` (`Task: Pn-nn` trailer) | CI, build job |
 | Sabotage is a standing practice, from a committed tree | `gates sabotage` (container) and `scripts/host-sabotages.sh` (host), every push | CI, build and secrets jobs |
@@ -28,4 +28,9 @@ names the script that enforces it, or says plainly that nothing does.
 - A sabotage lives in `sabotage/<id>/` (`patch.diff`, `sabotage.txt`) and lands in the same commit
   as the check it proves.
 - A changed test count means editing `ci/test-baseline.txt` in the same commit.
+- A prediction's outcome is `(evidence)` or `(forcing)`. Forcing: writing it changed the work, so
+  it could not come true. Evidence: it could have been wrong about something that was then not
+  changed. Only evidence tests the prediction; report the two counts separately.
+- Run the full CI sequence locally before every push, documentation-only pushes included —
+  sabotages patch documentation too (P0 findings log).
 - Build and test through `scripts/in-sdk.sh`; the host SDK is not trusted.

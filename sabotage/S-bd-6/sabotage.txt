@@ -1,0 +1,5 @@
+description: An outcome no longer has to say whether it is evidence or forcing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.BreakdownTests.AnOutcomeMustSayWhetherItIsEvidenceOrForcing
+expect: caught

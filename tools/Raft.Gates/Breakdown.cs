@@ -211,7 +211,8 @@ internal static partial class Breakdown
 
         if (t.Fields.TryGetValue("Outcome", out var outcome))
         {
-            f.Require(outcome == "pending" || OutcomeLine().IsMatch(outcome), $"{t.Id}: Outcome must be 'pending' or 'right|wrong|partly — what happened'");
+            f.Require(outcome == "pending" || OutcomeLine().IsMatch(outcome),
+                $"{t.Id}: Outcome must be 'pending' or 'right|wrong|partly (evidence|forcing) — what happened'");
         }
     }
 
@@ -227,6 +228,11 @@ internal static partial class Breakdown
     [GeneratedRegex(@"^(yes|partial|no) — \S")]
     private static partial Regex Verifiable();
 
-    [GeneratedRegex(@"^(right|wrong|partly) — \S")]
+    /// <summary>
+    /// The class says what the outcome is worth. "forcing": writing the prediction changed the work,
+    /// so it could not come true and is a checklist item. "evidence": the work was not altered by
+    /// it, so it could have been wrong. Only evidence counts as a test of the prediction.
+    /// </summary>
+    [GeneratedRegex(@"^(right|wrong|partly) \((evidence|forcing)\) — \S")]
     private static partial Regex OutcomeLine();
 }
