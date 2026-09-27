@@ -1,0 +1,13 @@
+diff --git a/README.md b/README.md
+index c2ccd3c..098c69b 100644
+--- a/README.md
++++ b/README.md
+@@ -16,7 +16,7 @@ latestPatch`: an SDK from another feature band — for example Ubuntu 24.04's `d
+ package, which is 10.0.1xx — is refused, deliberately.
+ 
+ ```sh cold-walk
+-scripts/in-sdk.sh scripts/ci-build.sh
++scripts/in-sdk.sh scripts/ci-biuld.sh
+ scripts/in-sdk.sh scripts/ci-test.sh
+ ```
+ 

@@ -1,0 +1,7 @@
+description: The README names a script that does not exist
+kind: command
+runner: host
+build: no
+command: scripts/readme-walk.sh
+expect: caught
+message: readme-walk: stopped

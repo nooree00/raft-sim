@@ -1,0 +1,7 @@
+description: A README step depends on an environment variable only CI sets; the walk's scrubbed environment must expose it
+kind: command
+runner: host
+build: no
+command: scripts/readme-walk.sh
+expect: caught
+message: this step needs the CI environment

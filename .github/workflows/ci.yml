@@ -29,6 +29,10 @@ jobs:
         run: scripts/ci-build.sh
       - name: gates
         run: scripts/ci-gates.sh
+      - name: reports
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/ci-reports.sh
       - name: test
         run: scripts/ci-test.sh
       - name: sabotage
@@ -58,7 +62,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - name: secret scan sabotages
+      - name: host sabotages (secret scan, README walk)
         run: scripts/host-sabotages.sh
       - name: secret scan
         run: scripts/secret-scan.sh
+
+  readme-walk:
+    # The README's cold-walk steps in a fresh copy, scrubbed environment, fresh container.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: README walk
+        run: scripts/readme-walk.sh
