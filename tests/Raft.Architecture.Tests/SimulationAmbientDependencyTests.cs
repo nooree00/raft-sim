@@ -34,6 +34,12 @@ public sealed class SimulationAmbientDependencyTests
         "System.Index", "System.Range", "System.MemoryExtensions", "System.IndexOutOfRangeException",
         "System.NotSupportedException", "System.ParamArrayAttribute", "System.Runtime.InteropServices.InAttribute",
         "System.Runtime.CompilerServices.TupleElementNamesAttribute",
+        // Schedule text and the generator (P1-09). StringComparison is an enum: the scan cannot tell
+        // Ordinal from CurrentCulture as an argument — a residual the cross-process trace test covers.
+        "System.FormatException", "System.Func`3", "System.Linq.IOrderedEnumerable`1",
+        "System.StringComparison", "System.StringSplitOptions",
+        // Array initializers.
+        "System.RuntimeFieldHandle",
         // Allowed only through the members in ExtraRestricted.
         "System.StringComparer", "System.Text.Encoding", "System.Reflection.MemberInfo",
     };

@@ -1,0 +1,5 @@
+description: The parser drops a field (a Delay's extra)
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ScheduleTests.EveryFaultKindSurvivesTheTextRoundTrip
+expect: caught

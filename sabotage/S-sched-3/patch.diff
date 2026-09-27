@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/ScheduleText.cs b/src/Raft.Simulation/ScheduleText.cs
+index 4a9ed38..9b275d9 100644
+--- a/src/Raft.Simulation/ScheduleText.cs
++++ b/src/Raft.Simulation/ScheduleText.cs
+@@ -25,7 +25,7 @@ public static class ScheduleText
+         ArgumentNullException.ThrowIfNull(schedule);
+         var sb = new StringBuilder();
+         sb.Append(Magic).Append('\n');
+-        sb.Append("seed=").Append(Num(h.Seed)).Append('\n');
++        sb.Append("seed=").Append(Num(h.Seed * 0)).Append('\n');
+         sb.Append("duration=").Append(Num(h.Duration)).Append('\n');
+         sb.Append("nodes=").Append(Num(h.Nodes)).Append('\n');
+         sb.Append("config=").Append(h.ConfigHash).Append('\n');

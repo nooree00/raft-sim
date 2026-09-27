@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 57fb404..acc940d 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -119,7 +119,7 @@ public sealed class Simulator
+         switch (fault)
+         {
+             case Partition p:
+-                _blocked.Add((p.From, p.To));
++                _ = p;
+                 break;
+             case Heal h:
+                 _blocked.Remove((h.From, h.To));

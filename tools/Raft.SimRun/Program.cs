@@ -14,22 +14,35 @@ internal static class Program
         var a = args.ToList();
         if (a.Count == 0 || a[0] != "run")
         {
-            Console.Error.WriteLine("usage: simrun run --seed N [--duration T] [--preset mix] [--trace FILE]");
+            Console.Error.WriteLine("usage: simrun run (--seed N [--duration T] [--preset mix | --generate [--controls]] | --schedule FILE) [--trace FILE]");
             return 2;
         }
 
-        var seed = ulong.Parse(Take(a, "--seed") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
-        var duration = long.Parse(Take(a, "--duration") ?? "600000", System.Globalization.CultureInfo.InvariantCulture);
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
         var traceFile = Take(a, "--trace");
-        var preset = Take(a, "--preset");
-        var schedule = preset switch
+        var scheduleFile = Take(a, "--schedule");
+        ScheduleText.Header header;
+        FaultSchedule schedule;
+        if (scheduleFile is not null)
         {
-            null => FaultSchedule.Empty,
-            "mix" => Presets.Mix(duration),
-            _ => throw new ArgumentException($"unknown preset '{preset}'"),
-        };
+            (header, schedule) = ScheduleText.Read(File.ReadAllText(scheduleFile));
+        }
+        else
+        {
+            var seed = ulong.Parse(Take(a, "--seed") ?? "1", inv);
+            var duration = long.Parse(Take(a, "--duration") ?? "600000", inv);
+            var preset = Take(a, "--preset");
+            var generate = a.Remove("--generate");
+            var controls = a.Remove("--controls");
+            var config = new GeneratorConfig { Duration = duration, Controls = controls };
+            schedule = generate ? FaultGenerator.Generate(seed, config)
+                : preset == "mix" ? Presets.Mix(duration)
+                : preset is null ? FaultSchedule.Empty
+                : throw new ArgumentException($"unknown preset '{preset}'");
+            header = new ScheduleText.Header(seed, duration, config.Nodes, generate ? config.Hash() : "none", Commit());
+        }
 
-        var sim = new Simulator(new SimulationConfig { Duration = duration }, ctx => new EchoCounterNode(ctx), seed, schedule);
+        var sim = new Simulator(new SimulationConfig { Duration = header.Duration, Nodes = header.Nodes }, ctx => new EchoCounterNode(ctx), header.Seed, schedule);
         var trace = sim.Run();
         if (traceFile is not null)
         {
@@ -37,13 +50,38 @@ internal static class Program
         }
 
         var result = EchoCounterChecks.Check(trace.Lines);
-        Console.WriteLine($"seed={seed} steps={sim.Steps} sends={result.Sends} delivers={result.Delivers} persists={result.Persists} violations={result.Violations.Count}");
+        Console.WriteLine($"seed={header.Seed} faults={schedule.Faults.Count} steps={sim.Steps} sends={result.Sends} delivers={result.Delivers} persists={result.Persists} violations={result.Violations.Count}");
         foreach (var v in result.Violations)
         {
             Console.WriteLine("VIOLATION " + v);
         }
 
+        if (!result.Ok)
+        {
+            // The reproduction artifact (spec §7): rerun with `simrun run --schedule FILE`.
+            Console.WriteLine("REPRODUCE-BEGIN");
+            Console.Write(ScheduleText.Write(header, schedule));
+            Console.WriteLine("REPRODUCE-END");
+        }
+
         return result.Ok ? 0 : 1;
+    }
+
+    /// <summary>The commit being run, for the reproduction artifact; "unknown" outside a checkout.</summary>
+    private static string Commit()
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo("git", "rev-parse HEAD") { RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var sha = p.StandardOutput.ReadToEnd().Trim();
+            p.WaitForExit();
+            return p.ExitCode == 0 && sha.Length == 40 ? sha : "unknown";
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return "unknown";
+        }
     }
 
     private static string? Take(List<string> a, string name)

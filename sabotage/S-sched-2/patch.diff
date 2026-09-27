@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/ScheduleText.cs b/src/Raft.Simulation/ScheduleText.cs
+index 4a9ed38..b427d3a 100644
+--- a/src/Raft.Simulation/ScheduleText.cs
++++ b/src/Raft.Simulation/ScheduleText.cs
+@@ -100,7 +100,7 @@ public static class ScheduleText
+         {
+             "Drop" => new Drop(at, N("from"), N("to")),
+             "Duplicate" => new Duplicate(at, N("from"), N("to")),
+-            "Delay" => new Delay(at, N("from"), N("to"), L("extra")),
++            "Delay" => new Delay(at, N("from"), N("to"), 0),
+             "Reorder" => new Reorder(at, N("from"), N("to")),
+             "Partition" => new Partition(at, N("from"), N("to")),
+             "Heal" => new Heal(at, N("from"), N("to")),

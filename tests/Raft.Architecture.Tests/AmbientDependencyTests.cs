@@ -72,7 +72,7 @@ public sealed class AmbientDependencyTests
     {
         ["System.Globalization.CultureInfo"] = new(StringComparer.Ordinal) { "get_InvariantCulture" },
         ["System.Type"] = new(StringComparer.Ordinal) { "GetTypeFromHandle", "op_Equality", "op_Inequality" },
-        ["System.Runtime.CompilerServices.RuntimeHelpers"] = new(StringComparer.Ordinal) { "EnsureSufficientExecutionStack", "GetSubArray" },
+        ["System.Runtime.CompilerServices.RuntimeHelpers"] = new(StringComparer.Ordinal) { "EnsureSufficientExecutionStack", "GetSubArray", "InitializeArray" },
     };
 
     /// <summary>Members of otherwise-allowed types that are not deterministic across processes.</summary>

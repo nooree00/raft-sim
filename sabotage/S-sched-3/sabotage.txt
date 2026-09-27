@@ -1,0 +1,5 @@
+description: The printed reproduction loses its seed: the schedule alone does not reproduce in-run randomness
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ScheduleTests.APrintedReproductionReproducesTheFailureExactlyInAnotherProcess
+expect: caught

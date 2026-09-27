@@ -1,0 +1,5 @@
+description: The runner parses Partition faults and ignores them
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ScheduleTests.EachFaultKindHasAnEffectWhenRunFromItsTextForm(kind: "Partition")
+expect: caught
