@@ -1,0 +1,4 @@
+# Executed tests per test project. `gates testcount` requires equality: any change to a count is
+# an edit to this file in the same commit, so a deleted or undiscovered test is visible in review.
+Raft.Architecture.Tests 24
+Raft.Gates.Tests 14
