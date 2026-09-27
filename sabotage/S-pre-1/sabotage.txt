@@ -1,0 +1,6 @@
+description: rollForward crosses feature bands
+kind: command
+build: no
+command: dotnet "$GATES" preflight --allow-dirty
+expect: caught
+message: rollForward is 'latestFeature'

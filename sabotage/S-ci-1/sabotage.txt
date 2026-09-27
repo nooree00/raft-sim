@@ -1,0 +1,6 @@
+description: A failing assertion must make the CI test script exit non-zero
+kind: command
+build: yes
+command: scripts/ci-test.sh
+expect: caught
+message: SabotageFails

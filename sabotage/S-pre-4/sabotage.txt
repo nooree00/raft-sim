@@ -1,0 +1,6 @@
+description: The workflow floats to the sdk:10.0 tag
+kind: command
+build: no
+command: dotnet "$GATES" preflight --allow-dirty
+expect: caught
+message: SDK image 'mcr.microsoft.com/dotnet/sdk:10.0'

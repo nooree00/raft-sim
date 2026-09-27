@@ -1,0 +1,11 @@
+diff --git a/src/Raft.Checker/Raft.Checker.csproj b/src/Raft.Checker/Raft.Checker.csproj
+index e7939f8..f0bbaa4 100644
+--- a/src/Raft.Checker/Raft.Checker.csproj
++++ b/src/Raft.Checker/Raft.Checker.csproj
+@@ -1,3 +1,6 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <!-- Linearizability checker. Depends on nothing (spec §4). -->
++  <PropertyGroup>
++    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
++  </PropertyGroup>
+ </Project>

@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Kv/Raft.Kv.csproj b/src/Raft.Kv/Raft.Kv.csproj
+index 2e2180d..b4fed1a 100644
+--- a/src/Raft.Kv/Raft.Kv.csproj
++++ b/src/Raft.Kv/Raft.Kv.csproj
+@@ -1,5 +1,8 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <!-- The key-value state machine; pure, no transport (spec §4, §6). -->
++  <PropertyGroup>
++    <AnalysisLevel>latest</AnalysisLevel>
++  </PropertyGroup>
+   <ItemGroup>
+     <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />
+   </ItemGroup>

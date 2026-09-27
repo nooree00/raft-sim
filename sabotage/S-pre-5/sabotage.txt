@@ -1,0 +1,7 @@
+description: The history gates run on a shallow clone (depth 1); the sabotage is in the command, the patch is empty
+kind: command
+build: no
+command: rm -rf /tmp/sab-shallow && git clone -q --depth 1 "file://$PWD" /tmp/sab-shallow && dotnet "$GATES" preflight --allow-dirty --root /tmp/sab-shallow
+baseline: rm -rf /tmp/sab-full && git clone -q "file://$PWD" /tmp/sab-full && dotnet "$GATES" preflight --allow-dirty --root /tmp/sab-full
+expect: caught
+message: repository is shallow

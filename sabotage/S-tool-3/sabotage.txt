@@ -1,0 +1,6 @@
+description: A nullable warning must fail the CI build
+kind: command
+build: no
+command: scripts/ci-build.sh
+expect: caught
+message: CS8603

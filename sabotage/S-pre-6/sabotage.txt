@@ -1,0 +1,6 @@
+description: warnings-as-errors switched off inside a target (invisible to evaluation) plus a warning: the CI build must still fail
+kind: command
+build: no
+command: scripts/ci-build.sh
+expect: caught
+message: CS0219

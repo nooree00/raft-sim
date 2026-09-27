@@ -1,0 +1,15 @@
+diff --git a/tests/Raft.Gates.Tests/SabotageTests.cs b/tests/Raft.Gates.Tests/SabotageTests.cs
+new file mode 100644
+index 0000000..6e6b08f
+--- /dev/null
++++ b/tests/Raft.Gates.Tests/SabotageTests.cs
+@@ -0,0 +1,9 @@
++using Xunit;
++
++namespace Raft.Gates.Tests;
++
++public sealed class SabotageTests
++{
++    [Fact]
++    public void SabotageFails() => Assert.Equal(1, 2);
++}

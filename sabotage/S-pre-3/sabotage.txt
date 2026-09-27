@@ -1,0 +1,6 @@
+description: Directory.Build.targets turns warnings-as-errors off at evaluation time
+kind: command
+build: no
+command: dotnet "$GATES" preflight --allow-dirty
+expect: caught
+message: TreatWarningsAsErrors evaluates to 'false'

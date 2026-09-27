@@ -1,0 +1,13 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 46a3f0a..bf7892c 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -15,7 +15,7 @@ jobs:
+   build:
+     runs-on: ubuntu-24.04
+     timeout-minutes: 30
+-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
++    container: mcr.microsoft.com/dotnet/sdk:10.0
+     env:
+       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+       DOTNET_NOLOGO: '1'

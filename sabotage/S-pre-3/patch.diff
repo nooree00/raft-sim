@@ -1,0 +1,11 @@
+diff --git a/Directory.Build.targets b/Directory.Build.targets
+new file mode 100644
+index 0000000..390647c
+--- /dev/null
++++ b/Directory.Build.targets
+@@ -0,0 +1,5 @@
++<Project>
++  <PropertyGroup>
++    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
++  </PropertyGroup>
++</Project>

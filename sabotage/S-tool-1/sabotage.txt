@@ -1,0 +1,6 @@
+description: global.json names the Ubuntu-archive SDK (1xx band); latestPatch must not roll to 10.0.401
+kind: command
+build: no
+command: dotnet "$GATES" preflight --allow-dirty
+expect: caught
+message: dotnet --version
