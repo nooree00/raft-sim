@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The key-value state machine; pure, no transport (spec §4, §6). -->
+  <ItemGroup>
+    <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />
+  </ItemGroup>
+</Project>

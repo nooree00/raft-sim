@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The algorithm. BCL only; no I/O, clock, threads, randomness (spec §4). -->
+</Project>

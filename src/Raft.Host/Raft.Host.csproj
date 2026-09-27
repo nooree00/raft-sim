@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TCP transport and process host (spec §4). -->
+  <ItemGroup>
+    <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../Raft.Kv/Raft.Kv.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />
+  </ItemGroup>
+</Project>

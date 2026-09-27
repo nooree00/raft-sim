@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Linearizability checker. Depends on nothing (spec §4). -->
+</Project>
