@@ -10,8 +10,10 @@ namespace Raft.Gates;
 
 /// <summary>
 /// The sabotage harness (spec §12, breakdown P0-09). Every entry under sabotage/ runs on every
-/// push, in one worktree at HEAD built once, sequentially in a fixed path so incremental builds
-/// stay valid. A result counts only if it is the expected one for the expected reason:
+/// push. Entries are dealt round-robin to up to four workers; each worker has its own worktree at
+/// HEAD, at a fixed path so incremental builds stay valid, built once, and runs its share
+/// sequentially. (Phase 1: one worker reached 781 s of the 900 s ceiling at 68 entries; the ceiling
+/// forced this change rather than running the harness less often.) A result counts only if it is the expected one for the expected reason:
 ///   - a patch that does not apply, or a target test that did not run, is a harness error;
 ///   - a build failure is `build-error`, never "caught";
 ///   - a code patch whose build leaves every assembly byte-identical is `not-compiled-in`,
@@ -33,6 +35,7 @@ internal static class Sabotage
         var only = Options.Take(rest, "--only")?.Split(',', StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
         var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "15", System.Globalization.CultureInfo.InvariantCulture));
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+        var workersOption = Options.Take(rest, "--workers");
         var f = new Findings();
         var clock = Stopwatch.StartNew();
 
@@ -57,41 +60,73 @@ internal static class Sabotage
             return f;
         }
 
-        var wt = Path.Combine(Path.GetTempPath(), "raft-sabotage-worktree");
-        repo.Git("worktree", "remove", "--force", wt);
-        if (Directory.Exists(wt))
+        // Parallel workers, each with its own worktree at a fixed path (so incremental builds stay
+        // valid) and its own baseline. Entries are dealt round-robin in id order: deterministic.
+        var workers = Math.Clamp(workersOption is null ? Environment.ProcessorCount : int.Parse(workersOption, System.Globalization.CultureInfo.InvariantCulture), 1, 4);
+        workers = Math.Min(workers, specs.Count);
+        var shares = Enumerable.Range(0, workers).Select(k => specs.Where((_, i) => i % workers == k).ToList()).ToList();
+        var trees = Enumerable.Range(0, workers).Select(k => Path.Combine(Path.GetTempPath(), $"raft-sabotage-worktree-{k}")).ToList();
+        foreach (var wt in trees)
         {
-            Directory.Delete(wt, recursive: true);
+            repo.Git("worktree", "remove", "--force", wt);
+            if (Directory.Exists(wt))
+            {
+                Directory.Delete(wt, recursive: true);
+            }
         }
 
         repo.Git("worktree", "prune");
-        var add = repo.Git("worktree", "add", "--detach", wt, "HEAD");
-        if (!add.Ok)
+        foreach (var wt in trees)
         {
-            f.Fail($"worktree add failed: {add}");
-            return f;
+            var add = repo.Git("worktree", "add", "--detach", wt, "HEAD");
+            if (!add.Ok)
+            {
+                f.Fail($"worktree add failed: {add}");
+                return f;
+            }
         }
 
+        var results = new Findings[workers];
         try
         {
-            RunAll(repo, wt, specs, f);
+            System.Threading.Tasks.Parallel.For(0, workers, k =>
+            {
+                results[k] = new Findings();
+                RunAll(trees[k], shares[k], results[k]);
+            });
         }
         finally
         {
-            repo.Git("worktree", "remove", "--force", wt);
+            foreach (var wt in trees)
+            {
+                repo.Git("worktree", "remove", "--force", wt);
+            }
         }
 
-        f.Note($"total {clock.Elapsed.TotalSeconds:F0}s for {specs.Count} sabotages (ceiling {ceiling.TotalMinutes:F0} min)");
+        foreach (var r in results)
+        {
+            foreach (var n in r.Notes.Order(StringComparer.Ordinal))
+            {
+                f.Note(n);
+            }
+
+            foreach (var e in r.Failures)
+            {
+                f.Fail(e);
+            }
+        }
+
+        f.Note($"total {clock.Elapsed.TotalSeconds:F0}s for {specs.Count} sabotages on {workers} workers (ceiling {ceiling.TotalMinutes:F0} min)");
         f.Require(clock.Elapsed <= ceiling, $"harness took {clock.Elapsed.TotalMinutes:F1} min, over the {ceiling.TotalMinutes:F0}-minute ceiling — the manifest has outgrown the design; decide, do not run it less often");
         if (summary is not null)
         {
-            File.AppendAllText(summary, $"\nSabotage harness: {specs.Count} sabotages in {clock.Elapsed.TotalSeconds:F0}s\n");
+            File.AppendAllText(summary, $"\nSabotage harness: {specs.Count} sabotages in {clock.Elapsed.TotalSeconds:F0}s on {workers} workers\n");
         }
 
         return f;
     }
 
-    private static void RunAll(Repo repo, string wt, IReadOnlyList<SabotageSpec> specs, Findings f)
+    private static void RunAll(string wt, IReadOnlyList<SabotageSpec> specs, Findings f)
     {
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
@@ -99,12 +134,11 @@ internal static class Sabotage
         var build = Build(wt);
         if (!build.Ok)
         {
-            f.Fail($"baseline build failed:\n{Tail(build)}");
+            f.Fail($"baseline build failed in {wt}:\n{Tail(build)}");
             return;
         }
 
         var baseline = Hashes(wt, projects);
-        f.Note($"baseline: {baseline.Count} assemblies hashed");
         f.Require(baseline.Count == projects.Count, $"hashed {baseline.Count} assemblies for {projects.Count} projects");
 
         // Every target must pass unpatched, or a red result says nothing about the patch.
@@ -141,7 +175,7 @@ internal static class Sabotage
                 var rebuild = Build(wt);
                 if (!rebuild.Ok || !SameHashes(Hashes(wt, projects), baseline))
                 {
-                    f.Fail($"{spec.Id}: after revert the tree does not reproduce the baseline assemblies — stopping, later results would be suspect\n{Tail(rebuild)}");
+                    f.Fail($"{spec.Id}: after revert the tree does not reproduce the baseline assemblies — stopping this worker, later results would be suspect\n{Tail(rebuild)}");
                     return;
                 }
             }

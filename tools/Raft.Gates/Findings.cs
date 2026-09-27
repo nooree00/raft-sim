@@ -11,6 +11,8 @@ internal sealed class Findings
 
     public IReadOnlyList<string> Failures => _failures;
 
+    public IReadOnlyList<string> Notes => _notes;
+
     public void Fail(string message) => _failures.Add(message);
 
     public void Note(string message) => _notes.Add(message);
