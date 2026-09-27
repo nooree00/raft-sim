@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Checker/BruteForceOracle.cs b/src/Raft.Checker/BruteForceOracle.cs
-index 80b03d1..7adb2bc 100644
+index e560839..1974235 100644
 --- a/src/Raft.Checker/BruteForceOracle.cs
 +++ b/src/Raft.Checker/BruteForceOracle.cs
-@@ -37,7 +37,7 @@ public static class BruteForceOracle
+@@ -41,7 +41,7 @@ public static class BruteForceOracle
              }
          }
  
@@ -10,4 +10,4 @@ index 80b03d1..7adb2bc 100644
 +        return true;
      }
  
-     private static bool Legal(IReadOnlyList<Operation> order)
+     private static bool Legal<TState>(List<Operation> order, ISequentialModel<TState> model)

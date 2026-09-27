@@ -16,9 +16,13 @@ public static class BruteForceOracle
 {
     public const int MaxOperations = 9;
 
-    public static bool IsLinearizable(IReadOnlyList<Operation> ops)
+    /// <summary>Against the key-value model of spec §6.</summary>
+    public static bool IsLinearizable(IReadOnlyList<Operation> ops) => IsLinearizable(ops, KvModel.Instance);
+
+    public static bool IsLinearizable<TState>(IReadOnlyList<Operation> ops, ISequentialModel<TState> model)
     {
         ArgumentNullException.ThrowIfNull(ops);
+        ArgumentNullException.ThrowIfNull(model);
         if (ops.Count > MaxOperations)
         {
             throw new ArgumentException($"brute force is limited to {MaxOperations} operations; got {ops.Count}", nameof(ops));
@@ -31,7 +35,7 @@ public static class BruteForceOracle
         {
             var chosen = new List<Operation>(completed);
             chosen.AddRange(indeterminate.Where((_, i) => (mask & (1 << i)) != 0));
-            if (Permutations(chosen).Any(Legal))
+            if (Permutations(chosen).Any(order => Legal(order, model)))
             {
                 return true;
             }
@@ -40,7 +44,7 @@ public static class BruteForceOracle
         return false;
     }
 
-    private static bool Legal(IReadOnlyList<Operation> order)
+    private static bool Legal<TState>(List<Operation> order, ISequentialModel<TState> model)
     {
         for (var i = 0; i < order.Count; i++)
         {
@@ -53,10 +57,10 @@ public static class BruteForceOracle
             }
         }
 
-        var state = new Dictionary<string, string>(StringComparer.Ordinal);
+        var state = model.NewState();
         foreach (var op in order)
         {
-            var output = KvModel.Apply(state, op);
+            var output = model.Apply(state, op);
             if (!op.IsIndeterminate && output != op.Output)
             {
                 return false;

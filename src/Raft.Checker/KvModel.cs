@@ -4,10 +4,14 @@ using System.Collections.Generic;
 namespace Raft.Checker;
 
 /// <summary>The sequential specification of the key-value store (spec §6).</summary>
-public static class KvModel
+public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
 {
+    public static readonly KvModel Instance = new();
+
+    public Dictionary<string, string> NewState() => new(StringComparer.Ordinal);
+
     /// <summary>Applies <paramref name="op"/> to <paramref name="state"/> in place and returns its output.</summary>
-    public static string? Apply(Dictionary<string, string> state, Operation op)
+    public string? Apply(Dictionary<string, string> state, Operation op)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(op);

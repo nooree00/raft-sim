@@ -7,7 +7,8 @@ it; a `dropped` row cites the commit that changed the spec to drop it. Every met
 
 | Item | Promised | Status | Evidence |
 |---|---|---|---|
-| Herlihy & Wing published example histories with their published verdicts in Raft.Checker.Tests — blocked: the paper is unreachable from this environment; needs the PDF committed under docs/references/ | P0 | open | — |
+| Herlihy & Wing published example histories (Fig. 1, H1–H4) with their published verdicts, and the locality theorem as a property test | P0 | done | Raft.Checker.Tests.HerlihyWingTests.OracleAgreesWithThePublishedVerdict |
 | The person's cold walk of the README (spec §12), recorded in the P0 report | P0 | open | — |
 | Disk acknowledgements as inputs to Core, instead of the ordered effect list with a persist barrier (spec §4) — decide, with measurements | P10 | open | — |
 | Visualiser for a failing execution: timeline of nodes, terms, messages (spec §9, optional) | P10 | open | — |
+| Every-commit check covers build and tests only: `gates each-commit` does not run the gates or the sabotage harness on non-head commits, so a non-head commit that is gate- or harness-red goes undetected — the same shape as a CI that is not running | P1 | open | — |

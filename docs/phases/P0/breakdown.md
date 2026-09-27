@@ -188,7 +188,7 @@ enough by not rebuilding what a sabotage does not touch:
 
 - **Task:** In `Raft.Checker`: the history model (including indeterminate operations), the single-key KV model, and a brute-force oracle for histories of about 8 operations or fewer. In `Raft.Checker.Tests`: hand-written histories as data — a stale read, a lost write, a committed-then-vanished value, an indeterminate write that a later read observes (good) — and the published Herlihy & Wing examples with their published verdicts.
 - **Vacuity:** The oracle and the histories share my misreading of real-time order; the Herlihy & Wing examples are the verdicts that do not come from me.
-- **Sabotage:** S-hist-1, S-hist-2, S-hist-3
+- **Sabotage:** S-hist-1, S-hist-2, S-hist-3, S-hist-4, S-hist-5
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** My first "lost write" history is accidentally linearizable: the lost write's response overlaps the read that should expose it. **Observable:** the oracle returns linearizable for `lost-write` on the first run.
 - **Outcome:** wrong — my first lost-write history was rejected, as intended, on the first run.

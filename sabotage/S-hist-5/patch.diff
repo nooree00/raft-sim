@@ -1,0 +1,27 @@
+diff --git a/src/Raft.Checker/QueueModel.cs b/src/Raft.Checker/QueueModel.cs
+index 8550388..f9a4a01 100644
+--- a/src/Raft.Checker/QueueModel.cs
++++ b/src/Raft.Checker/QueueModel.cs
+@@ -30,9 +30,21 @@ public sealed class QueueModel : ISequentialModel<Dictionary<string, Queue<strin
+                 q.Enqueue(op.Value!);
+                 return null;
+             case OpKind.Dequeue:
+-                return q.Count == 0 ? SequentialModel.Undefined : q.Dequeue();
++                return q.Count == 0 ? SequentialModel.Undefined : DequeueLast(q);
+             default:
+                 throw new ArgumentOutOfRangeException(nameof(op), op.Kind, "not a queue operation");
+         }
+     }
++
++    private static string DequeueLast(Queue<string> q)
++    {
++        var items = q.ToArray();
++        q.Clear();
++        foreach (var item in items[..^1])
++        {
++            q.Enqueue(item);
++        }
++
++        return items[^1];
++    }
+ }

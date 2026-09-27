@@ -1,0 +1,5 @@
+description: The KV model ignores the key (all keys share one register): Herlihy & Wing's locality theorem must expose it
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.LocalityTests.AHistoryIsLinearizableIffEachKeysSubhistoryIs
+expect: caught

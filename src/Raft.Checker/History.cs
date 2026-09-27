@@ -3,7 +3,11 @@ using System.Collections.Generic;
 
 namespace Raft.Checker;
 
-/// <summary>The key-value operations of spec §6. Every operation touches exactly one key.</summary>
+/// <summary>
+/// The key-value operations of spec §6 (every operation touches exactly one key), and the FIFO
+/// queue operations of Herlihy &amp; Wing's Figure 1, used for their published examples. A queue
+/// operation's <see cref="Operation.Key"/> names the queue object.
+/// </summary>
 public enum OpKind
 {
     Get,
@@ -11,13 +15,15 @@ public enum OpKind
     Append,
     CompareAndSwap,
     Delete,
+    Enqueue,
+    Dequeue,
 }
 
 /// <summary>
 /// One client operation in a history. <see cref="Response"/> is null for an indeterminate operation
 /// (timeout, crash): it may or may not have taken effect, at any point after <see cref="Invoke"/>,
 /// and its output is unknown. Outputs: Get → the value, or null if absent; CompareAndSwap →
-/// "true"/"false"; Put, Append, Delete → null (they return no information).
+/// "true"/"false"; Dequeue → the item; Put, Append, Delete, Enqueue → null (no information).
 /// Real-time order: a precedes b iff a responded strictly before b was invoked.
 /// </summary>
 public sealed record Operation(
@@ -53,7 +59,7 @@ public static class History
                 problems.Add($"#{i}: responds before it is invoked");
             }
 
-            if (op.Kind is OpKind.Put or OpKind.Append or OpKind.CompareAndSwap && op.Value is null)
+            if (op.Kind is OpKind.Put or OpKind.Append or OpKind.CompareAndSwap or OpKind.Enqueue && op.Value is null)
             {
                 problems.Add($"#{i}: {op.Kind} needs a value");
             }
@@ -63,9 +69,14 @@ public static class History
                 problems.Add($"#{i}: a completed CompareAndSwap outputs true or false");
             }
 
-            if (!op.IsIndeterminate && op.Kind is OpKind.Put or OpKind.Append or OpKind.Delete && op.Output is not null)
+            if (!op.IsIndeterminate && op.Kind is OpKind.Put or OpKind.Append or OpKind.Delete or OpKind.Enqueue && op.Output is not null)
             {
                 problems.Add($"#{i}: {op.Kind} has no output");
+            }
+
+            if (!op.IsIndeterminate && op.Kind == OpKind.Dequeue && op.Output is null)
+            {
+                problems.Add($"#{i}: a completed Dequeue outputs the item");
             }
         }
 

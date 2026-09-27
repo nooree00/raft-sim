@@ -1,0 +1,38 @@
+diff --git a/src/Raft.Checker/KvModel.cs b/src/Raft.Checker/KvModel.cs
+index cc993dd..c65d0e2 100644
+--- a/src/Raft.Checker/KvModel.cs
++++ b/src/Raft.Checker/KvModel.cs
+@@ -15,28 +15,28 @@ public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
+     {
+         ArgumentNullException.ThrowIfNull(state);
+         ArgumentNullException.ThrowIfNull(op);
+-        var present = state.TryGetValue(op.Key, out var current);
++        var present = state.TryGetValue("k", out var current);
+         switch (op.Kind)
+         {
+             case OpKind.Get:
+                 return present ? current : null;
+             case OpKind.Put:
+-                state[op.Key] = op.Value!;
++                state["k"] = op.Value!;
+                 return null;
+             case OpKind.Append:
+-                state[op.Key] = (present ? current : "") + op.Value;
++                state["k"] = (present ? current : "") + op.Value;
+                 return null;
+             case OpKind.CompareAndSwap:
+                 // Expected null means "the key is absent".
+                 if (op.Expected is null ? !present : present && current == op.Expected)
+                 {
+-                    state[op.Key] = op.Value!;
++                    state["k"] = op.Value!;
+                     return "true";
+                 }
+ 
+                 return "false";
+             case OpKind.Delete:
+-                state.Remove(op.Key);
++                state.Remove("k");
+                 return null;
+             default:
+                 throw new ArgumentOutOfRangeException(nameof(op), op.Kind, "unknown operation");
