@@ -1,0 +1,5 @@
+description: The oracle accepts every history
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory(name: "stale-read")
+expect: caught

@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/History.cs b/src/Raft.Checker/History.cs
+index 52ed11f..7eb764c 100644
+--- a/src/Raft.Checker/History.cs
++++ b/src/Raft.Checker/History.cs
+@@ -32,7 +32,7 @@ public sealed record Operation(
+ {
+     public bool IsIndeterminate => Response is null;
+ 
+-    public bool Precedes(Operation other) => Response is { } r && r < other.Invoke;
++    public bool Precedes(Operation other) => Invoke < other.Invoke;
+ 
+     public override string ToString() =>
+         $"c{Client} {Kind}({Key}{(Expected is null ? "" : $", {Expected}")}{(Value is null ? "" : $", {Value}")}) " +

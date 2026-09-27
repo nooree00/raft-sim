@@ -1,0 +1,5 @@
+description: Indeterminate operations are treated as never having happened
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory(name: "indeterminate-write-observed")
+expect: caught

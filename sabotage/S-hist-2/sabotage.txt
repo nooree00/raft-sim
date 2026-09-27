@@ -1,0 +1,5 @@
+description: Real-time order by invocation instead of response-before-invocation: a read concurrent with an overwrite is wrongly ordered after it
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory(name: "read-concurrent-with-overwrite")
+expect: caught

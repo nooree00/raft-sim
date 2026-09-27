@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/BruteForceOracle.cs b/src/Raft.Checker/BruteForceOracle.cs
+index 80b03d1..7adb2bc 100644
+--- a/src/Raft.Checker/BruteForceOracle.cs
++++ b/src/Raft.Checker/BruteForceOracle.cs
+@@ -37,7 +37,7 @@ public static class BruteForceOracle
+             }
+         }
+ 
+-        return false;
++        return true;
+     }
+ 
+     private static bool Legal(IReadOnlyList<Operation> order)

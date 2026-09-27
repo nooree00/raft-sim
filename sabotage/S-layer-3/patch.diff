@@ -26,3 +26,20 @@ index 6afd678..7d8c711 100644
    }
  }
 \ No newline at end of file
+diff --git a/tests/Raft.Checker.Tests/packages.lock.json b/tests/Raft.Checker.Tests/packages.lock.json
+index af2d8b8..bc18d93 100644
+--- a/tests/Raft.Checker.Tests/packages.lock.json
++++ b/tests/Raft.Checker.Tests/packages.lock.json
+@@ -122,6 +122,12 @@
+         }
+       },
+       "raft.checker": {
++        "type": "Project",
++        "dependencies": {
++          "Raft.Core": "[1.0.0, )"
++        }
++      },
++      "raft.core": {
+         "type": "Project"
+       }
+     }
