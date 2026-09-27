@@ -1,12 +1,8 @@
 diff --git a/docs/phases/P0/breakdown.md b/docs/phases/P0/breakdown.md
-index 976166c..910758e 100644
+index 69d02e3..0472472 100644
 --- a/docs/phases/P0/breakdown.md
 +++ b/docs/phases/P0/breakdown.md
-@@ -61,7 +61,6 @@ enough by not rebuilding what a sabotage does not touch:
- ### P0-01 — Toolchain pin
- 
+@@ -63,3 +63,2 @@ enough by not rebuilding what a sabotage does not touch:
  - **Task:** `global.json` set to exactly 10.0.401 with `rollForward: latestPatch`; `Directory.Build.props` sets net10.0, C# 14, nullable, warnings-as-errors, pinned `AnalysisLevel`, deterministic builds; central package management with lock files and locked-mode restore in CI; CI image `mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29`.
 -- **Vacuity:** `global.json` exists but CI never consults it because it uses an SDK it installed itself; or warnings-as-errors is set in props and switched off by one csproj or by a `.targets` file.
  - **Sabotage:** S-tool-1, S-tool-2, S-tool-3
- - **Verifiable here:** yes — the same image digest runs locally under Docker.
- - **Prediction:** The SDK's analyzers together with the xUnit analyzers raise a warning-as-error in a test project on the very first build, most likely CA1707 on underscore test names. **Observable:** the first `dotnet build` fails in a test project, not in `src/`.
