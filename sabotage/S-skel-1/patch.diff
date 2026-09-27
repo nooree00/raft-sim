@@ -1,0 +1,12 @@
+diff --git a/Raft.slnx b/Raft.slnx
+index 6ebe69b..006645a 100644
+--- a/Raft.slnx
++++ b/Raft.slnx
+@@ -4,7 +4,6 @@
+     <Project Path="src/Raft.Core/Raft.Core.csproj" />
+     <Project Path="src/Raft.Host/Raft.Host.csproj" />
+     <Project Path="src/Raft.Kv/Raft.Kv.csproj" />
+-    <Project Path="src/Raft.Simulation/Raft.Simulation.csproj" />
+   </Folder>
+   <Folder Name="/tests/">
+     <Project Path="tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj" />

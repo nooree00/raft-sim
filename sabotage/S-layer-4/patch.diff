@@ -1,0 +1,8 @@
+diff --git a/src/Raft.Extra/Raft.Extra.csproj b/src/Raft.Extra/Raft.Extra.csproj
+new file mode 100644
+index 0000000..35e3d84
+--- /dev/null
++++ b/src/Raft.Extra/Raft.Extra.csproj
+@@ -0,0 +1,2 @@
++<Project Sdk="Microsoft.NET.Sdk">
++</Project>

@@ -1,0 +1,5 @@
+description: Core gains a direct project reference to Checker
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder
+expect: caught

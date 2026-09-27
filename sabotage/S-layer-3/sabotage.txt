@@ -1,0 +1,5 @@
+description: Checker, which must depend on nothing, references Core
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder
+expect: caught

@@ -1,0 +1,5 @@
+description: A project is dropped from the solution, so CI would never build it
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.LayeringTests.EveryProjectInTheTableIsInTheSolution
+expect: caught

@@ -1,0 +1,12 @@
+diff --git a/Directory.Build.props b/Directory.Build.props
+index cf707bd..e50b727 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -14,4 +14,7 @@
+     <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+   </PropertyGroup>
++  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Raft.Core'">
++    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Raft.Checker/Raft.Checker.csproj" />
++  </ItemGroup>
+ </Project>
