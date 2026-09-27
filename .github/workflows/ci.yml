@@ -10,6 +10,9 @@ on:
 
 permissions:
   contents: read
+  # gates reports / verify-run read workflow runs. Not needed while the repository is public
+  # (a probe without it succeeded), declared so the gate does not depend on that.
+  actions: read
 
 jobs:
   build:
