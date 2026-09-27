@@ -8,6 +8,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj" />
+    <Project Path="tests/Raft.Gates.Tests/Raft.Gates.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Raft.Gates/Raft.Gates.csproj" />

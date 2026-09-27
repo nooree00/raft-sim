@@ -3,4 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Raft.Gates.Tests" />
+  </ItemGroup>
 </Project>
