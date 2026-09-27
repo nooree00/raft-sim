@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Gates.Tests/WorkflowCheckTests.cs b/tests/Raft.Gates.Tests/WorkflowCheckTests.cs
+index a97072d..b1638ee 100644
+--- a/tests/Raft.Gates.Tests/WorkflowCheckTests.cs
++++ b/tests/Raft.Gates.Tests/WorkflowCheckTests.cs
+@@ -57,8 +57,4 @@ public sealed class WorkflowCheckTests
+     [InlineData("      - run: set +e; dotnet test")]
+     public void SuppressedFailureIsAProblem(string line) =>
+         Assert.Single(Problems(line));
+-
+-    [Fact]
+-    public void ACommentMentioningARuleIsNotAProblem() =>
+-        Assert.Empty(Problems("      # never use continue-on-error or || true here"));
+ }

@@ -1,0 +1,6 @@
+description: A test is deleted without touching the baseline
+kind: command
+build: yes
+command: scripts/ci-test.sh
+expect: caught
+message: Raft.Gates.Tests: 13 executed, baseline 14

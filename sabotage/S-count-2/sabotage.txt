@@ -1,0 +1,6 @@
+description: The test run stops writing TRX
+kind: command
+build: no
+command: scripts/ci-test.sh
+expect: caught
+message: no TRX files under TestResults

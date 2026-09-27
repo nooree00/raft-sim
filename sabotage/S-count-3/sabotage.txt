@@ -1,0 +1,6 @@
+description: Every test in one project is skipped
+kind: command
+build: yes
+command: scripts/ci-test.sh
+expect: caught
+message: Raft.Architecture.Tests: 0 executed
