@@ -124,6 +124,13 @@
       "raft.core": {
         "type": "Project"
       },
+      "raft.simrun": {
+        "type": "Project",
+        "dependencies": {
+          "Raft.Core": "[1.0.0, )",
+          "Raft.Simulation": "[1.0.0, )"
+        }
+      },
       "raft.simulation": {
         "type": "Project",
         "dependencies": {

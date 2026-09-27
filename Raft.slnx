@@ -14,5 +14,6 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Raft.Gates/Raft.Gates.csproj" />
+    <Project Path="tools/Raft.SimRun/Raft.SimRun.csproj" />
   </Folder>
 </Solution>

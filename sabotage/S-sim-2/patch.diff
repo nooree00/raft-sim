@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 9745dc8..67d1751 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -148,7 +148,7 @@ public sealed class Simulator
+     /// <summary>The persist barrier: release held effects, in order, whose barrier write is durable.</summary>
+     private void Release(Host h)
+     {
+-        while (h.Held.Count > 0 && h.Held.Peek().Barrier <= h.Disk.CompletedCount)
++        while (h.Held.Count > 0 && h.Held.Peek().Barrier <= long.MaxValue)
+         {
+             var (effect, _) = h.Held.Dequeue();
+             if (effect is Send s)

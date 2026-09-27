@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs the simulator in its own process (P1-08) and holds the trivial protocol it is tested
+       with, so the simulator never references the protocol it tests. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+  </ItemGroup>
+</Project>
