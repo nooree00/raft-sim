@@ -1,10 +1,3 @@
-diff --git a/docs/phases/P0/report.md b/docs/phases/P0/report.md
-new file mode 100644
-index 0000000..d0fb596
---- /dev/null
-+++ b/docs/phases/P0/report.md
-@@ -0,0 +1 @@
-+# report
 diff --git a/docs/phases/status.md b/docs/phases/status.md
 index ab4c377..1c71044 100644
 --- a/docs/phases/status.md

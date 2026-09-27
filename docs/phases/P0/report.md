@@ -57,7 +57,11 @@ Gates 39.
   The harness is 90% of the build job and grows about 9 s per code sabotage; at the current rate the
   15-minute ceiling is reached near 95 entries.
 - Shakedown runs on the sabotage branch before the working branch (runs 1, 5, 6, 8, 9) were red,
-  each for a reason recorded in `docs/findings.md`; no red commit reached the working branch.
+  each for a reason recorded in `docs/findings.md`.
+- **One red commit did reach the working branch**: this report's first version, `7380c6d`
+  (run [36337685451](https://github.com/nooree00/raft-sim/actions/runs/36337685451)). Committing
+  the report broke sabotage S-reg-1, whose patch created this file; I had pushed a docs-only commit
+  without running the harness. Fixed in the next commit; recorded in `docs/findings.md`.
   History on the sabotage branch was rewritten; the working branch's commits were only ever
   pushed after the same content ran green there.
 

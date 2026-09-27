@@ -41,3 +41,9 @@ finding: what happened, why no existing check caught it, what now catches it.
   occupied path. *Not caught* locally, where the checked commits predated those tests. *Caught by*
   CI's each-commit job on the first commit that contained them. *Now:* a unique path per run (the
   harness keeps its fixed path, which incremental builds need).
+- **A documentation commit turned the working branch red.** S-reg-1's patch created
+  `docs/phases/P0/report.md`; committing the real report made the patch stop applying, and CI run
+  36337685451 on `7380c6d` failed. *Not caught* because I pushed a docs-only commit without running
+  the harness, on the assumption that documentation cannot break it — false whenever a sabotage
+  patches documentation. *Now:* S-reg-1 no longer depends on the report's absence; and the harness
+  runs locally before every push, documentation included.
