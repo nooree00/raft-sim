@@ -1,0 +1,5 @@
+description: A type used only in a signature, never called: TypeRef scan, not member scan
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+expect: caught

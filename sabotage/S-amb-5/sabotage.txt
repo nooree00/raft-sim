@@ -1,0 +1,5 @@
+description: Core uses per-process-randomized string hashing
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.NoDeniedMemberIsReferenced
+expect: caught

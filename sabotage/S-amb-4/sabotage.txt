@@ -1,0 +1,5 @@
+description: Core creates a thread
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+expect: caught

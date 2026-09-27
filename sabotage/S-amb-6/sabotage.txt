@@ -1,0 +1,5 @@
+description: An ambient source nobody listed up front (Guid.NewGuid): the allowlist must fail closed
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+expect: caught
