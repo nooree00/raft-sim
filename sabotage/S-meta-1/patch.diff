@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/Term.cs b/src/Raft.Core/Term.cs
+index 0b5bcb2..836eed3 100644
+--- a/src/Raft.Core/Term.cs
++++ b/src/Raft.Core/Term.cs
+@@ -9,6 +9,8 @@ public readonly record struct Term(long Value) : IComparable<Term>
+ 
+     public Term Next() => new(checked(Value + 1));
+ 
++    internal static int Unused() => 0;
++
+     public int CompareTo(Term other) => Value.CompareTo(other.Value);
+ 
+     public static bool operator <(Term left, Term right) => left.Value < right.Value;

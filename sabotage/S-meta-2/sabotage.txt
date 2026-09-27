@@ -1,0 +1,5 @@
+description: Control: a patch that does not compile; the harness must report build-error, never caught
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.CoreIsARealImplementationAssemblyWithTypes
+expect: build-error

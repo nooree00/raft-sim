@@ -1,0 +1,7 @@
+diff --git a/src/Raft.Core/NOTES.txt b/src/Raft.Core/NOTES.txt
+new file mode 100644
+index 0000000..0000001
+--- /dev/null
++++ b/src/Raft.Core/NOTES.txt
+@@ -0,0 +1 @@
++Not compiled: this file changes no assembly.

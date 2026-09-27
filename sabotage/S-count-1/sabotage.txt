@@ -3,4 +3,4 @@ kind: command
 build: yes
 command: scripts/ci-test.sh
 expect: caught
-message: Raft.Gates.Tests: 13 executed, baseline 14
+message: — change ci/test-baseline.txt in the same commit if intended

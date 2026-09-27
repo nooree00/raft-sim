@@ -9,3 +9,101 @@ index 35d01f8..ed07ad2 100644
 +    <ProjectReference Include="../Raft.Checker/Raft.Checker.csproj" />
 +  </ItemGroup>
  </Project>
+diff --git a/src/Raft.Core/packages.lock.json b/src/Raft.Core/packages.lock.json
+index 6afd678..240b595 100644
+--- a/src/Raft.Core/packages.lock.json
++++ b/src/Raft.Core/packages.lock.json
+@@ -1,6 +1,10 @@
+ {
+   "version": 2,
+   "dependencies": {
+-    "net10.0": {}
++    "net10.0": {
++      "raft.checker": {
++        "type": "Project"
++      }
++    }
+   }
+ }
+\ No newline at end of file
+diff --git a/src/Raft.Host/packages.lock.json b/src/Raft.Host/packages.lock.json
+index cbb0024..f59fea4 100644
+--- a/src/Raft.Host/packages.lock.json
++++ b/src/Raft.Host/packages.lock.json
+@@ -2,9 +2,15 @@
+   "version": 2,
+   "dependencies": {
+     "net10.0": {
+-      "raft.core": {
++      "raft.checker": {
+         "type": "Project"
+       },
++      "raft.core": {
++        "type": "Project",
++        "dependencies": {
++          "Raft.Checker": "[1.0.0, )"
++        }
++      },
+       "raft.kv": {
+         "type": "Project",
+         "dependencies": {
+diff --git a/src/Raft.Kv/packages.lock.json b/src/Raft.Kv/packages.lock.json
+index 7d8c711..e9ee4bf 100644
+--- a/src/Raft.Kv/packages.lock.json
++++ b/src/Raft.Kv/packages.lock.json
+@@ -2,8 +2,14 @@
+   "version": 2,
+   "dependencies": {
+     "net10.0": {
+-      "raft.core": {
++      "raft.checker": {
+         "type": "Project"
++      },
++      "raft.core": {
++        "type": "Project",
++        "dependencies": {
++          "Raft.Checker": "[1.0.0, )"
++        }
+       }
+     }
+   }
+diff --git a/src/Raft.Simulation/packages.lock.json b/src/Raft.Simulation/packages.lock.json
+index 7d8c711..e9ee4bf 100644
+--- a/src/Raft.Simulation/packages.lock.json
++++ b/src/Raft.Simulation/packages.lock.json
+@@ -2,8 +2,14 @@
+   "version": 2,
+   "dependencies": {
+     "net10.0": {
+-      "raft.core": {
++      "raft.checker": {
+         "type": "Project"
++      },
++      "raft.core": {
++        "type": "Project",
++        "dependencies": {
++          "Raft.Checker": "[1.0.0, )"
++        }
+       }
+     }
+   }
+diff --git a/tests/Raft.Architecture.Tests/packages.lock.json b/tests/Raft.Architecture.Tests/packages.lock.json
+index a96d469..35c49f8 100644
+--- a/tests/Raft.Architecture.Tests/packages.lock.json
++++ b/tests/Raft.Architecture.Tests/packages.lock.json
+@@ -121,8 +121,14 @@
+           "xunit.v3.runner.common": "[4.0.1]"
+         }
+       },
+-      "raft.core": {
++      "raft.checker": {
+         "type": "Project"
++      },
++      "raft.core": {
++        "type": "Project",
++        "dependencies": {
++          "Raft.Checker": "[1.0.0, )"
++        }
+       }
+     }
+   }

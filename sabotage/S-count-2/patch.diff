@@ -1,12 +1,13 @@
 diff --git a/scripts/ci-test.sh b/scripts/ci-test.sh
-index 74f2bd9..6fc1ff9 100755
+index 9034459..1991c51 100755
 --- a/scripts/ci-test.sh
 +++ b/scripts/ci-test.sh
-@@ -5,6 +5,6 @@ set -euo pipefail
- cd "$(dirname "$0")/.."
- rm -rf TestResults
+@@ -9,7 +9,7 @@ rm -rf TestResults
  rc=0
--dotnet test --solution Raft.slnx --no-build --report-xunit-trx --results-directory TestResults || rc=$?
-+dotnet test --solution Raft.slnx --no-build --report-xunit-junit --results-directory TestResults || rc=$?
+ for project in tests/*/*.csproj; do
+   name=$(basename "$project" .csproj)
+-  dotnet test --project "$project" --no-build --report-xunit-trx --report-xunit-trx-filename "$name.trx" --results-directory TestResults || rc=$?
++  dotnet test --project "$project" --no-build --report-xunit-junit --results-directory TestResults || rc=$?
+ done
  dotnet tools/Raft.Gates/bin/Debug/net10.0/Raft.Gates.dll testcount --results TestResults
  exit "$rc"

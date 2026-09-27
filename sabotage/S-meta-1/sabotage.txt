@@ -1,0 +1,5 @@
+description: Control: a patch that changes the binary but not the behaviour under test; the harness must report it survived
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.CoreIsARealImplementationAssemblyWithTypes
+expect: survived

@@ -10,19 +10,25 @@ namespace Raft.Gates;
 /// kind: test — `project` and `target` (a test method's full name) must be recorded Failed.
 /// kind: command — `command` must exit non-zero with `message` in its output; `baseline`
 /// (default: the command) must pass unpatched. `build: yes|no` says whether to build after
-/// patching. `expect: caught | survived | build-error` (the last two only for the harness's
-/// own controls).
+/// patching. `expect: caught | survived | build-error | not-compiled-in` (all but the first only
+/// for the harness's own controls, S-meta-*).
 /// </summary>
 internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, string> Fields, string PatchPath)
 {
     public static readonly string[] Kinds = ["test", "command"];
-    public static readonly string[] Expectations = ["caught", "survived", "build-error"];
+    public static readonly string[] Expectations = ["caught", "survived", "build-error", "not-compiled-in"];
 
     public string Kind => Fields.GetValueOrDefault("kind", "");
 
     public string Expect => Fields.GetValueOrDefault("expect", "");
 
     public bool Build => Fields.GetValueOrDefault("build", "yes") == "yes";
+
+    /// <summary>
+    /// "no" for a patch whose target reads files at run time (a csproj, the solution) and so leaves
+    /// every assembly unchanged by design; the harness then skips its not-compiled-in guard.
+    /// </summary>
+    public bool ChangesAssemblies => Fields.GetValueOrDefault("changes-assemblies", "yes") == "yes";
 
     public string? Get(string key) => Fields.TryGetValue(key, out var v) ? v : null;
 
@@ -64,6 +70,7 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         f.Require(Kinds.Contains(spec.Kind), $"{id}: kind '{spec.Kind}' not one of {string.Join("/", Kinds)}");
         f.Require(Expectations.Contains(spec.Expect), $"{id}: expect '{spec.Expect}' not one of {string.Join("/", Expectations)}");
         f.Require(spec.Get("build") is null or "yes" or "no", $"{id}: build must be yes or no");
+        f.Require(spec.Get("changes-assemblies") is null or "yes" or "no", $"{id}: changes-assemblies must be yes or no");
         if (spec.Kind == "test")
         {
             f.Require(spec.Get("project") is { Length: > 0 } && spec.Get("target") is { Length: > 0 }, $"{id}: kind test needs project and target");

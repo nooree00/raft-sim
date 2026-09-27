@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -12,7 +13,10 @@ internal sealed record ProcessResult(int ExitCode, string StdOut, string StdErr)
 
 internal static class Proc
 {
-    public static ProcessResult Run(string file, string workingDirectory, params string[] args)
+    public static ProcessResult Run(string file, string workingDirectory, params string[] args) =>
+        RunWithEnv(file, workingDirectory, new Dictionary<string, string>(), args);
+
+    public static ProcessResult RunWithEnv(string file, string workingDirectory, IReadOnlyDictionary<string, string> env, params string[] args)
     {
         var psi = new ProcessStartInfo(file)
         {
@@ -23,6 +27,11 @@ internal static class Proc
         foreach (var a in args)
         {
             psi.ArgumentList.Add(a);
+        }
+
+        foreach (var (k, v) in env)
+        {
+            psi.Environment[k] = v;
         }
 
         using var p = Process.Start(psi)!;

@@ -3,3 +3,4 @@ kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder
 expect: caught
+changes-assemblies: no
