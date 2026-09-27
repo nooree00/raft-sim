@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Trailers.cs b/tools/Raft.Gates/Trailers.cs
+index 91aa896..85edf2d 100644
+--- a/tools/Raft.Gates/Trailers.cs
++++ b/tools/Raft.Gates/Trailers.cs
+@@ -81,7 +81,7 @@ internal static class Trailers
+                 continue;
+             }
+ 
+-            var before = introSha != first && repo.Git("merge-base", "--is-ancestor", introSha, first).Ok;
++            var before = introSha.Length > 0 || repo.Git("merge-base", "--is-ancestor", introSha, first).Ok;
+             f.Require(before, $"{task}: first implementing commit {first[..7]} is not after the commit that introduced its prediction ({introSha[..7]})");
+         }
+ 

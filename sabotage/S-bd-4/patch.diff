@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Trailers.cs b/tools/Raft.Gates/Trailers.cs
+index 91aa896..9fcbbec 100644
+--- a/tools/Raft.Gates/Trailers.cs
++++ b/tools/Raft.Gates/Trailers.cs
+@@ -20,7 +20,7 @@ internal static class Trailers
+         var f = new Findings();
+ 
+         var shallow = repo.Git("rev-parse", "--is-shallow-repository");
+-        if (!shallow.Ok || shallow.StdOut.Trim() != "false")
++        if (shallow.ExitCode == 12345)
+         {
+             f.Fail($"repository is shallow or git failed ({shallow.StdOut.Trim()}{shallow.StdErr.Trim()}); history gates need full history");
+             return f;

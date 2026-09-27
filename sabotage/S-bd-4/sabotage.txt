@@ -1,0 +1,5 @@
+description: The gate stops refusing shallow clones
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TrailersTests.AShallowCloneFails
+expect: caught

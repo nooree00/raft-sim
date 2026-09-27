@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Trailers.cs b/tools/Raft.Gates/Trailers.cs
+index 91aa896..d80cf38 100644
+--- a/tools/Raft.Gates/Trailers.cs
++++ b/tools/Raft.Gates/Trailers.cs
+@@ -120,7 +120,7 @@ internal static class Trailers
+             var sha = parts[0];
+             var parents = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+             var tasks = parts[3].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+-            var paths = repo.Git("diff-tree", "--no-commit-id", "--name-only", "-r", "--root", sha)
++            var paths = repo.Git("diff-tree", "--no-commit-id", "--name-only", "-r", sha)
+                 .StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+             commits.Add(new Commit(sha, parts[2], parents.Length > 1, tasks, paths));
+         }

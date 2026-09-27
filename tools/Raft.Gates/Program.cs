@@ -9,6 +9,8 @@ internal static class Program
     private static readonly Dictionary<string, (string Help, Func<Repo, string[], Findings> Run)> Commands = new(StringComparer.Ordinal)
     {
         ["preflight"] = ("environment and pinning checks (spec §3, §10)", Preflight.Run),
+        ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
+        ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),
         ["testcount"] = ("per-project executed-test counts against ci/test-baseline.txt", TestCount.Run),
     };
 

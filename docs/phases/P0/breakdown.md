@@ -98,7 +98,7 @@ enough by not rebuilding what a sabotage does not touch:
 
 - **Task:** `gates preflight`, first in CI and runnable locally: `dotnet --version` equals `global.json`; `rollForward` is `latestPatch`; the workflow's image literal equals `ci/image.digest`; evaluated warnings-as-errors, nullable, language version and analysis level for every project; a lock file per project; no `continue-on-error` and no `|| true` in the workflows; full (non-shallow) history.
 - **Vacuity:** Comparing a value with itself (for example `global.json` against a copy of `global.json`); the per-project loop finds no projects; the workflow checks are text patterns, a known weakness.
-- **Sabotage:** S-pre-1, S-pre-2, S-pre-3, S-pre-4, S-pre-5
+- **Sabotage:** S-pre-1, S-pre-2, S-pre-3, S-pre-4, S-pre-5, S-pre-6
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** `dotnet msbuild -getProperty` reports a property's value at evaluation time, before any target runs, so a value overridden inside a *target* in `Directory.Build.targets` will not show. **Observable:** a target-based variant of S-pre-3 survives, and the value has to be read from the compiler invocation instead.
 - **Outcome:** pending

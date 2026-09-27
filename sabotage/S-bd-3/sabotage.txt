@@ -1,0 +1,5 @@
+description: The gate stops checking that the prediction came first
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TrailersTests.ImplementationBeforeThePredictionFails
+expect: caught

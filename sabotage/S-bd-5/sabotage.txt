@@ -1,0 +1,5 @@
+description: diff-tree without --root: a root commit shows no paths and is exempted (P0-07's prediction)
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TrailersTests.ARootCommitThatAddsCodeNeedsATrailer
+expect: caught

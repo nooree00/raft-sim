@@ -1,0 +1,6 @@
+description: A task loses its vacuity risk
+kind: command
+build: no
+command: dotnet "$GATES" breakdown
+expect: caught
+message: P0-01: missing field Vacuity

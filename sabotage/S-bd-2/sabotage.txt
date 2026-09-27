@@ -1,0 +1,6 @@
+description: A started task names a sabotage with no entry
+kind: command
+build: no
+command: dotnet "$GATES" breakdown
+expect: caught
+message: P0-02: sabotage S-skel-9 has no sabotage/S-skel-9/ entry

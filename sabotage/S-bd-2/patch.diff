@@ -1,0 +1,13 @@
+diff --git a/docs/phases/P0/breakdown.md b/docs/phases/P0/breakdown.md
+index 976166c..de19fcc 100644
+--- a/docs/phases/P0/breakdown.md
++++ b/docs/phases/P0/breakdown.md
+@@ -71,7 +71,7 @@ enough by not rebuilding what a sabotage does not touch:
+ 
+ - **Task:** The `src/` projects of spec §4 (Core, Simulation, Checker, Kv, Host), `tools/Raft.Gates`, and only the test projects with real content this phase: Architecture.Tests, Gates.Tests, Checker.Tests. One solution file.
+ - **Vacuity:** Projects exist on disk but not in the solution, so CI never builds them.
+-- **Sabotage:** S-skel-1
++- **Sabotage:** S-skel-9
+ - **Verifiable here:** yes — local build and the layering test.
+ - **Prediction:** The templates enable `ImplicitUsings`, which brings `System.Threading.Tasks` and `System.Net.Http` into scope in Core, so Core gets ambient namespaces by default. **Observable:** the P0-04 scan flags a reference as soon as a real type uses one; I disable implicit usings in Core.
+ - **Outcome:** pending
