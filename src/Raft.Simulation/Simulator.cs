@@ -21,6 +21,8 @@ public sealed class Simulator
     private readonly List<LinkFault> _armed = [];
     private readonly HashSet<(NodeId From, NodeId To)> _blocked = [];
     private readonly Dictionary<(NodeId From, NodeId To), Action> _held = [];
+    private readonly Dictionary<(NodeId From, NodeId To), long> _lastDelivery = [];
+    private bool _fifo;
     private long _now;
     private long _messageSeq;
 
@@ -152,6 +154,9 @@ public sealed class Simulator
                     ph.Paused = true;
                 }
 
+                break;
+            case Fifo:
+                _fifo = true;
                 break;
             case Unpause re:
                 ResumeNode(_hosts[re.Node.Value - 1]);
@@ -353,6 +358,12 @@ public sealed class Simulator
         // A message held by an earlier Reorder on this link is released just after this one arrives.
         var releaseHeld = _held.Remove(link, out var held) ? held : null;
         var deliverAt = _now + delay;
+        if (_fifo)
+        {
+            // In send order: never before the previous message on this link.
+            deliverAt = System.Math.Max(deliverAt, _lastDelivery.GetValueOrDefault(link) + 1);
+            _lastDelivery[link] = deliverAt;
+        }
 
         switch (TakeArmed(from, s.To))
         {

@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/FaultGenerator.cs b/src/Raft.Simulation/FaultGenerator.cs
+index 17fdfa6..9089f53 100644
+--- a/src/Raft.Simulation/FaultGenerator.cs
++++ b/src/Raft.Simulation/FaultGenerator.cs
+@@ -125,7 +125,7 @@ public static class FaultGenerator
+                     faults.Add(new Restart(at + Within(crash, 100, 3_000), n));
+                 }
+ 
+-                if (Chance(pause, config.Pause))
++                if (Chance(pause, config.Pause * 0))
+                 {
+                     var at = w + pause.NextLong(config.Window);
+                     faults.Add(new Pause(at, n));

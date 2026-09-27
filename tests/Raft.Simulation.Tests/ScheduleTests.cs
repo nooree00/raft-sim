@@ -25,7 +25,7 @@ public sealed class ScheduleTests
         new Drop(10, N1, N2), new Duplicate(20, N2, N3), new Delay(30, N3, N1, 77), new Reorder(40, N1, N3),
         new Partition(50, N2, N1), new Heal(60, N2, N1), new Crash(70, N3, DiskLoss.Torn), new Restart(80, N3),
         new SlowDisk(90, N1, 33, 190), new BarrierViolation(100, N2, 200), new Pause(110, N3), new Unpause(120, N3),
-        new Skew(0, N1, 11, 10),
+        new Skew(0, N1, 11, 10), new Fifo(0),
     ];
 
     private static string Run(FaultSchedule s, ulong seed, long duration) =>
@@ -40,7 +40,7 @@ public sealed class ScheduleTests
 
         Assert.Equal(header, h);
         Assert.Equal(OneOfEach, parsed.Faults);
-        Assert.Equal(13, typeof(Fault).Assembly.GetTypes().Count(t => t.IsSubclassOf(typeof(Fault)) && !t.IsAbstract));
+        Assert.Equal(OneOfEach.Length, typeof(Fault).Assembly.GetTypes().Count(t => t.IsSubclassOf(typeof(Fault)) && !t.IsAbstract));
     }
 
     [Fact]
@@ -83,11 +83,16 @@ public sealed class ScheduleTests
             "BarrierViolation" => [new SlowDisk(0, N1, 50, 20_000), new BarrierViolation(5_000, N1, 8_000)],
             "Pause" => [new Pause(5_000, N1), new Unpause(7_000, N1)],
             "Skew" => [new Skew(0, N1, 12, 10)],
+            "Fifo" => [new Fifo(0)],
             _ => throw new ArgumentException(kind),
         };
+        // Jitter reorders only when two messages on a link fall within a few units of each other,
+        // which depends on the nodes' random phases: for FIFO, use a seed whose baseline does reorder.
+        var seed = kind != "Fifo" ? 3UL : Enumerable.Range(1, 100).Select(i => (ulong)i).First(sd =>
+            Coverage.Of(Run(FaultSchedule.Empty, sd, 20_000).Split('\n').Where(l => l.Length > 0).ToList()).Contains("reordered-delivered"));
         var (_, parsed) = ScheduleText.Read(ScheduleText.Write(new ScheduleText.Header(3, 20_000, 3, "x", "y"), new FaultSchedule(faults)));
-        var t = TraceLine.Parse(Run(parsed, 3, 20_000).Split('\n').Where(l => l.Length > 0));
-        var baseline = TraceLine.Parse(Run(FaultSchedule.Empty, 3, 20_000).Split('\n').Where(l => l.Length > 0));
+        var t = TraceLine.Parse(Run(parsed, seed, 20_000).Split('\n').Where(l => l.Length > 0));
+        var baseline = TraceLine.Parse(Run(FaultSchedule.Empty, seed, 20_000).Split('\n').Where(l => l.Length > 0));
         int Count(List<TraceLine> tr, string k) => tr.Count(l => l.Kind == k);
 
         var effect = kind switch
@@ -104,10 +109,15 @@ public sealed class ScheduleTests
             "BarrierViolation" => SendsWhileWriting(t) > 0,
             "Pause" => Count(t, "RESUME") == 1 && Count(t, "BACKLOG") > 0,
             "Skew" => t.Count(l => l.Node == "n1" && l.Kind == "PERSIST") > baseline.Count(l => l.Node == "n1" && l.Kind == "PERSIST") * 11 / 10,
+            // FIFO links: no reordering at all, where the jittered baseline reorders.
+            "Fifo" => !Coverage.Of(t.Select(Line).ToList()).Contains("reordered-delivered") && Coverage.Of(baseline.Select(Line).ToList()).Contains("reordered-delivered"),
             _ => false,
         };
-        Assert.True(effect, $"{kind}: no effect in the trace of its parsed schedule");
+        Assert.True(effect, $"{kind}: no effect in the trace of its parsed schedule; coverage with [{string.Join(",", Coverage.Of(t.Select(Line).ToList()))}], without [{string.Join(",", Coverage.Of(baseline.Select(Line).ToList()))}]");
     }
+
+    private static string Line(TraceLine l) =>
+        $"{l.Time:D10} {l.Node} {l.Kind} " + string.Join(' ', l.Fields.Select(kv => $"{kv.Key}={kv.Value}"));
 
     private static long MaxWriteLatency(List<TraceLine> t)
     {

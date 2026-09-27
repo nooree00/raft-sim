@@ -18,8 +18,10 @@ public sealed class SimulationAmbientDependencyTests
     /// <summary>Beyond Core's allowlist (and Raft.Core's own types, a scanned, closed assembly).</summary>
     private static readonly HashSet<string> Extras = new(StringComparer.Ordinal)
     {
-        // Deterministic collections. Hashed sets and maps are used for membership only, never
-        // enumerated for output; the cross-process trace comparison covers what this cannot see.
+        // Deterministic collections. Hashed sets and maps are used for membership, and enumerated only
+        // for order-independent aggregates (Coverage: "is any link reordered", min/max of write
+        // counts) — never to order output. The cross-process trace comparison covers what this
+        // cannot see.
         "System.Collections.Generic.HashSet`1", "System.Collections.Generic.PriorityQueue`2",
         "System.Collections.Generic.Queue`1", "System.Collections.Generic.SortedDictionary`2",
         "System.Collections.Generic.SortedDictionary`2+Enumerator", "System.Collections.Generic.List`1+Enumerator",
@@ -28,7 +30,8 @@ public sealed class SimulationAmbientDependencyTests
         "System.Collections.Generic.IEqualityComparer`1", "System.Collections.Generic.IList`1",
         "System.Collections.Generic.IReadOnlyCollection`1", "System.Collections.Generic.CollectionExtensions",
         "System.Collections.ICollection", "System.Collections.IEnumerable", "System.Collections.IEnumerator",
-        "System.Collections.IList",
+        "System.Collections.IList", "System.Collections.Generic.Dictionary`2+Enumerator",
+        "System.Collections.Generic.Dictionary`2+ValueCollection", "System.Collections.Generic.IReadOnlySet`1",
         // Delegates, tuples, slicing, attributes and exceptions the compiler emits.
         "System.Action", "System.Func`1", "System.Func`2", "System.Predicate`1", "System.ValueTuple`2",
         "System.Index", "System.Range", "System.MemoryExtensions", "System.IndexOutOfRangeException",

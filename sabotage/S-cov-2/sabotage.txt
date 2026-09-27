@@ -1,0 +1,5 @@
+description: The runner drops torn writes while the schedule still contains Torn crashes: coverage measured from effects must fall to zero
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheGeneratedDistributionCoversEveryDimension
+expect: caught

@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 8e1cedf..4f87bf9 100644
+index 03f6906..84822c9 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -146,15 +146,14 @@ public sealed class Simulator
+@@ -148,18 +148,17 @@ public sealed class Simulator
                  _hosts[bv.Node.Value - 1].ViolateBarrierUntil = bv.Until;
                  break;
              case Pause pa:
@@ -13,6 +13,9 @@ index 8e1cedf..4f87bf9 100644
 -                }
 +                CrashNode(_hosts[pa.Node.Value - 1], DiskLoss.Pending);
  
+                 break;
+             case Fifo:
+                 _fifo = true;
                  break;
              case Unpause re:
 -                ResumeNode(_hosts[re.Node.Value - 1]);

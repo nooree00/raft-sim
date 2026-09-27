@@ -1,0 +1,5 @@
+description: The generator never produces a pause
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheGeneratedDistributionCoversEveryDimension
+expect: caught

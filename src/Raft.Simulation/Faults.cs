@@ -73,6 +73,12 @@ public sealed record Unpause(long At, NodeId Node) : NodeFault(At, Node);
 /// <summary>From <c>At</c>, the node perceives <c>Numerator</c>/<c>Denominator</c> units per real unit.</summary>
 public sealed record Skew(long At, NodeId Node, long Numerator, long Denominator) : NodeFault(At, Node);
 
+/// <summary>
+/// From <c>At</c>, every link delivers in send order (TCP-like), except where an explicit Reorder
+/// fault says otherwise. Without it, delay jitter reorders messages sent close together.
+/// </summary>
+public sealed record Fifo(long At) : Fault(At);
+
 /// <summary>An explicit list of faults.</summary>
 public sealed record FaultSchedule(IReadOnlyList<Fault> Faults)
 {

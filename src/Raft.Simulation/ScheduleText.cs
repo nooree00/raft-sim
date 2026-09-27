@@ -86,6 +86,7 @@ public static class ScheduleText
         Pause p => Node("Pause", p),
         Unpause u => Node("Unpause", u),
         Skew s => Node("Skew", s) + " num=" + Num(s.Numerator) + " den=" + Num(s.Denominator),
+        Fifo x => "Fifo at=" + Num(x.At),
         _ => throw new ArgumentException("unknown fault " + f.GetType().Name),
     };
 
@@ -111,6 +112,7 @@ public static class ScheduleText
             "Pause" => new Pause(at, N("node")),
             "Unpause" => new Unpause(at, N("node")),
             "Skew" => new Skew(at, N("node"), L("num"), L("den")),
+            "Fifo" => new Fifo(at),
             _ => throw new FormatException("unknown fault kind in '" + line + "'"),
         };
     }

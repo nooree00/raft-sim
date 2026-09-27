@@ -35,6 +35,9 @@ public sealed record GeneratorConfig
 
     public int SlowDisk { get; init; } = 150;
 
+    /// <summary>Chance per run of FIFO links (TCP-like delivery in send order).</summary>
+    public int Fifo { get; init; } = 4_000;
+
     /// <summary>Chance per node, per run, of a skewed clock.</summary>
     public int Skew { get; init; } = 3_000;
 
@@ -43,7 +46,7 @@ public sealed record GeneratorConfig
     /// <summary>A stable hash of every setting, recorded in each reproduction artifact.</summary>
     public string Hash()
     {
-        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Controls ? 1 : 0 }
+        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Fifo, Controls ? 1 : 0 }
             .Select(v => v.ToString(CultureInfo.InvariantCulture)));
         return Mix.Hash(text).ToString("x16", CultureInfo.InvariantCulture);
     }
@@ -64,6 +67,11 @@ public static class FaultGenerator
             (R("drop"), R("dup"), R("delay"), R("reorder"), R("partition"), R("crash"), R("pause"), R("slow"), R("skew"));
         bool Chance(IRandomSource r, int per10k) => r.NextLong(10_000) < per10k;
         long Within(IRandomSource r, long lo, long hi) => lo + r.NextLong(hi - lo + 1);
+
+        if (Chance(R("fifo"), config.Fifo))
+        {
+            faults.Add(new Fifo(0));
+        }
 
         foreach (var n in nodes)
         {

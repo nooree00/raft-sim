@@ -1,0 +1,5 @@
+description: The one-measurement-two-names rule is disabled
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectZeroFullAndIdenticalSetsButNotCoincidentalCounts
+expect: caught
