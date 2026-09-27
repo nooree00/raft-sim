@@ -1,0 +1,5 @@
+description: A drop is recorded but the message is still delivered
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.NetworkFaultTests.ADroppedMessageNeverReachesItsReceiver
+expect: caught

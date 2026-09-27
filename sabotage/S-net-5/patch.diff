@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Agenda.cs b/src/Raft.Simulation/Agenda.cs
+index 6783cbd..561e4e1 100644
+--- a/src/Raft.Simulation/Agenda.cs
++++ b/src/Raft.Simulation/Agenda.cs
+@@ -16,7 +16,7 @@ public sealed class Agenda
+ 
+     public int Count => _heap.Count;
+ 
+-    public void Enqueue(long time, Action action) => _heap.Enqueue(action, (time, ++_seq));
++    public void Enqueue(long time, Action action) => _heap.Enqueue(action, (time, ++_seq * 0));
+ 
+     public bool TryDequeue(out Action action, out long time)
+     {

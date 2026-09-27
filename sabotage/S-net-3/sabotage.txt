@@ -1,0 +1,5 @@
+description: A duplicate is recorded but only one copy is delivered
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.NetworkFaultTests.ADuplicatedMessageArrivesExactlyTwice
+expect: caught

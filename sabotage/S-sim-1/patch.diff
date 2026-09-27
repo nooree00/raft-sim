@@ -1,14 +1,12 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 9745dc8..4729d26 100644
+index 8e1cedf..d0f9c50 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -166,7 +166,8 @@ public sealed class Simulator
-         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
-         var to = _hosts[s.To.Value - 1];
-         var payload = s.Payload;
--        At(_now + delay, () =>
-+        for (var copy = 0; copy < 2; copy++)
-+        At(_now + delay + copy, () =>
-         {
-             if (to.Node is null)
-             {
+@@ -374,6 +374,7 @@ public sealed class Simulator
+                 break;
+             default:
+                 At(deliverAt, Deliver);
++                At(deliverAt + 1, Deliver);
+                 break;
+         }
+ 

@@ -15,17 +15,21 @@ public sealed class Simulator
     private readonly SimulationConfig _config;
     private readonly NodeFactory _factory;
     private readonly Streams _streams;
-    private readonly PriorityQueue<Action, (long Time, long Seq)> _queue = new();
+    private readonly Agenda _queue = new();
     private readonly List<Host> _hosts = [];
-    private long _seq;
+    private readonly FaultSchedule _schedule;
+    private readonly List<LinkFault> _armed = [];
+    private readonly HashSet<(NodeId From, NodeId To)> _blocked = [];
+    private readonly Dictionary<(NodeId From, NodeId To), Action> _held = [];
     private long _now;
     private long _messageSeq;
 
-    public Simulator(SimulationConfig config, NodeFactory factory, ulong seed)
+    public Simulator(SimulationConfig config, NodeFactory factory, ulong seed, FaultSchedule? schedule = null)
     {
         _config = config;
         _factory = factory;
         _streams = new Streams(seed);
+        _schedule = schedule ?? FaultSchedule.Empty;
     }
 
     public Trace Trace { get; } = new();
@@ -67,9 +71,14 @@ public sealed class Simulator
             ScheduleTick(h, _config.TickInterval);
         }
 
-        while (_queue.TryDequeue(out var action, out var key) && key.Time <= _config.Duration)
+        foreach (var fault in _schedule.Faults)
         {
-            _now = key.Time;
+            At(fault.At, () => Inject(fault));
+        }
+
+        while (_queue.TryDequeue(out var action, out var time) && time <= _config.Duration)
+        {
+            _now = time;
             action();
         }
 
@@ -81,7 +90,46 @@ public sealed class Simulator
         return Trace;
     }
 
-    private void At(long time, Action action) => _queue.Enqueue(action, (time, ++_seq));
+    private void At(long time, Action action) => _queue.Enqueue(time, action);
+
+    private void Inject(Fault fault)
+    {
+        Trace.Add(_now, "sim", "FAULT", ("kind", fault.GetType().Name), ("detail", Describe(fault)));
+        switch (fault)
+        {
+            case Partition p:
+                _blocked.Add((p.From, p.To));
+                break;
+            case Heal h:
+                _blocked.Remove((h.From, h.To));
+                break;
+            case LinkFault lf:
+                _armed.Add(lf);
+                break;
+            default:
+                throw new System.ArgumentException($"unknown fault {fault.GetType().Name}");
+        }
+    }
+
+    private static string Describe(Fault f) => f switch
+    {
+        LinkFault l => $"{l.From}->{l.To}",
+        _ => "-",
+    };
+
+    /// <summary>The earliest armed one-shot fault on a link, consumed by the first message it meets.</summary>
+    private LinkFault? TakeArmed(NodeId from, NodeId to)
+    {
+        var i = _armed.FindIndex(f => f.From == from && f.To == to);
+        if (i < 0)
+        {
+            return null;
+        }
+
+        var f = _armed[i];
+        _armed.RemoveAt(i);
+        return f;
+    }
 
     private void Start(Host h, IReadOnlyList<NodeId> ids)
     {
@@ -163,10 +211,17 @@ public sealed class Simulator
         var id = ++_messageSeq;
         var delay = Between($"delay:{from}->{s.To}", (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
         var hash = SimDisk.HashBytes(s.Payload.Span);
+        var link = (from, s.To);
         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
+        if (_blocked.Contains(link))
+        {
+            Trace.Add(_now, from.ToString(), "BLOCKED", ("to", s.To.ToString()), ("id", id));
+            return;
+        }
+
         var to = _hosts[s.To.Value - 1];
         var payload = s.Payload;
-        At(_now + delay, () =>
+        void Deliver()
         {
             if (to.Node is null)
             {
@@ -176,7 +231,39 @@ public sealed class Simulator
 
             Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
             Handle(to, new Receive(from, payload));
-        });
+        }
+
+        // A message held by an earlier Reorder on this link is released just after this one arrives.
+        var releaseHeld = _held.Remove(link, out var held) ? held : null;
+        var deliverAt = _now + delay;
+
+        switch (TakeArmed(from, s.To))
+        {
+            case Drop:
+                Trace.Add(_now, from.ToString(), "DROP", ("to", s.To.ToString()), ("id", id));
+                break;
+            case Duplicate:
+                Trace.Add(_now, from.ToString(), "DUP", ("to", s.To.ToString()), ("id", id));
+                At(deliverAt, Deliver);
+                At(deliverAt + 1, Deliver);
+                break;
+            case Delay d:
+                Trace.Add(_now, from.ToString(), "DELAYED", ("to", s.To.ToString()), ("id", id), ("extra", d.Extra));
+                At(deliverAt + d.Extra, Deliver);
+                break;
+            case Reorder:
+                Trace.Add(_now, from.ToString(), "HELD", ("to", s.To.ToString()), ("id", id));
+                _held[link] = Deliver;
+                break;
+            default:
+                At(deliverAt, Deliver);
+                break;
+        }
+
+        if (releaseHeld is not null)
+        {
+            At(deliverAt + 1, releaseHeld);
+        }
     }
 
     private long Between(string purpose, ulong index, long min, long max) =>

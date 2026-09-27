@@ -1,0 +1,5 @@
+description: Partitions are symmetric: asymmetric partitions cannot be expressed
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.NetworkFaultTests.AnAsymmetricPartitionBlocksOneDirectionOnlyAndHealingRestoresIt
+expect: caught

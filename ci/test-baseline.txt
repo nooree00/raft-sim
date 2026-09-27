@@ -3,4 +3,4 @@
 Raft.Architecture.Tests 35
 Raft.Gates.Tests 43
 Raft.Checker.Tests 53
-Raft.Simulation.Tests 11
+Raft.Simulation.Tests 17

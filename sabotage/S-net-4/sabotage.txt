@@ -1,0 +1,5 @@
+description: Healing does nothing: a partition is permanent
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.NetworkFaultTests.AnAsymmetricPartitionBlocksOneDirectionOnlyAndHealingRestoresIt
+expect: caught
