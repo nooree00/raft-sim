@@ -1,0 +1,206 @@
+diff --git a/Directory.Packages.props b/Directory.Packages.props
+index 12103ba..522321d 100644
+--- a/Directory.Packages.props
++++ b/Directory.Packages.props
+@@ -2,5 +2,6 @@
+   <!-- Approved dependencies only (spec §12). Anything consensus-shaped: no. -->
+   <ItemGroup>
+     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />
++    <PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
+   </ItemGroup>
+ </Project>
+diff --git a/src/Raft.Core/Raft.Core.csproj b/src/Raft.Core/Raft.Core.csproj
+index 35d01f8..ccac0ef 100644
+--- a/src/Raft.Core/Raft.Core.csproj
++++ b/src/Raft.Core/Raft.Core.csproj
+@@ -1,3 +1,6 @@
+ <Project Sdk="Microsoft.NET.Sdk">
+   <!-- The algorithm. BCL only; no I/O, clock, threads, randomness (spec §4). -->
++  <ItemGroup>
++    <PackageReference Include="xunit.v3.assert" />
++  </ItemGroup>
+ </Project>
+diff --git a/src/Raft.Core/packages.lock.json b/src/Raft.Core/packages.lock.json
+index 6afd678..3ebff09 100644
+--- a/src/Raft.Core/packages.lock.json
++++ b/src/Raft.Core/packages.lock.json
+@@ -1,6 +1,13 @@
+ {
+   "version": 2,
+   "dependencies": {
+-    "net10.0": {}
++    "net10.0": {
++      "xunit.v3.assert": {
++        "type": "Direct",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
++      }
++    }
+   }
+ }
+\ No newline at end of file
+diff --git a/src/Raft.Host/packages.lock.json b/src/Raft.Host/packages.lock.json
+index cbb0024..4c392fa 100644
+--- a/src/Raft.Host/packages.lock.json
++++ b/src/Raft.Host/packages.lock.json
+@@ -3,13 +3,22 @@
+   "dependencies": {
+     "net10.0": {
+       "raft.core": {
+-        "type": "Project"
++        "type": "Project",
++        "dependencies": {
++          "xunit.v3.assert": "[4.0.1, )"
++        }
+       },
+       "raft.kv": {
+         "type": "Project",
+         "dependencies": {
+           "Raft.Core": "[1.0.0, )"
+         }
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }
+diff --git a/src/Raft.Kv/packages.lock.json b/src/Raft.Kv/packages.lock.json
+index 7d8c711..161be79 100644
+--- a/src/Raft.Kv/packages.lock.json
++++ b/src/Raft.Kv/packages.lock.json
+@@ -3,7 +3,16 @@
+   "dependencies": {
+     "net10.0": {
+       "raft.core": {
+-        "type": "Project"
++        "type": "Project",
++        "dependencies": {
++          "xunit.v3.assert": "[4.0.1, )"
++        }
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }
+diff --git a/src/Raft.Simulation/packages.lock.json b/src/Raft.Simulation/packages.lock.json
+index 7d8c711..161be79 100644
+--- a/src/Raft.Simulation/packages.lock.json
++++ b/src/Raft.Simulation/packages.lock.json
+@@ -3,7 +3,16 @@
+   "dependencies": {
+     "net10.0": {
+       "raft.core": {
+-        "type": "Project"
++        "type": "Project",
++        "dependencies": {
++          "xunit.v3.assert": "[4.0.1, )"
++        }
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }
+diff --git a/tests/Raft.Architecture.Tests/packages.lock.json b/tests/Raft.Architecture.Tests/packages.lock.json
+index a96d469..4802c27 100644
+--- a/tests/Raft.Architecture.Tests/packages.lock.json
++++ b/tests/Raft.Architecture.Tests/packages.lock.json
+@@ -68,11 +68,6 @@
+         "resolved": "2.1.0",
+         "contentHash": "X7QXEcZQGz0G/HL4HUyK+aAvNa/IMGbOCnFIq4jD/Evktq12xANKwzOUr7b08vCmC1LXu/47qHWOdjm3KfaJ0A=="
+       },
+-      "xunit.v3.assert": {
+-        "type": "Transitive",
+-        "resolved": "4.0.1",
+-        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+-      },
+       "xunit.v3.common": {
+         "type": "Transitive",
+         "resolved": "4.0.1",
+@@ -122,7 +117,16 @@
+         }
+       },
+       "raft.core": {
+-        "type": "Project"
++        "type": "Project",
++        "dependencies": {
++          "xunit.v3.assert": "[4.0.1, )"
++        }
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }
+diff --git a/tests/Raft.Checker.Tests/packages.lock.json b/tests/Raft.Checker.Tests/packages.lock.json
+index af2d8b8..92690a3 100644
+--- a/tests/Raft.Checker.Tests/packages.lock.json
++++ b/tests/Raft.Checker.Tests/packages.lock.json
+@@ -68,11 +68,6 @@
+         "resolved": "2.1.0",
+         "contentHash": "X7QXEcZQGz0G/HL4HUyK+aAvNa/IMGbOCnFIq4jD/Evktq12xANKwzOUr7b08vCmC1LXu/47qHWOdjm3KfaJ0A=="
+       },
+-      "xunit.v3.assert": {
+-        "type": "Transitive",
+-        "resolved": "4.0.1",
+-        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+-      },
+       "xunit.v3.common": {
+         "type": "Transitive",
+         "resolved": "4.0.1",
+@@ -123,6 +118,12 @@
+       },
+       "raft.checker": {
+         "type": "Project"
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }
+diff --git a/tests/Raft.Gates.Tests/packages.lock.json b/tests/Raft.Gates.Tests/packages.lock.json
+index 7d454e2..1fa99ea 100644
+--- a/tests/Raft.Gates.Tests/packages.lock.json
++++ b/tests/Raft.Gates.Tests/packages.lock.json
+@@ -68,11 +68,6 @@
+         "resolved": "2.1.0",
+         "contentHash": "X7QXEcZQGz0G/HL4HUyK+aAvNa/IMGbOCnFIq4jD/Evktq12xANKwzOUr7b08vCmC1LXu/47qHWOdjm3KfaJ0A=="
+       },
+-      "xunit.v3.assert": {
+-        "type": "Transitive",
+-        "resolved": "4.0.1",
+-        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+-      },
+       "xunit.v3.common": {
+         "type": "Transitive",
+         "resolved": "4.0.1",
+@@ -123,6 +118,12 @@
+       },
+       "raft.gates": {
+         "type": "Project"
++      },
++      "xunit.v3.assert": {
++        "type": "CentralTransitive",
++        "requested": "[4.0.1, )",
++        "resolved": "4.0.1",
++        "contentHash": "nC7d3cY06Oo7hkdwWPZkBR0Ud75xNhgx0P7i0GmMMZC3puCGlc4szFiT30biH03IN/eDnr8h+nv3A1UD17bk/A=="
+       }
+     }
+   }

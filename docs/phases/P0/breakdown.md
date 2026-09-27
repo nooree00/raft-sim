@@ -80,7 +80,7 @@ enough by not rebuilding what a sabotage does not touch:
 
 - **Task:** Read the resolved project graph for every project (evaluated `ProjectReference` and `PackageReference` items, so props-injected references count), compare it with the allowed-edges table, reject any package reference in Core, and fail on any project that is not in the table or not in the solution.
 - **Vacuity:** The test finds zero projects because the path is wrong in the container, loops over nothing and passes (it must assert that the discovered set equals the table); parsing csproj text would let a props-injected reference through.
-- **Sabotage:** S-layer-1, S-layer-2, S-layer-3, S-layer-4
+- **Sabotage:** S-layer-1, S-layer-2, S-layer-3, S-layer-4, S-layer-5
 - **Verifiable here:** yes — local, in the pinned image.
 - **Prediction:** `project.assets.json` flattens transitive project references, so a direct-edge check over it treats Host → Core-through-Kv as direct. **Observable:** a false violation, or a wrongly allowed edge, on the first run — direct edges must come from MSBuild evaluation, with the assets file used only for packages.
 - **Outcome:** pending

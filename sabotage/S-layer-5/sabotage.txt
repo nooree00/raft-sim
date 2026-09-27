@@ -1,0 +1,6 @@
+description: Core gains a package reference (a benign one, with its lock-file changes)
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.LayeringTests.CoreReferencesNothing
+expect: caught
+changes-assemblies: no
