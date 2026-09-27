@@ -1,0 +1,5 @@
+description: The wall clock leaks into the simulator
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+expect: caught

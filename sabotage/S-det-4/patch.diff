@@ -1,0 +1,14 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 57fb404..ccd0e61 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -103,7 +103,8 @@ public sealed class Simulator
+             action();
+         }
+ 
+-        foreach (var h in _hosts)
++        var names = new HashSet<string>(_hosts.Select(x => x.Id.ToString()));
++        foreach (var h in names.Select(n => _hosts.Single(x => x.Id.ToString() == n)))
+         {
+             Trace.Add(_now, h.Id.ToString(), "FINAL", ("incarnation", h.Incarnation), ("durable", h.Disk.CompletedCount), ("disk", h.Disk.Digest()));
+         }

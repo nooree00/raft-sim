@@ -1,0 +1,5 @@
+description: Output ordered by string.GetHashCode, which .NET randomizes per process: identical within a process, different across processes
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.DeterminismTests.TwoSeparateProcessesProduceByteIdenticalTraces
+expect: caught

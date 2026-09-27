@@ -14,15 +14,22 @@ internal static class Program
         var a = args.ToList();
         if (a.Count == 0 || a[0] != "run")
         {
-            Console.Error.WriteLine("usage: simrun run --seed N [--duration T] [--trace FILE]");
+            Console.Error.WriteLine("usage: simrun run --seed N [--duration T] [--preset mix] [--trace FILE]");
             return 2;
         }
 
         var seed = ulong.Parse(Take(a, "--seed") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
         var duration = long.Parse(Take(a, "--duration") ?? "600000", System.Globalization.CultureInfo.InvariantCulture);
         var traceFile = Take(a, "--trace");
+        var preset = Take(a, "--preset");
+        var schedule = preset switch
+        {
+            null => FaultSchedule.Empty,
+            "mix" => Presets.Mix(duration),
+            _ => throw new ArgumentException($"unknown preset '{preset}'"),
+        };
 
-        var sim = new Simulator(new SimulationConfig { Duration = duration }, ctx => new EchoCounterNode(ctx), seed);
+        var sim = new Simulator(new SimulationConfig { Duration = duration }, ctx => new EchoCounterNode(ctx), seed, schedule);
         var trace = sim.Run();
         if (traceFile is not null)
         {

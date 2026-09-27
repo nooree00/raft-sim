@@ -175,7 +175,7 @@ public sealed class SimDisk
                 _durable.Remove(d.File);
                 break;
             default:
-                throw new ArgumentException($"unknown persist {op.GetType().Name}");
+                throw new ArgumentException("unknown persist " + op.GetType().Name);
         }
     }
 }

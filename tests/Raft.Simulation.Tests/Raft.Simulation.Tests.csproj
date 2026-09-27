@@ -7,6 +7,9 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="golden/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
     <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../../tools/Raft.SimRun/Raft.SimRun.csproj" />

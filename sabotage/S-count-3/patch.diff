@@ -1,5 +1,5 @@
 diff --git a/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs b/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
-index 6225127..d2337ae 100644
+index 59c1161..7b3f59c 100644
 --- a/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
 +++ b/tests/Raft.Architecture.Tests/AmbientDependencyTests.cs
 @@ -88,7 +88,7 @@ public sealed class AmbientDependencyTests
@@ -57,11 +57,11 @@ index 6225127..d2337ae 100644
      {
          using var pe = new PEReader(File.OpenRead(CorePath));
 diff --git a/tests/Raft.Architecture.Tests/LayeringTests.cs b/tests/Raft.Architecture.Tests/LayeringTests.cs
-index d2b090e..3d96822 100644
+index fc54076..e69d90d 100644
 --- a/tests/Raft.Architecture.Tests/LayeringTests.cs
 +++ b/tests/Raft.Architecture.Tests/LayeringTests.cs
-@@ -33,7 +33,7 @@ public sealed class LayeringTests
-         ["Raft.Architecture.Tests"] = ("tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj", ["Raft.Core"], ["xunit.v3.mtp-v2"]),
+@@ -34,7 +34,7 @@ public sealed class LayeringTests
+         ["Raft.Architecture.Tests"] = ("tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj", ["Raft.Core", "Raft.Simulation"], ["xunit.v3.mtp-v2"]),
      };
  
 -    [Fact]
@@ -69,7 +69,7 @@ index d2b090e..3d96822 100644
      public void EveryProjectOnDiskIsInTheTableAndViceVersa()
      {
          var onDisk = ProjectGraph.ProjectFilesOnDisk();
-@@ -43,7 +43,7 @@ public sealed class LayeringTests
+@@ -44,7 +44,7 @@ public sealed class LayeringTests
          Assert.Equal(inTable, onDisk);
      }
  
@@ -78,7 +78,7 @@ index d2b090e..3d96822 100644
      public void EveryProjectInTheTableIsInTheSolution()
      {
          var inSolution = ProjectGraph.ProjectFilesInSolution();
-@@ -54,7 +54,7 @@ public sealed class LayeringTests
+@@ -55,7 +55,7 @@ public sealed class LayeringTests
  
      public static TheoryData<string> Projects() => new(Table.Keys.Order(StringComparer.Ordinal));
  
@@ -87,7 +87,7 @@ index d2b090e..3d96822 100644
      [MemberData(nameof(Projects))]
      public void ProjectReferencesFollowThePartialOrder(string name)
      {
-@@ -65,7 +65,7 @@ public sealed class LayeringTests
+@@ -66,7 +66,7 @@ public sealed class LayeringTests
          Assert.True(illegal.Count == 0, $"{name} references {string.Join(", ", illegal)}; allowed: [{string.Join(", ", allowed)}]");
      }
  
@@ -96,7 +96,7 @@ index d2b090e..3d96822 100644
      [MemberData(nameof(Projects))]
      public void NoPackageAssemblyOrFrameworkReferencesOutsideTheTable(string name)
      {
-@@ -78,7 +78,7 @@ public sealed class LayeringTests
+@@ -79,7 +79,7 @@ public sealed class LayeringTests
          Assert.True(evaluated.ExplicitFrameworkReferences.Count == 0, $"{name} has framework references {string.Join(", ", evaluated.ExplicitFrameworkReferences)}");
      }
  
@@ -105,6 +105,37 @@ index d2b090e..3d96822 100644
      public void CoreReferencesNothing()
      {
          var evaluated = ProjectGraph.Evaluate(Table["Raft.Core"].Path);
+diff --git a/tests/Raft.Architecture.Tests/SimulationAmbientDependencyTests.cs b/tests/Raft.Architecture.Tests/SimulationAmbientDependencyTests.cs
+index 5dca03f..8a51de1 100644
+--- a/tests/Raft.Architecture.Tests/SimulationAmbientDependencyTests.cs
++++ b/tests/Raft.Architecture.Tests/SimulationAmbientDependencyTests.cs
+@@ -62,7 +62,7 @@ public sealed class SimulationAmbientDependencyTests
+         return pe.GetMetadataReader();
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void EveryReferencedTypeIsOnTheAllowlist()
+     {
+         var md = Open(out var pe);
+@@ -76,7 +76,7 @@ public sealed class SimulationAmbientDependencyTests
+         }
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void NoDeniedOrRestrictedMemberIsMisused()
+     {
+         var md = Open(out var pe);
+@@ -105,7 +105,7 @@ public sealed class SimulationAmbientDependencyTests
+         }
+     }
+ 
+-    [Fact]
++    [Fact(Skip = "sabotage")]
+     public void EveryAssemblyReferenceIsOnTheAllowlist()
+     {
+         var md = Open(out var pe);
 diff --git a/tests/Raft.Architecture.Tests/TraceabilityTests.cs b/tests/Raft.Architecture.Tests/TraceabilityTests.cs
 index 25d5333..0e2dd8b 100644
 --- a/tests/Raft.Architecture.Tests/TraceabilityTests.cs

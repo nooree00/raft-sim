@@ -26,7 +26,7 @@ namespace Raft.Architecture.Tests;
 public sealed class AmbientDependencyTests
 {
     /// <summary>External types Raft.Core may reference. Exact names; add deliberately, with a reason.</summary>
-    private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal)
     {
         // Primitives and core object model.
         "System.Object", "System.ValueType", "System.Enum", "System.Void", "System.Boolean",
@@ -68,20 +68,20 @@ public sealed class AmbientDependencyTests
     /// process state; Type offers reflection; RuntimeHelpers.GetHashCode is an identity hash that
     /// differs per run. Only the members records and invariant formatting need are allowed.
     /// </summary>
-    private static readonly Dictionary<string, HashSet<string>> RestrictedMembers = new(StringComparer.Ordinal)
+    internal static readonly Dictionary<string, HashSet<string>> RestrictedMembers = new(StringComparer.Ordinal)
     {
         ["System.Globalization.CultureInfo"] = new(StringComparer.Ordinal) { "get_InvariantCulture" },
         ["System.Type"] = new(StringComparer.Ordinal) { "GetTypeFromHandle", "op_Equality", "op_Inequality" },
-        ["System.Runtime.CompilerServices.RuntimeHelpers"] = new(StringComparer.Ordinal) { "EnsureSufficientExecutionStack" },
+        ["System.Runtime.CompilerServices.RuntimeHelpers"] = new(StringComparer.Ordinal) { "EnsureSufficientExecutionStack", "GetSubArray" },
     };
 
     /// <summary>Members of otherwise-allowed types that are not deterministic across processes.</summary>
-    private static readonly HashSet<string> DeniedMembers = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> DeniedMembers = new(StringComparer.Ordinal)
     {
         "System.String::GetHashCode",
     };
 
-    private static readonly HashSet<string> AllowedAssemblyRefs = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> AllowedAssemblyRefs = new(StringComparer.Ordinal)
     {
         "System.Runtime", "System.Collections", "System.Linq", "System.Memory",
     };
@@ -186,7 +186,7 @@ public sealed class AmbientDependencyTests
         Assert.Empty(pinvoke);
     }
 
-    private static string FullName(MetadataReader md, TypeReferenceHandle h)
+    internal static string FullName(MetadataReader md, TypeReferenceHandle h)
     {
         var tr = md.GetTypeReference(h);
         var name = md.GetString(tr.Name);

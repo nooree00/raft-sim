@@ -73,3 +73,8 @@ finding: what happened, why no existing check caught it, what now catches it.
 - **The canonical trace was ambiguous.** A field value containing spaces and `=` split into different
   fields on reading. *Caught by* a disk-fault test that parsed it. *Now:* the trace rejects such
   values at write time, and the contract says so for node events.
+- **A "behaviour-preserving" rewrite changed every random draw.** Replacing string interpolation
+  with invariant formatting (the simulator's stream purposes must not depend on the machine's
+  locale), I dropped one word from a purpose: `node:n1:incarnation:1` became `node:n1:1`. *Caught by*
+  the golden trace, on its first day: 2,280 lines moved. *Now:* the purpose text is restored; the
+  golden trace is the check that such rewrites are what they claim.

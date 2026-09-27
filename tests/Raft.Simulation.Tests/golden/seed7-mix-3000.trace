@@ -1,0 +1,1170 @@
+0000000000 n1 START incarnation=1
+0000000000 n2 START incarnation=1
+0000000000 n3 START incarnation=1
+0000000000 sim FAULT kind=Skew detail=n1
+0000000001 n1 EVENT name=recovered value=0
+0000000001 n2 EVENT name=recovered value=0
+0000000001 n3 EVENT name=recovered value=0
+0000000009 n1 PERSIST seq=1 op=PersistAppend file=counter.log
+0000000010 n2 PERSIST seq=1 op=PersistAppend file=counter.log
+0000000011 n1 DURABLE seq=1
+0000000011 n1 SEND to=n2 id=1 len=3 h=8de44919f43dcfc8
+0000000011 n1 SEND to=n3 id=2 len=3 h=8de44919f43dcfc8
+0000000012 n2 DURABLE seq=1
+0000000012 n2 SEND to=n1 id=3 len=3 h=8de44919f43dcfc8
+0000000012 n2 SEND to=n3 id=4 len=3 h=8de44919f43dcfc8
+0000000014 n3 DELIVER from=n1 id=2
+0000000014 n3 EVENT name=got from=n1 value=1
+0000000014 n3 SEND to=n1 id=5 len=3 h=d92864198e343b9f
+0000000015 n2 DELIVER from=n1 id=1
+0000000015 n2 EVENT name=got from=n1 value=1
+0000000015 n2 SEND to=n1 id=6 len=3 h=d92864198e343b9f
+0000000018 n1 DELIVER from=n2 id=3
+0000000018 n1 EVENT name=got from=n2 value=1
+0000000018 n1 SEND to=n2 id=7 len=3 h=d92864198e343b9f
+0000000019 n3 DELIVER from=n2 id=4
+0000000019 n3 EVENT name=got from=n2 value=1
+0000000019 n3 SEND to=n2 id=8 len=3 h=d92864198e343b9f
+0000000021 n1 DELIVER from=n3 id=5
+0000000021 n1 EVENT name=echo from=n3 value=1 n=1
+0000000023 n2 DELIVER from=n1 id=7
+0000000023 n2 EVENT name=echo from=n1 value=1 n=1
+0000000025 n1 DELIVER from=n2 id=6
+0000000025 n1 EVENT name=echo from=n2 value=1 n=2
+0000000026 n2 DELIVER from=n3 id=8
+0000000026 n2 EVENT name=echo from=n3 value=1 n=2
+0000000038 n3 PERSIST seq=1 op=PersistAppend file=counter.log
+0000000039 n3 DURABLE seq=1
+0000000039 n3 SEND to=n1 id=9 len=3 h=8de44919f43dcfc8
+0000000039 n3 SEND to=n2 id=10 len=3 h=8de44919f43dcfc8
+0000000042 n2 DELIVER from=n3 id=10
+0000000042 n2 EVENT name=got from=n3 value=1
+0000000042 n2 SEND to=n3 id=11 len=3 h=d92864198e343b9f
+0000000047 n1 DELIVER from=n3 id=9
+0000000047 n1 EVENT name=got from=n3 value=1
+0000000047 n1 SEND to=n3 id=12 len=3 h=d92864198e343b9f
+0000000049 n3 DELIVER from=n2 id=11
+0000000049 n3 EVENT name=echo from=n2 value=1 n=1
+0000000051 n3 DELIVER from=n1 id=12
+0000000051 n3 EVENT name=echo from=n1 value=1 n=2
+0000000100 n1 PERSIST seq=2 op=PersistAppend file=counter.log
+0000000101 n1 DURABLE seq=2
+0000000101 n1 SEND to=n2 id=13 len=3 h=8de44c19f43dd4e1
+0000000101 n1 SEND to=n3 id=14 len=3 h=8de44c19f43dd4e1
+0000000102 n2 DELIVER from=n1 id=13
+0000000102 n2 EVENT name=got from=n1 value=2
+0000000102 n2 SEND to=n1 id=15 len=3 h=d92865198e343d52
+0000000103 n3 DELIVER from=n1 id=14
+0000000103 n3 EVENT name=got from=n1 value=2
+0000000103 n3 SEND to=n1 id=16 len=3 h=d92865198e343d52
+0000000109 n1 DELIVER from=n2 id=15
+0000000109 n1 EVENT name=echo from=n2 value=2 n=3
+0000000110 n1 DELIVER from=n3 id=16
+0000000110 n1 EVENT name=echo from=n3 value=2 n=4
+0000000110 n2 PERSIST seq=2 op=PersistAppend file=counter.log
+0000000112 n2 DURABLE seq=2
+0000000112 n2 SEND to=n1 id=17 len=3 h=8de44c19f43dd4e1
+0000000112 n2 SEND to=n3 id=18 len=3 h=8de44c19f43dd4e1
+0000000113 n3 DELIVER from=n2 id=18
+0000000113 n3 EVENT name=got from=n2 value=2
+0000000113 n3 SEND to=n2 id=19 len=3 h=d92865198e343d52
+0000000115 n1 DELIVER from=n2 id=17
+0000000115 n1 EVENT name=got from=n2 value=2
+0000000115 n1 SEND to=n2 id=20 len=3 h=d92865198e343d52
+0000000121 n2 DELIVER from=n3 id=19
+0000000121 n2 EVENT name=echo from=n3 value=2 n=3
+0000000123 n2 DELIVER from=n1 id=20
+0000000123 n2 EVENT name=echo from=n1 value=2 n=4
+0000000138 n3 PERSIST seq=2 op=PersistAppend file=counter.log
+0000000139 n3 DURABLE seq=2
+0000000139 n3 SEND to=n1 id=21 len=3 h=8de44c19f43dd4e1
+0000000139 n3 SEND to=n2 id=22 len=3 h=8de44c19f43dd4e1
+0000000142 n2 DELIVER from=n3 id=22
+0000000142 n2 EVENT name=got from=n3 value=2
+0000000142 n2 SEND to=n3 id=23 len=3 h=d92865198e343d52
+0000000146 n3 DELIVER from=n2 id=23
+0000000146 n3 EVENT name=echo from=n2 value=2 n=3
+0000000147 n1 DELIVER from=n3 id=21
+0000000147 n1 EVENT name=got from=n3 value=2
+0000000147 n1 SEND to=n3 id=24 len=3 h=d92865198e343d52
+0000000150 sim FAULT kind=Drop detail=n1->n2
+0000000150 n3 DELIVER from=n1 id=24
+0000000150 n3 EVENT name=echo from=n1 value=2 n=4
+0000000190 n1 PERSIST seq=3 op=PersistAppend file=counter.log
+0000000191 n1 DURABLE seq=3
+0000000191 n1 SEND to=n2 id=25 len=3 h=8de44b19f43dd32e
+0000000191 n1 DROP to=n2 id=25
+0000000191 n1 SEND to=n3 id=26 len=3 h=8de44b19f43dd32e
+0000000200 sim FAULT kind=Duplicate detail=n2->n3
+0000000200 n3 DELIVER from=n1 id=26
+0000000200 n3 EVENT name=got from=n1 value=3
+0000000200 n3 SEND to=n1 id=27 len=3 h=d92866198e343f05
+0000000208 n1 DELIVER from=n3 id=27
+0000000208 n1 EVENT name=echo from=n3 value=3 n=5
+0000000210 n2 PERSIST seq=3 op=PersistAppend file=counter.log
+0000000212 n2 DURABLE seq=3
+0000000212 n2 SEND to=n1 id=28 len=3 h=8de44b19f43dd32e
+0000000212 n2 SEND to=n3 id=29 len=3 h=8de44b19f43dd32e
+0000000212 n2 DUP to=n3 id=29
+0000000219 n3 DELIVER from=n2 id=29
+0000000219 n3 EVENT name=got from=n2 value=3
+0000000219 n3 SEND to=n2 id=30 len=3 h=d92866198e343f05
+0000000220 n1 DELIVER from=n2 id=28
+0000000220 n1 EVENT name=got from=n2 value=3
+0000000220 n1 SEND to=n2 id=31 len=3 h=d92866198e343f05
+0000000220 n3 DELIVER from=n2 id=29
+0000000220 n3 EVENT name=got from=n2 value=3
+0000000220 n3 SEND to=n2 id=32 len=3 h=d92866198e343f05
+0000000225 n2 DELIVER from=n3 id=32
+0000000225 n2 EVENT name=echo from=n3 value=3 n=5
+0000000226 n2 DELIVER from=n3 id=30
+0000000226 n2 EVENT name=echo from=n3 value=3 n=6
+0000000226 n2 DELIVER from=n1 id=31
+0000000226 n2 EVENT name=echo from=n1 value=3 n=7
+0000000238 n3 PERSIST seq=3 op=PersistAppend file=counter.log
+0000000241 n3 DURABLE seq=3
+0000000241 n3 SEND to=n1 id=33 len=3 h=8de44b19f43dd32e
+0000000241 n3 SEND to=n2 id=34 len=3 h=8de44b19f43dd32e
+0000000249 n1 DELIVER from=n3 id=33
+0000000249 n1 EVENT name=got from=n3 value=3
+0000000249 n1 SEND to=n3 id=35 len=3 h=d92866198e343f05
+0000000249 n2 DELIVER from=n3 id=34
+0000000249 n2 EVENT name=got from=n3 value=3
+0000000249 n2 SEND to=n3 id=36 len=3 h=d92866198e343f05
+0000000250 sim FAULT kind=Delay detail=n3->n1
+0000000252 n3 DELIVER from=n1 id=35
+0000000252 n3 EVENT name=echo from=n1 value=3 n=5
+0000000259 n3 DELIVER from=n2 id=36
+0000000259 n3 EVENT name=echo from=n2 value=3 n=6
+0000000281 n1 PERSIST seq=4 op=PersistAppend file=counter.log
+0000000284 n1 DURABLE seq=4
+0000000284 n1 SEND to=n2 id=37 len=3 h=8de44e19f43dd847
+0000000284 n1 SEND to=n3 id=38 len=3 h=8de44e19f43dd847
+0000000288 n2 DELIVER from=n1 id=37
+0000000288 n2 EVENT name=got from=n1 value=4
+0000000288 n2 SEND to=n1 id=39 len=3 h=d9285f198e343320
+0000000292 n1 DELIVER from=n2 id=39
+0000000292 n1 EVENT name=echo from=n2 value=4 n=6
+0000000294 n3 DELIVER from=n1 id=38
+0000000294 n3 EVENT name=got from=n1 value=4
+0000000294 n3 SEND to=n1 id=40 len=3 h=d9285f198e343320
+0000000294 n3 DELAYED to=n1 id=40 extra=50
+0000000300 sim FAULT kind=Reorder detail=n1->n3
+0000000310 n2 PERSIST seq=4 op=PersistAppend file=counter.log
+0000000311 n2 DURABLE seq=4
+0000000311 n2 SEND to=n1 id=41 len=3 h=8de44e19f43dd847
+0000000311 n2 SEND to=n3 id=42 len=3 h=8de44e19f43dd847
+0000000312 n3 DELIVER from=n2 id=42
+0000000312 n3 EVENT name=got from=n2 value=4
+0000000312 n3 SEND to=n2 id=43 len=3 h=d9285f198e343320
+0000000314 n1 DELIVER from=n2 id=41
+0000000314 n1 EVENT name=got from=n2 value=4
+0000000314 n1 SEND to=n2 id=44 len=3 h=d9285f198e343320
+0000000320 n2 DELIVER from=n1 id=44
+0000000320 n2 EVENT name=echo from=n1 value=4 n=8
+0000000322 n2 DELIVER from=n3 id=43
+0000000322 n2 EVENT name=echo from=n3 value=4 n=9
+0000000338 n3 PERSIST seq=4 op=PersistAppend file=counter.log
+0000000340 n3 DURABLE seq=4
+0000000340 n3 SEND to=n1 id=45 len=3 h=8de44e19f43dd847
+0000000340 n3 SEND to=n2 id=46 len=3 h=8de44e19f43dd847
+0000000343 n2 DELIVER from=n3 id=46
+0000000343 n2 EVENT name=got from=n3 value=4
+0000000343 n2 SEND to=n3 id=47 len=3 h=d9285f198e343320
+0000000345 n1 DELIVER from=n3 id=45
+0000000345 n1 EVENT name=got from=n3 value=4
+0000000345 n1 SEND to=n3 id=48 len=3 h=d9285f198e343320
+0000000345 n1 HELD to=n3 id=48
+0000000350 n3 DELIVER from=n2 id=47
+0000000350 n3 EVENT name=echo from=n2 value=4 n=7
+0000000351 n1 DELIVER from=n3 id=40
+0000000351 n1 EVENT name=echo from=n3 value=4 n=7
+0000000372 n1 PERSIST seq=5 op=PersistAppend file=counter.log
+0000000373 n1 DURABLE seq=5
+0000000373 n1 SEND to=n2 id=49 len=3 h=8de44d19f43dd694
+0000000373 n1 SEND to=n3 id=50 len=3 h=8de44d19f43dd694
+0000000375 sim FAULT kind=Partition detail=n2->n1
+0000000379 n3 DELIVER from=n1 id=50
+0000000379 n3 EVENT name=got from=n1 value=5
+0000000379 n3 SEND to=n1 id=51 len=3 h=d92860198e3434d3
+0000000380 n3 DELIVER from=n1 id=48
+0000000380 n3 EVENT name=echo from=n1 value=4 n=8
+0000000381 n2 DELIVER from=n1 id=49
+0000000381 n2 EVENT name=got from=n1 value=5
+0000000381 n2 SEND to=n1 id=52 len=3 h=d92860198e3434d3
+0000000381 n2 BLOCKED to=n1 id=52
+0000000387 n1 DELIVER from=n3 id=51
+0000000387 n1 EVENT name=echo from=n3 value=5 n=8
+0000000410 n2 PERSIST seq=5 op=PersistAppend file=counter.log
+0000000411 n2 DURABLE seq=5
+0000000411 n2 SEND to=n1 id=53 len=3 h=8de44d19f43dd694
+0000000411 n2 BLOCKED to=n1 id=53
+0000000411 n2 SEND to=n3 id=54 len=3 h=8de44d19f43dd694
+0000000413 n3 DELIVER from=n2 id=54
+0000000413 n3 EVENT name=got from=n2 value=5
+0000000413 n3 SEND to=n2 id=55 len=3 h=d92860198e3434d3
+0000000423 n2 DELIVER from=n3 id=55
+0000000423 n2 EVENT name=echo from=n3 value=5 n=10
+0000000438 n3 PERSIST seq=5 op=PersistAppend file=counter.log
+0000000439 n3 DURABLE seq=5
+0000000439 n3 SEND to=n1 id=56 len=3 h=8de44d19f43dd694
+0000000439 n3 SEND to=n2 id=57 len=3 h=8de44d19f43dd694
+0000000443 n1 DELIVER from=n3 id=56
+0000000443 n1 EVENT name=got from=n3 value=5
+0000000443 n1 SEND to=n3 id=58 len=3 h=d92860198e3434d3
+0000000445 n2 DELIVER from=n3 id=57
+0000000445 n2 EVENT name=got from=n3 value=5
+0000000445 n2 SEND to=n3 id=59 len=3 h=d92860198e3434d3
+0000000448 n3 DELIVER from=n1 id=58
+0000000448 n3 EVENT name=echo from=n1 value=5 n=9
+0000000448 n3 DELIVER from=n2 id=59
+0000000448 n3 EVENT name=echo from=n2 value=5 n=10
+0000000463 n1 PERSIST seq=6 op=PersistAppend file=counter.log
+0000000464 n1 DURABLE seq=6
+0000000464 n1 SEND to=n2 id=60 len=3 h=8de45019f43ddbad
+0000000464 n1 SEND to=n3 id=61 len=3 h=8de45019f43ddbad
+0000000469 n2 DELIVER from=n1 id=60
+0000000469 n2 EVENT name=got from=n1 value=6
+0000000469 n2 SEND to=n1 id=62 len=3 h=d92861198e343686
+0000000469 n2 BLOCKED to=n1 id=62
+0000000474 n3 DELIVER from=n1 id=61
+0000000474 n3 EVENT name=got from=n1 value=6
+0000000474 n3 SEND to=n1 id=63 len=3 h=d92861198e343686
+0000000482 n1 DELIVER from=n3 id=63
+0000000482 n1 EVENT name=echo from=n3 value=6 n=9
+0000000500 sim FAULT kind=SlowDisk detail=n3
+0000000510 n2 PERSIST seq=6 op=PersistAppend file=counter.log
+0000000513 n2 DURABLE seq=6
+0000000513 n2 SEND to=n1 id=64 len=3 h=8de45019f43ddbad
+0000000513 n2 BLOCKED to=n1 id=64
+0000000513 n2 SEND to=n3 id=65 len=3 h=8de45019f43ddbad
+0000000514 n3 DELIVER from=n2 id=65
+0000000514 n3 EVENT name=got from=n2 value=6
+0000000514 n3 SEND to=n2 id=66 len=3 h=d92861198e343686
+0000000520 n2 DELIVER from=n3 id=66
+0000000520 n2 EVENT name=echo from=n3 value=6 n=11
+0000000538 n3 PERSIST seq=6 op=PersistAppend file=counter.log
+0000000554 n1 PERSIST seq=7 op=PersistAppend file=counter.log
+0000000557 n1 DURABLE seq=7
+0000000557 n1 SEND to=n2 id=67 len=3 h=8de44f19f43dd9fa
+0000000557 n1 SEND to=n3 id=68 len=3 h=8de44f19f43dd9fa
+0000000561 n3 DELIVER from=n1 id=68
+0000000561 n3 EVENT name=got from=n1 value=7
+0000000563 n2 DELIVER from=n1 id=67
+0000000563 n2 EVENT name=got from=n1 value=7
+0000000563 n2 SEND to=n1 id=69 len=3 h=d92862198e343839
+0000000563 n2 BLOCKED to=n1 id=69
+0000000578 n3 DURABLE seq=6
+0000000578 n3 SEND to=n1 id=70 len=3 h=8de45019f43ddbad
+0000000578 n3 SEND to=n2 id=71 len=3 h=8de45019f43ddbad
+0000000578 n3 SEND to=n1 id=72 len=3 h=d92862198e343839
+0000000582 n1 DELIVER from=n3 id=72
+0000000582 n1 EVENT name=echo from=n3 value=7 n=10
+0000000585 n1 DELIVER from=n3 id=70
+0000000585 n1 EVENT name=got from=n3 value=6
+0000000585 n1 SEND to=n3 id=73 len=3 h=d92861198e343686
+0000000588 n2 DELIVER from=n3 id=71
+0000000588 n2 EVENT name=got from=n3 value=6
+0000000588 n2 SEND to=n3 id=74 len=3 h=d92861198e343686
+0000000592 n3 DELIVER from=n1 id=73
+0000000592 n3 EVENT name=echo from=n1 value=6 n=11
+0000000595 n3 DELIVER from=n2 id=74
+0000000595 n3 EVENT name=echo from=n2 value=6 n=12
+0000000600 sim FAULT kind=Crash detail=n3:Torn
+0000000600 n3 CRASH loss=Torn torn=none lost=0 unsent=0
+0000000610 n2 PERSIST seq=7 op=PersistAppend file=counter.log
+0000000613 n2 DURABLE seq=7
+0000000613 n2 SEND to=n1 id=75 len=3 h=8de44f19f43dd9fa
+0000000613 n2 BLOCKED to=n1 id=75
+0000000613 n2 SEND to=n3 id=76 len=3 h=8de44f19f43dd9fa
+0000000621 n3 LOST id=76 reason=down
+0000000645 n1 PERSIST seq=8 op=PersistAppend file=counter.log
+0000000647 n1 DURABLE seq=8
+0000000647 n1 SEND to=n2 id=77 len=3 h=8de44219f43dc3e3
+0000000647 n1 SEND to=n3 id=78 len=3 h=8de44219f43dc3e3
+0000000648 n2 DELIVER from=n1 id=77
+0000000648 n2 EVENT name=got from=n1 value=8
+0000000648 n2 SEND to=n1 id=79 len=3 h=d9286b198e344784
+0000000648 n2 BLOCKED to=n1 id=79
+0000000649 n3 LOST id=78 reason=down
+0000000710 n2 PERSIST seq=8 op=PersistAppend file=counter.log
+0000000712 n2 DURABLE seq=8
+0000000712 n2 SEND to=n1 id=80 len=3 h=8de44219f43dc3e3
+0000000712 n2 BLOCKED to=n1 id=80
+0000000712 n2 SEND to=n3 id=81 len=3 h=8de44219f43dc3e3
+0000000713 n3 LOST id=81 reason=down
+0000000736 n1 PERSIST seq=9 op=PersistAppend file=counter.log
+0000000738 n1 DURABLE seq=9
+0000000738 n1 SEND to=n2 id=82 len=3 h=8de44119f43dc230
+0000000738 n1 SEND to=n3 id=83 len=3 h=8de44119f43dc230
+0000000740 n2 DELIVER from=n1 id=82
+0000000740 n2 EVENT name=got from=n1 value=9
+0000000740 n2 SEND to=n1 id=84 len=3 h=d9286c198e344937
+0000000740 n2 BLOCKED to=n1 id=84
+0000000746 n3 LOST id=83 reason=down
+0000000750 sim FAULT kind=Restart detail=n3
+0000000750 n3 START incarnation=2
+0000000750 sim FAULT kind=Heal detail=n2->n1
+0000000750 n3 EVENT name=recovered value=6
+0000000773 n3 PERSIST seq=7 op=PersistAppend file=counter.log
+0000000810 n2 PERSIST seq=9 op=PersistAppend file=counter.log
+0000000811 n2 DURABLE seq=9
+0000000811 n2 SEND to=n1 id=85 len=3 h=8de44119f43dc230
+0000000811 n2 SEND to=n3 id=86 len=3 h=8de44119f43dc230
+0000000813 n3 DURABLE seq=7
+0000000813 n3 SEND to=n1 id=87 len=3 h=8de44f19f43dd9fa
+0000000813 n3 SEND to=n2 id=88 len=3 h=8de44f19f43dd9fa
+0000000820 n3 DELIVER from=n2 id=86
+0000000820 n3 EVENT name=got from=n2 value=9
+0000000820 n3 SEND to=n2 id=89 len=3 h=d9286c198e344937
+0000000820 n2 DELIVER from=n3 id=88
+0000000820 n2 EVENT name=got from=n3 value=7
+0000000820 n2 SEND to=n3 id=90 len=3 h=d92862198e343839
+0000000821 n1 DELIVER from=n2 id=85
+0000000821 n1 EVENT name=got from=n2 value=9
+0000000821 n1 SEND to=n2 id=91 len=3 h=d9286c198e344937
+0000000821 n1 DELIVER from=n3 id=87
+0000000821 n1 EVENT name=got from=n3 value=7
+0000000821 n1 SEND to=n3 id=92 len=3 h=d92862198e343839
+0000000827 n2 DELIVER from=n3 id=89
+0000000827 n2 EVENT name=echo from=n3 value=9 n=12
+0000000827 n1 PERSIST seq=10 op=PersistAppend file=counter.log
+0000000829 n3 DELIVER from=n2 id=90
+0000000829 n3 EVENT name=echo from=n2 value=7 n=1
+0000000829 n2 DELIVER from=n1 id=91
+0000000829 n2 EVENT name=echo from=n1 value=9 n=13
+0000000829 n3 DELIVER from=n1 id=92
+0000000829 n3 EVENT name=echo from=n1 value=7 n=2
+0000000829 n1 DURABLE seq=10
+0000000829 n1 SEND to=n2 id=93 len=4 h=58b82f1a05086268
+0000000829 n1 SEND to=n3 id=94 len=4 h=58b82f1a05086268
+0000000830 n3 DELIVER from=n1 id=94
+0000000830 n3 EVENT name=got from=n1 value=10
+0000000830 n3 SEND to=n1 id=95 len=4 h=33ddc66ca2c16a5d
+0000000834 n2 DELIVER from=n1 id=93
+0000000834 n2 EVENT name=got from=n1 value=10
+0000000834 n2 SEND to=n1 id=96 len=4 h=33ddc66ca2c16a5d
+0000000839 n1 DELIVER from=n3 id=95
+0000000839 n1 EVENT name=echo from=n3 value=10 n=11
+0000000841 n1 DELIVER from=n2 id=96
+0000000841 n1 EVENT name=echo from=n2 value=10 n=12
+0000000873 n3 PERSIST seq=8 op=PersistAppend file=counter.log
+0000000910 n2 PERSIST seq=10 op=PersistAppend file=counter.log
+0000000912 n2 DURABLE seq=10
+0000000912 n2 SEND to=n1 id=97 len=4 h=58b82f1a05086268
+0000000912 n2 SEND to=n3 id=98 len=4 h=58b82f1a05086268
+0000000913 n3 DURABLE seq=8
+0000000913 n3 SEND to=n1 id=99 len=3 h=8de44219f43dc3e3
+0000000913 n3 SEND to=n2 id=100 len=3 h=8de44219f43dc3e3
+0000000915 n2 DELIVER from=n3 id=100
+0000000915 n2 EVENT name=got from=n3 value=8
+0000000915 n2 SEND to=n3 id=101 len=3 h=d9286b198e344784
+0000000916 n3 DELIVER from=n2 id=101
+0000000916 n3 EVENT name=echo from=n2 value=8 n=3
+0000000918 n1 PERSIST seq=11 op=PersistAppend file=counter.log
+0000000920 n1 DURABLE seq=11
+0000000920 n1 SEND to=n2 id=102 len=4 h=58b8301a0508641b
+0000000920 n1 SEND to=n3 id=103 len=4 h=58b8301a0508641b
+0000000921 n3 DELIVER from=n2 id=98
+0000000921 n3 EVENT name=got from=n2 value=10
+0000000921 n3 SEND to=n2 id=104 len=4 h=33ddc66ca2c16a5d
+0000000922 n1 DELIVER from=n2 id=97
+0000000922 n1 EVENT name=got from=n2 value=10
+0000000922 n1 SEND to=n2 id=105 len=4 h=33ddc66ca2c16a5d
+0000000923 n1 DELIVER from=n3 id=99
+0000000923 n1 EVENT name=got from=n3 value=8
+0000000923 n1 SEND to=n3 id=106 len=3 h=d9286b198e344784
+0000000927 n2 DELIVER from=n1 id=102
+0000000927 n2 EVENT name=got from=n1 value=11
+0000000927 n2 SEND to=n1 id=107 len=4 h=33ddc56ca2c168aa
+0000000929 n2 DELIVER from=n3 id=104
+0000000929 n2 EVENT name=echo from=n3 value=10 n=14
+0000000929 n2 DELIVER from=n1 id=105
+0000000929 n2 EVENT name=echo from=n1 value=10 n=15
+0000000929 n3 DELIVER from=n1 id=106
+0000000929 n3 EVENT name=echo from=n1 value=8 n=4
+0000000930 n3 DELIVER from=n1 id=103
+0000000930 n3 EVENT name=got from=n1 value=11
+0000000930 n3 SEND to=n1 id=108 len=4 h=33ddc56ca2c168aa
+0000000934 n1 DELIVER from=n3 id=108
+0000000934 n1 EVENT name=echo from=n3 value=11 n=13
+0000000935 n1 DELIVER from=n2 id=107
+0000000935 n1 EVENT name=echo from=n2 value=11 n=14
+0000000973 n3 PERSIST seq=9 op=PersistAppend file=counter.log
+0000001000 sim FAULT kind=Pause detail=n2
+0000001009 n1 PERSIST seq=12 op=PersistAppend file=counter.log
+0000001010 n1 DURABLE seq=12
+0000001010 n1 SEND to=n2 id=109 len=4 h=58b8311a050865ce
+0000001010 n1 SEND to=n3 id=110 len=4 h=58b8311a050865ce
+0000001013 n3 DURABLE seq=9
+0000001013 n3 SEND to=n1 id=111 len=3 h=8de44119f43dc230
+0000001013 n3 SEND to=n2 id=112 len=3 h=8de44119f43dc230
+0000001014 n3 DELIVER from=n1 id=110
+0000001014 n3 EVENT name=got from=n1 value=12
+0000001014 n3 SEND to=n1 id=113 len=4 h=33ddc46ca2c166f7
+0000001016 n1 DELIVER from=n3 id=113
+0000001016 n1 EVENT name=echo from=n3 value=12 n=15
+0000001019 n2 BACKLOG from=n1 id=109
+0000001021 n1 DELIVER from=n3 id=111
+0000001021 n1 EVENT name=got from=n3 value=9
+0000001021 n1 SEND to=n3 id=114 len=3 h=d9286c198e344937
+0000001021 n2 BACKLOG from=n3 id=112
+0000001022 n3 DELIVER from=n1 id=114
+0000001022 n3 EVENT name=echo from=n1 value=9 n=5
+0000001073 n3 PERSIST seq=10 op=PersistAppend file=counter.log
+0000001075 n3 DURABLE seq=10
+0000001075 n3 SEND to=n1 id=115 len=4 h=58b82f1a05086268
+0000001075 n3 SEND to=n2 id=116 len=4 h=58b82f1a05086268
+0000001082 n2 BACKLOG from=n3 id=116
+0000001084 n1 DELIVER from=n3 id=115
+0000001084 n1 EVENT name=got from=n3 value=10
+0000001084 n1 SEND to=n3 id=117 len=4 h=33ddc66ca2c16a5d
+0000001092 n3 DELIVER from=n1 id=117
+0000001092 n3 EVENT name=echo from=n1 value=10 n=6
+0000001100 n1 PERSIST seq=13 op=PersistAppend file=counter.log
+0000001103 n1 DURABLE seq=13
+0000001103 n1 SEND to=n2 id=118 len=4 h=58b8321a05086781
+0000001103 n1 SEND to=n3 id=119 len=4 h=58b8321a05086781
+0000001107 n2 BACKLOG from=n1 id=118
+0000001107 n3 DELIVER from=n1 id=119
+0000001107 n3 EVENT name=got from=n1 value=13
+0000001107 n3 SEND to=n1 id=120 len=4 h=33ddc36ca2c16544
+0000001111 n1 DELIVER from=n3 id=120
+0000001111 n1 EVENT name=echo from=n3 value=13 n=16
+0000001173 n3 PERSIST seq=11 op=PersistAppend file=counter.log
+0000001175 n3 DURABLE seq=11
+0000001175 n3 SEND to=n1 id=121 len=4 h=58b8301a0508641b
+0000001175 n3 SEND to=n2 id=122 len=4 h=58b8301a0508641b
+0000001178 n1 DELIVER from=n3 id=121
+0000001178 n1 EVENT name=got from=n3 value=11
+0000001178 n1 SEND to=n3 id=123 len=4 h=33ddc56ca2c168aa
+0000001182 n2 BACKLOG from=n3 id=122
+0000001183 n3 DELIVER from=n1 id=123
+0000001183 n3 EVENT name=echo from=n1 value=11 n=7
+0000001190 n1 PERSIST seq=14 op=PersistAppend file=counter.log
+0000001192 n1 DURABLE seq=14
+0000001192 n1 SEND to=n2 id=124 len=4 h=58b8331a05086934
+0000001192 n1 SEND to=n3 id=125 len=4 h=58b8331a05086934
+0000001195 n2 BACKLOG from=n1 id=124
+0000001197 n3 DELIVER from=n1 id=125
+0000001197 n3 EVENT name=got from=n1 value=14
+0000001197 n3 SEND to=n1 id=126 len=4 h=33ddc26ca2c16391
+0000001206 n1 DELIVER from=n3 id=126
+0000001206 n1 EVENT name=echo from=n3 value=14 n=17
+0000001273 n3 PERSIST seq=12 op=PersistAppend file=counter.log
+0000001274 n3 DURABLE seq=12
+0000001274 n3 SEND to=n1 id=127 len=4 h=58b8311a050865ce
+0000001274 n3 SEND to=n2 id=128 len=4 h=58b8311a050865ce
+0000001278 n1 DELIVER from=n3 id=127
+0000001278 n1 EVENT name=got from=n3 value=12
+0000001278 n1 SEND to=n3 id=129 len=4 h=33ddc46ca2c166f7
+0000001278 n2 BACKLOG from=n3 id=128
+0000001281 n3 DELIVER from=n1 id=129
+0000001281 n3 EVENT name=echo from=n1 value=12 n=8
+0000001281 n1 PERSIST seq=15 op=PersistAppend file=counter.log
+0000001284 n1 DURABLE seq=15
+0000001284 n1 SEND to=n2 id=130 len=4 h=58b8341a05086ae7
+0000001284 n1 SEND to=n3 id=131 len=4 h=58b8341a05086ae7
+0000001289 n3 DELIVER from=n1 id=131
+0000001289 n3 EVENT name=got from=n1 value=15
+0000001289 n3 SEND to=n1 id=132 len=4 h=33ddc16ca2c161de
+0000001291 n2 BACKLOG from=n1 id=130
+0000001294 n1 DELIVER from=n3 id=132
+0000001294 n1 EVENT name=echo from=n3 value=15 n=18
+0000001372 n1 PERSIST seq=16 op=PersistAppend file=counter.log
+0000001373 n3 PERSIST seq=13 op=PersistAppend file=counter.log
+0000001374 n1 DURABLE seq=16
+0000001374 n1 SEND to=n2 id=133 len=4 h=58b8351a05086c9a
+0000001374 n1 SEND to=n3 id=134 len=4 h=58b8351a05086c9a
+0000001375 n3 DURABLE seq=13
+0000001375 n3 SEND to=n1 id=135 len=4 h=58b8321a05086781
+0000001375 n3 SEND to=n2 id=136 len=4 h=58b8321a05086781
+0000001377 n2 BACKLOG from=n1 id=133
+0000001382 n3 DELIVER from=n1 id=134
+0000001382 n3 EVENT name=got from=n1 value=16
+0000001382 n3 SEND to=n1 id=137 len=4 h=33ddc06ca2c1602b
+0000001382 n1 DELIVER from=n3 id=135
+0000001382 n1 EVENT name=got from=n3 value=13
+0000001382 n1 SEND to=n3 id=138 len=4 h=33ddc36ca2c16544
+0000001385 n2 BACKLOG from=n3 id=136
+0000001385 n1 DELIVER from=n3 id=137
+0000001385 n1 EVENT name=echo from=n3 value=16 n=19
+0000001392 n3 DELIVER from=n1 id=138
+0000001392 n3 EVENT name=echo from=n1 value=13 n=9
+0000001463 n1 PERSIST seq=17 op=PersistAppend file=counter.log
+0000001465 n1 DURABLE seq=17
+0000001465 n1 SEND to=n2 id=139 len=4 h=58b8361a05086e4d
+0000001465 n1 SEND to=n3 id=140 len=4 h=58b8361a05086e4d
+0000001466 n3 DELIVER from=n1 id=140
+0000001466 n3 EVENT name=got from=n1 value=17
+0000001466 n3 SEND to=n1 id=141 len=4 h=33ddbf6ca2c15e78
+0000001469 n2 BACKLOG from=n1 id=139
+0000001469 n1 DELIVER from=n3 id=141
+0000001469 n1 EVENT name=echo from=n3 value=17 n=20
+0000001473 n3 PERSIST seq=14 op=PersistAppend file=counter.log
+0000001475 n3 DURABLE seq=14
+0000001475 n3 SEND to=n1 id=142 len=4 h=58b8331a05086934
+0000001475 n3 SEND to=n2 id=143 len=4 h=58b8331a05086934
+0000001478 n1 DELIVER from=n3 id=142
+0000001478 n1 EVENT name=got from=n3 value=14
+0000001478 n1 SEND to=n3 id=144 len=4 h=33ddc26ca2c16391
+0000001481 n2 BACKLOG from=n3 id=143
+0000001486 n3 DELIVER from=n1 id=144
+0000001486 n3 EVENT name=echo from=n1 value=14 n=10
+0000001500 sim FAULT kind=Unpause detail=n2
+0000001500 n2 RESUME tick=501 backlog=12
+0000001500 n2 PERSIST seq=11 op=PersistAppend file=counter.log
+0000001500 n2 PERSIST seq=12 op=PersistAppend file=counter.log
+0000001500 n2 PERSIST seq=13 op=PersistAppend file=counter.log
+0000001500 n2 PERSIST seq=14 op=PersistAppend file=counter.log
+0000001500 n2 PERSIST seq=15 op=PersistAppend file=counter.log
+0000001500 n2 DELIVER from=n1 id=109
+0000001500 n2 EVENT name=got from=n1 value=12
+0000001500 n2 DELIVER from=n3 id=112
+0000001500 n2 EVENT name=got from=n3 value=9
+0000001500 n2 DELIVER from=n3 id=116
+0000001500 n2 EVENT name=got from=n3 value=10
+0000001500 n2 DELIVER from=n1 id=118
+0000001500 n2 EVENT name=got from=n1 value=13
+0000001500 n2 DELIVER from=n3 id=122
+0000001500 n2 EVENT name=got from=n3 value=11
+0000001500 n2 DELIVER from=n1 id=124
+0000001500 n2 EVENT name=got from=n1 value=14
+0000001500 n2 DELIVER from=n3 id=128
+0000001500 n2 EVENT name=got from=n3 value=12
+0000001500 n2 DELIVER from=n1 id=130
+0000001500 n2 EVENT name=got from=n1 value=15
+0000001500 n2 DELIVER from=n1 id=133
+0000001500 n2 EVENT name=got from=n1 value=16
+0000001500 n2 DELIVER from=n3 id=136
+0000001500 n2 EVENT name=got from=n3 value=13
+0000001500 n2 DELIVER from=n1 id=139
+0000001500 n2 EVENT name=got from=n1 value=17
+0000001500 n2 DELIVER from=n3 id=143
+0000001500 n2 EVENT name=got from=n3 value=14
+0000001501 n2 DURABLE seq=11
+0000001501 n2 SEND to=n1 id=145 len=4 h=58b8301a0508641b
+0000001501 n2 SEND to=n3 id=146 len=4 h=58b8301a0508641b
+0000001501 n2 DURABLE seq=12
+0000001501 n2 SEND to=n1 id=147 len=4 h=58b8311a050865ce
+0000001501 n2 SEND to=n3 id=148 len=4 h=58b8311a050865ce
+0000001503 n2 DURABLE seq=13
+0000001503 n2 SEND to=n1 id=149 len=4 h=58b8321a05086781
+0000001503 n2 SEND to=n3 id=150 len=4 h=58b8321a05086781
+0000001503 n2 DURABLE seq=14
+0000001503 n2 SEND to=n1 id=151 len=4 h=58b8331a05086934
+0000001503 n2 SEND to=n3 id=152 len=4 h=58b8331a05086934
+0000001503 n2 DURABLE seq=15
+0000001503 n2 SEND to=n1 id=153 len=4 h=58b8341a05086ae7
+0000001503 n2 SEND to=n3 id=154 len=4 h=58b8341a05086ae7
+0000001503 n2 SEND to=n1 id=155 len=4 h=33ddc46ca2c166f7
+0000001503 n2 SEND to=n3 id=156 len=3 h=d9286c198e344937
+0000001503 n2 SEND to=n3 id=157 len=4 h=33ddc66ca2c16a5d
+0000001503 n2 SEND to=n1 id=158 len=4 h=33ddc36ca2c16544
+0000001503 n2 SEND to=n3 id=159 len=4 h=33ddc56ca2c168aa
+0000001503 n2 SEND to=n1 id=160 len=4 h=33ddc26ca2c16391
+0000001503 n2 SEND to=n3 id=161 len=4 h=33ddc46ca2c166f7
+0000001503 n2 SEND to=n1 id=162 len=4 h=33ddc16ca2c161de
+0000001503 n2 SEND to=n1 id=163 len=4 h=33ddc06ca2c1602b
+0000001503 n2 SEND to=n3 id=164 len=4 h=33ddc36ca2c16544
+0000001503 n2 SEND to=n1 id=165 len=4 h=33ddbf6ca2c15e78
+0000001503 n2 SEND to=n3 id=166 len=4 h=33ddc26ca2c16391
+0000001504 n1 DELIVER from=n2 id=147
+0000001504 n1 EVENT name=got from=n2 value=12
+0000001504 n1 SEND to=n2 id=167 len=4 h=33ddc46ca2c166f7
+0000001504 n3 DELIVER from=n2 id=148
+0000001504 n3 EVENT name=got from=n2 value=12
+0000001504 n3 SEND to=n2 id=168 len=4 h=33ddc46ca2c166f7
+0000001504 n1 DELIVER from=n2 id=158
+0000001504 n1 EVENT name=echo from=n2 value=13 n=21
+0000001505 n3 DELIVER from=n2 id=159
+0000001505 n3 EVENT name=echo from=n2 value=11 n=11
+0000001505 n2 DELIVER from=n3 id=168
+0000001505 n2 EVENT name=echo from=n3 value=12 n=16
+0000001506 n3 DELIVER from=n2 id=166
+0000001506 n3 EVENT name=echo from=n2 value=14 n=12
+0000001507 n3 DELIVER from=n2 id=152
+0000001507 n3 EVENT name=got from=n2 value=14
+0000001507 n3 SEND to=n2 id=169 len=4 h=33ddc26ca2c16391
+0000001507 n3 DELIVER from=n2 id=156
+0000001507 n3 EVENT name=echo from=n2 value=9 n=13
+0000001508 n1 DELIVER from=n2 id=145
+0000001508 n1 EVENT name=got from=n2 value=11
+0000001508 n1 SEND to=n2 id=170 len=4 h=33ddc56ca2c168aa
+0000001508 n3 DELIVER from=n2 id=154
+0000001508 n3 EVENT name=got from=n2 value=15
+0000001508 n3 SEND to=n2 id=171 len=4 h=33ddc16ca2c161de
+0000001508 n1 DELIVER from=n2 id=155
+0000001508 n1 EVENT name=echo from=n2 value=12 n=22
+0000001508 n1 DELIVER from=n2 id=165
+0000001508 n1 EVENT name=echo from=n2 value=17 n=23
+0000001509 n1 DELIVER from=n2 id=162
+0000001509 n1 EVENT name=echo from=n2 value=15 n=24
+0000001509 n1 DELIVER from=n2 id=163
+0000001509 n1 EVENT name=echo from=n2 value=16 n=25
+0000001509 n3 DELIVER from=n2 id=164
+0000001509 n3 EVENT name=echo from=n2 value=13 n=14
+0000001510 n3 DELIVER from=n2 id=146
+0000001510 n3 EVENT name=got from=n2 value=11
+0000001510 n3 SEND to=n2 id=172 len=4 h=33ddc56ca2c168aa
+0000001510 n1 DELIVER from=n2 id=149
+0000001510 n1 EVENT name=got from=n2 value=13
+0000001510 n1 SEND to=n2 id=173 len=4 h=33ddc36ca2c16544
+0000001510 n3 DELIVER from=n2 id=157
+0000001510 n3 EVENT name=echo from=n2 value=10 n=15
+0000001510 n1 DELIVER from=n2 id=160
+0000001510 n1 EVENT name=echo from=n2 value=14 n=26
+0000001510 n3 DELIVER from=n2 id=161
+0000001510 n3 EVENT name=echo from=n2 value=12 n=16
+0000001510 n2 PERSIST seq=16 op=PersistAppend file=counter.log
+0000001511 n1 DELIVER from=n2 id=151
+0000001511 n1 EVENT name=got from=n2 value=14
+0000001511 n1 SEND to=n2 id=174 len=4 h=33ddc26ca2c16391
+0000001511 n2 DURABLE seq=16
+0000001511 n2 SEND to=n1 id=175 len=4 h=58b8351a05086c9a
+0000001511 n2 SEND to=n3 id=176 len=4 h=58b8351a05086c9a
+0000001512 n2 DELIVER from=n3 id=172
+0000001512 n2 EVENT name=echo from=n3 value=11 n=17
+0000001512 n2 DELIVER from=n1 id=173
+0000001512 n2 EVENT name=echo from=n1 value=13 n=18
+0000001512 n3 DELIVER from=n2 id=176
+0000001512 n3 EVENT name=got from=n2 value=16
+0000001512 n3 SEND to=n2 id=177 len=4 h=33ddc06ca2c1602b
+0000001513 n3 DELIVER from=n2 id=150
+0000001513 n3 EVENT name=got from=n2 value=13
+0000001513 n3 SEND to=n2 id=178 len=4 h=33ddc36ca2c16544
+0000001513 n1 DELIVER from=n2 id=153
+0000001513 n1 EVENT name=got from=n2 value=15
+0000001513 n1 SEND to=n2 id=179 len=4 h=33ddc16ca2c161de
+0000001513 n2 DELIVER from=n1 id=167
+0000001513 n2 EVENT name=echo from=n1 value=12 n=19
+0000001513 n2 DELIVER from=n3 id=171
+0000001513 n2 EVENT name=echo from=n3 value=15 n=20
+0000001513 n2 DELIVER from=n1 id=174
+0000001513 n2 EVENT name=echo from=n1 value=14 n=21
+0000001514 n2 DELIVER from=n1 id=170
+0000001514 n2 EVENT name=echo from=n1 value=11 n=22
+0000001514 n1 DELIVER from=n2 id=175
+0000001514 n1 EVENT name=got from=n2 value=16
+0000001514 n1 SEND to=n2 id=180 len=4 h=33ddc06ca2c1602b
+0000001515 n2 DELIVER from=n3 id=169
+0000001515 n2 EVENT name=echo from=n3 value=14 n=23
+0000001517 n2 DELIVER from=n3 id=178
+0000001517 n2 EVENT name=echo from=n3 value=13 n=24
+0000001520 n2 DELIVER from=n1 id=179
+0000001520 n2 EVENT name=echo from=n1 value=15 n=25
+0000001522 n2 DELIVER from=n3 id=177
+0000001522 n2 EVENT name=echo from=n3 value=16 n=26
+0000001523 n2 DELIVER from=n1 id=180
+0000001523 n2 EVENT name=echo from=n1 value=16 n=27
+0000001554 n1 PERSIST seq=18 op=PersistAppend file=counter.log
+0000001556 n1 DURABLE seq=18
+0000001556 n1 SEND to=n2 id=181 len=4 h=58b8271a050854d0
+0000001556 n1 SEND to=n3 id=182 len=4 h=58b8271a050854d0
+0000001562 n3 DELIVER from=n1 id=182
+0000001562 n3 EVENT name=got from=n1 value=18
+0000001562 n3 SEND to=n1 id=183 len=4 h=33ddbe6ca2c15cc5
+0000001563 n2 DELIVER from=n1 id=181
+0000001563 n2 EVENT name=got from=n1 value=18
+0000001563 n2 SEND to=n1 id=184 len=4 h=33ddbe6ca2c15cc5
+0000001567 n1 DELIVER from=n2 id=184
+0000001567 n1 EVENT name=echo from=n2 value=18 n=27
+0000001569 n1 DELIVER from=n3 id=183
+0000001569 n1 EVENT name=echo from=n3 value=18 n=28
+0000001573 n3 PERSIST seq=15 op=PersistAppend file=counter.log
+0000001575 n3 DURABLE seq=15
+0000001575 n3 SEND to=n1 id=185 len=4 h=58b8341a05086ae7
+0000001575 n3 SEND to=n2 id=186 len=4 h=58b8341a05086ae7
+0000001584 n1 DELIVER from=n3 id=185
+0000001584 n1 EVENT name=got from=n3 value=15
+0000001584 n1 SEND to=n3 id=187 len=4 h=33ddc16ca2c161de
+0000001584 n2 DELIVER from=n3 id=186
+0000001584 n2 EVENT name=got from=n3 value=15
+0000001584 n2 SEND to=n3 id=188 len=4 h=33ddc16ca2c161de
+0000001586 n3 DELIVER from=n2 id=188
+0000001586 n3 EVENT name=echo from=n2 value=15 n=17
+0000001590 n3 DELIVER from=n1 id=187
+0000001590 n3 EVENT name=echo from=n1 value=15 n=18
+0000001610 n2 PERSIST seq=17 op=PersistAppend file=counter.log
+0000001613 n2 DURABLE seq=17
+0000001613 n2 SEND to=n1 id=189 len=4 h=58b8361a05086e4d
+0000001613 n2 SEND to=n3 id=190 len=4 h=58b8361a05086e4d
+0000001615 n1 DELIVER from=n2 id=189
+0000001615 n1 EVENT name=got from=n2 value=17
+0000001615 n1 SEND to=n2 id=191 len=4 h=33ddbf6ca2c15e78
+0000001617 n2 DELIVER from=n1 id=191
+0000001617 n2 EVENT name=echo from=n1 value=17 n=28
+0000001622 n3 DELIVER from=n2 id=190
+0000001622 n3 EVENT name=got from=n2 value=17
+0000001622 n3 SEND to=n2 id=192 len=4 h=33ddbf6ca2c15e78
+0000001632 n2 DELIVER from=n3 id=192
+0000001632 n2 EVENT name=echo from=n3 value=17 n=29
+0000001645 n1 PERSIST seq=19 op=PersistAppend file=counter.log
+0000001646 n1 DURABLE seq=19
+0000001646 n1 SEND to=n2 id=193 len=4 h=58b8281a05085683
+0000001646 n1 SEND to=n3 id=194 len=4 h=58b8281a05085683
+0000001648 n3 DELIVER from=n1 id=194
+0000001648 n3 EVENT name=got from=n1 value=19
+0000001648 n3 SEND to=n1 id=195 len=4 h=33ddbd6ca2c15b12
+0000001653 n2 DELIVER from=n1 id=193
+0000001653 n2 EVENT name=got from=n1 value=19
+0000001653 n2 SEND to=n1 id=196 len=4 h=33ddbd6ca2c15b12
+0000001657 n1 DELIVER from=n2 id=196
+0000001657 n1 EVENT name=echo from=n2 value=19 n=29
+0000001658 n1 DELIVER from=n3 id=195
+0000001658 n1 EVENT name=echo from=n3 value=19 n=30
+0000001673 n3 PERSIST seq=16 op=PersistAppend file=counter.log
+0000001674 n3 DURABLE seq=16
+0000001674 n3 SEND to=n1 id=197 len=4 h=58b8351a05086c9a
+0000001674 n3 SEND to=n2 id=198 len=4 h=58b8351a05086c9a
+0000001675 n1 DELIVER from=n3 id=197
+0000001675 n1 EVENT name=got from=n3 value=16
+0000001675 n1 SEND to=n3 id=199 len=4 h=33ddc06ca2c1602b
+0000001675 n2 DELIVER from=n3 id=198
+0000001675 n2 EVENT name=got from=n3 value=16
+0000001675 n2 SEND to=n3 id=200 len=4 h=33ddc06ca2c1602b
+0000001677 n3 DELIVER from=n2 id=200
+0000001677 n3 EVENT name=echo from=n2 value=16 n=19
+0000001684 n3 DELIVER from=n1 id=199
+0000001684 n3 EVENT name=echo from=n1 value=16 n=20
+0000001710 n2 PERSIST seq=18 op=PersistAppend file=counter.log
+0000001713 n2 DURABLE seq=18
+0000001713 n2 SEND to=n1 id=201 len=4 h=58b8271a050854d0
+0000001713 n2 SEND to=n3 id=202 len=4 h=58b8271a050854d0
+0000001718 n3 DELIVER from=n2 id=202
+0000001718 n3 EVENT name=got from=n2 value=18
+0000001718 n3 SEND to=n2 id=203 len=4 h=33ddbe6ca2c15cc5
+0000001722 n1 DELIVER from=n2 id=201
+0000001722 n1 EVENT name=got from=n2 value=18
+0000001722 n1 SEND to=n2 id=204 len=4 h=33ddbe6ca2c15cc5
+0000001725 n2 DELIVER from=n3 id=203
+0000001725 n2 EVENT name=echo from=n3 value=18 n=30
+0000001726 n2 DELIVER from=n1 id=204
+0000001726 n2 EVENT name=echo from=n1 value=18 n=31
+0000001736 n1 PERSIST seq=20 op=PersistAppend file=counter.log
+0000001737 n1 DURABLE seq=20
+0000001737 n1 SEND to=n2 id=205 len=4 h=58c2211a05109f23
+0000001737 n1 SEND to=n3 id=206 len=4 h=58c2211a05109f23
+0000001743 n2 DELIVER from=n1 id=205
+0000001743 n2 EVENT name=got from=n1 value=20
+0000001743 n2 SEND to=n1 id=207 len=4 h=33e12c6ca2c44d86
+0000001744 n3 DELIVER from=n1 id=206
+0000001744 n3 EVENT name=got from=n1 value=20
+0000001744 n3 SEND to=n1 id=208 len=4 h=33e12c6ca2c44d86
+0000001753 n1 DELIVER from=n2 id=207
+0000001753 n1 EVENT name=echo from=n2 value=20 n=31
+0000001753 n1 DELIVER from=n3 id=208
+0000001753 n1 EVENT name=echo from=n3 value=20 n=32
+0000001773 n3 PERSIST seq=17 op=PersistAppend file=counter.log
+0000001774 n3 DURABLE seq=17
+0000001774 n3 SEND to=n1 id=209 len=4 h=58b8361a05086e4d
+0000001774 n3 SEND to=n2 id=210 len=4 h=58b8361a05086e4d
+0000001777 n1 DELIVER from=n3 id=209
+0000001777 n1 EVENT name=got from=n3 value=17
+0000001777 n1 SEND to=n3 id=211 len=4 h=33ddbf6ca2c15e78
+0000001781 n3 DELIVER from=n1 id=211
+0000001781 n3 EVENT name=echo from=n1 value=17 n=21
+0000001782 n2 DELIVER from=n3 id=210
+0000001782 n2 EVENT name=got from=n3 value=17
+0000001782 n2 SEND to=n3 id=212 len=4 h=33ddbf6ca2c15e78
+0000001785 n3 DELIVER from=n2 id=212
+0000001785 n3 EVENT name=echo from=n2 value=17 n=22
+0000001800 sim FAULT kind=Crash detail=n1:Reordered
+0000001800 n1 CRASH loss=Reordered survived=none pending=none unsent=0
+0000001810 n2 PERSIST seq=19 op=PersistAppend file=counter.log
+0000001813 n2 DURABLE seq=19
+0000001813 n2 SEND to=n1 id=213 len=4 h=58b8281a05085683
+0000001813 n2 SEND to=n3 id=214 len=4 h=58b8281a05085683
+0000001815 n1 LOST id=213 reason=down
+0000001820 n3 DELIVER from=n2 id=214
+0000001820 n3 EVENT name=got from=n2 value=19
+0000001820 n3 SEND to=n2 id=215 len=4 h=33ddbd6ca2c15b12
+0000001826 n2 DELIVER from=n3 id=215
+0000001826 n2 EVENT name=echo from=n3 value=19 n=32
+0000001873 n3 PERSIST seq=18 op=PersistAppend file=counter.log
+0000001876 n3 DURABLE seq=18
+0000001876 n3 SEND to=n1 id=216 len=4 h=58b8271a050854d0
+0000001876 n3 SEND to=n2 id=217 len=4 h=58b8271a050854d0
+0000001880 n1 LOST id=216 reason=down
+0000001886 n2 DELIVER from=n3 id=217
+0000001886 n2 EVENT name=got from=n3 value=18
+0000001886 n2 SEND to=n3 id=218 len=4 h=33ddbe6ca2c15cc5
+0000001890 n3 DELIVER from=n2 id=218
+0000001890 n3 EVENT name=echo from=n2 value=18 n=23
+0000001910 n2 PERSIST seq=20 op=PersistAppend file=counter.log
+0000001911 n2 DURABLE seq=20
+0000001911 n2 SEND to=n1 id=219 len=4 h=58c2211a05109f23
+0000001911 n2 SEND to=n3 id=220 len=4 h=58c2211a05109f23
+0000001914 n3 DELIVER from=n2 id=220
+0000001914 n3 EVENT name=got from=n2 value=20
+0000001914 n3 SEND to=n2 id=221 len=4 h=33e12c6ca2c44d86
+0000001916 n1 LOST id=219 reason=down
+0000001919 n2 DELIVER from=n3 id=221
+0000001919 n2 EVENT name=echo from=n3 value=20 n=33
+0000001973 n3 PERSIST seq=19 op=PersistAppend file=counter.log
+0000001976 n3 DURABLE seq=19
+0000001976 n3 SEND to=n1 id=222 len=4 h=58b8281a05085683
+0000001976 n3 SEND to=n2 id=223 len=4 h=58b8281a05085683
+0000001978 n2 DELIVER from=n3 id=223
+0000001978 n2 EVENT name=got from=n3 value=19
+0000001978 n2 SEND to=n3 id=224 len=4 h=33ddbd6ca2c15b12
+0000001979 n1 LOST id=222 reason=down
+0000001983 n3 DELIVER from=n2 id=224
+0000001983 n3 EVENT name=echo from=n2 value=19 n=24
+0000002010 n2 PERSIST seq=21 op=PersistAppend file=counter.log
+0000002012 n2 DURABLE seq=21
+0000002012 n2 SEND to=n1 id=225 len=4 h=58c2201a05109d70
+0000002012 n2 SEND to=n3 id=226 len=4 h=58c2201a05109d70
+0000002017 n1 LOST id=225 reason=down
+0000002018 n3 DELIVER from=n2 id=226
+0000002018 n3 EVENT name=got from=n2 value=21
+0000002018 n3 SEND to=n2 id=227 len=4 h=33e12d6ca2c44f39
+0000002019 n2 DELIVER from=n3 id=227
+0000002019 n2 EVENT name=echo from=n3 value=21 n=34
+0000002073 n3 PERSIST seq=20 op=PersistAppend file=counter.log
+0000002074 n3 DURABLE seq=20
+0000002074 n3 SEND to=n1 id=228 len=4 h=58c2211a05109f23
+0000002074 n3 SEND to=n2 id=229 len=4 h=58c2211a05109f23
+0000002077 n2 DELIVER from=n3 id=229
+0000002077 n2 EVENT name=got from=n3 value=20
+0000002077 n2 SEND to=n3 id=230 len=4 h=33e12c6ca2c44d86
+0000002082 n1 LOST id=228 reason=down
+0000002082 n3 DELIVER from=n2 id=230
+0000002082 n3 EVENT name=echo from=n2 value=20 n=25
+0000002100 sim FAULT kind=Restart detail=n1
+0000002100 n1 START incarnation=2
+0000002100 n1 EVENT name=recovered value=20
+0000002110 n2 PERSIST seq=22 op=PersistAppend file=counter.log
+0000002111 n2 DURABLE seq=22
+0000002111 n2 SEND to=n1 id=231 len=4 h=58c2231a0510a289
+0000002111 n2 SEND to=n3 id=232 len=4 h=58c2231a0510a289
+0000002113 n1 PERSIST seq=21 op=PersistAppend file=counter.log
+0000002115 n1 DURABLE seq=21
+0000002115 n1 SEND to=n2 id=233 len=4 h=58c2201a05109d70
+0000002115 n1 SEND to=n3 id=234 len=4 h=58c2201a05109d70
+0000002118 n1 DELIVER from=n2 id=231
+0000002118 n1 EVENT name=got from=n2 value=22
+0000002118 n1 SEND to=n2 id=235 len=4 h=33e12a6ca2c44a20
+0000002120 n3 DELIVER from=n2 id=232
+0000002120 n3 EVENT name=got from=n2 value=22
+0000002120 n3 SEND to=n2 id=236 len=4 h=33e12a6ca2c44a20
+0000002121 n2 DELIVER from=n1 id=233
+0000002121 n2 EVENT name=got from=n1 value=21
+0000002121 n2 SEND to=n1 id=237 len=4 h=33e12d6ca2c44f39
+0000002122 n3 DELIVER from=n1 id=234
+0000002122 n3 EVENT name=got from=n1 value=21
+0000002122 n3 SEND to=n1 id=238 len=4 h=33e12d6ca2c44f39
+0000002122 n2 DELIVER from=n1 id=235
+0000002122 n2 EVENT name=echo from=n1 value=22 n=35
+0000002123 n2 DELIVER from=n3 id=236
+0000002123 n2 EVENT name=echo from=n3 value=22 n=36
+0000002127 n1 DELIVER from=n2 id=237
+0000002127 n1 EVENT name=echo from=n2 value=21 n=1
+0000002128 n1 DELIVER from=n3 id=238
+0000002128 n1 EVENT name=echo from=n3 value=21 n=2
+0000002173 n3 PERSIST seq=21 op=PersistAppend file=counter.log
+0000002175 n3 DURABLE seq=21
+0000002175 n3 SEND to=n1 id=239 len=4 h=58c2201a05109d70
+0000002175 n3 SEND to=n2 id=240 len=4 h=58c2201a05109d70
+0000002177 n2 DELIVER from=n3 id=240
+0000002177 n2 EVENT name=got from=n3 value=21
+0000002177 n2 SEND to=n3 id=241 len=4 h=33e12d6ca2c44f39
+0000002180 n3 DELIVER from=n2 id=241
+0000002180 n3 EVENT name=echo from=n2 value=21 n=26
+0000002185 n1 DELIVER from=n3 id=239
+0000002185 n1 EVENT name=got from=n3 value=21
+0000002185 n1 SEND to=n3 id=242 len=4 h=33e12d6ca2c44f39
+0000002188 n3 DELIVER from=n1 id=242
+0000002188 n3 EVENT name=echo from=n1 value=21 n=27
+0000002204 n1 PERSIST seq=22 op=PersistAppend file=counter.log
+0000002206 n1 DURABLE seq=22
+0000002206 n1 SEND to=n2 id=243 len=4 h=58c2231a0510a289
+0000002206 n1 SEND to=n3 id=244 len=4 h=58c2231a0510a289
+0000002210 n3 DELIVER from=n1 id=244
+0000002210 n3 EVENT name=got from=n1 value=22
+0000002210 n3 SEND to=n1 id=245 len=4 h=33e12a6ca2c44a20
+0000002210 n2 PERSIST seq=23 op=PersistAppend file=counter.log
+0000002211 n2 DELIVER from=n1 id=243
+0000002211 n2 EVENT name=got from=n1 value=22
+0000002212 n2 DURABLE seq=23
+0000002212 n2 SEND to=n1 id=246 len=4 h=58c2221a0510a0d6
+0000002212 n2 SEND to=n3 id=247 len=4 h=58c2221a0510a0d6
+0000002212 n2 SEND to=n1 id=248 len=4 h=33e12a6ca2c44a20
+0000002215 n1 DELIVER from=n2 id=246
+0000002215 n1 EVENT name=got from=n2 value=23
+0000002215 n1 SEND to=n2 id=249 len=4 h=33e12b6ca2c44bd3
+0000002219 n3 DELIVER from=n2 id=247
+0000002219 n3 EVENT name=got from=n2 value=23
+0000002219 n3 SEND to=n2 id=250 len=4 h=33e12b6ca2c44bd3
+0000002220 n1 DELIVER from=n3 id=245
+0000002220 n1 EVENT name=echo from=n3 value=22 n=3
+0000002220 n1 DELIVER from=n2 id=248
+0000002220 n1 EVENT name=echo from=n2 value=22 n=4
+0000002223 n2 DELIVER from=n1 id=249
+0000002223 n2 EVENT name=echo from=n1 value=23 n=37
+0000002228 n2 DELIVER from=n3 id=250
+0000002228 n2 EVENT name=echo from=n3 value=23 n=38
+0000002273 n3 PERSIST seq=22 op=PersistAppend file=counter.log
+0000002275 n3 DURABLE seq=22
+0000002275 n3 SEND to=n1 id=251 len=4 h=58c2231a0510a289
+0000002275 n3 SEND to=n2 id=252 len=4 h=58c2231a0510a289
+0000002281 n1 DELIVER from=n3 id=251
+0000002281 n1 EVENT name=got from=n3 value=22
+0000002281 n1 SEND to=n3 id=253 len=4 h=33e12a6ca2c44a20
+0000002282 n2 DELIVER from=n3 id=252
+0000002282 n2 EVENT name=got from=n3 value=22
+0000002282 n2 SEND to=n3 id=254 len=4 h=33e12a6ca2c44a20
+0000002283 n3 DELIVER from=n2 id=254
+0000002283 n3 EVENT name=echo from=n2 value=22 n=28
+0000002290 n3 DELIVER from=n1 id=253
+0000002290 n3 EVENT name=echo from=n1 value=22 n=29
+0000002295 n1 PERSIST seq=23 op=PersistAppend file=counter.log
+0000002296 n1 DURABLE seq=23
+0000002296 n1 SEND to=n2 id=255 len=4 h=58c2221a0510a0d6
+0000002296 n1 SEND to=n3 id=256 len=4 h=58c2221a0510a0d6
+0000002297 n2 DELIVER from=n1 id=255
+0000002297 n2 EVENT name=got from=n1 value=23
+0000002297 n2 SEND to=n1 id=257 len=4 h=33e12b6ca2c44bd3
+0000002302 n3 DELIVER from=n1 id=256
+0000002302 n3 EVENT name=got from=n1 value=23
+0000002302 n3 SEND to=n1 id=258 len=4 h=33e12b6ca2c44bd3
+0000002303 n1 DELIVER from=n3 id=258
+0000002303 n1 EVENT name=echo from=n3 value=23 n=5
+0000002307 n1 DELIVER from=n2 id=257
+0000002307 n1 EVENT name=echo from=n2 value=23 n=6
+0000002310 n2 PERSIST seq=24 op=PersistAppend file=counter.log
+0000002312 n2 DURABLE seq=24
+0000002312 n2 SEND to=n1 id=259 len=4 h=58c2251a0510a5ef
+0000002312 n2 SEND to=n3 id=260 len=4 h=58c2251a0510a5ef
+0000002313 n1 DELIVER from=n2 id=259
+0000002313 n1 EVENT name=got from=n2 value=24
+0000002313 n1 SEND to=n2 id=261 len=4 h=33e1306ca2c45452
+0000002314 n2 DELIVER from=n1 id=261
+0000002314 n2 EVENT name=echo from=n1 value=24 n=39
+0000002317 n3 DELIVER from=n2 id=260
+0000002317 n3 EVENT name=got from=n2 value=24
+0000002317 n3 SEND to=n2 id=262 len=4 h=33e1306ca2c45452
+0000002321 n2 DELIVER from=n3 id=262
+0000002321 n2 EVENT name=echo from=n3 value=24 n=40
+0000002373 n3 PERSIST seq=23 op=PersistAppend file=counter.log
+0000002376 n3 DURABLE seq=23
+0000002376 n3 SEND to=n1 id=263 len=4 h=58c2221a0510a0d6
+0000002376 n3 SEND to=n2 id=264 len=4 h=58c2221a0510a0d6
+0000002384 n1 DELIVER from=n3 id=263
+0000002384 n1 EVENT name=got from=n3 value=23
+0000002384 n1 SEND to=n3 id=265 len=4 h=33e12b6ca2c44bd3
+0000002384 n2 DELIVER from=n3 id=264
+0000002384 n2 EVENT name=got from=n3 value=23
+0000002384 n2 SEND to=n3 id=266 len=4 h=33e12b6ca2c44bd3
+0000002386 n1 PERSIST seq=24 op=PersistAppend file=counter.log
+0000002387 n3 DELIVER from=n2 id=266
+0000002387 n3 EVENT name=echo from=n2 value=23 n=30
+0000002387 n1 DURABLE seq=24
+0000002387 n1 SEND to=n2 id=267 len=4 h=58c2251a0510a5ef
+0000002387 n1 SEND to=n3 id=268 len=4 h=58c2251a0510a5ef
+0000002391 n3 DELIVER from=n1 id=268
+0000002391 n3 EVENT name=got from=n1 value=24
+0000002391 n3 SEND to=n1 id=269 len=4 h=33e1306ca2c45452
+0000002393 n3 DELIVER from=n1 id=265
+0000002393 n3 EVENT name=echo from=n1 value=23 n=31
+0000002396 n2 DELIVER from=n1 id=267
+0000002396 n2 EVENT name=got from=n1 value=24
+0000002396 n2 SEND to=n1 id=270 len=4 h=33e1306ca2c45452
+0000002400 sim FAULT kind=Crash detail=n2:Pending
+0000002400 n2 CRASH loss=Pending lost=0 unsent=0
+0000002400 n1 DELIVER from=n3 id=269
+0000002400 n1 EVENT name=echo from=n3 value=24 n=7
+0000002403 n1 DELIVER from=n2 id=270
+0000002403 n1 EVENT name=echo from=n2 value=24 n=8
+0000002473 n3 PERSIST seq=24 op=PersistAppend file=counter.log
+0000002476 n3 DURABLE seq=24
+0000002476 n3 SEND to=n1 id=271 len=4 h=58c2251a0510a5ef
+0000002476 n3 SEND to=n2 id=272 len=4 h=58c2251a0510a5ef
+0000002477 n2 LOST id=272 reason=down
+0000002477 n1 PERSIST seq=25 op=PersistAppend file=counter.log
+0000002479 n1 DURABLE seq=25
+0000002479 n1 SEND to=n2 id=273 len=4 h=58c2241a0510a43c
+0000002479 n1 SEND to=n3 id=274 len=4 h=58c2241a0510a43c
+0000002480 n1 DELIVER from=n3 id=271
+0000002480 n1 EVENT name=got from=n3 value=24
+0000002480 n1 SEND to=n3 id=275 len=4 h=33e1306ca2c45452
+0000002483 n3 DELIVER from=n1 id=274
+0000002483 n3 EVENT name=got from=n1 value=25
+0000002483 n3 SEND to=n1 id=276 len=4 h=33e1316ca2c45605
+0000002486 n3 DELIVER from=n1 id=275
+0000002486 n3 EVENT name=echo from=n1 value=24 n=32
+0000002489 n2 LOST id=273 reason=down
+0000002489 n1 DELIVER from=n3 id=276
+0000002489 n1 EVENT name=echo from=n3 value=25 n=9
+0000002568 n1 PERSIST seq=26 op=PersistAppend file=counter.log
+0000002569 n1 DURABLE seq=26
+0000002569 n1 SEND to=n2 id=277 len=4 h=58c2271a0510a955
+0000002569 n1 SEND to=n3 id=278 len=4 h=58c2271a0510a955
+0000002572 n3 DELIVER from=n1 id=278
+0000002572 n3 EVENT name=got from=n1 value=26
+0000002572 n3 SEND to=n1 id=279 len=4 h=33e12e6ca2c450ec
+0000002573 n3 PERSIST seq=25 op=PersistAppend file=counter.log
+0000002574 n3 DURABLE seq=25
+0000002574 n3 SEND to=n1 id=280 len=4 h=58c2241a0510a43c
+0000002574 n3 SEND to=n2 id=281 len=4 h=58c2241a0510a43c
+0000002575 n2 LOST id=277 reason=down
+0000002580 n1 DELIVER from=n3 id=279
+0000002580 n1 EVENT name=echo from=n3 value=26 n=10
+0000002580 n2 LOST id=281 reason=down
+0000002584 n1 DELIVER from=n3 id=280
+0000002584 n1 EVENT name=got from=n3 value=25
+0000002584 n1 SEND to=n3 id=282 len=4 h=33e1316ca2c45605
+0000002586 n3 DELIVER from=n1 id=282
+0000002586 n3 EVENT name=echo from=n1 value=25 n=33
+0000002659 n1 PERSIST seq=27 op=PersistAppend file=counter.log
+0000002661 n1 DURABLE seq=27
+0000002661 n1 SEND to=n2 id=283 len=4 h=58c2261a0510a7a2
+0000002661 n1 SEND to=n3 id=284 len=4 h=58c2261a0510a7a2
+0000002668 n2 LOST id=283 reason=down
+0000002670 n3 DELIVER from=n1 id=284
+0000002670 n3 EVENT name=got from=n1 value=27
+0000002670 n3 SEND to=n1 id=285 len=4 h=33e12f6ca2c4529f
+0000002671 n1 DELIVER from=n3 id=285
+0000002671 n1 EVENT name=echo from=n3 value=27 n=11
+0000002673 n3 PERSIST seq=26 op=PersistAppend file=counter.log
+0000002676 n3 DURABLE seq=26
+0000002676 n3 SEND to=n1 id=286 len=4 h=58c2271a0510a955
+0000002676 n3 SEND to=n2 id=287 len=4 h=58c2271a0510a955
+0000002681 n2 LOST id=287 reason=down
+0000002683 n1 DELIVER from=n3 id=286
+0000002683 n1 EVENT name=got from=n3 value=26
+0000002683 n1 SEND to=n3 id=288 len=4 h=33e12e6ca2c450ec
+0000002687 n3 DELIVER from=n1 id=288
+0000002687 n3 EVENT name=echo from=n1 value=26 n=34
+0000002700 sim FAULT kind=Restart detail=n2
+0000002700 n2 START incarnation=2
+0000002700 n2 EVENT name=recovered value=24
+0000002744 n2 PERSIST seq=25 op=PersistAppend file=counter.log
+0000002747 n2 DURABLE seq=25
+0000002747 n2 SEND to=n1 id=289 len=4 h=58c2241a0510a43c
+0000002747 n2 SEND to=n3 id=290 len=4 h=58c2241a0510a43c
+0000002750 n1 PERSIST seq=28 op=PersistAppend file=counter.log
+0000002751 n1 DELIVER from=n2 id=289
+0000002751 n1 EVENT name=got from=n2 value=25
+0000002753 n1 DURABLE seq=28
+0000002753 n1 SEND to=n2 id=291 len=4 h=58c2291a0510acbb
+0000002753 n1 SEND to=n3 id=292 len=4 h=58c2291a0510acbb
+0000002753 n1 SEND to=n2 id=293 len=4 h=33e1316ca2c45605
+0000002754 n3 DELIVER from=n2 id=290
+0000002754 n3 EVENT name=got from=n2 value=25
+0000002754 n3 SEND to=n2 id=294 len=4 h=33e1316ca2c45605
+0000002759 n2 DELIVER from=n3 id=294
+0000002759 n2 EVENT name=echo from=n3 value=25 n=1
+0000002760 n2 DELIVER from=n1 id=291
+0000002760 n2 EVENT name=got from=n1 value=28
+0000002760 n2 SEND to=n1 id=295 len=4 h=33e1346ca2c45b1e
+0000002761 n3 DELIVER from=n1 id=292
+0000002761 n3 EVENT name=got from=n1 value=28
+0000002761 n3 SEND to=n1 id=296 len=4 h=33e1346ca2c45b1e
+0000002761 n2 DELIVER from=n1 id=293
+0000002761 n2 EVENT name=echo from=n1 value=25 n=2
+0000002770 n1 DELIVER from=n2 id=295
+0000002770 n1 EVENT name=echo from=n2 value=28 n=12
+0000002770 n1 DELIVER from=n3 id=296
+0000002770 n1 EVENT name=echo from=n3 value=28 n=13
+0000002773 n3 PERSIST seq=27 op=PersistAppend file=counter.log
+0000002774 n3 DURABLE seq=27
+0000002774 n3 SEND to=n1 id=297 len=4 h=58c2261a0510a7a2
+0000002774 n3 SEND to=n2 id=298 len=4 h=58c2261a0510a7a2
+0000002780 n2 DELIVER from=n3 id=298
+0000002780 n2 EVENT name=got from=n3 value=27
+0000002780 n2 SEND to=n3 id=299 len=4 h=33e12f6ca2c4529f
+0000002781 n3 DELIVER from=n2 id=299
+0000002781 n3 EVENT name=echo from=n2 value=27 n=35
+0000002784 n1 DELIVER from=n3 id=297
+0000002784 n1 EVENT name=got from=n3 value=27
+0000002784 n1 SEND to=n3 id=300 len=4 h=33e12f6ca2c4529f
+0000002788 n3 DELIVER from=n1 id=300
+0000002788 n3 EVENT name=echo from=n1 value=27 n=36
+0000002841 n1 PERSIST seq=29 op=PersistAppend file=counter.log
+0000002843 n1 DURABLE seq=29
+0000002843 n1 SEND to=n2 id=301 len=4 h=58c2281a0510ab08
+0000002843 n1 SEND to=n3 id=302 len=4 h=58c2281a0510ab08
+0000002844 n2 PERSIST seq=26 op=PersistAppend file=counter.log
+0000002845 n2 DURABLE seq=26
+0000002845 n2 SEND to=n1 id=303 len=4 h=58c2271a0510a955
+0000002845 n2 SEND to=n3 id=304 len=4 h=58c2271a0510a955
+0000002849 n3 DELIVER from=n2 id=304
+0000002849 n3 EVENT name=got from=n2 value=26
+0000002849 n3 SEND to=n2 id=305 len=4 h=33e12e6ca2c450ec
+0000002850 n3 DELIVER from=n1 id=302
+0000002850 n3 EVENT name=got from=n1 value=29
+0000002850 n3 SEND to=n1 id=306 len=4 h=33e1356ca2c45cd1
+0000002851 n1 DELIVER from=n3 id=306
+0000002851 n1 EVENT name=echo from=n3 value=29 n=14
+0000002852 n2 DELIVER from=n1 id=301
+0000002852 n2 EVENT name=got from=n1 value=29
+0000002852 n2 SEND to=n1 id=307 len=4 h=33e1356ca2c45cd1
+0000002853 n1 DELIVER from=n2 id=303
+0000002853 n1 EVENT name=got from=n2 value=26
+0000002853 n1 SEND to=n2 id=308 len=4 h=33e12e6ca2c450ec
+0000002854 n2 DELIVER from=n3 id=305
+0000002854 n2 EVENT name=echo from=n3 value=26 n=3
+0000002860 n2 DELIVER from=n1 id=308
+0000002860 n2 EVENT name=echo from=n1 value=26 n=4
+0000002861 n1 DELIVER from=n2 id=307
+0000002861 n1 EVENT name=echo from=n2 value=29 n=15
+0000002873 n3 PERSIST seq=28 op=PersistAppend file=counter.log
+0000002875 n3 DURABLE seq=28
+0000002875 n3 SEND to=n1 id=309 len=4 h=58c2291a0510acbb
+0000002875 n3 SEND to=n2 id=310 len=4 h=58c2291a0510acbb
+0000002876 n2 DELIVER from=n3 id=310
+0000002876 n2 EVENT name=got from=n3 value=28
+0000002876 n2 SEND to=n3 id=311 len=4 h=33e1346ca2c45b1e
+0000002878 n1 DELIVER from=n3 id=309
+0000002878 n1 EVENT name=got from=n3 value=28
+0000002878 n1 SEND to=n3 id=312 len=4 h=33e1346ca2c45b1e
+0000002881 n3 DELIVER from=n2 id=311
+0000002881 n3 EVENT name=echo from=n2 value=28 n=37
+0000002881 n3 DELIVER from=n1 id=312
+0000002881 n3 EVENT name=echo from=n1 value=28 n=38
+0000002931 n1 PERSIST seq=30 op=PersistAppend file=counter.log
+0000002932 n1 DURABLE seq=30
+0000002932 n1 SEND to=n2 id=313 len=4 h=58bebb1a050dbbfa
+0000002932 n1 SEND to=n3 id=314 len=4 h=58bebb1a050dbbfa
+0000002934 n3 DELIVER from=n1 id=314
+0000002934 n3 EVENT name=got from=n1 value=30
+0000002934 n3 SEND to=n1 id=315 len=4 h=33e4b26ca2c7670f
+0000002935 n1 DELIVER from=n3 id=315
+0000002935 n1 EVENT name=echo from=n3 value=30 n=16
+0000002936 n2 DELIVER from=n1 id=313
+0000002936 n2 EVENT name=got from=n1 value=30
+0000002936 n2 SEND to=n1 id=316 len=4 h=33e4b26ca2c7670f
+0000002943 n1 DELIVER from=n2 id=316
+0000002943 n1 EVENT name=echo from=n2 value=30 n=17
+0000002944 n2 PERSIST seq=27 op=PersistAppend file=counter.log
+0000002946 n2 DURABLE seq=27
+0000002946 n2 SEND to=n1 id=317 len=4 h=58c2261a0510a7a2
+0000002946 n2 SEND to=n3 id=318 len=4 h=58c2261a0510a7a2
+0000002952 n1 DELIVER from=n2 id=317
+0000002952 n1 EVENT name=got from=n2 value=27
+0000002952 n1 SEND to=n2 id=319 len=4 h=33e12f6ca2c4529f
+0000002954 n3 DELIVER from=n2 id=318
+0000002954 n3 EVENT name=got from=n2 value=27
+0000002954 n3 SEND to=n2 id=320 len=4 h=33e12f6ca2c4529f
+0000002954 n2 DELIVER from=n1 id=319
+0000002954 n2 EVENT name=echo from=n1 value=27 n=5
+0000002955 n2 DELIVER from=n3 id=320
+0000002955 n2 EVENT name=echo from=n3 value=27 n=6
+0000002973 n3 PERSIST seq=29 op=PersistAppend file=counter.log
+0000002975 n3 DURABLE seq=29
+0000002975 n3 SEND to=n1 id=321 len=4 h=58c2281a0510ab08
+0000002975 n3 SEND to=n2 id=322 len=4 h=58c2281a0510ab08
+0000002980 n1 DELIVER from=n3 id=321
+0000002980 n1 EVENT name=got from=n3 value=29
+0000002980 n1 SEND to=n3 id=323 len=4 h=33e1356ca2c45cd1
+0000002980 n2 DELIVER from=n3 id=322
+0000002980 n2 EVENT name=got from=n3 value=29
+0000002980 n2 SEND to=n3 id=324 len=4 h=33e1356ca2c45cd1
+0000002983 n3 DELIVER from=n1 id=323
+0000002983 n3 EVENT name=echo from=n1 value=29 n=39
+0000002985 n3 DELIVER from=n2 id=324
+0000002985 n3 EVENT name=echo from=n2 value=29 n=40
+0000003000 n1 FINAL incarnation=2 durable=30 disk=7f0ff7420fda8552
+0000003000 n2 FINAL incarnation=2 durable=27 disk=08ba32789750fbfc
+0000003000 n3 FINAL incarnation=2 durable=29 disk=c26c22786fba1f55

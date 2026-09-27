@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 57fb404..cc2fc8c 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -103,7 +103,7 @@ public sealed class Simulator
+             action();
+         }
+ 
+-        foreach (var h in _hosts)
++        foreach (var h in _hosts.OrderBy(x => x.Id.ToString().GetHashCode(System.StringComparison.Ordinal)))
+         {
+             Trace.Add(_now, h.Id.ToString(), "FINAL", ("incarnation", h.Incarnation), ("durable", h.Disk.CompletedCount), ("disk", h.Disk.Digest()));
+         }

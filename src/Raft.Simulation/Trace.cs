@@ -34,12 +34,12 @@ public sealed class Trace
     private static string Format(object v) => v switch
     {
         string s when s.Length == 0 || s.AsSpan().IndexOfAny(" =\n\r") >= 0 =>
-            throw new ArgumentException($"trace value '{s}' is empty or contains a space, '=' or a newline"),
+            throw new ArgumentException("trace value '" + s + "' is empty or contains a space, '=' or a newline"),
         string s => s,
         long l => l.ToString(CultureInfo.InvariantCulture),
         int i => i.ToString(CultureInfo.InvariantCulture),
         ulong u => u.ToString("x16", CultureInfo.InvariantCulture),
         bool b => b ? "true" : "false",
-        _ => throw new ArgumentException($"unsupported trace field type {v.GetType().Name}"),
+        _ => throw new ArgumentException("unsupported trace field type " + v.GetType().Name),
     };
 }

@@ -104,7 +104,7 @@ shrinking, and not later. Moving it is a spec change, argued first.
 
 - **Task:** A canonical, line-oriented trace (logical time, node, event kind, fields in a fixed order, per-node state digest) that a person can read. A test runs the same schedule in two separate processes through `Raft.SimRun` and compares trace bytes; a committed golden trace for one schedule guards against drift across SDK patches; two different seeds must give different traces. The P0-04 allowlist scan is extended to Raft.Simulation, with its own allowlist.
 - **Vacuity:** A trace too coarse to differ (only counts) is trivially identical across processes. Guarded by the seed-sensitivity test and by the per-event content.
-- **Sabotage:** S-det-1, S-det-2, S-det-3
+- **Sabotage:** S-det-1, S-det-2, S-det-3, S-det-4
 - **Verifiable here:** yes — local; the separate processes run in the pinned image.
 - **Prediction:** The first cross-process comparison passes, because `Dictionary` and `HashSet` enumeration order depends on insertion and removal history, not on hash codes, so per-process string-hash randomisation does not reach the trace; a sabotage that merely enumerates a `HashSet<string>` survives, and S-det-1 must order by `GetHashCode` explicitly to go red. **Observable:** first run green; a plain-`HashSet` variant of S-det-1 survives the harness.
 - **Outcome:** pending

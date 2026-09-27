@@ -162,14 +162,14 @@ public sealed class Simulator
                 sh.SkewDenominator = sk.Denominator;
                 break;
             default:
-                throw new System.ArgumentException($"unknown fault {fault.GetType().Name}");
+                throw new System.ArgumentException("unknown fault " + fault.GetType().Name);
         }
     }
 
     private static string Describe(Fault f) => f switch
     {
-        LinkFault l => $"{l.From}->{l.To}",
-        Crash c => $"{c.Node}:{c.Loss}",
+        LinkFault l => l.From + "->" + l.To,
+        Crash c => c.Node + ":" + c.Loss,
         NodeFault n => n.Node.ToString(),
         _ => "-",
     };
@@ -212,7 +212,7 @@ public sealed class Simulator
         h.Backlog.Clear();
         var dropped = h.Held.Count;
         h.Held.Clear();
-        var draws = _streams.For($"crash:{h.Id}:{h.Incarnation}");
+        var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
         var disk = h.Disk.Crash(loss, draws.NextUInt64);
         Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
     }
@@ -235,7 +235,7 @@ public sealed class Simulator
     {
         h.Incarnation++;
         var peers = ids.Where(p => p != h.Id).ToList();
-        var random = _streams.For($"node:{h.Id}:incarnation:{h.Incarnation}");
+        var random = _streams.For(Purpose("node", h.Id, "incarnation", h.Incarnation));
         h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot()));
         h.LastTick = _now;
         Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation));
@@ -262,7 +262,7 @@ public sealed class Simulator
             switch (e)
             {
                 case Persist p:
-                    var latency = Between($"disk:{h.Id}", (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
+                    var latency = Between("disk:" + h.Id, (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
                     if (_now < h.SlowUntil)
                     {
                         latency = System.Math.Max(latency, h.SlowLatency);
@@ -279,7 +279,7 @@ public sealed class Simulator
                     Trace.Add(_now, h.Id.ToString(), "EVENT", [("name", (object)ev.Name), .. ev.Fields.Select(f => (f.Key, (object)f.Value))]);
                     break;
                 default:
-                    throw new InvalidOperationException($"unknown effect {e.GetType().Name}");
+                    throw new InvalidOperationException("unknown effect " + e.GetType().Name);
             }
         }
 
@@ -315,7 +315,7 @@ public sealed class Simulator
     private void Transmit(NodeId from, Send s)
     {
         var id = ++_messageSeq;
-        var delay = Between($"delay:{from}->{s.To}", (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
+        var delay = Between("delay:" + from + "->" + s.To, (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
         var hash = SimDisk.HashBytes(s.Payload.Span);
         var link = (from, s.To);
         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
@@ -382,6 +382,13 @@ public sealed class Simulator
             At(deliverAt + 1, releaseHeld);
         }
     }
+
+    /// <summary>
+    /// A stream purpose, formatted invariantly: string interpolation would format numbers with the
+    /// current culture, making every random draw depend on the machine's locale.
+    /// </summary>
+    private static string Purpose(string kind, NodeId node, string? label, int incarnation) =>
+        kind + ":" + node + ":" + (label is null ? "" : label + ":") + incarnation.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private long Between(string purpose, ulong index, long min, long max) =>
         min + (long)(_streams.At(purpose, index) % (ulong)(max - min + 1));

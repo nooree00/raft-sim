@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Trace.cs b/src/Raft.Simulation/Trace.cs
+index ec74ff7..876bad8 100644
+--- a/src/Raft.Simulation/Trace.cs
++++ b/src/Raft.Simulation/Trace.cs
+@@ -19,7 +19,7 @@ public sealed class Trace
+     public void Add(long time, string node, string kind, params (string Key, object Value)[] fields)
+     {
+         var sb = new StringBuilder();
+-        sb.Append(time.ToString("D10", CultureInfo.InvariantCulture)).Append(' ').Append(node).Append(' ').Append(kind);
++        sb.Append(time.ToString("D9", CultureInfo.InvariantCulture)).Append(' ').Append(node).Append(' ').Append(kind);
+         foreach (var (k, v) in fields)
+         {
+             sb.Append(' ').Append(k).Append('=').Append(Format(v));

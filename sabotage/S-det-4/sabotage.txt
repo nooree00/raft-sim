@@ -1,0 +1,5 @@
+description: P1-08's prediction: output enumerated through a plain HashSet of strings (whose order follows insertion, not hash codes) is still byte-identical across processes
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.DeterminismTests.TwoSeparateProcessesProduceByteIdenticalTraces
+expect: survived

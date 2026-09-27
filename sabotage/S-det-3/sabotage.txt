@@ -1,0 +1,5 @@
+description: The trace format drifts (time padding): the golden trace must notice
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.DeterminismTests.TheGoldenTraceIsReproducedExactly
+expect: caught
