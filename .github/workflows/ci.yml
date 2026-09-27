@@ -34,6 +34,22 @@ jobs:
       - name: sabotage
         run: scripts/ci-sabotage.sh
 
+  each-commit:
+    # GitHub runs only a push's head; this builds and fast-tests every other commit in the push.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PUSH_BEFORE: ${{ github.event.before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: every commit in the push
+        run: scripts/ci-each-commit.sh
+
   secrets:
     # On the runner host: gitleaks runs as a digest-pinned container, which needs docker.
     runs-on: ubuntu-24.04

@@ -1,0 +1,5 @@
+description: Only the first commit of the range is checked
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.ARedMiddleCommitIsReported
+expect: caught

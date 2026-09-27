@@ -8,6 +8,7 @@ internal static class Program
 {
     private static readonly Dictionary<string, (string Help, Func<Repo, string[], Findings> Run)> Commands = new(StringComparer.Ordinal)
     {
+        ["each-commit"] = ("build and fast-test every non-head commit in the pushed range (spec §12)", EachCommit.Run),
         ["preflight"] = ("environment and pinning checks (spec §3, §10)", Preflight.Run),
         ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
         ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),

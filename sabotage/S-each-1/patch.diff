@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/EachCommit.cs b/tools/Raft.Gates/EachCommit.cs
+index 593310f..5a90b79 100644
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -59,7 +59,7 @@ internal static class EachCommit
+ 
+         try
+         {
+-            foreach (var c in commits)
++            foreach (var c in commits.Take(1))
+             {
+                 Proc.Run("git", wt, "checkout", "-q", "--detach", c);
+                 Proc.Run("git", wt, "clean", "-fdq");
