@@ -62,6 +62,8 @@ internal static partial class Preflight
     {
         var digest = repo.ReadText("ci/image.digest").Trim();
         f.Require(DigestPinnedImage().IsMatch(digest), $"ci/image.digest '{digest}' is not pinned by sha256 digest");
+        var gitleaks = repo.ReadText("ci/gitleaks.image").Trim();
+        f.Require(DigestPinnedImage().IsMatch(gitleaks), $"ci/gitleaks.image '{gitleaks}' is not pinned by sha256 digest");
     }
 
     internal static void CheckWorkflows(Repo repo, Findings f)

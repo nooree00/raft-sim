@@ -1,0 +1,8 @@
+description: The same secret committed and then deleted in the next commit must still be found: the scan covers history, not the tree
+kind: command
+runner: host
+build: no
+baseline: d=$(mktemp -d) && git clone -q "file://$PWD" "$d" && scripts/secret-scan.sh "$d"
+command: d=$(mktemp -d) && git clone -q "file://$PWD" "$d" && tok="ghp_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 36)" && echo "token = \"$tok\"" > "$d/leak.txt" && git -C "$d" add leak.txt && git -C "$d" -c user.name=s -c user.email=s@example.com commit -qm leak && git -C "$d" rm -q leak.txt && git -C "$d" -c user.name=s -c user.email=s@example.com commit -qm unleak && test ! -e "$d/leak.txt" && scripts/secret-scan.sh "$d"
+expect: caught
+message: leaks found

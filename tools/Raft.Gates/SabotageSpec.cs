@@ -28,6 +28,9 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
     /// "no" for a patch whose target reads files at run time (a csproj, the solution) and so leaves
     /// every assembly unchanged by design; the harness then skips its not-compiled-in guard.
     /// </summary>
+    /// <summary>"host" for entries that need the runner host (docker); run by scripts/host-sabotages.sh.</summary>
+    public bool RunsOnHost => Fields.GetValueOrDefault("runner", "container") == "host";
+
     public bool ChangesAssemblies => Fields.GetValueOrDefault("changes-assemblies", "yes") == "yes";
 
     public string? Get(string key) => Fields.TryGetValue(key, out var v) ? v : null;
@@ -71,6 +74,8 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         f.Require(Expectations.Contains(spec.Expect), $"{id}: expect '{spec.Expect}' not one of {string.Join("/", Expectations)}");
         f.Require(spec.Get("build") is null or "yes" or "no", $"{id}: build must be yes or no");
         f.Require(spec.Get("changes-assemblies") is null or "yes" or "no", $"{id}: changes-assemblies must be yes or no");
+        f.Require(spec.Get("runner") is null or "container" or "host", $"{id}: runner must be container or host");
+        f.Require(!spec.RunsOnHost || spec.Kind == "command" && spec.Get("baseline") is not null, $"{id}: a host entry is a command with a baseline");
         if (spec.Kind == "test")
         {
             f.Require(spec.Get("project") is { Length: > 0 } && spec.Get("target") is { Length: > 0 }, $"{id}: kind test needs project and target");

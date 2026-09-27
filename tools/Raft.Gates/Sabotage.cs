@@ -43,7 +43,14 @@ internal static class Sabotage
             return f;
         }
 
-        var specs = SabotageSpec.LoadAll(repo, f).Where(s => only is null || only.Contains(s.Id)).ToList();
+        var all = SabotageSpec.LoadAll(repo, f).Where(s => only is null || only.Contains(s.Id)).ToList();
+        var hosted = all.Where(s => s.RunsOnHost).Select(s => s.Id).ToList();
+        if (hosted.Count > 0)
+        {
+            f.Note($"deferred to the secrets job (runner: host): {string.Join(", ", hosted)}");
+        }
+
+        var specs = all.Where(s => !s.RunsOnHost).ToList();
         if (f.Failures.Count > 0 || specs.Count == 0)
         {
             f.Require(specs.Count > 0, "no sabotages selected");
