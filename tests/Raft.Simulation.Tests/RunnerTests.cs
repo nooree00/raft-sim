@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using Raft.Simulation;
 using Raft.SimRun;
@@ -79,12 +78,16 @@ public sealed class RunnerTests
         Assert.True(checkedReceipts > 1_000, $"only {checkedReceipts} receipts checked");
     }
 
+    /// <summary>
+    /// The cost of ten simulated minutes, bounded by what drives it: steps, about one per tick per
+    /// node. Not wall time — a wall-clock bound failed under the sabotage harness's parallel load
+    /// (10.1–11.4 s against 1.6 s alone; docs/findings.md).
+    /// </summary>
     [Fact]
-    public void TenSimulatedMinutesRunInSecondsOfWallTime()
+    public void TenSimulatedMinutesCostAboutOneStepPerTickPerNode()
     {
-        var clock = Stopwatch.StartNew();
         var (sim, _) = Run(seed: 12);
 
-        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"{clock.Elapsed.TotalSeconds:F1}s for {sim.Steps} steps");
+        Assert.InRange(sim.Steps, 3 * 600_000, 3 * 660_000);
     }
 }

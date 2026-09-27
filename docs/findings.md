@@ -78,3 +78,14 @@ finding: what happened, why no existing check caught it, what now catches it.
   locale), I dropped one word from a purpose: `node:n1:incarnation:1` became `node:n1:1`. *Caught by*
   the golden trace, on its first day: 2,280 lines moved. *Now:* the purpose text is restored; the
   golden trace is the check that such rewrites are what they claim.
+- **A wall-clock assertion failed under the harness's load.** P1-04's runner test required ten
+  simulated minutes in under 10 s of wall time (1.6 s alone). With the harness on four parallel
+  workers, S-count-1's unpatched baseline went red; six concurrent copies of the suite reproduced it
+  in four (10.1–11.4 s). *Not caught earlier* because each earlier harness run happened to leave that
+  test enough CPU. *Now:* the test bounds the step count, which is deterministic and is what drives
+  the wall time; the wall time is reported, not asserted. Rule taken: no wall-clock assertion in a
+  suite the harness runs.
+- **The each-commit gate pruned a worktree it could not see.** `gates each-commit` runs
+  `git worktree prune` inside the container, where a worktree outside the mounted repository looks
+  missing; my scratch worktree's metadata was removed (its files were not). Harmless in CI; locally,
+  scratch worktrees must live where the container can see them.
