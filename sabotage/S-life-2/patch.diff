@@ -1,0 +1,25 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 8e1cedf..4f87bf9 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -146,15 +146,14 @@ public sealed class Simulator
+                 _hosts[bv.Node.Value - 1].ViolateBarrierUntil = bv.Until;
+                 break;
+             case Pause pa:
+-                var ph = _hosts[pa.Node.Value - 1];
+-                if (ph.Node is not null)
+-                {
+-                    ph.Paused = true;
+-                }
++                CrashNode(_hosts[pa.Node.Value - 1], DiskLoss.Pending);
+ 
+                 break;
+             case Unpause re:
+-                ResumeNode(_hosts[re.Node.Value - 1]);
++                if (_hosts[re.Node.Value - 1].Node is null)
++                {
++                    Start(_hosts[re.Node.Value - 1], _ids);
++                }
+                 break;
+             case Skew sk:
+                 var sh = _hosts[sk.Node.Value - 1];

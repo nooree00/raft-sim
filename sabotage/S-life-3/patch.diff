@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 8e1cedf..3191584 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -195,7 +195,7 @@ public sealed class Simulator
+     /// <summary>Real elapsed units as this node's skewed clock perceives them, carrying the remainder.</summary>
+     private static long Perceived(Host h, long real)
+     {
+-        var scaled = (real * h.SkewNumerator) + h.SkewCarry;
++        var scaled = (real * h.SkewDenominator) + h.SkewCarry;
+         h.SkewCarry = scaled % h.SkewDenominator;
+         return scaled / h.SkewDenominator;
+     }

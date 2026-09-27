@@ -1,0 +1,25 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 8e1cedf..9dffaac 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -136,6 +136,10 @@ public sealed class Simulator
+                 {
+                     Start(host, _ids);
+                 }
++                else
++                {
++                    host.Paused = false;
++                }
+ 
+                 break;
+             case SlowDisk sd:
+@@ -207,8 +211,7 @@ public sealed class Simulator
+             return;
+         }
+ 
+-        h.Node = null;
+-        h.Paused = false;
++        h.Paused = true; // the object is kept: volatile state survives the "crash"
+         h.Backlog.Clear();
+         var dropped = h.Held.Count;
+         h.Held.Clear();

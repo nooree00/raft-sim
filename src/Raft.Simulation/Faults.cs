@@ -64,6 +64,15 @@ public sealed record SlowDisk(long At, NodeId Node, long Latency, long Until) : 
 /// <summary>Positive control only: until <c>Until</c>, the node's sends ignore the persist barrier.</summary>
 public sealed record BarrierViolation(long At, NodeId Node, long Until) : NodeFault(At, Node);
 
+/// <summary>The node stops receiving ticks and deliveries; its object and state are kept.</summary>
+public sealed record Pause(long At, NodeId Node) : NodeFault(At, Node);
+
+/// <summary>The node receives one tick covering the pause, then the messages held for it, in arrival order.</summary>
+public sealed record Unpause(long At, NodeId Node) : NodeFault(At, Node);
+
+/// <summary>From <c>At</c>, the node perceives <c>Numerator</c>/<c>Denominator</c> units per real unit.</summary>
+public sealed record Skew(long At, NodeId Node, long Numerator, long Denominator) : NodeFault(At, Node);
+
 /// <summary>An explicit list of faults.</summary>
 public sealed record FaultSchedule(IReadOnlyList<Fault> Faults)
 {

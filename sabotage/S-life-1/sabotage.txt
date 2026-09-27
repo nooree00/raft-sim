@@ -1,0 +1,5 @@
+description: A crash keeps the node object, so its volatile state survives
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.LifecycleFaultTests.ACrashDiscardsVolatileStateAndRestartRecoversDurableState
+expect: caught

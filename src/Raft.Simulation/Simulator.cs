@@ -61,6 +61,18 @@ public sealed class Simulator
         public long SlowUntil { get; set; }
 
         public long ViolateBarrierUntil { get; set; } = -1;
+
+        public bool Paused { get; set; }
+
+        /// <summary>Messages that arrived while paused, delivered in arrival order on resume.</summary>
+        public Queue<Action> Backlog { get; } = new();
+
+        public long SkewNumerator { get; set; } = 1;
+
+        public long SkewDenominator { get; set; } = 1;
+
+        /// <summary>Remainder carried between ticks so a skewed clock loses nothing to rounding.</summary>
+        public long SkewCarry { get; set; }
     }
 
     private List<NodeId> _ids = [];
@@ -133,6 +145,22 @@ public sealed class Simulator
             case BarrierViolation bv:
                 _hosts[bv.Node.Value - 1].ViolateBarrierUntil = bv.Until;
                 break;
+            case Pause pa:
+                var ph = _hosts[pa.Node.Value - 1];
+                if (ph.Node is not null)
+                {
+                    ph.Paused = true;
+                }
+
+                break;
+            case Unpause re:
+                ResumeNode(_hosts[re.Node.Value - 1]);
+                break;
+            case Skew sk:
+                var sh = _hosts[sk.Node.Value - 1];
+                sh.SkewNumerator = sk.Numerator;
+                sh.SkewDenominator = sk.Denominator;
+                break;
             default:
                 throw new System.ArgumentException($"unknown fault {fault.GetType().Name}");
         }
@@ -146,6 +174,32 @@ public sealed class Simulator
         _ => "-",
     };
 
+    private void ResumeNode(Host h)
+    {
+        if (!h.Paused)
+        {
+            return;
+        }
+
+        h.Paused = false;
+        var elapsed = Perceived(h, _now - h.LastTick);
+        h.LastTick = _now;
+        Trace.Add(_now, h.Id.ToString(), "RESUME", ("tick", elapsed), ("backlog", h.Backlog.Count));
+        Handle(h, new Tick(elapsed));
+        while (h.Backlog.Count > 0 && h.Node is not null && !h.Paused)
+        {
+            h.Backlog.Dequeue()();
+        }
+    }
+
+    /// <summary>Real elapsed units as this node's skewed clock perceives them, carrying the remainder.</summary>
+    private static long Perceived(Host h, long real)
+    {
+        var scaled = (real * h.SkewNumerator) + h.SkewCarry;
+        h.SkewCarry = scaled % h.SkewDenominator;
+        return scaled / h.SkewDenominator;
+    }
+
     private void CrashNode(Host h, DiskLoss loss)
     {
         if (h.Node is null)
@@ -154,6 +208,8 @@ public sealed class Simulator
         }
 
         h.Node = null;
+        h.Paused = false;
+        h.Backlog.Clear();
         var dropped = h.Held.Count;
         h.Held.Clear();
         var draws = _streams.For($"crash:{h.Id}:{h.Incarnation}");
@@ -187,9 +243,9 @@ public sealed class Simulator
 
     private void ScheduleTick(Host h, long after) => At(_now + after, () =>
     {
-        if (h.Node is not null)
+        if (h.Node is not null && !h.Paused)
         {
-            var elapsed = _now - h.LastTick;
+            var elapsed = Perceived(h, _now - h.LastTick);
             h.LastTick = _now;
             Handle(h, new Tick(elapsed));
         }
@@ -276,6 +332,17 @@ public sealed class Simulator
             if (to.Node is null)
             {
                 Trace.Add(_now, to.Id.ToString(), "LOST", ("id", id), ("reason", "down"));
+                return;
+            }
+
+            if (to.Paused)
+            {
+                Trace.Add(_now, to.Id.ToString(), "BACKLOG", ("from", from.ToString()), ("id", id));
+                to.Backlog.Enqueue(() =>
+                {
+                    Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+                    Handle(to, new Receive(from, payload));
+                });
                 return;
             }
 

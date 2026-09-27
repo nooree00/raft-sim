@@ -24,6 +24,7 @@ public sealed class EchoCounterNode : INode
     private readonly long _fileLength;
     private long _counter;
     private long _sinceLast;
+    private long _echoes; // volatile: lost on a crash, kept across a pause
 
     public EchoCounterNode(NodeContext ctx)
     {
@@ -76,7 +77,8 @@ public sealed class EchoCounterNode : INode
                 }
                 else
                 {
-                    effects.Add(new Emit("echo", [new Field("from", r.From.ToString()), new Field("value", text[2..])]));
+                    _echoes++;
+                    effects.Add(new Emit("echo", [new Field("from", r.From.ToString()), new Field("value", text[2..]), new Field("n", Str(_echoes))]));
                 }
 
                 break;
