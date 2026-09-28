@@ -1,12 +1,12 @@
 diff --git a/docs/design/node-interface.md b/docs/design/node-interface.md
-index 8871d73..46bd717 100644
+index e7e2f16..db97b6f 100644
 --- a/docs/design/node-interface.md
 +++ b/docs/design/node-interface.md
-@@ -127,7 +127,6 @@ own tests and off in generated runs.
+@@ -145,7 +145,6 @@ own tests and off in generated runs.
  | F2-20 | `Raft.Core.IStateMachine.Apply` | Figure 2 | unsynced-write-lost |
- | F2-21 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: spec §8 — the new term is durable before anything that depends on it is sent | unsynced-write-lost, step-after-silence-longer-than-a-timeout, one-way-reachability, node-isolated-for-a-timeout |
- | F2-22 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | lost-in-transit-to-a-live-receiver, one-way-reachability, node-isolated-for-a-timeout |
--| F2-23 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, step-after-silence-longer-than-a-timeout, clock-rate-diverged, lost-in-transit-to-a-live-receiver |
- | F2-24 | `Raft.Core.Tick`, `Raft.Core.PersistAppend`, `Raft.Core.Send`, `Raft.Core.IRandomSource` | Figure 2, and *outside*: spec §8 (amendment A7) — the vote for self is durable before any RequestVote leaves | unsynced-write-lost, control:send-before-its-persist-durable, clock-rate-diverged |
- | F2-25 | `Raft.Core.Receive` | Figure 2 | delivered-twice, one-way-reachability, node-isolated-for-a-timeout, majority-down |
- | F2-26 | `Raft.Core.Receive` | Figure 2 | delivered-later-than-normal-delay, delivered-after-later-send |
+ | F2-21 | `Raft.Core.Receive`, `Raft.Core.PersistAppend`, `Raft.Core.RaftNode.Handle` | Figure 2, and *outside*: spec §8 — the new term is durable before anything that depends on it is sent | unsynced-write-lost, step-after-silence-longer-than-a-timeout, one-way-reachability, node-isolated-for-a-timeout |
+ | F2-22 | `Raft.Core.Receive`, `Raft.Core.Send`, `Raft.Core.RaftNode.Handle` | Figure 2 | lost-in-transit-to-a-live-receiver, one-way-reachability, node-isolated-for-a-timeout |
+-| F2-23 | `Raft.Core.Tick`, `Raft.Core.IRandomSource`, `Raft.Core.RaftNode.Handle` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, step-after-silence-longer-than-a-timeout, clock-rate-diverged, lost-in-transit-to-a-live-receiver |
+ | F2-24 | `Raft.Core.Tick`, `Raft.Core.PersistAppend`, `Raft.Core.Send`, `Raft.Core.IRandomSource`, `Raft.Core.RaftNode.Handle` | Figure 2, and *outside*: spec §8 (amendment A7) — the vote for self is durable before any RequestVote leaves | unsynced-write-lost, control:send-before-its-persist-durable, clock-rate-diverged |
+ | F2-25 | `Raft.Core.Receive`, `Raft.Core.RaftNode.Handle` | Figure 2 | delivered-twice, one-way-reachability, node-isolated-for-a-timeout, majority-down |
+ | F2-26 | `Raft.Core.Receive`, `Raft.Core.RaftNode.Handle` | Figure 2 | delivered-later-than-normal-delay, delivered-after-later-send |

@@ -322,3 +322,14 @@ finding: what happened, why no existing check caught it, what now catches it.
     Any entry whose incidental path to red was a crash, not a distinguishable message, would have
     passed forever. The `reason:` requirement is what makes the count meaningful rather than a
     lower bound, and only for the entries that state one.
+- **Tests first for the election (P3-05), and a test of mine that failed before its assertion.** The
+  13 election tests were written against a stub node that returns no effects, and all 13 failed
+  there. Two of them failed for the wrong reason: they sorted node ids with `.Order()`, and
+  `NodeId` is not comparable, so they threw before reaching their assertions. Against the stub that
+  looked like the expected red; it was the general form above, in a test I had just written.
+  - *Found:* when the implementation arrived, those two still failed, with the same exception.
+  - *Now:* they sort by value. Re-run against the stub, they fail at their assertions: one on the
+    persisted vote, one at its precondition, because the node never stands. The red run is kept in
+    the phase report.
+  - *Consequence:* a tests-first run shows only that each test goes red. Reading why each went red
+    is the part the run does not do by itself, the same gap P3-01 closed for the harness.

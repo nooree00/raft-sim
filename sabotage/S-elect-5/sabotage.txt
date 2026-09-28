@@ -1,0 +1,6 @@
+description: A follower's election timer is not reset by the leader's heartbeats: followers stand against a live leader
+mechanism: AppendEntries does not reset the election timer
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.HeartbeatsFromTheLeaderKeepAFollowerFromStanding
+expect: caught

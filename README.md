@@ -6,7 +6,8 @@ deterministic fault-injecting simulator as an equal deliverable. The contract is
 them are in [`AGENTS.md`](AGENTS.md). Current phase and deferred items:
 [`docs/phases/status.md`](docs/phases/status.md), [`docs/register.md`](docs/register.md).
 
-Phase 0 (repository, CI, gates) is in progress. There is no Raft yet.
+Raft so far: leader election with `currentTerm` and `votedFor` persisted (phase 3); log replication
+and everything after it follow in later phases. Phase 0 stays open on one item, the reviewer's cold walk.
 
 ## Build and test from a fresh clone
 

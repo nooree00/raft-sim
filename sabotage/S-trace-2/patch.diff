@@ -1,10 +1,10 @@
 diff --git a/docs/design/node-interface.md b/docs/design/node-interface.md
-index 8871d73..1aaf241 100644
+index e7e2f16..dd6c959 100644
 --- a/docs/design/node-interface.md
 +++ b/docs/design/node-interface.md
-@@ -109,7 +109,7 @@ own tests and off in generated runs.
- | F2-02 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
- | F2-03 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
+@@ -127,7 +127,7 @@ own tests and off in generated runs.
+ | F2-02 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files`, `Raft.Core.RaftNode.Handle` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
+ | F2-03 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files`, `Raft.Core.RaftNode.Handle` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
  | F2-04 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, partial-record-left-on-disk, writes-completed-out-of-order-at-crash, all-down, restarted-from-disk |
 -| F2-05 | `Raft.Core.INode.Handle` | Figure 2 (volatile: rebuilt after restart) | unsynced-write-lost |
 +| F2-05 | `Raft.Core.INode.Step` | Figure 2 (volatile: rebuilt after restart) | unsynced-write-lost |

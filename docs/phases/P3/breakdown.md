@@ -100,7 +100,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 
 - **Task:** The three states; a randomized election timeout from `IRandomSource`; `RequestVote` and its response; step down on any higher term; heartbeats as empty `AppendEntries`; the term-and-vote record persisted before any send that depends on it, including the candidate's vote for itself (§8's example: persisted after the send, it gives two leaders). The unit tests in `Raft.Core.Tests` are hand-built input sequences with expected effect lists. They are written first and run against a stub node that returns no effects; the red output is recorded in the findings log, and they land with the implementation, never as a red commit. The Figure 2 checklist rows for elections become *implemented* in the traceability table, each naming its test. The README's "there is no Raft yet" changes.
 - **Vacuity:** Unit tests that assert only the absence of a wrong effect pass on a node that does nothing, which is exactly the stub. Guarded: they are run against the stub first, and every one must fail there. A test that passes against the stub is rewritten before the implementation starts.
-- **Sabotage:** S-elect-1, S-elect-2, S-elect-3, S-elect-4
+- **Sabotage:** S-elect-1, S-elect-2, S-elect-3, S-elect-4, S-elect-5
 - **Verifiable here:** yes — unit tests and simulated runs run locally
 - **Prediction:** In fault-free runs of three nodes, split votes are rare. A term with a candidate and no winner happens in fewer than 5% of elections, because the timeout spread (150 ticks) is fifteen times the largest network delay. **Observable:** over 200 fault-free executions, the checkers' election counts: terms with candidates, terms with a winner, and the ratio.
 - **Outcome:** pending

@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 9237dea..a1d2821 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -175,7 +175,6 @@ public sealed class RaftNode : INode
+                     Role = Role.Follower;
+                 }
+ 
+-                ResetElectionTimer();
+                 Reply(from, new AppendEntriesResponse(_term, true, 0), effects);
+                 break;
+             case AppendEntriesResponse:

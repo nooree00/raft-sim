@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 9237dea..89bf4ee 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -106,7 +106,6 @@ public sealed class RaftNode : INode
+         _votes.Add(_context.Id);
+         ResetElectionTimer();
+         effects.Add(Event("candidate", new Field("term", N(_term.Value))));
+-        Save(effects);
+         if (Won())
+         {
+             BecomeLeader(effects);

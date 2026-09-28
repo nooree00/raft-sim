@@ -1,0 +1,6 @@
+description: A node grants every candidate in its term, ignoring the vote it already cast
+mechanism: the vote is granted without checking votedFor
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.ASecondCandidateInTheSameTermIsDeniedAndNothingIsPersisted
+expect: caught

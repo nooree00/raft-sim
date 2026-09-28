@@ -1,0 +1,6 @@
+description: A leader or candidate that sees a higher term adopts it but keeps its role
+mechanism: a higher term does not make the node a follower
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.ALeaderSeeingAHigherTermStepsDownPersistsTheTermAndStopsHeartbeats
+expect: caught

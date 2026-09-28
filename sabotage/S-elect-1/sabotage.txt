@@ -1,0 +1,7 @@
+description: A candidate's vote for itself is persisted after its RequestVotes leave: a crash in between forgets the vote while peers act on the request (spec §8's two-leader example)
+mechanism: the candidate persists its self-vote after sending RequestVote
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.AFollowerThatHearsNothingStandsPersistingItsVoteBeforeAskingForVotes
+reason: persisted before any RequestVote
+expect: caught
