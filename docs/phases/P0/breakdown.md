@@ -152,7 +152,7 @@ enough by not rebuilding what a sabotage does not touch:
 
 - **Task:** gitleaks from the digest-pinned Docker Hub image, over full history, as its own CI job on the runner host; a harness command sabotage that plants freshly generated tokens in a scratch clone.
 - **Vacuity:** Scanning only the working tree or only the last commit; testing with the well-known AWS example key, which scanners allowlist; a config that allowlists whole paths.
-- **Sabotage:** S-sec-1, S-sec-2
+- **Sabotage:** S-sec-1, S-sec-2, S-sec-3, S-sec-4, S-sec-5
 - **Verifiable here:** yes — the Docker Hub image pulls here.
 - **Prediction:** The first full-history scan flags the committed PDF: its compressed streams contain high-entropy strings that trip the generic API-key rule. **Observable:** a finding in `docs/references/raft-extended.pdf`, fixed with an allowlist entry for that single file, not a directory.
 - **Outcome:** wrong (evidence) — no finding in the PDF, because gitleaks never scanned it: it skips binary files (208 KB scanned in all; the PDF alone is 554 KB). Recorded as a known limit in scripts/secret-scan.sh.

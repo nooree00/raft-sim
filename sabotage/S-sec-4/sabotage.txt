@@ -1,0 +1,6 @@
+description: A real finding (gitleaks exit 3) falls through to "no verdict": the scan still fails, but no longer says it found a leak
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.SecretScanTests.GitleaksLeakExitIsAFinding
+expect: caught
+changes-assemblies: no

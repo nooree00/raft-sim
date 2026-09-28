@@ -275,3 +275,25 @@ finding: what happened, why no existing check caught it, what now catches it.
   steered to, not a claim the work could refute. It is exactly the failure mode the
   evidence/forcing classification exists to catch, and it would have been easy to count as
   "right". *Now:* it is classed forcing and excluded from the counts.
+
+## After phase 2
+
+- **The secret scan reported a dead Docker daemon as "leaks found".** During P2's report run the
+  daemon went down; the scan printed `secret-scan: leaks found (exit 1)`. I read it correctly only
+  because I knew the daemon had died. The message alone said the opposite of what happened, in the
+  gate whose false positive is most alarming and whose false negative would be worst.
+  - *Why:* the script treated every non-zero exit of `docker run … gitleaks` as a finding. gitleaks
+    exited 1 on leaks, and the docker CLI also exits 1 when it cannot reach the daemon; a gitleaks
+    error is 1 too, a bad flag 126, a missing docker 127 (all measured). Exit status 1 could not
+    distinguish "asked and found something" from "could not ask".
+  - *Not caught:* S-sec-1/2 plant a real secret and require the message, so they prove the scan
+    fires. Nothing ever took the scanner away and asked what the gate says then. The CRDT project's
+    gate that cried wolf had the same shape.
+  - *Now:* three outcomes. gitleaks runs with `--exit-code 3`; 0 is clean, 3 is "leaks found" (exit
+    1), and anything else is `NO VERDICT` (exit 2), which is neither a finding nor a pass. Tests
+    with a fake `docker` cover each measured exit (`SecretScanTests`). S-sec-3 (every failure a
+    finding again) and S-sec-4 (a finding rendered as no verdict) sabotage the distinction both ways,
+    and S-sec-5 takes the real daemon away on the host. S-sec-1/2 now require the script's own line
+    (`secret-scan: leaks found`): gitleaks prints its own "leaks found: 1", which would have matched
+    too. The rule going forward: a gate that depends on a tool must say when the tool did not run,
+    and a harness entry must take the tool away to prove it.

@@ -1,0 +1,8 @@
+description: The Docker daemon is unreachable (DOCKER_HOST points at no socket): the real scan must give no verdict, never "leaks found" and never a pass
+kind: command
+runner: host
+build: no
+baseline: d=$(mktemp -d) && git clone -q "file://$PWD" "$d" && scripts/secret-scan.sh "$d"
+command: d=$(mktemp -d) && git clone -q "file://$PWD" "$d" && out=$(DOCKER_HOST=unix:///nonexistent.sock scripts/secret-scan.sh "$d" 2>&1); rc=$?; echo "$out"; if grep -q "leaks found" <<<"$out"; then echo "rendered as a finding"; exit 0; fi; [ "$rc" -eq 2 ] || exit 0; exit 2
+expect: caught
+message: secret-scan: NO VERDICT

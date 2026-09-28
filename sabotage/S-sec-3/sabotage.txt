@@ -1,0 +1,6 @@
+description: A scan that did not run is reported as a finding again: every failure prints "leaks found", the old behaviour that rendered a dead Docker daemon as a leak
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.SecretScanTests.AScanThatDidNotRunGivesNoVerdictNeverAFindingOrAPass(dockerExit: 1)
+expect: caught
+changes-assemblies: no

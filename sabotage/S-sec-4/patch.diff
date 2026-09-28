@@ -1,0 +1,12 @@
+diff --git a/scripts/secret-scan.sh b/scripts/secret-scan.sh
+index 2f62fcf..0de5072 100755
+--- a/scripts/secret-scan.sh
++++ b/scripts/secret-scan.sh
+@@ -16,6 +16,6 @@ rc=0
+ docker run --rm -v "$repo:/repo" "$image" git /repo --redact --no-banner --log-level warn --exit-code "$leaks" || rc=$?
+ case "$rc" in
+   0) echo "secret-scan: no leaks found in $(git -C "$repo" rev-list --count HEAD) commits" ;;
+-  "$leaks") echo "secret-scan: leaks found"; exit 1 ;;
++  "$leaks-never") echo "secret-scan: leaks found"; exit 1 ;;
+   *) echo "secret-scan: NO VERDICT: the scan did not run (docker/gitleaks exit $rc); this is not a finding and not a pass"; exit 2 ;;
+ esac
