@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 03f6906..95d4e66 100644
+index de112ff..a8297a7 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -107,7 +107,7 @@ public sealed class Simulator
+@@ -114,7 +114,7 @@ public sealed class Simulator
  
          foreach (var h in _hosts)
          {

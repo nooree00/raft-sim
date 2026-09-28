@@ -97,59 +97,63 @@ One row per item of `docs/design/figure2-checklist.md`. **Carried by** names `Ra
 `Raft.Architecture.Tests.TraceabilityTests` requires every checklist id to have exactly one row and
 every named member to exist in the built assembly. **Source** says where the rule comes from — any
 source other than the figure the item is listed under is marked *outside*. **Stressed by** names the
-simulator faults (phases 1's fault kinds) that exercise the rule.
+*effects* the rule depends on, as coverage dimensions (`Raft.Simulation.Coverage`), never fault names:
+a fault name measures the injection, an effect measures the test (P2-02). A test in
+`Raft.Simulation.Tests.CoverageTests` requires every name here to be a dimension that the generated
+runs hit above the coverage floor; `control:` names are the positive controls, exercised by their
+own tests and off in generated runs.
 
 | Id | Carried by | Source | Stressed by |
 |---|---|---|---|
-| F2-01 | `Raft.Core.PersistAppend`, `Raft.Core.PersistWriteAt`, `Raft.Core.Send` | Figure 2, and *outside*: spec §8 — the barrier covers every message that depends on persisted state, not only RPC responses (the candidate's vote for itself is sent, not a response) | crash-pending, crash-torn, crash-reordered, slow-disk, barrier-violation |
-| F2-02 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-lose-synced |
-| F2-03 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-lose-synced |
-| F2-04 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | crash-pending, crash-torn, crash-reordered |
-| F2-05 | `Raft.Core.INode.Handle` | Figure 2 (volatile: rebuilt after restart) | crash-pending |
-| F2-06 | `Raft.Core.INode.Handle`, `Raft.Core.IStateMachine.Apply` | Figure 2 (volatile: replayed after restart) | crash-pending |
-| F2-07 | `Raft.Core.INode.Handle` | Figure 2 | partition, drop |
-| F2-08 | `Raft.Core.INode.Handle` | Figure 2 | partition, drop, duplicate |
-| F2-09 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, delay, reorder, partition |
-| F2-10 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, reorder |
-| F2-11 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delay, reorder, pause |
-| F2-12 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | drop, reorder, crash-pending |
-| F2-13 | `Raft.Core.Receive`, `Raft.Core.PersistTruncate`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: §5.3 — truncate only on an actual conflict, so a stale or duplicated AppendEntries must not truncate | duplicate, reorder, delay |
-| F2-14 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2 | duplicate, reorder |
-| F2-15 | `Raft.Core.Receive` | Figure 2 | reorder, duplicate |
-| F2-16 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, delay, partition |
-| F2-17 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | drop, duplicate, reorder |
-| F2-18 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delay, pause |
-| F2-19 | `Raft.Core.Receive`, `Raft.Core.PersistAppend`, `Raft.Core.Send` | Figure 2; the vote is persisted before the reply by effect order (§4) | crash-pending, crash-lose-synced, barrier-violation |
-| F2-20 | `Raft.Core.IStateMachine.Apply` | Figure 2 | crash-pending |
-| F2-21 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: spec §8 — the new term is durable before anything that depends on it is sent | crash-pending, pause, partition |
-| F2-22 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | drop, partition |
-| F2-23 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | partition, pause, skew, drop |
-| F2-24 | `Raft.Core.Tick`, `Raft.Core.PersistAppend`, `Raft.Core.Send`, `Raft.Core.IRandomSource` | Figure 2, and *outside*: spec §8 (amendment A7) — the vote for self is durable before any RequestVote leaves | crash-pending, barrier-violation, skew |
-| F2-25 | `Raft.Core.Receive` | Figure 2 | duplicate, partition |
-| F2-26 | `Raft.Core.Receive` | Figure 2 | delay, reorder |
-| F2-27 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | partition, skew |
-| F2-28 | `Raft.Core.Tick`, `Raft.Core.Send` | Figure 2 | pause, skew, partition |
-| F2-29 | `Raft.Core.ClientRequest`, `Raft.Core.PersistAppend`, `Raft.Core.ClientResponse`, `Raft.Core.IStateMachine.Apply` | Figure 2 | crash-pending, partition, pause |
-| F2-30 | `Raft.Core.Send` | Figure 2 | drop, delay |
-| F2-31 | `Raft.Core.Receive` | Figure 2 | duplicate, reorder |
-| F2-32 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | drop, crash-pending |
-| F2-33 | `Raft.Core.Receive` | Figure 2, and *outside*: the leader counts itself only for entries it has persisted — guaranteed by the barrier (§4), since no acknowledgement can precede the persist | crash-pending, crash-lose-synced, barrier-violation |
-| F13-01 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 13 | drop, reorder, duplicate |
-| F13-02 | `Raft.Core.Send` | Figure 13 | drop |
-| F13-03 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 13 | delay |
-| F13-04 | `Raft.Core.PersistWriteAt` | Figure 13 | crash-torn |
-| F13-05 | `Raft.Core.PersistWriteAt` | Figure 13 | crash-torn, crash-reordered |
-| F13-06 | `Raft.Core.Send` | Figure 13 | drop |
-| F13-07 | `Raft.Core.PersistRename`, `Raft.Core.PersistDelete` | Figure 13, and *outside*: spec §8 — the snapshot is replaced atomically (temporary file, rename) | crash-pending, crash-torn |
-| F13-08 | `Raft.Core.PersistAppend`, `Raft.Core.PersistRename` | Figure 13 | crash-pending |
-| F13-09 | `Raft.Core.PersistDelete` | Figure 13 | crash-pending |
-| F13-10 | `Raft.Core.IStateMachine.Restore` | Figure 13 | crash-pending |
-| S6-01 | `Raft.Core.Receive`, `Raft.Core.INode.Handle` | §6 | reorder, crash-pending |
-| S6-02 | `Raft.Core.Receive` | §6 | partition |
-| S6-03 | `Raft.Core.NodeContext.Peers`, `Raft.Core.Send` | §6 | partition, delay |
-| S6-04 | `Raft.Core.INode.Handle` | §6 | partition |
-| S6-05 | `Raft.Core.Tick`, `Raft.Core.Receive` | §6 (implemented with election, spec §5) | partition, pause, skew |
-| S8-01 | `Raft.Core.ClientRequest` | §8 | duplicate, drop |
-| S8-02 | `Raft.Core.PersistAppend` | §8 | crash-pending |
-| S8-03 | `Raft.Core.ClientRequest`, `Raft.Core.ClientResponse` | §8 | pause, partition |
-| S8-04 | `Raft.Core.Send`, `Raft.Core.Receive`, `Raft.Core.ClientResponse` | §8 | pause, partition, skew |
+| F2-01 | `Raft.Core.PersistAppend`, `Raft.Core.PersistWriteAt`, `Raft.Core.Send` | Figure 2, and *outside*: spec §8 — the barrier covers every message that depends on persisted state, not only RPC responses (the candidate's vote for itself is sent, not a response) | unsynced-write-lost, partial-record-left-on-disk, writes-completed-out-of-order-at-crash, write-slower-than-normal-latency, control:send-before-its-persist-durable, all-down, restarted-from-disk |
+| F2-02 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
+| F2-03 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, control:synced-write-lost, all-down, restarted-from-disk |
+| F2-04 | `Raft.Core.PersistAppend`, `Raft.Core.NodeContext.Files` | Figure 2 | unsynced-write-lost, partial-record-left-on-disk, writes-completed-out-of-order-at-crash, all-down, restarted-from-disk |
+| F2-05 | `Raft.Core.INode.Handle` | Figure 2 (volatile: rebuilt after restart) | unsynced-write-lost |
+| F2-06 | `Raft.Core.INode.Handle`, `Raft.Core.IStateMachine.Apply` | Figure 2 (volatile: replayed after restart) | unsynced-write-lost |
+| F2-07 | `Raft.Core.INode.Handle` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, lost-in-transit-to-a-live-receiver |
+| F2-08 | `Raft.Core.INode.Handle` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, lost-in-transit-to-a-live-receiver, delivered-twice |
+| F2-09 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-twice, delivered-later-than-normal-delay, delivered-after-later-send, one-way-reachability, node-isolated-for-a-timeout |
+| F2-10 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-twice, delivered-after-later-send |
+| F2-11 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delivered-later-than-normal-delay, delivered-after-later-send, step-after-silence-longer-than-a-timeout |
+| F2-12 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-after-later-send, unsynced-write-lost |
+| F2-13 | `Raft.Core.Receive`, `Raft.Core.PersistTruncate`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: §5.3 — truncate only on an actual conflict, so a stale or duplicated AppendEntries must not truncate | delivered-twice, delivered-after-later-send, delivered-later-than-normal-delay |
+| F2-14 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2 | delivered-twice, delivered-after-later-send |
+| F2-15 | `Raft.Core.Receive` | Figure 2 | delivered-after-later-send, delivered-twice |
+| F2-16 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-twice, delivered-later-than-normal-delay, one-way-reachability, node-isolated-for-a-timeout |
+| F2-17 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-twice, delivered-after-later-send |
+| F2-18 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | delivered-later-than-normal-delay, step-after-silence-longer-than-a-timeout |
+| F2-19 | `Raft.Core.Receive`, `Raft.Core.PersistAppend`, `Raft.Core.Send` | Figure 2; the vote is persisted before the reply by effect order (§4) | unsynced-write-lost, control:synced-write-lost, control:send-before-its-persist-durable |
+| F2-20 | `Raft.Core.IStateMachine.Apply` | Figure 2 | unsynced-write-lost |
+| F2-21 | `Raft.Core.Receive`, `Raft.Core.PersistAppend` | Figure 2, and *outside*: spec §8 — the new term is durable before anything that depends on it is sent | unsynced-write-lost, step-after-silence-longer-than-a-timeout, one-way-reachability, node-isolated-for-a-timeout |
+| F2-22 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | lost-in-transit-to-a-live-receiver, one-way-reachability, node-isolated-for-a-timeout |
+| F2-23 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, step-after-silence-longer-than-a-timeout, clock-rate-diverged, lost-in-transit-to-a-live-receiver |
+| F2-24 | `Raft.Core.Tick`, `Raft.Core.PersistAppend`, `Raft.Core.Send`, `Raft.Core.IRandomSource` | Figure 2, and *outside*: spec §8 (amendment A7) — the vote for self is durable before any RequestVote leaves | unsynced-write-lost, control:send-before-its-persist-durable, clock-rate-diverged |
+| F2-25 | `Raft.Core.Receive` | Figure 2 | delivered-twice, one-way-reachability, node-isolated-for-a-timeout, majority-down |
+| F2-26 | `Raft.Core.Receive` | Figure 2 | delivered-later-than-normal-delay, delivered-after-later-send |
+| F2-27 | `Raft.Core.Tick`, `Raft.Core.IRandomSource` | Figure 2 | one-way-reachability, node-isolated-for-a-timeout, clock-rate-diverged |
+| F2-28 | `Raft.Core.Tick`, `Raft.Core.Send` | Figure 2 | step-after-silence-longer-than-a-timeout, clock-rate-diverged, one-way-reachability, node-isolated-for-a-timeout |
+| F2-29 | `Raft.Core.ClientRequest`, `Raft.Core.PersistAppend`, `Raft.Core.ClientResponse`, `Raft.Core.IStateMachine.Apply` | Figure 2 | unsynced-write-lost, one-way-reachability, node-isolated-for-a-timeout, step-after-silence-longer-than-a-timeout |
+| F2-30 | `Raft.Core.Send` | Figure 2 | lost-in-transit-to-a-live-receiver, delivered-later-than-normal-delay |
+| F2-31 | `Raft.Core.Receive` | Figure 2 | delivered-twice, delivered-after-later-send |
+| F2-32 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 2 | lost-in-transit-to-a-live-receiver, unsynced-write-lost |
+| F2-33 | `Raft.Core.Receive` | Figure 2, and *outside*: the leader counts itself only for entries it has persisted — guaranteed by the barrier (§4), since no acknowledgement can precede the persist | unsynced-write-lost, control:synced-write-lost, control:send-before-its-persist-durable, majority-down |
+| F13-01 | `Raft.Core.Send`, `Raft.Core.Receive` | Figure 13 | lost-in-transit-to-a-live-receiver, delivered-after-later-send, delivered-twice |
+| F13-02 | `Raft.Core.Send` | Figure 13 | lost-in-transit-to-a-live-receiver |
+| F13-03 | `Raft.Core.Receive`, `Raft.Core.Send` | Figure 13 | delivered-later-than-normal-delay |
+| F13-04 | `Raft.Core.PersistWriteAt` | Figure 13 | partial-record-left-on-disk |
+| F13-05 | `Raft.Core.PersistWriteAt` | Figure 13 | partial-record-left-on-disk, writes-completed-out-of-order-at-crash |
+| F13-06 | `Raft.Core.Send` | Figure 13 | lost-in-transit-to-a-live-receiver |
+| F13-07 | `Raft.Core.PersistRename`, `Raft.Core.PersistDelete` | Figure 13, and *outside*: spec §8 — the snapshot is replaced atomically (temporary file, rename) | unsynced-write-lost, partial-record-left-on-disk |
+| F13-08 | `Raft.Core.PersistAppend`, `Raft.Core.PersistRename` | Figure 13 | unsynced-write-lost |
+| F13-09 | `Raft.Core.PersistDelete` | Figure 13 | unsynced-write-lost |
+| F13-10 | `Raft.Core.IStateMachine.Restore` | Figure 13 | unsynced-write-lost |
+| S6-01 | `Raft.Core.Receive`, `Raft.Core.INode.Handle` | §6 | delivered-after-later-send, unsynced-write-lost |
+| S6-02 | `Raft.Core.Receive` | §6 | one-way-reachability, node-isolated-for-a-timeout |
+| S6-03 | `Raft.Core.NodeContext.Peers`, `Raft.Core.Send` | §6 | one-way-reachability, node-isolated-for-a-timeout, delivered-later-than-normal-delay |
+| S6-04 | `Raft.Core.INode.Handle` | §6 | one-way-reachability, node-isolated-for-a-timeout |
+| S6-05 | `Raft.Core.Tick`, `Raft.Core.Receive` | §6 (implemented with election, spec §5) | one-way-reachability, node-isolated-for-a-timeout, step-after-silence-longer-than-a-timeout, clock-rate-diverged |
+| S8-01 | `Raft.Core.ClientRequest` | §8 | delivered-twice, lost-in-transit-to-a-live-receiver |
+| S8-02 | `Raft.Core.PersistAppend` | §8 | unsynced-write-lost |
+| S8-03 | `Raft.Core.ClientRequest`, `Raft.Core.ClientResponse` | §8 | step-after-silence-longer-than-a-timeout, one-way-reachability, node-isolated-for-a-timeout |
+| S8-04 | `Raft.Core.Send`, `Raft.Core.Receive`, `Raft.Core.ClientResponse` | §8 | step-after-silence-longer-than-a-timeout, one-way-reachability, node-isolated-for-a-timeout, clock-rate-diverged, majority-down |

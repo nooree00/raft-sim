@@ -1,0 +1,5 @@
+description: A state-placed crash fires on the first write, whatever its MinPending
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.AFaultThatFiresWithoutItsEffectDoesNotCount(dimension: "restarted-from-disk")
+expect: caught

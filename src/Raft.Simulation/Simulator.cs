@@ -22,6 +22,8 @@ public sealed class Simulator
     private readonly HashSet<(NodeId From, NodeId To)> _blocked = [];
     private readonly Dictionary<(NodeId From, NodeId To), Action> _held = [];
     private readonly Dictionary<(NodeId From, NodeId To), long> _lastDelivery = [];
+    private readonly Dictionary<NodeId, int> _isolated = [];
+    private readonly List<CrashWhenInFlight> _armedCrashes = [];
     private bool _fifo;
     private long _now;
     private long _messageSeq;
@@ -105,6 +107,11 @@ public sealed class Simulator
             action();
         }
 
+        foreach (var c in _armedCrashes)
+        {
+            Trace.Add(_now, "sim", "UNFIRED", ("kind", nameof(CrashWhenInFlight)), ("node", c.Node.ToString()), ("at", c.At));
+        }
+
         foreach (var h in _hosts)
         {
             Trace.Add(_now, h.Id.ToString(), "FINAL", ("incarnation", h.Incarnation), ("durable", h.Disk.CompletedCount), ("disk", h.Disk.Digest()));
@@ -158,6 +165,21 @@ public sealed class Simulator
             case Fifo:
                 _fifo = true;
                 break;
+            case CrashWhenInFlight cw:
+                _armedCrashes.Add(cw);
+                break;
+            case Isolate iso:
+                _isolated[iso.Node] = _isolated.GetValueOrDefault(iso.Node) + 1;
+                At(iso.Until, () => _isolated[iso.Node]--);
+                break;
+            case CrashAll all:
+                CrashAndRestart(_hosts, DiskLoss.Pending, all.Until);
+                break;
+            case CrashMajority maj:
+                var draws = _streams.For("fault:majority:" + maj.At.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                var order = _hosts.Select(h => (h, key: draws.NextUInt64())).OrderBy(x => x.key).Select(x => x.h).ToList();
+                CrashAndRestart(order.Take((_hosts.Count / 2) + 1).ToList(), DiskLoss.Pending, maj.Until);
+                break;
             case Unpause re:
                 ResumeNode(_hosts[re.Node.Value - 1]);
                 break;
@@ -169,6 +191,48 @@ public sealed class Simulator
             default:
                 throw new System.ArgumentException("unknown fault " + fault.GetType().Name);
         }
+    }
+
+    private void CrashAndRestart(IReadOnlyList<Host> hosts, DiskLoss loss, long until)
+    {
+        foreach (var h in hosts)
+        {
+            CrashNode(h, loss);
+        }
+
+        At(until, () =>
+        {
+            foreach (var h in hosts.Where(h => h.Node is null))
+            {
+                Start(h, _ids);
+            }
+        });
+    }
+
+    /// <summary>Fires an armed state-placed crash once its node has enough writes in flight.</summary>
+    private void CheckArmedCrashes(Host h)
+    {
+        var i = _armedCrashes.FindIndex(c => c.Node == h.Id && h.Disk.Pending.Count >= c.MinPending);
+        if (i < 0)
+        {
+            return;
+        }
+
+        var c = _armedCrashes[i];
+        _armedCrashes.RemoveAt(i);
+        // After the current step: its writes are issued and still in flight (they complete later).
+        At(_now, () =>
+        {
+            Trace.Add(_now, h.Id.ToString(), "FIRED", ("kind", nameof(CrashWhenInFlight)), ("pending", h.Disk.Pending.Count));
+            CrashNode(h, c.Loss);
+            At(_now + c.Down, () =>
+            {
+                if (h.Node is null)
+                {
+                    Start(h, _ids);
+                }
+            });
+        });
     }
 
     private static string Describe(Fault f) => f switch
@@ -276,6 +340,7 @@ public sealed class Simulator
                     var w = h.Disk.Issue(p, _now + latency);
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
                     At(w.CompleteAt, () => CompleteWrite(h, w));
+                    CheckArmedCrashes(h);
                     break;
                 case Send or ClientResponse:
                     h.Held.Enqueue((e, h.Disk.IssuedCount));
@@ -324,7 +389,7 @@ public sealed class Simulator
         var hash = SimDisk.HashBytes(s.Payload.Span);
         var link = (from, s.To);
         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
-        if (_blocked.Contains(link))
+        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0 || _isolated.GetValueOrDefault(s.To) > 0)
         {
             Trace.Add(_now, from.ToString(), "BLOCKED", ("to", s.To.ToString()), ("id", id));
             return;

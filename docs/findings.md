@@ -178,3 +178,15 @@ finding: what happened, why no existing check caught it, what now catches it.
     bug class is unchanged: process-randomized state reaching the output. The rule going forward:
     a sabotage must be caught with certainty, not with high probability. A random element in a
     patch needs a reason why it cannot come out equal.
+- **Sabotage S-rare-1 never caught its target.** It makes a state-placed crash ignore `MinPending`,
+  and it named the reachability test for reordered writes as the check that catches it. That test
+  passes with the sabotage in place: its slow disk (150 against a 100-tick period) has two writes in
+  flight whenever the crash can fire, so the reordering is reached with or without `MinPending`.
+  The sabotage was committed on the reasoning that it would be caught. It was not run on its
+  commit: the full harness ran only at the stack head, and there it reported "survived".
+  - *Not caught earlier:* I ran the harness locally only at the stack head. Per commit, CI's matrix
+    would have gone red on P2-02's own commit.
+  - *Now:* S-rare-1 targets the check that exercises `MinPending` directly. A crash that needs five
+    writes in flight never fires under the echo protocol, and must be traced UNFIRED. The
+    reachability test's claim does not depend on `MinPending`, and its comment no longer says it
+    does. The general form: a sabotage's target is chosen by running it, not by reading.

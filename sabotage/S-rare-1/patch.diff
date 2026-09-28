@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index de112ff..9003822 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -212,7 +212,7 @@ public sealed class Simulator
+     /// <summary>Fires an armed state-placed crash once its node has enough writes in flight.</summary>
+     private void CheckArmedCrashes(Host h)
+     {
+-        var i = _armedCrashes.FindIndex(c => c.Node == h.Id && h.Disk.Pending.Count >= c.MinPending);
++        var i = _armedCrashes.FindIndex(c => c.Node == h.Id);
+         if (i < 0)
+         {
+             return;

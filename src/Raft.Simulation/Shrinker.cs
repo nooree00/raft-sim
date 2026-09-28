@@ -183,6 +183,18 @@ public static class Shrinker
             case Skew k when k.Numerator != k.Denominator:
                 simpler.Add(k with { Numerator = k.Denominator });
                 break;
+            case CrashWhenInFlight c:
+                if (c.Loss != DiskLoss.Pending)
+                {
+                    simpler.Add(c with { Loss = DiskLoss.Pending });
+                }
+
+                if (c.MinPending > 1)
+                {
+                    simpler.Add(c with { MinPending = c.MinPending - 1 });
+                }
+
+                break;
         }
 
         return simpler;
@@ -208,6 +220,9 @@ public static class Shrinker
     {
         SlowDisk s => s with { At = at, Until = s.Until - s.At + at },
         BarrierViolation b => b with { At = at, Until = b.Until - b.At + at },
+        Isolate i => i with { At = at, Until = i.Until - i.At + at },
+        CrashAll a => a with { At = at, Until = a.Until - a.At + at },
+        CrashMajority m => m with { At = at, Until = m.Until - m.At + at },
         _ => f with { At = at },
     };
 }

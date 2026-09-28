@@ -35,6 +35,18 @@ public sealed record GeneratorConfig
 
     public int SlowDisk { get; init; } = 150;
 
+    /// <summary>State-placed crash (P2-02), per node per window: fires when the node has writes in flight.</summary>
+    public int CrashInFlight { get; init; } = 150;
+
+    /// <summary>Full isolation of one node, per node per window.</summary>
+    public int Isolate { get; init; } = 100;
+
+    /// <summary>A majority crashing together, per window.</summary>
+    public int CrashMajority { get; init; } = 50;
+
+    /// <summary>Chance per run of one total outage: every node down at once.</summary>
+    public int CrashAll { get; init; } = 3_000;
+
     /// <summary>Chance per run of FIFO links (TCP-like delivery in send order).</summary>
     public int Fifo { get; init; } = 4_000;
 
@@ -46,7 +58,7 @@ public sealed record GeneratorConfig
     /// <summary>A stable hash of every setting, recorded in each reproduction artifact.</summary>
     public string Hash()
     {
-        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Fifo, Controls ? 1 : 0 }
+        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Fifo, Controls ? 1 : 0, CrashInFlight, Isolate, CrashMajority, CrashAll }
             .Select(v => v.ToString(CultureInfo.InvariantCulture)));
         return Mix.Hash(text).ToString("x16", CultureInfo.InvariantCulture);
     }
@@ -71,6 +83,13 @@ public static class FaultGenerator
         if (Chance(R("fifo"), config.Fifo))
         {
             faults.Add(new Fifo(0));
+        }
+
+        var (inflight, isolate, majority, outage) = (R("crash-in-flight"), R("isolate"), R("crash-majority"), R("crash-all"));
+        if (Chance(outage, config.CrashAll))
+        {
+            var at = outage.NextLong(config.Duration);
+            faults.Add(new CrashAll(at, at + Within(outage, 100, 3_000)));
         }
 
         foreach (var n in nodes)
@@ -137,6 +156,27 @@ public static class FaultGenerator
                     var at = w + slow.NextLong(config.Window);
                     faults.Add(new SlowDisk(at, n, Within(slow, 20, 200), at + Within(slow, 500, 5_000)));
                 }
+
+                if (Chance(inflight, config.CrashInFlight))
+                {
+                    var losses = config.Controls
+                        ? new[] { DiskLoss.Pending, DiskLoss.Torn, DiskLoss.Reordered, DiskLoss.LoseSynced }
+                        : new[] { DiskLoss.Pending, DiskLoss.Torn, DiskLoss.Reordered };
+                    faults.Add(new CrashWhenInFlight(w + inflight.NextLong(config.Window), n, (int)Within(inflight, 1, 2),
+                        losses[inflight.NextLong(losses.Length)], Within(inflight, 100, 3_000)));
+                }
+
+                if (Chance(isolate, config.Isolate))
+                {
+                    var at = w + isolate.NextLong(config.Window);
+                    faults.Add(new Isolate(at, n, at + Within(isolate, 500, 5_000)));
+                }
+            }
+
+            if (Chance(majority, config.CrashMajority))
+            {
+                var at = w + majority.NextLong(config.Window);
+                faults.Add(new CrashMajority(at, at + Within(majority, 100, 3_000)));
             }
         }
 

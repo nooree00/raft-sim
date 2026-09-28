@@ -87,6 +87,10 @@ public static class ScheduleText
         Unpause u => Node("Unpause", u),
         Skew s => Node("Skew", s) + " num=" + Num(s.Numerator) + " den=" + Num(s.Denominator),
         Fifo x => "Fifo at=" + Num(x.At),
+        CrashWhenInFlight c => Node("CrashWhenInFlight", c) + " min=" + Num(c.MinPending) + " loss=" + c.Loss + " down=" + Num(c.Down),
+        Isolate i => Node("Isolate", i) + " until=" + Num(i.Until),
+        CrashAll a => "CrashAll at=" + Num(a.At) + " until=" + Num(a.Until),
+        CrashMajority m => "CrashMajority at=" + Num(m.At) + " until=" + Num(m.Until),
         _ => throw new ArgumentException("unknown fault " + f.GetType().Name),
     };
 
@@ -113,6 +117,10 @@ public static class ScheduleText
             "Unpause" => new Unpause(at, N("node")),
             "Skew" => new Skew(at, N("node"), L("num"), L("den")),
             "Fifo" => new Fifo(at),
+            "CrashWhenInFlight" => new CrashWhenInFlight(at, N("node"), (int)L("min"), Enum.Parse<DiskLoss>(f["loss"]), L("down")),
+            "Isolate" => new Isolate(at, N("node"), L("until")),
+            "CrashAll" => new CrashAll(at, L("until")),
+            "CrashMajority" => new CrashMajority(at, L("until")),
             _ => throw new FormatException("unknown fault kind in '" + line + "'"),
         };
     }

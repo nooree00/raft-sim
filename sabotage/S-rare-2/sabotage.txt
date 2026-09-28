@@ -1,0 +1,5 @@
+description: Isolation blocks only the node's own sends; it still receives
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable
+expect: caught

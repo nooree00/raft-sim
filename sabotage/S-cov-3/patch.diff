@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/Coverage.cs b/src/Raft.Simulation/Coverage.cs
-index 2477b0d..2c7f908 100644
+index 3ac1961..6984ef5 100644
 --- a/src/Raft.Simulation/Coverage.cs
 +++ b/src/Raft.Simulation/Coverage.cs
-@@ -178,7 +178,7 @@ public static class Coverage
+@@ -339,7 +339,7 @@ public static class Coverage
                      continue;
                  }
  
 -                if (ha.SetEquals(hb) && !allowedIdentical.ContainsKey((a, b)))
 +                if (ha.SetEquals(hb) && !allowedIdentical.ContainsKey((a, b)) && a.Length < 0)
                  {
-                     failures.Add(a + " and " + b + ": hit by exactly the same " + ha.Count.ToString(CultureInfo.InvariantCulture) + " executions — one measurement wearing two names?");
+                     failures.Add(a + " and " + b + ": hit by exactly the same " + N(ha.Count) + " executions — one measurement wearing two names?");
                  }

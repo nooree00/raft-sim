@@ -1,0 +1,5 @@
+description: The isolation effect is never recorded under its dimension's name, so the table's isolation rows have no coverage
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.EveryEffectTheTraceabilityTableNamesIsADimensionThatClearsTheFloor
+expect: caught

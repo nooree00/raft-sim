@@ -25,7 +25,8 @@ public sealed class ScheduleTests
         new Drop(10, N1, N2), new Duplicate(20, N2, N3), new Delay(30, N3, N1, 77), new Reorder(40, N1, N3),
         new Partition(50, N2, N1), new Heal(60, N2, N1), new Crash(70, N3, DiskLoss.Torn), new Restart(80, N3),
         new SlowDisk(90, N1, 33, 190), new BarrierViolation(100, N2, 200), new Pause(110, N3), new Unpause(120, N3),
-        new Skew(0, N1, 11, 10), new Fifo(0),
+        new Skew(0, N1, 11, 10), new Fifo(0), new CrashWhenInFlight(130, N2, 2, DiskLoss.Reordered, 400),
+        new Isolate(140, N3, 900), new CrashAll(150, 700), new CrashMajority(160, 800),
     ];
 
     private static string Run(FaultSchedule s, ulong seed, long duration) =>
@@ -84,12 +85,16 @@ public sealed class ScheduleTests
             "Pause" => [new Pause(5_000, N1), new Unpause(7_000, N1)],
             "Skew" => [new Skew(0, N1, 12, 10)],
             "Fifo" => [new Fifo(0)],
+            "CrashWhenInFlight" => [new CrashWhenInFlight(5_000, N1, 1, DiskLoss.Pending, 1_000)],
+            "Isolate" => [new Isolate(5_000, N1, 8_000)],
+            "CrashAll" => [new CrashAll(5_000, 6_000)],
+            "CrashMajority" => [new CrashMajority(5_000, 6_000)],
             _ => throw new ArgumentException(kind),
         };
         // Jitter reorders only when two messages on a link fall within a few units of each other,
         // which depends on the nodes' random phases: for FIFO, use a seed whose baseline does reorder.
         var seed = kind != "Fifo" ? 3UL : Enumerable.Range(1, 100).Select(i => (ulong)i).First(sd =>
-            Coverage.Of(Run(FaultSchedule.Empty, sd, 20_000).Split('\n').Where(l => l.Length > 0).ToList()).Contains("reordered-delivered"));
+            Coverage.Of(Run(FaultSchedule.Empty, sd, 20_000).Split('\n').Where(l => l.Length > 0).ToList()).Contains("delivered-after-later-send"));
         var (_, parsed) = ScheduleText.Read(ScheduleText.Write(new ScheduleText.Header(3, 20_000, 3, "x", "y"), new FaultSchedule(faults)));
         var t = TraceLine.Parse(Run(parsed, seed, 20_000).Split('\n').Where(l => l.Length > 0));
         var baseline = TraceLine.Parse(Run(FaultSchedule.Empty, seed, 20_000).Split('\n').Where(l => l.Length > 0));
@@ -110,7 +115,12 @@ public sealed class ScheduleTests
             "Pause" => Count(t, "RESUME") == 1 && Count(t, "BACKLOG") > 0,
             "Skew" => t.Count(l => l.Node == "n1" && l.Kind == "PERSIST") > baseline.Count(l => l.Node == "n1" && l.Kind == "PERSIST") * 11 / 10,
             // FIFO links: no reordering at all, where the jittered baseline reorders.
-            "Fifo" => !Coverage.Of(t.Select(Line).ToList()).Contains("reordered-delivered") && Coverage.Of(baseline.Select(Line).ToList()).Contains("reordered-delivered"),
+            // Placed by state: the crash lands with a write in flight, which a time-placed one rarely does.
+            "CrashWhenInFlight" => Count(t, "FIRED") == 1 && Coverage.Of(t.Select(Line).ToList()).Contains("unsynced-write-lost"),
+            "Isolate" => Coverage.Of(t.Select(Line).ToList()).Contains("node-isolated-for-a-timeout"),
+            "CrashAll" => Coverage.Of(t.Select(Line).ToList()).Contains("all-down") && Count(t, "START") == 6,
+            "CrashMajority" => Coverage.Of(t.Select(Line).ToList()).Contains("majority-down") && Count(t, "CRASH") == 2,
+            "Fifo" => !Coverage.Of(t.Select(Line).ToList()).Contains("delivered-after-later-send") && Coverage.Of(baseline.Select(Line).ToList()).Contains("delivered-after-later-send"),
             _ => false,
         };
         Assert.True(effect, $"{kind}: no effect in the trace of its parsed schedule; coverage with [{string.Join(",", Coverage.Of(t.Select(Line).ToList()))}], without [{string.Join(",", Coverage.Of(baseline.Select(Line).ToList()))}]");

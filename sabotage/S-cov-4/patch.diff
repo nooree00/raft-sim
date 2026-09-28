@@ -1,0 +1,14 @@
+diff --git a/src/Raft.Simulation/Coverage.cs b/src/Raft.Simulation/Coverage.cs
+index 3ac1961..41a85f0 100644
+--- a/src/Raft.Simulation/Coverage.cs
++++ b/src/Raft.Simulation/Coverage.cs
+@@ -139,6 +139,9 @@ public static class Coverage
+                 case "DROP":
+                     undelivered.Add(f["id"]);
+                     break;
++                case "DELAYED":
++                    hit.Add("delivered-later-than-normal-delay");
++                    break;
+                 case "BLOCKED":
+                     lastBlocked[(node, f["to"])] = now;
+                     if (blockedOut.TryGetValue(node, out var outs))

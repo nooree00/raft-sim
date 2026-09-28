@@ -74,6 +74,23 @@ public sealed record Unpause(long At, NodeId Node) : NodeFault(At, Node);
 public sealed record Skew(long At, NodeId Node, long Numerator, long Denominator) : NodeFault(At, Node);
 
 /// <summary>
+/// Placed by state, not time (P2-02): armed at <c>At</c>, it crashes the node at the first moment
+/// the node has at least <c>MinPending</c> writes in flight, and restarts it <c>Down</c> later. A
+/// time-placed crash meets a write in flight only by chance (phase 1: 2% of the time for one write,
+/// almost never for two). Still armed at the end of a run, it is traced as UNFIRED and did nothing.
+/// </summary>
+public sealed record CrashWhenInFlight(long At, NodeId Node, int MinPending, DiskLoss Loss, long Down) : NodeFault(At, Node);
+
+/// <summary>From <c>At</c> until <c>Until</c>, every link to and from the node is blocked: the node can neither send nor receive.</summary>
+public sealed record Isolate(long At, NodeId Node, long Until) : NodeFault(At, Node);
+
+/// <summary>At <c>At</c> every node crashes (writes in flight lost); all restart at <c>Until</c>. Spec A6: any crash schedule, including all nodes.</summary>
+public sealed record CrashAll(long At, long Until) : Fault(At);
+
+/// <summary>At <c>At</c> a majority of the nodes, chosen by a draw from this fault's own stream, crash; they restart at <c>Until</c>.</summary>
+public sealed record CrashMajority(long At, long Until) : Fault(At);
+
+/// <summary>
 /// From <c>At</c>, every link delivers in send order (TCP-like), except where an explicit Reorder
 /// fault says otherwise. Without it, delay jitter reorders messages sent close together.
 /// </summary>

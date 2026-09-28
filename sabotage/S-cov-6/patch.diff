@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Coverage.cs b/src/Raft.Simulation/Coverage.cs
+index 3ac1961..52c0e57 100644
+--- a/src/Raft.Simulation/Coverage.cs
++++ b/src/Raft.Simulation/Coverage.cs
+@@ -306,7 +306,7 @@ public static class Coverage
+         foreach (var d in Dimensions)
+         {
+             var c = Hit(d).Count;
+-            if (c < Floor && !rare.ContainsKey(d))
++            if (c < 1 && !rare.ContainsKey(d))
+             {
+                 failures.Add(d + ": " + N(c) + " of " + N(total) + " — below the floor of " + N(Floor) + ", effectively untested");
+             }

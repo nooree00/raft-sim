@@ -1,4 +1,4 @@
-description: The one-measurement-two-names rule is disabled
+description: The floor is reduced to non-zero: a dimension hit twice in 200 executions passes
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectTheFloorNearAlwaysAndIdenticalSetsButNotCoincidentalCounts
