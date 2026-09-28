@@ -1,0 +1,5 @@
+description: Off by one in real time: an operation invoked at the instant another responds is treated as after it
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.DifferentialTests.TheCheckerAgreesWithTheOracleOnRandomSmallHistories
+expect: caught

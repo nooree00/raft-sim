@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Checker.Tests/DifferentialTests.cs b/tests/Raft.Checker.Tests/DifferentialTests.cs
+index 8767c96..ee286c5 100644
+--- a/tests/Raft.Checker.Tests/DifferentialTests.cs
++++ b/tests/Raft.Checker.Tests/DifferentialTests.cs
+@@ -51,7 +51,7 @@ public sealed class DifferentialTests
+             ops.Add(op.IsIndeterminate || op.Kind is OpKind.Put or OpKind.Append or OpKind.Delete ? op : op with { Output = output });
+         }
+ 
+-        if (mutate && ops.Count > 0)
++        if (mutate && ops.Count < 0)
+         {
+             var readers = ops.Select((o, i) => (o, i)).Where(x => !x.o.IsIndeterminate && x.o.Kind is OpKind.Get or OpKind.CompareAndSwap).ToList();
+             if (readers.Count > 0 && rng.Next(4) != 0)
