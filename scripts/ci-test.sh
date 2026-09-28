@@ -5,6 +5,7 @@
 # The floor runs even when tests fail, so a run that is red for two reasons reports both.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+git config --global --add safe.directory "$PWD" # the checkout may belong to another user (CI containers)
 rm -rf TestResults
 rc=0
 for project in tests/*/*.csproj; do

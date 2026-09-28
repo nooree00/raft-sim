@@ -5,6 +5,7 @@
 # runs every shard of the plan in turn, each under its own ceiling, exactly as CI splits them.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+git config --global --add safe.directory "$PWD" # the checkout may belong to another user (CI containers)
 gates=tools/Raft.Gates/bin/Debug/net10.0/Raft.Gates.dll
 if [ -n "${SABOTAGE_SHARD:-}" ]; then
   exec dotnet "$gates" sabotage --shard "$SABOTAGE_SHARD"

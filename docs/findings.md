@@ -153,3 +153,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *The pattern* (reviewer): measure use, not existence. P2-03's check reads what reached the
     world, not what was declared or constructed. Any later "every X is covered" check follows it.
 
+## Phase 2
+
+- **P2-01's first push went red on GitHub: the sharded harness jobs could not run git.** In GitHub's
+  SDK container the checkout belongs to another user, so git refuses it ("dubious ownership") until
+  it is marked safe. The old build job ran the preflight first, and the preflight marks it; the new
+  `sabotage i/n` jobs start with the build and the harness, and nothing marked it. Every shard
+  failed in under a second (run 36374522047).
+  - *Not caught locally:* my container wrapper and `scripts/in-sdk.sh` both mark the checkout safe,
+    and the local container runs as the checkout's owner. The local mirror was more permissive than
+    CI in exactly this respect.
+  - *Reproduced* in a container with a copy owned by another uid and no safe.directory setting, and
+    the fix shown there.
+  - *Now:* every CI script that runs git or the gates marks its own checkout safe. A test
+    (`CiScriptTests`) requires it, and sabotage S-ci-2 removes it from the shard script.
+
