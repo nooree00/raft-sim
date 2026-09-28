@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/WglChecker.cs b/src/Raft.Checker/WglChecker.cs
+index f7b9493..456703b 100644
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -88,7 +88,7 @@ public static class WglChecker
+         public Verdict Run()
+         {
+             var found = Step(new BitArray(ops.Count), model.NewState(), 0);
+-            return found ? Verdict.Linearizable : _outOfBudget ? Verdict.Undecided : Verdict.NotLinearizable;
++            return found ? Verdict.Linearizable : Verdict.NotLinearizable;
+         }
+ 
+         private bool Step(BitArray done, TState state, int completedDone)

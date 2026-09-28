@@ -1,0 +1,5 @@
+description: An exhausted budget is reported as a rejection instead of undecided
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.CheckerCostTests.AHistoryBuiltToExhaustTheBudgetIsUndecided
+expect: caught

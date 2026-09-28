@@ -199,6 +199,15 @@ finding: what happened, why no existing check caught it, what now catches it.
   ran against the stale, sabotaged `Raft.Checker.dll`: four confusing failures, which cleared once
   it was rebuilt. The harness rebuilds after every revert and checks the assembly hashes (P0), for
   exactly this reason; the hand loop did neither.
+- **Rejecting a long Append-heavy history is infeasible for the checker; phase 3 must bound it.**
+  A 200-operation Append-only history on one key, ending in a read no order explains, is undecided
+  at 10^6 states even at concurrency 1. Adjacent intervals that touch are concurrent (real-time
+  order is strict), and an Append's state is the whole string, so memoisation never merges two
+  orders. Put-only reaches 246,785 states at concurrency 8, mixed 883,438 (one run at 10^6; the
+  suite's table runs at 10^5). *Consequence for phase 3:* the client workload must bound Appends per
+  key, or spread them over many keys, where per-key decomposition keeps rejection cheap (162 states
+  over 20 keys against 5,920 on one, for the same mixed history). Linearizable histories are cheap
+  either way: the search finds the first order at once (200 states for 200 operations).
 
 - **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
   ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The
