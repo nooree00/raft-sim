@@ -1,7 +1,9 @@
 # Phase 2 — report
 
-**Status: submitted for review** (`docs/phases/status.md`: `P2: in progress`). Phase 0 stays
-`in progress`: its one open row is your cold walk.
+**Status: accepted by the reviewer** (`docs/phases/status.md`: `P2: complete`) once this commit's
+CI landed green (run 36469021318). At acceptance the reviewer asked for the secret scan to tell a
+scan that did not run from a finding (fixed in `47c6b7a`, Task P0-11). Phase 0 stays `in progress`:
+its one open row is your cold walk.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
 on the next push; the run ids below are for earlier commits.
