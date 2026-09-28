@@ -118,7 +118,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 
 - **Task:** An expected-failure test: the simulator's `LoseSynced` disk fault, which Raft cannot survive, must turn Election Safety or Vote Uniqueness red (§5). Placed by state, as in P2-02: a node loses its durable term-and-vote record at a crash that follows a granted vote, then restarts inside the same term's election. Time-placed injection is measured too, for the record.
 - **Vacuity:** A positive control that is red for a reason other than the lost vote (any bug) proves nothing about the checkers' power. Guarded: the same seeds with the fault removed must be green, and the red run's failing invariant must name the node that lost its record.
-- **Sabotage:** S-pos-1, S-pos-2
+- **Sabotage:** S-pos-1, S-pos-2, S-pos-3
 - **Verifiable here:** yes — the expected-failure runs are local
 - **Prediction:** Time-placed `LoseSynced` at the default crash rate turns an invariant red in fewer than 5% of executions: the loss has to land between a granted vote and the end of that term's election. The state-placed version does it in more than half. **Observable:** red counts over 200 executions for each placement.
 - **Outcome:** pending

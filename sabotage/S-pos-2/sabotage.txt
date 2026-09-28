@@ -1,0 +1,7 @@
+description: The simulator stops observing the disk at a crash: a rolled-back vote record is invisible to the checkers until the node writes again, by then with its term restored
+mechanism: durable changes made by a crash are not observed
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.PositiveControlTests.LosingAnFsyncedVoteTurnsTheInvariantsRedAndTheSameCrashWithoutTheLossDoesNot
+reason: a lost term went unseen
+expect: caught

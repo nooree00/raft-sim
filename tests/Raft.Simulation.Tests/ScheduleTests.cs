@@ -25,7 +25,7 @@ public sealed class ScheduleTests
         new Drop(10, N1, N2), new Duplicate(20, N2, N3), new Delay(30, N3, N1, 77), new Reorder(40, N1, N3),
         new Partition(50, N2, N1), new Heal(60, N2, N1), new Crash(70, N3, DiskLoss.Torn), new Restart(80, N3),
         new SlowDisk(90, N1, 33, 190), new BarrierViolation(100, N2, 200), new Pause(110, N3), new Unpause(120, N3),
-        new Skew(0, N1, 11, 10), new Fifo(0), new CrashWhenInFlight(130, N2, 2, DiskLoss.Reordered, 400),
+        new Skew(0, N1, 11, 10), new Fifo(0), new CrashWhenInFlight(130, N2, 2, DiskLoss.Reordered, 400), new CrashAfterWrite(135, N1, DiskLoss.LoseSynced, 300),
         new Isolate(140, N3, 900), new CrashAll(150, 700), new CrashMajority(160, 800),
     ];
 
@@ -86,6 +86,7 @@ public sealed class ScheduleTests
             "Skew" => [new Skew(0, N1, 12, 10)],
             "Fifo" => [new Fifo(0)],
             "CrashWhenInFlight" => [new CrashWhenInFlight(5_000, N1, 1, DiskLoss.Pending, 1_000)],
+            "CrashAfterWrite" => [new CrashAfterWrite(5_000, N1, DiskLoss.LoseSynced, 1_000)],
             "Isolate" => [new Isolate(5_000, N1, 8_000)],
             "CrashAll" => [new CrashAll(5_000, 6_000)],
             "CrashMajority" => [new CrashMajority(5_000, 6_000)],
@@ -117,6 +118,9 @@ public sealed class ScheduleTests
             // FIFO links: no reordering at all, where the jittered baseline reorders.
             // Placed by state: the crash lands with a write in flight, which a time-placed one rarely does.
             "CrashWhenInFlight" => Count(t, "FIRED") == 1 && Coverage.Of(t.Select(Line).ToList()).Contains("unsynced-write-lost"),
+            // Placed by state: the crash lands at the instant a write completes, and loses that write.
+            "CrashAfterWrite" => Count(t, "FIRED") == 1 && t.Any(l => l.Kind == "FIRED" && t.Any(d => d.Kind == "DURABLE" && d.Node == "n1" && d.Time == l.Time))
+                && t.Any(l => l.Kind == "CRASH" && l.Fields.GetValueOrDefault("lostsynced", "none") != "none"),
             "Isolate" => Coverage.Of(t.Select(Line).ToList()).Contains("node-isolated-for-a-timeout"),
             "CrashAll" => Coverage.Of(t.Select(Line).ToList()).Contains("all-down") && Count(t, "START") == 6,
             "CrashMajority" => Coverage.Of(t.Select(Line).ToList()).Contains("majority-down") && Count(t, "CRASH") == 2,

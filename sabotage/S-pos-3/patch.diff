@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index e1feec1..2b16d56 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -595,7 +595,7 @@ public sealed class Simulator
+     /// <summary>Fires an armed <see cref="CrashAfterWrite"/>: after this write is durable and what it held back has been released.</summary>
+     private void FireAfterWrite(Host h, SimDisk.PendingWrite w)
+     {
+-        var i = _armedAfterWrite.FindIndex(c => c.Node == h.Id);
++        var i = _armedAfterWrite.FindIndex(c => c.Node == h.Id && c.At < 0);
+         if (i < 0)
+         {
+             return;

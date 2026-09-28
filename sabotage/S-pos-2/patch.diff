@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index e1feec1..89a9fb8 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -493,7 +493,6 @@ public sealed class Simulator
+         if (Observe)
+         {
+             _observations.Add(new CrashObservation(_now, h.Id));
+-            ObserveDisk(h);
+         }
+     }
+ 

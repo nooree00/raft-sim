@@ -81,6 +81,15 @@ public sealed record Skew(long At, NodeId Node, long Numerator, long Denominator
 /// </summary>
 public sealed record CrashWhenInFlight(long At, NodeId Node, int MinPending, DiskLoss Loss, long Down) : NodeFault(At, Node);
 
+/// <summary>
+/// Placed by state (P3-07): armed at <c>At</c>, it crashes the node right after its next write
+/// completes, once the barrier has released what that write held back, and restarts it
+/// <c>Down</c> later. With <see cref="DiskLoss.LoseSynced"/> it is the fsynced-then-lost positive
+/// control aimed at a moment that matters: a vote granted and answered, then lost from disk. Not
+/// generated. Still armed at the end of a run, it is traced as UNFIRED.
+/// </summary>
+public sealed record CrashAfterWrite(long At, NodeId Node, DiskLoss Loss, long Down) : NodeFault(At, Node);
+
 /// <summary>From <c>At</c> until <c>Until</c>, every link to and from the node is blocked: the node can neither send nor receive.</summary>
 public sealed record Isolate(long At, NodeId Node, long Until) : NodeFault(At, Node);
 

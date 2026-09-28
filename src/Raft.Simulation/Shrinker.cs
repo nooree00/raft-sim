@@ -183,6 +183,9 @@ public static class Shrinker
             case Skew k when k.Numerator != k.Denominator:
                 simpler.Add(k with { Numerator = k.Denominator });
                 break;
+            case CrashAfterWrite a when a.Loss != DiskLoss.Pending:
+                simpler.Add(a with { Loss = DiskLoss.Pending });
+                break;
             case CrashWhenInFlight c:
                 if (c.Loss != DiskLoss.Pending)
                 {

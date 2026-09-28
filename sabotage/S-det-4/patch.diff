@@ -1,9 +1,9 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index de112ff..10d542c 100644
+index e1feec1..699c905 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -112,7 +112,8 @@ public sealed class Simulator
-             Trace.Add(_now, "sim", "UNFIRED", ("kind", nameof(CrashWhenInFlight)), ("node", c.Node.ToString()), ("at", c.At));
+@@ -315,7 +315,8 @@ public sealed class Simulator
+             Trace.Add(_now, "sim", "UNFIRED", ("kind", nameof(CrashAfterWrite)), ("node", c.Node.ToString()), ("at", c.At));
          }
  
 -        foreach (var h in _hosts)

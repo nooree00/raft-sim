@@ -346,3 +346,18 @@ finding: what happened, why no existing check caught it, what now catches it.
     the rule-off measurement is reported. S-disrupt-1, removing the rule, is aimed at that
     simulated test (leader continuity alone would let it survive). Phase 4's commit clause should
     make the churn visible to the invariant itself; the P3 report carries it forward.
+- **The fsynced-then-lost positive control is loud in one invariant and quiet in the two the spec
+  names.** Losing a node's first fsynced vote record, state-placed right after the vote is
+  answered, turns term monotonicity red in every run: the rollback lowers the durable term. Election
+  Safety or Vote Uniqueness goes red far less often: 10–17 of 200 runs with the node back 5 ticks
+  later, none when it is back after 50 or more (the election is over before it returns), and 39 of
+  200 in the spec §8 shape (n1 and n3 unable to hear each other, the node back after 20). P3-07
+  predicted more than half for the state-placed loss.
+  - *Why:* a lost vote only matters if a second candidate in the same term reaches the voter after it
+    restarts. Once a leader heartbeats, the restarted voter adopts the term and never votes in it
+    again. Two candidates in one term are what the spec's example assumes; in fault-free timing they
+    happen in 1.5% of elections (P3-05).
+  - *Consequence:* the control is asserted as the spec states it (Election Safety or Vote Uniqueness
+    red, in at least the coverage floor of runs, naming the node), with term monotonicity naming it
+    in every run, and the same crash without the fsynced loss green in every run. Invariant 9 is the
+    one that catches an unpersisted term directly, as spec §5 says it would.

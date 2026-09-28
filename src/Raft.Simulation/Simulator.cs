@@ -24,6 +24,7 @@ public sealed class Simulator
     private readonly Dictionary<(NodeId From, NodeId To), long> _lastDelivery = [];
     private readonly Dictionary<NodeId, int> _isolated = [];
     private readonly List<CrashWhenInFlight> _armedCrashes = [];
+    private readonly List<CrashAfterWrite> _armedAfterWrite = [];
     private bool _fifo;
     private long _now;
     private long _messageSeq;
@@ -309,6 +310,11 @@ public sealed class Simulator
             Trace.Add(_now, "sim", "UNFIRED", ("kind", nameof(CrashWhenInFlight)), ("node", c.Node.ToString()), ("at", c.At));
         }
 
+        foreach (var c in _armedAfterWrite)
+        {
+            Trace.Add(_now, "sim", "UNFIRED", ("kind", nameof(CrashAfterWrite)), ("node", c.Node.ToString()), ("at", c.At));
+        }
+
         foreach (var h in _hosts)
         {
             Trace.Add(_now, h.Id.ToString(), "FINAL", ("incarnation", h.Incarnation), ("durable", h.Disk.CompletedCount), ("disk", h.Disk.Digest()));
@@ -364,6 +370,9 @@ public sealed class Simulator
                 break;
             case CrashWhenInFlight cw:
                 _armedCrashes.Add(cw);
+                break;
+            case CrashAfterWrite caw:
+                _armedAfterWrite.Add(caw);
                 break;
             case Isolate iso:
                 _isolated[iso.Node] = _isolated.GetValueOrDefault(iso.Node) + 1;
@@ -578,7 +587,34 @@ public sealed class Simulator
         {
             ObserveDisk(h);
         }
+
         Release(h);
+        FireAfterWrite(h, w);
+    }
+
+    /// <summary>Fires an armed <see cref="CrashAfterWrite"/>: after this write is durable and what it held back has been released.</summary>
+    private void FireAfterWrite(Host h, SimDisk.PendingWrite w)
+    {
+        var i = _armedAfterWrite.FindIndex(c => c.Node == h.Id);
+        if (i < 0)
+        {
+            return;
+        }
+
+        var c = _armedAfterWrite[i];
+        _armedAfterWrite.RemoveAt(i);
+        At(_now, () =>
+        {
+            Trace.Add(_now, h.Id.ToString(), "FIRED", ("kind", nameof(CrashAfterWrite)), ("after", w.Seq));
+            CrashNode(h, c.Loss);
+            At(_now + c.Down, () =>
+            {
+                if (h.Node is null)
+                {
+                    Start(h, _ids);
+                }
+            });
+        });
     }
 
     /// <summary>The persist barrier: release held effects, in order, whose barrier write is durable.</summary>

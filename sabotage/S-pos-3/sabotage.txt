@@ -1,0 +1,6 @@
+description: The state-placed crash after a write never fires: armed, it waits out the run and is traced UNFIRED, and the positive control loses its placement
+mechanism: an armed CrashAfterWrite never fires
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ScheduleTests.EachFaultKindHasAnEffectWhenRunFromItsTextForm(kind: "CrashAfterWrite")
+expect: caught

@@ -1,0 +1,7 @@
+description: The simulated disk's lose-synced fault keeps its data: the lying disk stops lying, and the positive control must notice that nothing turns red (the same patch as S-disk-4, aimed at Raft's control)
+mechanism: the lose-synced disk loss restores nothing
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.PositiveControlTests.LosingAnFsyncedVoteTurnsTheInvariantsRedAndTheSameCrashWithoutTheLossDoesNot
+reason: a lost term went unseen
+expect: caught
