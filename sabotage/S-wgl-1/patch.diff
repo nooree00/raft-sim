@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/WglChecker.cs b/src/Raft.Checker/WglChecker.cs
+index f7b9493..5776e5f 100644
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -123,7 +123,7 @@ public static class WglChecker
+             for (var i = 0; i < ops.Count && !_outOfBudget; i++)
+             {
+                 var op = ops[i];
+-                if (done[i] || op.Invoke > horizon)
++                if (done[i] || op.Invoke > horizon || op.IsIndeterminate)
+                 {
+                     continue;
+                 }

@@ -2,5 +2,5 @@
 # an edit to this file in the same commit, so a deleted or undiscovered test is visible in review.
 Raft.Architecture.Tests 38
 Raft.Gates.Tests 80
-Raft.Checker.Tests 91
+Raft.Checker.Tests 126
 Raft.Simulation.Tests 88

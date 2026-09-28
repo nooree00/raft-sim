@@ -10,6 +10,15 @@ public interface ISequentialModel<TState>
     TState NewState();
 
     string? Apply(TState state, Operation op);
+
+    /// <summary>An independent copy (the WGL search applies operations to copies and backtracks).</summary>
+    TState Copy(TState state);
+
+    /// <summary>
+    /// A canonical text for the state: equal states give equal text. The WGL checker memoises on
+    /// (linearized operations, fingerprint); two states with one fingerprint would merge searches.
+    /// </summary>
+    string Fingerprint(TState state);
 }
 
 public static class SequentialModel

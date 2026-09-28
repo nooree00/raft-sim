@@ -1,0 +1,5 @@
+description: Real-time order is ignored: any unlinearized operation may go next
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+expect: caught

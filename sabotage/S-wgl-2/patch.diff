@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/WglChecker.cs b/src/Raft.Checker/WglChecker.cs
+index f7b9493..6ef28aa 100644
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -162,7 +162,7 @@ public static class WglChecker
+                 bits[i] = done[i] ? '1' : '0';
+             }
+ 
+-            return new string(bits) + "|" + model.Fingerprint(state);
++            return new string(bits) + (bits.Length < 0 ? model.Fingerprint(state) : "");
+         }
+     }
+ }

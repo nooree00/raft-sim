@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Raft.Checker;
 
@@ -13,6 +14,31 @@ public sealed class QueueModel : ISequentialModel<Dictionary<string, Queue<strin
     public static readonly QueueModel Instance = new();
 
     public Dictionary<string, Queue<string>> NewState() => new(StringComparer.Ordinal);
+
+    public Dictionary<string, Queue<string>> Copy(Dictionary<string, Queue<string>> state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.ToDictionary(kv => kv.Key, kv => new Queue<string>(kv.Value), StringComparer.Ordinal);
+    }
+
+    public string Fingerprint(Dictionary<string, Queue<string>> state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var sb = new System.Text.StringBuilder();
+        foreach (var key in state.Keys.Order(StringComparer.Ordinal))
+        {
+            KvModel.Field(sb, key);
+            sb.Append('[');
+            foreach (var item in state[key])
+            {
+                KvModel.Field(sb, item);
+            }
+
+            sb.Append(']');
+        }
+
+        return sb.ToString();
+    }
 
     public string? Apply(Dictionary<string, Queue<string>> state, Operation op)
     {

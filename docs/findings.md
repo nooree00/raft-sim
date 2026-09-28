@@ -186,6 +186,19 @@ finding: what happened, why no existing check caught it, what now catches it.
   driven by none of the three runs chosen to exercise every member. Echo-counter recovery issues it
   only after a torn crash, which the preset schedule never produced. Measuring use rather than
   existence caught the choosing, too.
+- **An equivalent mutant in the WGL checker: "may take effect" equals "must take effect".** The
+  first S-wgl-1 forced every indeterminate operation to be linearized, and it survived. That is
+  correct, not a gap. An indeterminate operation's output is unchecked, so the search can always
+  place it last, where no later operation observes it. For the checker, "an indeterminate operation
+  may or may not have taken effect" accepts exactly the histories that "it took effect, at some
+  point after its invocation" accepts; spec §6's warning is about treating it as *failed*
+  (excluded), which S-wgl-1 now does, and which is caught. *Consequence:* a test of indeterminate
+  handling must include a later read that observes the operation, or it cannot tell the two apart.
+- **My manual sabotage checks left sabotaged binaries behind.** After verifying S-hist-7 by hand I
+  reverted the source but did not rebuild. The next build failed on an analyzer rule, so the tests
+  ran against the stale, sabotaged `Raft.Checker.dll`: four confusing failures, which cleared once
+  it was rebuilt. The harness rebuilds after every revert and checks the assembly hashes (P0), for
+  exactly this reason; the hand loop did neither.
 
 - **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
   ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The

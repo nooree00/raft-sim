@@ -1,0 +1,5 @@
+description: The memo key ignores the model state: two orders reaching one set of operations with different states are merged
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+expect: caught

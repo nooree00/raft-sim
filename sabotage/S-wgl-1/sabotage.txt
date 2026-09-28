@@ -1,0 +1,5 @@
+description: Indeterminate operations are dropped from the search: a timed-out write that a later read observed makes the history fail
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+expect: caught

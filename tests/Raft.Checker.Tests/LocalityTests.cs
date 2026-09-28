@@ -43,7 +43,7 @@ public sealed class LocalityTests
     }
 
     /// <summary>Up to 7 operations over keys x and y, overlapping intervals, plausible outputs.</summary>
-    private static List<Operation> RandomHistory(Random rng)
+    internal static List<Operation> RandomHistory(Random rng)
     {
         var ops = new List<Operation>();
         var count = rng.Next(3, 8);
