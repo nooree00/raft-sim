@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/KvModel.cs b/src/Raft.Checker/KvModel.cs
+index cc993dd..38e74a7 100644
+--- a/src/Raft.Checker/KvModel.cs
++++ b/src/Raft.Checker/KvModel.cs
+@@ -36,7 +36,7 @@ public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
+ 
+                 return "false";
+             case OpKind.Delete:
+-                state.Remove(op.Key);
++                _ = op.Key;
+                 return null;
+             default:
+                 throw new ArgumentOutOfRangeException(nameof(op), op.Kind, "unknown operation");

@@ -1,0 +1,5 @@
+description: Append behaves like Put: an append replaces the value instead of extending it
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway
+expect: caught

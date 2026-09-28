@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/KvModel.cs b/src/Raft.Checker/KvModel.cs
+index cc993dd..234a1d2 100644
+--- a/src/Raft.Checker/KvModel.cs
++++ b/src/Raft.Checker/KvModel.cs
+@@ -24,7 +24,7 @@ public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
+                 state[op.Key] = op.Value!;
+                 return null;
+             case OpKind.Append:
+-                state[op.Key] = (present ? current : "") + op.Value;
++                state[op.Key] = op.Value!;
+                 return null;
+             case OpKind.CompareAndSwap:
+                 // Expected null means "the key is absent".
