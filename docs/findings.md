@@ -333,3 +333,16 @@ finding: what happened, why no existing check caught it, what now catches it.
     the phase report.
   - *Consequence:* a tests-first run shows only that each test goes red. Reading why each went red
     is the part the run does not do by itself, the same gap P3-01 closed for the harness.
+- **Invariant 11 in its phase-3 form cannot see disruption.** Under a one-way partition (n3 sends,
+  hears nothing), with the §6 rule removed, n3's candidacies depose the leader about every 900
+  ticks: 20 leaders per run over 200 runs, against none with the rule. "An elected leader acts
+  within K election timeouts" still holds in every run, because each deposed leader is replaced
+  within a few hundred ticks. P3-06 predicted it would fail in at least half the runs; it failed in
+  none.
+  - *Why:* the phase-3 scope of invariant 11 (decision 3) keeps only "a leader exists"; the clause
+    that disruption breaks, "a submitted command commits", needs a log. A leader that exists for
+    900 ticks at a time is a leader for this property and nearly useless for clients.
+  - *Now:* the rule's test asserts its own effect, no leader deposed after the first window, and
+    the rule-off measurement is reported. S-disrupt-1, removing the rule, is aimed at that
+    simulated test (leader continuity alone would let it survive). Phase 4's commit clause should
+    make the churn visible to the invariant itself; the P3 report carries it forward.

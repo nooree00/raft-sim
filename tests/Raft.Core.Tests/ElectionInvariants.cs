@@ -273,4 +273,35 @@ internal static class ElectionInvariants
         counts["time-to-leader"] = first - stableFrom;
         return new("liveness", [], counts);
     }
+
+    /// <summary>
+    /// Invariant 11 under a fault that never heals (P3-06's constructed one-way partition): from
+    /// <paramref name="from"/> to <paramref name="to"/>, no interval of <paramref name="window"/>
+    /// passes without an elected leader acting, among nodes that are up. Counts the terms started in
+    /// the stretch: a leader deposed again and again still passes the gap check, and shows up here.
+    /// </summary>
+    public static InvariantResult LeaderContinuity(ElectionHistory h, long from, long to, long window)
+    {
+        var elected = h.Elections();
+        var acts = h.Sends.Where(s => s.Time >= from && s.Time <= to && s.Message is AppendEntries a && a.Leader == s.From
+                && elected.TryGetValue((s.Message.Term, s.From), out var at) && at <= s.Time)
+            .Select(s => s.Time).Order().ToList();
+        var violations = new List<string>();
+        var last = from;
+        foreach (var t in acts.Append(to))
+        {
+            if (t - last > window)
+            {
+                violations.Add("no elected leader acted from " + N(last) + " to " + N(t));
+            }
+
+            last = Math.Max(last, t);
+        }
+
+        return new("leader-continuity", violations, new Dictionary<string, long>(StringComparer.Ordinal)
+        {
+            ["terms-started"] = h.Sends.Where(s => s.Time >= from && s.Time <= to && s.Message is RequestVote).Select(s => s.Message.Term).Distinct().Count(),
+            ["leaders-elected"] = elected.Count(kv => kv.Value >= from && kv.Value <= to),
+        });
+    }
 }

@@ -1,0 +1,6 @@
+description: The disruption rule ignores the vote but only after adopting the RequestVote's higher term, so the follower then rejects its leader's heartbeats as stale: disruption by another route
+mechanism: a disregarded RequestVote still raises the receiver's term
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.AFollowerThatJustHeardItsLeaderIgnoresARequestVoteEntirely
+expect: caught

@@ -204,4 +204,46 @@ public sealed class ElectionTests
 
         Assert.Throws<InvalidOperationException>(() => Node([.. bad, .. TermVoteLog.Record(new Term(2), null)]));
     }
+
+    /// <summary>P3-06, the §6 disruption rule: a follower that heard its leader within the minimum election timeout disregards RequestVote.</summary>
+    [Fact]
+    public void AFollowerThatJustHeardItsLeaderIgnoresARequestVoteEntirely()
+    {
+        var n = Node();
+        Receive(n, N2, new AppendEntries(new Term(1), N2, 0, Term.Zero, [], 0));
+        Tick(n, 149);
+
+        var e = Receive(n, N3, new RequestVote(new Term(2), N3, 0, Term.Zero));
+
+        Assert.Empty(Sends(e));
+        Assert.Empty(Persisted(e));
+        Assert.Contains(e, x => x is Emit { Name: "requestvote-ignored" });
+        Assert.Equal([(N2, (Message)new AppendEntriesResponse(new Term(1), true, 0))], Sends(Receive(n, N2, new AppendEntries(new Term(1), N2, 0, Term.Zero, [], 0))));
+    }
+
+    [Fact]
+    public void OnceTheMinimumTimeoutPassesWithoutTheLeaderARequestVoteIsAnswered()
+    {
+        var n = Node(random: [100, 100]); // an election timeout of 250 before and after the heartbeat, so it does not stand first
+        Receive(n, N2, new AppendEntries(new Term(1), N2, 0, Term.Zero, [], 0));
+        Tick(n, 150);
+
+        var e = Receive(n, N3, new RequestVote(new Term(2), N3, 0, Term.Zero));
+
+        Assert.Equal([new TermVoteState(new Term(2), N3)], Persisted(e));
+        Assert.Equal([(N3, (Message)new RequestVoteResponse(new Term(2), true))], Sends(e));
+    }
+
+    [Fact]
+    public void ALeaderIgnoresRequestVote()
+    {
+        var n = Node();
+        Elect(n);
+        Receive(n, N2, new RequestVoteResponse(new Term(1), true));
+
+        var e = Receive(n, N3, new RequestVote(new Term(7), N3, 0, Term.Zero));
+
+        Assert.Empty(Sends(e));
+        Assert.Equal(2, Sends(Tick(n, 50)).Count(s => s.M is AppendEntries a && a.Term == new Term(1)));
+    }
 }

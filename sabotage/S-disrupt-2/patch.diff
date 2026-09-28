@@ -1,0 +1,36 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 5fa702f..7ce33cf 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -128,15 +128,6 @@ public sealed class RaftNode : INode
+ 
+     private void OnMessage(NodeId from, Message m, List<Effect> effects)
+     {
+-        // Paper §6: a server that believes a current leader exists, having heard from one within the
+-        // minimum election timeout (or being the leader), disregards RequestVote: it neither adopts the
+-        // term nor answers. A node that cannot hear the leader then cannot depose it by standing.
+-        if (m is RequestVote && _options.DisruptionRule && (Role == Role.Leader || (_heardFromLeader && _sinceLeader < _options.ElectionTimeoutMin)))
+-        {
+-            effects.Add(Event("requestvote-ignored", new Field("from", from.ToString())));
+-            return;
+-        }
+-
+         if (m.Term > _term)
+         {
+             SetTerm(m.Term);
+@@ -150,6 +141,15 @@ public sealed class RaftNode : INode
+             Role = Role.Follower;
+         }
+ 
++        // Paper §6: a server that believes a current leader exists, having heard from one within the
++        // minimum election timeout (or being the leader), disregards RequestVote: it neither adopts the
++        // term nor answers. A node that cannot hear the leader then cannot depose it by standing.
++        if (m is RequestVote && _options.DisruptionRule && (Role == Role.Leader || (_heardFromLeader && _sinceLeader < _options.ElectionTimeoutMin)))
++        {
++            effects.Add(Event("requestvote-ignored", new Field("from", from.ToString())));
++            return;
++        }
++
+         switch (m)
+         {
+             case RequestVote rv:

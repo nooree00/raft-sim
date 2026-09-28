@@ -4,8 +4,12 @@ using System.Globalization;
 
 namespace Raft.Core;
 
-/// <summary>Timing, in the node's own ticks (P3 decision 5): election timeout uniform in [min, max), heartbeats every interval.</summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50)
+/// <summary>
+/// Timing, in the node's own ticks (P3 decision 5): election timeout uniform in [min, max),
+/// heartbeats every interval. <see cref="DisruptionRule"/> is on in every real configuration; it can
+/// be turned off only so that P3-06 can measure what the rule prevents.
+/// </summary>
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true)
 {
     public static RaftOptions Default { get; } = new();
 }
@@ -36,6 +40,8 @@ public sealed class RaftNode : INode
     private long _sinceHeard;
     private long _timeout;
     private long _sinceHeartbeat;
+    private bool _heardFromLeader;
+    private long _sinceLeader;
 
     public RaftNode(NodeContext context, RaftOptions? options = null)
     {
@@ -78,6 +84,7 @@ public sealed class RaftNode : INode
 
     private void OnTick(long elapsed, List<Effect> effects)
     {
+        _sinceLeader += elapsed;
         if (Role == Role.Leader)
         {
             _sinceHeartbeat += elapsed;
@@ -121,6 +128,15 @@ public sealed class RaftNode : INode
 
     private void OnMessage(NodeId from, Message m, List<Effect> effects)
     {
+        // Paper §6: a server that believes a current leader exists, having heard from one within the
+        // minimum election timeout (or being the leader), disregards RequestVote: it neither adopts the
+        // term nor answers. A node that cannot hear the leader then cannot depose it by standing.
+        if (m is RequestVote && _options.DisruptionRule && (Role == Role.Leader || (_heardFromLeader && _sinceLeader < _options.ElectionTimeoutMin)))
+        {
+            effects.Add(Event("requestvote-ignored", new Field("from", from.ToString())));
+            return;
+        }
+
         if (m.Term > _term)
         {
             SetTerm(m.Term);
@@ -176,6 +192,8 @@ public sealed class RaftNode : INode
                 }
 
                 ResetElectionTimer();
+                _heardFromLeader = true;
+                _sinceLeader = 0;
                 Reply(from, new AppendEntriesResponse(_term, true, 0), effects);
                 break;
             case AppendEntriesResponse:
