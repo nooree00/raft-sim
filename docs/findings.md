@@ -208,6 +208,19 @@ finding: what happened, why no existing check caught it, what now catches it.
   key, or spread them over many keys, where per-key decomposition keeps rejection cheap (162 states
   over 20 keys against 5,920 on one, for the same mixed history). Linearizable histories are cheap
   either way: the search finds the first order at once (200 states for 200 operations).
+- **A simulated history needs two modelling rules the checker cannot supply** (P2-09).
+  1. *A client that times out moves on, but its operation stays open*, so the client's next
+     operation overlaps it, and a sequential client cannot express that. As in Knossos and Jepsen,
+     a timed-out client is treated as crashed, and its later operations belong to a fresh logical
+     client.
+  2. *Real-time order is strict.* A client that issued its next operation at the instant its reply
+     arrived made its own consecutive operations concurrent. That gave the checker freedom to
+     explain anomalies away: store (a)'s rejection rate doubled (13 to 26 of 40 fault-free runs) once
+     clients waited one unit.
+
+  *Caught by* `History.Problems` on the first recorded history, whose overlapping operations for
+  one client it rejects. Nothing else would have noticed: the checker happily accepts the extra
+  concurrency.
 
 - **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
   ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The

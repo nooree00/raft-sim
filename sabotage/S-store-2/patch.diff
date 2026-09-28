@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Simulation.Tests/Stores.cs b/tests/Raft.Simulation.Tests/Stores.cs
+index 69b2cc8..b8f0c6c 100644
+--- a/tests/Raft.Simulation.Tests/Stores.cs
++++ b/tests/Raft.Simulation.Tests/Stores.cs
+@@ -59,7 +59,7 @@ internal static class KvCodec
+             history.Add(Decode((g * 1_000) + o.Client, o.Invoke, o.Response, o.Request.Span, o.Reply.Span));
+             if (o.Response is null)
+             {
+-                generation[o.Client] = g + 1;
++                generation[o.Client] = g;
+             }
+         }
+ 

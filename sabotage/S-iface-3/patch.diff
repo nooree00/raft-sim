@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index a825009..90ec9ed 100644
+index 04603b6..49055bd 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -502,6 +502,11 @@ public sealed class Simulator
+@@ -508,6 +508,11 @@ public sealed class Simulator
                      CheckArmedCrashes(h);
                      break;
                  case Send or ClientResponse:
@@ -14,9 +14,9 @@ index a825009..90ec9ed 100644
                      h.Held.Enqueue((e, h.Disk.IssuedCount));
                      break;
                  case Emit ev:
-@@ -545,7 +550,6 @@ public sealed class Simulator
+@@ -551,7 +556,6 @@ public sealed class Simulator
                  // Until P2-03 this branch did not exist: every client response was dropped here.
-                 Count("effect:ClientResponse");
+                 Count(_effects, typeof(ClientResponse));
                  Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
 -                _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
                  ReplyToClient(h.Id, r);

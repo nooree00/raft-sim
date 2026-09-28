@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 04603b6..a11ef10 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -508,7 +508,7 @@ public sealed class Simulator
+                     CheckArmedCrashes(h);
+                     break;
+                 case Send or ClientResponse:
+-                    h.Held.Enqueue((e, h.Disk.IssuedCount));
++                    h.Held.Enqueue((e, e is ClientResponse ? 0 : h.Disk.IssuedCount));
+                     break;
+                 case Emit ev:
+                     Count(_effects, typeof(Emit));

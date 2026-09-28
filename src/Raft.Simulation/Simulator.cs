@@ -40,7 +40,8 @@ public sealed class Simulator
 
     private readonly List<ClientReply> _requests = [];
     private readonly List<ClientReply> _responses = [];
-    private readonly Dictionary<string, long> _census = new(StringComparer.Ordinal);
+    private readonly Dictionary<Type, long> _inputs = [];
+    private readonly Dictionary<Type, long> _effects = [];
 
     /// <summary>A client message: a request to submit, or a response that reached the client side (released by the barrier from a live node).</summary>
     public sealed record ClientReply(long Time, NodeId Node, long RequestId, ReadOnlyMemory<byte> Payload);
@@ -51,12 +52,15 @@ public sealed class Simulator
     /// How many of each Core input the simulator delivered to a node, and of each effect it acted on
     /// (P2-03): use, not existence. An effect built by a node and then discarded never counts.
     /// </summary>
-    public IReadOnlyDictionary<string, long> Census => _census;
+    public IReadOnlyDictionary<string, long> Census =>
+        _inputs.Select(kv => ("input:" + kv.Key.Name, kv.Value)).Concat(_effects.Select(kv => ("effect:" + kv.Key.Name, kv.Value)))
+            .ToDictionary(x => x.Item1, x => x.Value, StringComparer.Ordinal);
 
     /// <summary>Schedules a client request to arrive at a node (P2-03's client path; P2-08 adds clients over the network).</summary>
     public void Submit(long at, NodeId node, long requestId, ReadOnlyMemory<byte> payload) => _requests.Add(new ClientReply(at, node, requestId, payload));
 
-    private void Count(string what) => _census[what] = _census.GetValueOrDefault(what) + 1;
+    /// <summary>Counted by type, not by a name built per step: ticks are nearly every step.</summary>
+    private static void Count(Dictionary<Type, long> counts, Type type) => counts[type] = counts.GetValueOrDefault(type) + 1;
 
     /// <summary>Clients are network endpoints n101, n102, ...: every link fault can name their links.</summary>
     public const int ClientBase = 100;
@@ -138,7 +142,7 @@ public sealed class Simulator
             {
                 _timedOut.Add(requestId);
                 Trace.Add(_now, from.ToString(), "TIMEOUT", ("request", requestId));
-                IssueNext(client);
+                At(_now + 1, () => IssueNext(client));
             }
         });
     }
@@ -163,7 +167,9 @@ public sealed class Simulator
             {
                 _clientLog[index] = _clientLog[index] with { Response = _now, Reply = payload };
                 Trace.Add(_now, to.ToString(), "REPLY", ("request", op.RequestId), ("id", msg), ("len", payload.Length));
-                IssueNext(op.Client);
+                // One unit later: real-time order is strict, so an operation invoked at the instant
+                // the previous one responded would count as concurrent with it.
+                At(_now + 1, () => IssueNext(op.Client));
             }
             else
             {
@@ -482,7 +488,7 @@ public sealed class Simulator
     private void Handle(Host h, Input input)
     {
         Steps++;
-        Count("input:" + input.GetType().Name);
+        Count(_inputs, input.GetType());
         var effects = h.Node!.Handle(input);
         foreach (var e in effects)
         {
@@ -497,7 +503,7 @@ public sealed class Simulator
 
                     var w = h.Disk.Issue(p, _now + latency);
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
-                    Count("effect:" + p.GetType().Name);
+                    Count(_effects, p.GetType());
                     At(w.CompleteAt, () => CompleteWrite(h, w));
                     CheckArmedCrashes(h);
                     break;
@@ -505,7 +511,7 @@ public sealed class Simulator
                     h.Held.Enqueue((e, h.Disk.IssuedCount));
                     break;
                 case Emit ev:
-                    Count("effect:Emit");
+                    Count(_effects, typeof(Emit));
                     Trace.Add(_now, h.Id.ToString(), "EVENT", [("name", (object)ev.Name), .. ev.Fields.Select(f => (f.Key, (object)f.Value))]);
                     break;
                 default:
@@ -537,13 +543,13 @@ public sealed class Simulator
             var (effect, _) = h.Held.Dequeue();
             if (effect is Send s)
             {
-                Count("effect:Send");
+                Count(_effects, typeof(Send));
                 Transmit(h.Id, s);
             }
             else if (effect is ClientResponse r)
             {
                 // Until P2-03 this branch did not exist: every client response was dropped here.
-                Count("effect:ClientResponse");
+                Count(_effects, typeof(ClientResponse));
                 Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
                 _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
                 ReplyToClient(h.Id, r);

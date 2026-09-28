@@ -1,15 +1,15 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index a825009..d2f1762 100644
+index 04603b6..8232b09 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -540,14 +540,7 @@ public sealed class Simulator
-                 Count("effect:Send");
+@@ -546,14 +546,7 @@ public sealed class Simulator
+                 Count(_effects, typeof(Send));
                  Transmit(h.Id, s);
              }
 -            else if (effect is ClientResponse r)
 -            {
 -                // Until P2-03 this branch did not exist: every client response was dropped here.
--                Count("effect:ClientResponse");
+-                Count(_effects, typeof(ClientResponse));
 -                Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
 -                _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
 -                ReplyToClient(h.Id, r);

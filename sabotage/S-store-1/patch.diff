@@ -1,0 +1,16 @@
+diff --git a/tests/Raft.Simulation.Tests/Stores.cs b/tests/Raft.Simulation.Tests/Stores.cs
+index 69b2cc8..6e5dd16 100644
+--- a/tests/Raft.Simulation.Tests/Stores.cs
++++ b/tests/Raft.Simulation.Tests/Stores.cs
+@@ -56,6 +56,11 @@ internal static class KvCodec
+         foreach (var o in sim.ClientLog)
+         {
+             var g = generation.GetValueOrDefault(o.Client);
++            if (o.Response is null)
++            {
++                continue;
++            }
++
+             history.Add(Decode((g * 1_000) + o.Client, o.Invoke, o.Response, o.Request.Span, o.Reply.Span));
+             if (o.Response is null)
+             {

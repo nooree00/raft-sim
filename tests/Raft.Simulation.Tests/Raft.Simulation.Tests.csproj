@@ -13,5 +13,6 @@
     <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
     <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../../tools/Raft.SimRun/Raft.SimRun.csproj" />
+    <ProjectReference Include="../../src/Raft.Checker/Raft.Checker.csproj" />
   </ItemGroup>
 </Project>

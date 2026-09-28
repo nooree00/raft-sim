@@ -1,0 +1,5 @@
+description: Client responses skip the persist barrier: a correct store's acknowledged write can be lost
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.BrokenStoreTests.TheCorrectStoreIsAcceptedInEveryRun
+expect: caught

@@ -1,0 +1,5 @@
+description: A client that timed out keeps its identity, so its next operation overlaps the unfinished one
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.BrokenStoreTests.TheHistoryIsWellFormedAndKeepsIndeterminateOperations
+expect: caught
