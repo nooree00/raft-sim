@@ -1,0 +1,5 @@
+description: A shard job started with too few shards for the manifest runs its share instead of failing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AShardCountThatDisagreesWithTheManifestIsRefused
+expect: caught

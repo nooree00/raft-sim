@@ -13,10 +13,9 @@ namespace Raft.Gates;
 /// push. Entries are dealt round-robin to up to four workers; each worker has its own worktree at
 /// HEAD, at a fixed path so incremental builds stay valid, built once, and runs its share
 /// sequentially. (Phase 1: one worker reached 781 s of the 900 s ceiling at 68 entries; the ceiling
-/// forced this change rather than running the harness less often. At 78 entries four workers took
-/// 868 s on GitHub, and phase 1's last five entries would cross 900 s: the ceiling is raised to
-/// 20 minutes as a stopgap, reported, with the structural fix a register row promised to P2.)
-/// A result counts only if it is the expected one for the expected reason:
+/// forced this change rather than running the harness less often.) Since P2-01 the manifest is
+/// split into shards (<see cref="ShardPlan"/>), one CI job each, and the 15-minute ceiling applies
+/// per shard: the shard count grows with the manifest instead of the ceiling. A result counts only if it is the expected one for the expected reason:
 ///   - a patch that does not apply, or a target test that did not run, is a harness error;
 ///   - a build failure is `build-error`, never "caught";
 ///   - a code patch whose build leaves every assembly byte-identical is `not-compiled-in`,
@@ -36,9 +35,10 @@ internal static class Sabotage
     {
         var rest = args.ToList();
         var only = Options.Take(rest, "--only")?.Split(',', StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
-        var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "20", System.Globalization.CultureInfo.InvariantCulture));
+        var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "15", System.Globalization.CultureInfo.InvariantCulture));
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
         var workersOption = Options.Take(rest, "--workers");
+        var shardOption = Options.Take(rest, "--shard");
         var f = new Findings();
         var clock = Stopwatch.StartNew();
 
@@ -57,6 +57,22 @@ internal static class Sabotage
         }
 
         var specs = all.Where(s => !s.RunsOnHost).ToList();
+        if (shardOption is not null && only is null)
+        {
+            // The plan is recomputed here from the committed manifest: a shard job started with a
+            // stale count (entries added since the plan was made) fails rather than skipping entries.
+            var size = ShardPlan.ParseSize(File.ReadAllText(repo.PathOf(ShardPlan.SizeFile)));
+            var mine = ShardPlan.Select(specs.Select(s => s.Id).ToList(), shardOption, size, f);
+            if (mine is null)
+            {
+                return f;
+            }
+
+            var chosen = mine.ToHashSet(StringComparer.Ordinal);
+            specs = specs.Where(s => chosen.Contains(s.Id)).ToList();
+            f.Note($"shard {shardOption}: {specs.Count} of the manifest's harness entries");
+        }
+
         if (f.Failures.Count > 0 || specs.Count == 0)
         {
             f.Require(specs.Count > 0, "no sabotages selected");
@@ -90,12 +106,13 @@ internal static class Sabotage
         }
 
         var results = new Findings[workers];
+        var ready = new TimeSpan[workers];
         try
         {
             System.Threading.Tasks.Parallel.For(0, workers, k =>
             {
                 results[k] = new Findings();
-                RunAll(trees[k], shares[k], results[k]);
+                ready[k] = RunAll(trees[k], shares[k], results[k], clock);
             });
         }
         finally
@@ -119,6 +136,9 @@ internal static class Sabotage
             }
         }
 
+        // Fixed cost: worktrees, baseline builds and baseline checks, until the slowest worker is
+        // ready to run its first entry (P2-01's prediction is about this number).
+        f.Note($"fixed cost {ready.Max().TotalSeconds:F0}s (worktrees, baseline builds, baseline checks; slowest worker)");
         f.Note($"total {clock.Elapsed.TotalSeconds:F0}s for {specs.Count} sabotages on {workers} workers (ceiling {ceiling.TotalMinutes:F0} min)");
         f.Require(clock.Elapsed <= ceiling, $"harness took {clock.Elapsed.TotalMinutes:F1} min, over the {ceiling.TotalMinutes:F0}-minute ceiling — the manifest has outgrown the design; decide, do not run it less often");
         if (summary is not null)
@@ -129,7 +149,8 @@ internal static class Sabotage
         return f;
     }
 
-    private static void RunAll(string wt, IReadOnlyList<SabotageSpec> specs, Findings f)
+    /// <summary>Runs one worker's share; returns the harness clock when the worker was ready for its first entry.</summary>
+    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, Findings f, Stopwatch clock)
     {
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
@@ -138,7 +159,7 @@ internal static class Sabotage
         if (!build.Ok)
         {
             f.Fail($"baseline build failed in {wt}:\n{Tail(build)}");
-            return;
+            return clock.Elapsed;
         }
 
         var baseline = Hashes(wt, projects);
@@ -151,9 +172,10 @@ internal static class Sabotage
             f.Fail(bf);
         }
 
+        var ready = clock.Elapsed;
         if (baselineFailures.Count > 0)
         {
-            return;
+            return ready;
         }
 
         foreach (var spec in specs)
@@ -179,10 +201,12 @@ internal static class Sabotage
                 if (!rebuild.Ok || !SameHashes(Hashes(wt, projects), baseline))
                 {
                     f.Fail($"{spec.Id}: after revert the tree does not reproduce the baseline assemblies — stopping this worker, later results would be suspect\n{Tail(rebuild)}");
-                    return;
+                    return ready;
                 }
             }
         }
+
+        return ready;
     }
 
     private static List<string> BaselineChecks(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, string> env)

@@ -1,0 +1,16 @@
+diff --git a/tools/Raft.Gates/BuildCollect.cs b/tools/Raft.Gates/BuildCollect.cs
+index 61d0341..f82126e 100644
+--- a/tools/Raft.Gates/BuildCollect.cs
++++ b/tools/Raft.Gates/BuildCollect.cs
+@@ -48,6 +48,11 @@ internal static class BuildCollect
+         foreach (var shard in shards)
+         {
+             var mine = jobs.Where(j => j.Name == "sabotage " + shard).Select(j => j.Job).ToList();
++            if (mine.Count == 0)
++            {
++                continue;
++            }
++
+             if (mine.Count != 1)
+             {
+                 f.Fail($"sabotage {shard}: {mine.Count} jobs, expected exactly one");

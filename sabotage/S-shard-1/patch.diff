@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/ShardPlan.cs b/tools/Raft.Gates/ShardPlan.cs
+index 95c5f0e..4f4fce9 100644
+--- a/tools/Raft.Gates/ShardPlan.cs
++++ b/tools/Raft.Gates/ShardPlan.cs
+@@ -33,7 +33,7 @@ internal static class ShardPlan
+     public static IReadOnlyList<IReadOnlyList<string>> Deal(IEnumerable<string> ids, int n)
+     {
+         var sorted = ids.Order(StringComparer.Ordinal).ToList();
+-        return Enumerable.Range(0, n).Select(k => (IReadOnlyList<string>)sorted.Where((_, i) => i % n == k).ToList()).ToList();
++        return Enumerable.Range(0, n).Select(k => (IReadOnlyList<string>)sorted.Where((_, i) => i % (n + 1) == k).ToList()).ToList();
+     }
+ 
+     /// <summary>Every id in exactly one shard, and no shard empty.</summary>

@@ -1,0 +1,4 @@
+# Sabotage entries per harness shard (breakdown P2-01). The shard count is ceil(entries / this);
+# changing it is a visible decision. From the slowest runner seen (~12.6 s per entry on four
+# workers) and a predicted fixed cost of 90 s per shard, 28 keeps a shard under half the ceiling.
+28

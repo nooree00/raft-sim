@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # One non-head commit of a push, with that commit's own scripts (spec §12, P1-12).
 #   ci-commit.sh classify SHA   gated | pre-gate (also to $GITHUB_OUTPUT as kind=...)
-#   ci-commit.sh run SHA        in a worktree of SHA: its preflight, build, gates, tests, harness
-#   ci-commit.sh checks         the same, in the current directory (used by `gates each-commit`)
+#   ci-commit.sh run SHA [i/n]  in a worktree of SHA: its preflight, build, gates, tests and harness;
+#                               with a shard (P2-01), shard 1 runs everything and its harness share,
+#                               other shards build and run their share
+#   ci-commit.sh checks [i/n]   the same, in the current directory (used by `gates each-commit`)
 # A commit is gated when it has the build, test and gates scripts; one from before them is
 # pre-gate and is reported as such by `gates each-commit-collect`, never as passed.
 set -euo pipefail
@@ -10,11 +12,17 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 if [ -n "${CI:-}" ]; then git config --global --add safe.directory "*"; fi
 
 checks() {
+  local shard="${1:-}"
   if [ ! -x scripts/ci-gates.sh ] || [ ! -x scripts/ci-build.sh ] || [ ! -x scripts/ci-test.sh ]; then
     echo "pre-gate: this commit predates the gate scripts"
     return 0
   fi
-  for s in ci-preflight ci-build ci-gates ci-test ci-sabotage; do
+  local steps="ci-preflight ci-build ci-gates ci-test ci-sabotage"
+  if [ -n "$shard" ] && [ -f ci/sabotage-shard-size.txt ]; then
+    export SABOTAGE_SHARD="$shard"
+    case "$shard" in 1/*) ;; *) steps="ci-build ci-sabotage" ;; esac
+  fi
+  for s in $steps; do
     if [ -x "scripts/$s.sh" ]; then
       echo "::group::$s"
       "scripts/$s.sh"
@@ -42,13 +50,13 @@ case "${1:-}" in
     wt="$(mktemp -d)/commit"
     git -C "$here" worktree add -q --detach "$wt" "$sha"
     cd "$wt"
-    checks
+    checks "${3:-}"
     ;;
   checks)
-    checks
+    checks "${2:-}"
     ;;
   *)
-    echo "usage: ci-commit.sh classify SHA | run SHA | checks" >&2
+    echo "usage: ci-commit.sh classify SHA | run SHA [i/n] | checks [i/n]" >&2
     exit 2
     ;;
 esac

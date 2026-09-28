@@ -1,0 +1,5 @@
+description: The deal loses the entries that fall past the last shard
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.EveryEntryIsDealtToExactlyOneShardAndNoShardIsEmpty
+expect: caught

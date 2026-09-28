@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/ShardPlan.cs b/tools/Raft.Gates/ShardPlan.cs
+index 95c5f0e..b3f7c6b 100644
+--- a/tools/Raft.Gates/ShardPlan.cs
++++ b/tools/Raft.Gates/ShardPlan.cs
+@@ -77,7 +77,7 @@ internal static class ShardPlan
+     {
+         var (index, of) = Parse(shard);
+         var expected = Count(ids.Count, size);
+-        if (of != expected)
++        if (of > expected)
+         {
+             f.Fail($"shard {shard}: the manifest has {ids.Count} harness entries, which is {expected} shard(s) of {size}, not {of}");
+             return null;

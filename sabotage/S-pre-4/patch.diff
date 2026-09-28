@@ -1,9 +1,9 @@
 diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
-index 4c88085..29e1a8a 100644
+index 6c7d3db..d74a089 100644
 --- a/.github/workflows/ci.yml
 +++ b/.github/workflows/ci.yml
-@@ -15,7 +15,7 @@ jobs:
-   build:
+@@ -19,7 +19,7 @@ jobs:
+     # Everything the build did except the sabotage harness, which runs sharded below (P2-01).
      runs-on: ubuntu-24.04
      timeout-minutes: 40
 -    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
