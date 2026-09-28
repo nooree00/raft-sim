@@ -130,6 +130,9 @@ finding: what happened, why no existing check caught it, what now catches it.
     the reordered-writes loss mode; the true figure is 2.
   - *Not caught* because the 0%/100% rule can only fail a dimension that exists, and the dimensions
     were chosen from the fault list.
+  - *The general form* (reviewer): a coverage dimension list derived from the injection mechanism
+    cannot contain an event the mechanism does not name. And a gate that fails only the dimensions
+    it lists cannot report an absence: no signal, not a zero someone might notice.
   - *Now:* P2-02. Dimensions become effects the algorithm depends on, and the traceability column is
     rewritten in them and required to clear a floor, so the list of events is owned by the rules,
     not by the faults.
@@ -147,4 +150,6 @@ finding: what happened, why no existing check caught it, what now catches it.
     rule", is wider: a member can exist and never be carried at all.
   - *Now:* P2-03. A census over test traces requires every Core input and effect type to reach the
     world in at least one simulator test.
+  - *The pattern* (reviewer): measure use, not existence. P2-03's check reads what reached the
+    world, not what was declared or constructed. Any later "every X is covered" check follows it.
 
