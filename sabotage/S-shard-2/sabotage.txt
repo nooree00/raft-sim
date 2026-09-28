@@ -1,4 +1,5 @@
 description: The build collect checks only the shard jobs that ran, so a shard that never ran passes
+mechanism: the build collect accepts a shard that never ran
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.ShardPlanTests.AShardWithNoJobFailsTheBuild

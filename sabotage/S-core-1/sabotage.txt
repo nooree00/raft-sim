@@ -1,4 +1,5 @@
 description: Core formats with the ambient current culture through an otherwise-allowed type
+mechanism: Core formats through the ambient current culture via an allowed type
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.RestrictedTypesAreUsedOnlyThroughTheirAllowedMembers

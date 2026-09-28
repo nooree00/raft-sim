@@ -1,4 +1,5 @@
 description: Control: a patch that does not compile; the harness must report build-error, never caught
+mechanism: none: the harness's own control; a patch that does not compile
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.CoreIsARealImplementationAssemblyWithTypes

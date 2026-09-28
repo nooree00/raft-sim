@@ -1,4 +1,5 @@
 description: The barrier-violation positive control is inert: the fault is injected but sends still wait
+mechanism: the barrier-violation fault is injected but sends still wait for durability
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DiskFaultTests.PositiveControlViolatingTheBarrierBreaksDurability

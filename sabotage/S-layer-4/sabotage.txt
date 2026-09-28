@@ -1,4 +1,5 @@
 description: A new project not in the layering table appears on disk
+mechanism: a project exists on disk outside the layering table
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.EveryProjectOnDiskIsInTheTableAndViceVersa

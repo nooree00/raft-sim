@@ -1,4 +1,5 @@
 description: The README names a script that does not exist
+mechanism: the README names a script that does not exist
 kind: command
 runner: host
 build: no

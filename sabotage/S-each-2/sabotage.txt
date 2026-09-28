@@ -1,4 +1,5 @@
 description: An all-zero or unknown start silently yields an empty range
+mechanism: an all-zero or unknown range start yields an empty range
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.EachCommitTests.AnAllZeroOrUnknownStartFallsBackToTheMergeBase

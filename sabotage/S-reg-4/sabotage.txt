@@ -1,4 +1,5 @@
 description: The same throw inside a lambda, which compiles into a generated nested type (P0-08's prediction)
+mechanism: a NotImplementedException inside a lambda (a generated nested type) is absent from the register
 kind: command
 build: yes
 command: dotnet "$GATES" register

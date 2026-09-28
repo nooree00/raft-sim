@@ -1,0 +1,8 @@
+description: Control: a control that still reaches the target by another route (ambient randomness in place of the wall clock); the harness must run it and report it red
+mechanism: none: the harness's own control for control.diff
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.DateTime
+control-expect: red
+expect: caught

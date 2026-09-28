@@ -1,5 +1,6 @@
-description: The trace format drifts (time padding): the golden trace must notice
+description: The trace format drifts (time padding): the trace line format test must notice (the golden trace goes red too, as it does at any change)
+mechanism: the trace line format changes (time field width)
 kind: test
 project: tests/Raft.Simulation.Tests
-target: Raft.Simulation.Tests.DeterminismTests.TheGoldenTraceIsReproducedExactly
+target: Raft.Simulation.Tests.DeterminismTests.ATraceLineIsATenDigitTimeThenNodeKindAndFields
 expect: caught

@@ -1,5 +1,6 @@
 description: Purposes hashed with string.GetHashCode, which .NET randomizes per process
+mechanism: purpose hashing uses per-process-randomized string hashing instead of FNV-1a
 kind: test
 project: tests/Raft.Simulation.Tests
-target: Raft.Simulation.Tests.RandomnessTests.GoldenValuesAreStableAcrossProcessesAndVersions
+target: Raft.Simulation.Tests.RandomnessTests.PurposesAreHashedWithFnv1aThePublishedVector
 expect: caught

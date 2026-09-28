@@ -1,5 +1,7 @@
 description: Core waits on real time
+mechanism: Core references real-time waiting (Task.Delay)
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.Threading.Tasks.Task
 expect: caught

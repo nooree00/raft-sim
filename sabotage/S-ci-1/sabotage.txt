@@ -1,4 +1,5 @@
 description: A failing assertion must make the CI test script exit non-zero
+mechanism: the CI test script exits 0 despite a failing assertion
 kind: command
 build: yes
 command: scripts/ci-test.sh

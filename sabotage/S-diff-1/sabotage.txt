@@ -1,5 +1,7 @@
 description: The generator never mutates: every history is linearizable by construction, and agreement means nothing
+mechanism: the differential generator never mutates a history
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.DifferentialTests.TheCheckerAgreesWithTheOracleOnRandomSmallHistories
+reason: Value not in range
 expect: caught

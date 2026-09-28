@@ -1,5 +1,7 @@
-description: The floor is reduced to non-zero: a dimension hit twice in 200 executions passes
+description: The floor is reduced to one hit: a dimension hit twice in 200 executions passes (until P3-01 the patch changed one of two comparisons, and the target went red on a crash in the other branch)
+mechanism: the coverage floor drops to one hit
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectTheFloorNearAlwaysAndIdenticalSetsButNotCoincidentalCounts
+reason: floor rule
 expect: caught

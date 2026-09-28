@@ -1,5 +1,7 @@
 description: The one-measurement-two-names rule is disabled
+mechanism: the coverage rules stop failing two dimensions hit by identical execution sets
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectTheFloorNearAlwaysAndIdenticalSetsButNotCoincidentalCounts
+reason: identical-sets rule
 expect: caught

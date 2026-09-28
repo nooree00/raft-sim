@@ -24,8 +24,12 @@ public sealed class RandomnessTests
 
         Assert.Equal(Golden.NetFirstThree, first);
         Assert.Equal(Golden.DelayAt7, s.At("delay:n1->n2", 7));
-        Assert.Equal(Golden.FnvHelloWorld, Mix.Hash("hello world"));
     }
+
+    /// <summary>The purpose hash is FNV-1a over UTF-8: the published 64-bit vector for "hello world" (the narrow target of S-rng-1, P3-01).</summary>
+    [Fact]
+    public void PurposesAreHashedWithFnv1aThePublishedVector() =>
+        Assert.Equal(Golden.FnvHelloWorld, Mix.Hash("hello world"));
 
     [Fact]
     public void TheSamePurposeGivesTheSameStream()

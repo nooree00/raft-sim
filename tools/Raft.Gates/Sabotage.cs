@@ -24,7 +24,12 @@ namespace Raft.Gates;
 ///     detects a patch the build never consumed, not a patch that happens to compile to the same
 ///     IL. Entries whose target reads files at run time declare `changes-assemblies: no`;
 ///   - after each revert the tree is rebuilt and must reproduce the baseline hashes exactly,
-///     or every later result is suspect and the run stops.
+///     or every later result is suspect and the run stops;
+///   - a test entry with a `reason:` is caught only if its target fails with a message containing
+///     it, otherwise `wrong-reason`: red is not enough, it must be red for the stated reason (P3-01);
+///   - a test entry with a `control.diff` (the patch with its mechanism removed, its incidental
+///     changes kept) is run a second time with the control applied, and its target must stay green:
+///     a target the control turns red is red for something other than the mechanism.
 /// Controls S-meta-1..3 expect survived, build-error and not-compiled-in respectively.
 /// </summary>
 internal static class Sabotage
@@ -192,21 +197,87 @@ internal static class Sabotage
                 f.Fail(line);
             }
 
-            // Revert, and prove the tree is back: rebuild if anything changed, then exact hashes.
-            Proc.Run("git", wt, "checkout", "-q", "--", ".");
-            Proc.Run("git", wt, "clean", "-fdq");
-            if (!SameHashes(Hashes(wt, projects), baseline))
+            if (!Revert(wt, spec, baseline, projects, f))
             {
-                var rebuild = Build(wt);
-                if (!rebuild.Ok || !SameHashes(Hashes(wt, projects), baseline))
+                return ready;
+            }
+
+            if (spec.ControlPath is { } control)
+            {
+                var c = RunControl(wt, spec, control, baseline, projects);
+                var line2 = $"{spec.Id,-11} control {c.Result,-7} expected {spec.ControlExpect,-7} {c.Elapsed.TotalSeconds,5:F1}s  {c.Detail}";
+                if (c.Result == spec.ControlExpect)
                 {
-                    f.Fail($"{spec.Id}: after revert the tree does not reproduce the baseline assemblies — stopping this worker, later results would be suspect\n{Tail(rebuild)}");
+                    f.Note(line2);
+                }
+                else
+                {
+                    f.Fail(line2);
+                }
+
+                if (!Revert(wt, spec, baseline, projects, f))
+                {
                     return ready;
                 }
             }
         }
 
         return ready;
+    }
+
+    /// <summary>Revert, and prove the tree is back: rebuild if anything changed, then exact hashes.</summary>
+    private static bool Revert(string wt, SabotageSpec spec, IReadOnlyDictionary<string, string> baseline, IReadOnlyList<string> projects, Findings f)
+    {
+        Proc.Run("git", wt, "checkout", "-q", "--", ".");
+        Proc.Run("git", wt, "clean", "-fdq");
+        if (SameHashes(Hashes(wt, projects), baseline))
+        {
+            return true;
+        }
+
+        var rebuild = Build(wt);
+        if (rebuild.Ok && SameHashes(Hashes(wt, projects), baseline))
+        {
+            return true;
+        }
+
+        f.Fail($"{spec.Id}: after revert the tree does not reproduce the baseline assemblies — stopping this worker, later results would be suspect\n{Tail(rebuild)}");
+        return false;
+    }
+
+    /// <summary>The patch with its mechanism removed: the target must stay green ("green"), or the entry measures something else.</summary>
+    private static Outcome RunControl(string wt, SabotageSpec spec, string control, IReadOnlyDictionary<string, string> baseline, IReadOnlyList<string> projects)
+    {
+        var clock = Stopwatch.StartNew();
+        Outcome Done(string result, string detail) => new(result, detail, clock.Elapsed);
+
+        var apply = Proc.Run("git", wt, "apply", "--whitespace=nowarn", control);
+        if (!apply.Ok)
+        {
+            return Done("apply-failed", apply.StdErr.Trim());
+        }
+
+        var build = Build(wt, forceRestore: spec.ForceRestore);
+        if (!build.Ok)
+        {
+            return Done("build-error", FirstError(build));
+        }
+
+        if (spec.ChangesAssemblies && SameHashes(Hashes(wt, projects), baseline))
+        {
+            return Done("not-compiled-in", "the control leaves every assembly byte-identical: it controls for nothing");
+        }
+
+        var mine = Matching(RunTests(wt, spec.Get("project")!), spec.Get("target")!);
+        if (mine.Count == 0)
+        {
+            return Done("target-not-run", spec.Get("target")!);
+        }
+
+        var failed = mine.Where(r => r.Outcome == "Failed").ToList();
+        return failed.Count == 0
+            ? Done("green", "the target passes with the mechanism removed")
+            : Done("red", "the target fails with the mechanism removed: " + Short(string.Join(" | ", failed.Select(r => r.Message))));
     }
 
     private static List<string> BaselineChecks(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, string> env)
@@ -285,7 +356,20 @@ internal static class Sabotage
 
             var neighbours = results.Where(r => r.Outcome == "Failed" && !mine.Contains(r)).Select(r => r.Name).ToList();
             var detail = neighbours.Count == 0 ? "" : $"neighbours also red: {string.Join(", ", neighbours.Take(3))}{(neighbours.Count > 3 ? $" (+{neighbours.Count - 3})" : "")}";
-            return Done(mine.Any(r => r.Outcome == "Failed") ? "caught" : "survived", detail);
+            var failed = mine.Where(r => r.Outcome == "Failed").ToList();
+            if (failed.Count == 0)
+            {
+                return Done("survived", detail);
+            }
+
+            // Red is not enough: the target's own failure message is printed, and a stated reason must be in it.
+            var why = string.Join(" | ", failed.Select(r => r.Message));
+            if (spec.Get("reason") is { } reason && !why.Contains(reason, StringComparison.Ordinal))
+            {
+                return Done("wrong-reason", $"target failed without '{reason}': {Short(why)}");
+            }
+
+            return Done("caught", $"reason: {Short(why)}{(detail.Length == 0 ? "" : "; " + detail)}");
         }
 
         var run = Bash(wt, spec.Get("command")!, env);
@@ -301,7 +385,7 @@ internal static class Sabotage
             : Done("wrong-reason", $"exit {run.ExitCode} without '{message}': {Tail(run, 3)}");
     }
 
-    private sealed record TestResult(string Name, string Outcome);
+    private sealed record TestResult(string Name, string Outcome, string Message);
 
     private static List<TestResult> RunTests(string wt, string project)
     {
@@ -315,7 +399,8 @@ internal static class Sabotage
         XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
         return Directory.Exists(dir)
             ? Directory.GetFiles(dir, "*.trx").SelectMany(t => XDocument.Load(t).Descendants(ns + "UnitTestResult"))
-                .Select(e => new TestResult((string?)e.Attribute("testName") ?? "", (string?)e.Attribute("outcome") ?? "")).ToList()
+                .Select(e => new TestResult((string?)e.Attribute("testName") ?? "", (string?)e.Attribute("outcome") ?? "",
+                    e.Element(ns + "Output")?.Element(ns + "ErrorInfo")?.Element(ns + "Message")?.Value ?? "")).ToList()
             : [];
     }
 
@@ -356,6 +441,13 @@ internal static class Sabotage
 
     private static bool SameHashes(Dictionary<string, string> a, IReadOnlyDictionary<string, string> b) =>
         a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
+
+    /// <summary>A failure message on one line, cut to a readable length.</summary>
+    private static string Short(string message)
+    {
+        var one = string.Join(' ', message.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()));
+        return one.Length <= 160 ? one : one[..160] + "…";
+    }
 
     private static string FirstError(ProcessResult r) =>
         (r.StdOut + r.StdErr).Split('\n').FirstOrDefault(l => l.Contains(" error ", StringComparison.Ordinal))?.Trim() ?? Tail(r, 2);

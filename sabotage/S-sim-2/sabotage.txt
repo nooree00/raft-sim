@@ -1,4 +1,5 @@
 description: The persist barrier is ignored: sends leave before the persist they follow is durable
+mechanism: sends leave before the persists they follow are durable
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.RunnerTests.EveryAnnouncedValueWasDurableAtItsSenderBeforeAPeerReceivedIt

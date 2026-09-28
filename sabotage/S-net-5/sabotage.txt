@@ -1,4 +1,5 @@
 description: The agenda orders by time alone: PriorityQueue is not stable, so same-time events reorder when unrelated events change (P1-05's prediction)
+mechanism: the agenda orders same-time events unstably
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.NetworkFaultTests.SameTimeEventsKeepInsertionOrderWhateverElseIsQueued

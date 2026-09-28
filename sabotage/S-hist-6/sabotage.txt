@@ -1,5 +1,7 @@
 description: Delete is a no-op in the KV model: a deleted value can be read back
+mechanism: Delete does nothing in the KV model
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory
+reason: delete-resurrected (hand-written) should be rejected
 expect: caught

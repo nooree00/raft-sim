@@ -1,4 +1,5 @@
 description: The rename bug found at P1 acceptance, reinstated: losing a synced rename undoes only its source file
+mechanism: losing a synced rename restores only its source file
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DiskOperationTests.LosingASyncedRenameRestoresBothFiles

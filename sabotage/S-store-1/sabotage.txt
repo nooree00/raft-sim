@@ -1,5 +1,7 @@
 description: Indeterminate operations are dropped from the recorded history
+mechanism: indeterminate operations are dropped from the recorded history
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.BrokenStoreTests.TheCorrectStoreIsAcceptedInEveryRun
+reason: the correct store was rejected
 expect: caught

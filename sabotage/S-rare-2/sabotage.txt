@@ -1,4 +1,5 @@
 description: Isolation blocks only the node's own sends; it still receives
+mechanism: isolation blocks a node's sends but not its receives
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable

@@ -102,8 +102,9 @@ public sealed class BrokenStoreTests
     {
         Report();
 
-        Assert.Equal((0, 0), (Rates.Value["c/default"].Rejected, Rates.Value["c/default"].Undecided));
-        Assert.Equal((0, 0), (Rates.Value["c/crash-in-flight"].Rejected, Rates.Value["c/crash-in-flight"].Undecided));
+        var (d, c) = (Rates.Value["c/default"], Rates.Value["c/crash-in-flight"]);
+        Assert.True((d.Rejected, d.Undecided, c.Rejected, c.Undecided) == (0, 0, 0, 0),
+            $"the correct store was rejected or undecided: default {d.Rejected}/{d.Undecided}, crash-in-flight {c.Rejected}/{c.Undecided} of {Executions}");
     }
 
     [Fact]

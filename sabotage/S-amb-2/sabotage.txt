@@ -1,5 +1,7 @@
 description: Core uses ambient randomness
+mechanism: Core references ambient randomness (System.Random)
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.Random
 expect: caught

@@ -65,6 +65,16 @@ public sealed class DeterminismTests
         }
     }
 
+    /// <summary>The line format itself: ten-digit time, node, kind, fields (the narrow target of S-det-3, P3-01).</summary>
+    [Fact]
+    public void ATraceLineIsATenDigitTimeThenNodeKindAndFields()
+    {
+        var t = new Trace();
+        t.Add(42, "n1", "KIND", ("a", 1), ("b", "x"));
+
+        Assert.Equal("0000000042 n1 KIND a=1 b=x", Assert.Single(t.Lines));
+    }
+
     [Fact]
     public void DifferentSeedsGiveDifferentTraces() =>
         Assert.NotEqual(Text(7, 20_000), Text(8, 20_000));

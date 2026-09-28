@@ -65,11 +65,13 @@ public sealed class ShrinkRejectedRunTests
     {
         NodeFactory store = ctx => new AsyncPrimaryBackupNode(ctx);
         var workload = new KvWorkload(N1, N2, perClient: 40);
-        var seed = Enumerable.Range(1, 40).Select(s => (ulong)s).First(s =>
+        var found = Enumerable.Range(1, 40).Select(s => (ulong)s).Where(s =>
         {
             var sig = Signatures(store, workload, s, Generated(s));
             return sig.Contains("linearizability@k0") && sig.Contains("linearizability@k1");
-        });
+        }).Take(1).ToList();
+        Assert.True(found.Count == 1, "no seed of 40 gives per-key signatures for both k0 and k1");
+        var seed = found[0];
 
         foreach (var key in new[] { "k0", "k1" })
         {

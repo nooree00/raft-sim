@@ -1,0 +1,7 @@
+description: Control: the target goes red, but not for the stated reason (the wall clock, where the entry says a Guid); the harness must report wrong-reason, never caught
+mechanism: none: the harness's own control for reason
+kind: test
+project: tests/Raft.Architecture.Tests
+target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.Guid
+expect: wrong-reason

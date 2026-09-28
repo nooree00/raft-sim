@@ -1,4 +1,5 @@
 description: A task loses its vacuity risk
+mechanism: the breakdown gate stops requiring a vacuity risk per task
 kind: command
 build: no
 command: dotnet "$GATES" breakdown

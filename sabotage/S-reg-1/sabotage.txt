@@ -1,4 +1,5 @@
 description: P0 is marked complete while a row promised to P0 is still open
+mechanism: a phase is marked complete while a row promised to it is open
 kind: command
 build: no
 command: dotnet "$GATES" register

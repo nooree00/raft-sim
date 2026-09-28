@@ -1,4 +1,5 @@
 description: The swap probe reorders the list without exchanging times, so the runner sees the same schedule
+mechanism: the swap probe reorders the list without exchanging times
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ShrinkerTests.TheOrderingCaseShrinksToBothFaultsInOrderAndTheSwapProbeMarksThem

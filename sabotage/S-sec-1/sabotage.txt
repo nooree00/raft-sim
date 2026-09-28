@@ -1,4 +1,5 @@
 description: A freshly generated GitHub-token-shaped secret, committed in a scratch clone, must be found (never a well-known example key, which scanners allowlist)
+mechanism: the secret scan misses a committed token
 kind: command
 runner: host
 build: no

@@ -1,5 +1,7 @@
 description: The wall clock leaks into the simulator
+mechanism: the simulator references the wall clock
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.Environment
 expect: caught

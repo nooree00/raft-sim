@@ -1,4 +1,5 @@
 description: A crash keeps the node object, so its volatile state survives
+mechanism: a crash keeps the node object and its volatile state
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.LifecycleFaultTests.ACrashDiscardsVolatileStateAndRestartRecoversDurableState

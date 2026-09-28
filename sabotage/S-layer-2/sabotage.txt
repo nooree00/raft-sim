@@ -1,4 +1,5 @@
 description: Directory.Build.props injects a Checker reference into Core only; csproj text is untouched
+mechanism: Directory.Build.props injects a reference into Core without touching its csproj
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder

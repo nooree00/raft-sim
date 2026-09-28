@@ -1,4 +1,5 @@
 description: The sabotage shard script does not mark its checkout safe (the cause of P2-01's first red run)
+mechanism: a CI script runs git without marking its checkout safe
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.CiScriptTests.EveryCiScriptThatRunsGitOrTheGatesMarksTheCheckoutSafe

@@ -1,4 +1,5 @@
 description: Core gains a direct project reference to Checker
+mechanism: Core gains a project reference
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder

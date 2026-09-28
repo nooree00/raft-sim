@@ -1,4 +1,5 @@
 description: A reply is recorded when the node sends it, not when it reaches the client
+mechanism: the client log records a reply at send time instead of arrival
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ClientTests.AReplyThatNeverArrivesLeavesTheOperationIndeterminateThoughTheNodeHandledIt

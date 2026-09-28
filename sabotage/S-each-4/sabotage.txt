@@ -1,4 +1,5 @@
 description: A listed commit with no matrix job is skipped instead of failing
+mechanism: the collect job skips a listed commit that has no matrix job
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.EachCommitMatrixTests.ACommitWithNoJobFails

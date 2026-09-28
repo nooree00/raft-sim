@@ -1,5 +1,7 @@
 description: Off by one in real time: an operation invoked at the instant another responds is treated as after it
+mechanism: the WGL checker orders an invocation at the instant of a response after it
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.DifferentialTests.TheCheckerAgreesWithTheOracleOnRandomSmallHistories
+reason: WGL says NotLinearizable
 expect: caught

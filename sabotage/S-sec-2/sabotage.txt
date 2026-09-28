@@ -1,4 +1,5 @@
 description: The same secret committed and then deleted in the next commit must still be found: the scan covers history, not the tree
+mechanism: the secret scan misses a token deleted in a later commit
 kind: command
 runner: host
 build: no

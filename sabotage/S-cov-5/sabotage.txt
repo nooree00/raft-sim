@@ -1,5 +1,7 @@
-description: The isolation effect is never recorded under its dimension's name, so the table's isolation rows have no coverage
+description: The isolation effect is never recorded, so the table's isolation rows have no coverage (until P3-01 the patch renamed the dimension, and the target went red on a crash in the shared measurement, not on its assertion)
+mechanism: the isolation effect is never recorded
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.EveryEffectTheTraceabilityTableNamesIsADimensionThatClearsTheFloor
+reason: 'node-isolated-for-a-timeout' is hit in only 0
 expect: caught

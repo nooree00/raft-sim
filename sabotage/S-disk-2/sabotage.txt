@@ -1,4 +1,5 @@
 description: A torn write keeps the whole record
+mechanism: a torn write keeps its whole record
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DiskFaultTests.ATornWriteLeavesAPrefixThatRecoveryTruncates

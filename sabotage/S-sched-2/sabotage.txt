@@ -1,4 +1,5 @@
 description: The parser drops a field (a Delay's extra)
+mechanism: the schedule parser drops a Delay's extra field
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ScheduleTests.EveryFaultKindSurvivesTheTextRoundTrip

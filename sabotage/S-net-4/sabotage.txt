@@ -1,4 +1,5 @@
 description: Healing does nothing: a partition is permanent
+mechanism: heal does not remove a partition
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.NetworkFaultTests.AnAsymmetricPartitionBlocksOneDirectionOnlyAndHealingRestoresIt

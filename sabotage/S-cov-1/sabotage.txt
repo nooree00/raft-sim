@@ -1,5 +1,7 @@
 description: The generator never produces a pause
+mechanism: the generator never generates a Pause fault
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheGeneratedDistributionCoversEveryDimension
+reason: step-after-silence-longer-than-a-timeout: 0 of 200
 expect: caught

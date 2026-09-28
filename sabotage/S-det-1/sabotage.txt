@@ -1,4 +1,5 @@
 description: A string.GetHashCode value, which .NET randomizes per process, written into the trace: identical within a process, different across processes
+mechanism: a per-process-randomized value reaches the trace
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DeterminismTests.TwoSeparateProcessesProduceByteIdenticalTraces

@@ -1,4 +1,5 @@
 description: A row traces a rule to a member that does not exist in Raft.Core
+mechanism: a traceability row names a member absent from Raft.Core
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.TraceabilityTests.EveryMemberARowNamesExistsInRaftCore

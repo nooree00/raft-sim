@@ -1,4 +1,5 @@
 description: Clock skew is ignored: every node perceives real time
+mechanism: clock skew is ignored
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.LifecycleFaultTests.SkewedClocksDivergeInTheirRatio

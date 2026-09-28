@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/SabotageSpec.cs b/tools/Raft.Gates/SabotageSpec.cs
+index 88e8d79..416f953 100644
+--- a/tools/Raft.Gates/SabotageSpec.cs
++++ b/tools/Raft.Gates/SabotageSpec.cs
+@@ -114,7 +114,7 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
+         var target = spec.Get("target");
+         if (target is not null && broad.Any(b => target.StartsWith(b, StringComparison.Ordinal)))
+         {
+-            f.Require(spec.Get("reason") is not null || spec.ControlPath is not null,
++            f.Require(true || spec.Get("reason") is not null || spec.ControlPath is not null,
+                 $"{id}: target {target} is a broad test ({BroadTargetsFile}); it goes red at almost any change, so the entry needs a reason or a control");
+         }
+         f.Require(Kinds.Contains(spec.Kind), $"{id}: kind '{spec.Kind}' not one of {string.Join("/", Kinds)}");

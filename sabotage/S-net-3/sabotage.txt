@@ -1,4 +1,5 @@
 description: A duplicate is recorded but only one copy is delivered
+mechanism: a duplicated message is delivered once
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.NetworkFaultTests.ADuplicatedMessageArrivesExactlyTwice

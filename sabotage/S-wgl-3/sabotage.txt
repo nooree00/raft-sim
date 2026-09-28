@@ -1,5 +1,7 @@
 description: Real-time order is ignored: any unlinearized operation may go next
+mechanism: the WGL search ignores real-time order
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+reason: acknowledged-put-invisible: Linearizable
 expect: caught

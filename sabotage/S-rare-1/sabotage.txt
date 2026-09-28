@@ -1,4 +1,5 @@
 description: A state-placed crash fires on the first write, whatever its MinPending
+mechanism: a state-placed crash ignores MinPending
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.AFaultThatFiresWithoutItsEffectDoesNotCount(dimension: "restarted-from-disk")

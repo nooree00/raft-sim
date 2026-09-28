@@ -1,0 +1,6 @@
+description: The broad-target rule is dropped: an entry aimed at a test that almost any change turns red loads without a reason or a control
+mechanism: the loader stops requiring a reason or a control for a broad target
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.SabotageSpecTests.ABroadTargetNeedsAReasonOrAControl
+expect: caught

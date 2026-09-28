@@ -1,4 +1,5 @@
 description: A commit with no run at all passes silently
+mechanism: verify-run passes a commit with no run
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.VerifyRunTests.ACommitWithNoRunFails

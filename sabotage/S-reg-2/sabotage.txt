@@ -1,4 +1,5 @@
 description: A row is marked done, citing a test that does not exist
+mechanism: a done row cites a test that does not exist
 kind: command
 build: no
 command: dotnet "$GATES" register

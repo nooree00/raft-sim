@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/Coverage.cs b/src/Raft.Simulation/Coverage.cs
-index 3ac1961..e977641 100644
+index 3ac1961..daa8231 100644
 --- a/src/Raft.Simulation/Coverage.cs
 +++ b/src/Raft.Simulation/Coverage.cs
-@@ -88,7 +88,7 @@ public static class Coverage
+@@ -86,7 +86,7 @@ public static class Coverage
+             if (!down.Contains(n) && contact.TryGetValue(n, out var since) && t - since >= limits.Timeout)
+             {
                  var peers = nodes.Where(p => p != n).ToList();
-                 if (peers.Count > 0 && peers.All(blockedOut[n].Contains) && peers.All(blockedIn[n].Contains))
+-                if (peers.Count > 0 && peers.All(blockedOut[n].Contains) && peers.All(blockedIn[n].Contains))
++                if (peers.Count < 0 && peers.All(blockedOut[n].Contains) && peers.All(blockedIn[n].Contains))
                  {
--                    hit.Add("node-isolated-for-a-timeout");
-+                    hit.Add("node-isolated");
+                     hit.Add("node-isolated-for-a-timeout");
                  }
-             }
-         }

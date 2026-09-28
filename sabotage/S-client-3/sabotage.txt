@@ -1,4 +1,5 @@
 description: A client that times out never issues another operation
+mechanism: a client stops after its first timeout
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ClientTests.ARequestDroppedOnTheWayIsIndeterminateAndTheClientMovesOn

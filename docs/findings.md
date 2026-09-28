@@ -297,3 +297,28 @@ finding: what happened, why no existing check caught it, what now catches it.
     (`secret-scan: leaks found`): gitleaks prints its own "leaks found: 1", which would have matched
     too. The rule going forward: a gate that depends on a tool must say when the tool did not run,
     and a harness entry must take the tool away to prove it.
+
+## Phase 3
+
+- **Two sabotages were caught for the wrong reason, and had been since they were written.** S-cov-5
+  renamed the isolation dimension; the undeclared name crashed the shared coverage measurement
+  with a `KeyNotFoundException`, so its target went red before reaching the assertion the entry
+  claimed to test. S-cov-6 lowered the floor in one of two comparisons; a dimension with one or
+  two hits then fell into the other branch, which read a dictionary that did not hold it, and
+  threw. Both entries reported `caught` on every push.
+  - *Not caught:* the harness checked that a target went red, never why (the P2 register row).
+    Red-by-exception and red-by-assertion looked the same.
+  - *Now:* the harness prints each caught target's own failure message. A `reason:` makes the
+    message a requirement, `wrong-reason` otherwise; broad targets must have one
+    (`ci/broad-targets.txt`), and every entry names its `mechanism:`. The audit table
+    (`docs/design/sabotage-audit.md`) records the message each entry produced. The two patches are
+    repaired to reach their assertions, and the rules test names each rule in its message.
+  - *Lineage:* the CRDT project's §13.31 shape, two mechanisms with one observable (here, "the
+    target went red"), in the sabotage manifest itself.
+  - *General form* (reviewer): **a failure that precedes the assertion is not evidence about the
+    assertion.** Same family as the Z.1 fixture rejected for having no task sections, and the
+    sabotage that fired before reaching the code under test.
+  - *Reading the rate:* two of 120 is also the rate the old harness could report by construction.
+    Any entry whose incidental path to red was a crash, not a distinguishable message, would have
+    passed forever. The `reason:` requirement is what makes the count meaningful rather than a
+    lower bound, and only for the entries that state one.

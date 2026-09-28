@@ -1,4 +1,5 @@
 description: The Docker daemon is unreachable (DOCKER_HOST points at no socket): the real scan must give no verdict, never "leaks found" and never a pass
+mechanism: the secret scan with no reachable daemon: must give no verdict
 kind: command
 runner: host
 build: no

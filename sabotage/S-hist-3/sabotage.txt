@@ -1,5 +1,7 @@
 description: Indeterminate operations are treated as never having happened
+mechanism: the oracle drops indeterminate operations
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory(name: "indeterminate-write-observed")
+reason: indeterminate-write-observed (hand-written) should be accepted
 expect: caught

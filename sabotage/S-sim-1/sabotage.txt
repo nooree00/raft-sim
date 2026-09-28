@@ -1,4 +1,5 @@
 description: The runner delivers every message twice with no fault injected
+mechanism: the runner delivers every message twice
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.RunnerTests.WithNoFaultsEveryMessageIsDeliveredExactlyOnce

@@ -1,4 +1,5 @@
 description: The gate stops refusing shallow clones
+mechanism: the trailer gate stops refusing a shallow clone
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.TrailersTests.AShallowCloneFails

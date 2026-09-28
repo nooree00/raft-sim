@@ -1,4 +1,5 @@
 description: rollForward crosses feature bands
+mechanism: global.json lets rollForward cross feature bands
 kind: command
 build: no
 command: dotnet "$GATES" preflight --allow-dirty

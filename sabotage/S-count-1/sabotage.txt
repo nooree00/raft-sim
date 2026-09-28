@@ -1,4 +1,5 @@
 description: A test is deleted without touching the baseline
+mechanism: a test disappears while the committed baseline count stays
 kind: command
 build: yes
 command: scripts/ci-test.sh

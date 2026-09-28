@@ -1,4 +1,5 @@
 description: The gate stops checking that the prediction came first
+mechanism: the trailer gate stops checking that a task's first commit descends from its prediction
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.TrailersTests.ImplementationBeforeThePredictionFails

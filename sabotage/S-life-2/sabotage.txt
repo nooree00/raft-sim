@@ -1,4 +1,5 @@
 description: Pause is implemented as crash-and-restart: durable state survives but volatile state does not
+mechanism: pause discards volatile state like a crash
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.LifecycleFaultTests.APausedNodeKeepsItsStateAndGetsOneTickThenItsBacklog

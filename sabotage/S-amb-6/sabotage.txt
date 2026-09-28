@@ -1,5 +1,7 @@
 description: An ambient source nobody listed up front (Guid.NewGuid): the allowlist must fail closed
+mechanism: Core references an ambient source absent from any list (Guid.NewGuid); the allowlist must fail closed
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.Guid
 expect: caught

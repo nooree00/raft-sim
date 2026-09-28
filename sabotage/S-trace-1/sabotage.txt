@@ -1,4 +1,5 @@
 description: A Figure 2 item (the follower's election timeout) loses its traceability row
+mechanism: a Figure 2 checklist item loses its traceability row
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.TraceabilityTests.EveryChecklistItemHasExactlyOneRowAndNoRowIsInvented

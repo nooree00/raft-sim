@@ -1,4 +1,5 @@
 description: Control: a patch the build never consumes (a file no project compiles); the harness must report not-compiled-in, never survived
+mechanism: none: the harness's own control; a patch the build never consumes
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.CoreIsARealImplementationAssemblyWithTypes

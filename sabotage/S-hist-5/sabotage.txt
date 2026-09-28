@@ -1,4 +1,5 @@
 description: The queue model is LIFO: the paper's H2 (x enqueued before y, y dequeued first) must stop being rejected
+mechanism: the queue model dequeues LIFO
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.HerlihyWingTests.OracleAgreesWithThePublishedVerdict(name: "H2")

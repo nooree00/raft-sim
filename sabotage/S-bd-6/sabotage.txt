@@ -1,4 +1,5 @@
 description: An outcome no longer has to say whether it is evidence or forcing
+mechanism: the breakdown gate stops requiring an outcome's evidence/forcing class
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.BreakdownTests.AnOutcomeMustSayWhetherItIsEvidenceOrForcing

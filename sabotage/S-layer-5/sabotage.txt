@@ -1,4 +1,5 @@
 description: Core gains a package reference (a benign one, with its lock-file changes)
+mechanism: Core gains a package reference
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.CoreReferencesNothing

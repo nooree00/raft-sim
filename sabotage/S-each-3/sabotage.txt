@@ -1,4 +1,5 @@
 description: The collect job trusts the list job's output instead of recomputing the range (an empty list then passes)
+mechanism: the collect job trusts the list job instead of recomputing the range
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.EachCommitMatrixTests.AnEmptyListWhenThePushCarriedCommitsFails

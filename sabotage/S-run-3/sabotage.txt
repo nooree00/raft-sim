@@ -1,4 +1,5 @@
 description: A skipped job counts as a pass
+mechanism: verify-run counts a skipped job as a pass
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.VerifyRunTests.ASkippedJobIsNotAPass

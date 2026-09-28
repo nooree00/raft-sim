@@ -1,4 +1,5 @@
 description: A client that timed out keeps its identity, so its next operation overlaps the unfinished one
+mechanism: a timed-out client keeps its identity in the history
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.BrokenStoreTests.TheHistoryIsWellFormedAndKeepsIndeterminateOperations

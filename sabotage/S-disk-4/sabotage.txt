@@ -1,4 +1,5 @@
 description: The lose-synced positive control is inert: the fault is injected but the disk keeps its fsynced data
+mechanism: the lose-synced fault is injected but the disk keeps its fsynced data
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DiskFaultTests.PositiveControlLosingAnFsyncedWriteBreaksDurability

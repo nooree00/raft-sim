@@ -1,5 +1,7 @@
 description: The memo key ignores the model state: two orders reaching one set of operations with different states are merged
+mechanism: the WGL memo key ignores the model state
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+reason: appends-in-either-order: NotLinearizable
 expect: caught

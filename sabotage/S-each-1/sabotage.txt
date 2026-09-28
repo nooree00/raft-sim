@@ -1,4 +1,5 @@
 description: Only the first commit of the range is checked
+mechanism: the every-commit check stops after the range's first commit
 kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.EachCommitTests.ARedMiddleCommitIsReported

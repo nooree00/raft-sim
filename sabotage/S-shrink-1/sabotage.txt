@@ -1,4 +1,5 @@
 description: A candidate counts if it fails in any way, not only with the target signature
+mechanism: the shrinker accepts a candidate failing with any signature
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ShrinkerTests.ThePlantedTwoFaultBugShrinksToAHandfulOfEventsContainingBoth

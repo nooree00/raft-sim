@@ -1,0 +1,17 @@
+# Tests that almost any behaviour change turns red (P3-01). An entry whose target starts with one
+# of these lines needs a `reason:` (text its target's failure message must contain) or a
+# `control.diff` (the patch with its mechanism removed, under which the target must stay green).
+# Golden values: any change to what the simulator or the streams produce.
+Raft.Simulation.Tests.DeterminismTests.TheGoldenTraceIsReproducedExactly
+Raft.Simulation.Tests.RandomnessTests.GoldenValuesAreStableAcrossProcessesAndVersions
+# Aggregates over 200 generated executions: any dimension, anywhere, below the floor.
+Raft.Simulation.Tests.CoverageTests.TheGeneratedDistributionCoversEveryDimension
+Raft.Simulation.Tests.CoverageTests.EveryEffectTheTraceabilityTableNamesIsADimensionThatClearsTheFloor
+# Aggregates over many histories or runs: any checker, model or store change that flips one verdict.
+Raft.Checker.Tests.DifferentialTests.TheCheckerAgreesWithTheOracleOnRandomSmallHistories
+Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+Raft.Checker.Tests.KnownHistoryTests.OracleClassifiesEveryKnownHistory
+Raft.Simulation.Tests.BrokenStoreTests.TheCorrectStoreIsAcceptedInEveryRun
+# One allowlist over every type Core references: any new reference, not only the ambient one.
+Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist

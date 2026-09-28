@@ -1,5 +1,7 @@
 description: Indeterminate operations are dropped from the search: a timed-out write that a later read observed makes the history fail
+mechanism: the WGL search drops indeterminate operations
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory
+reason: indeterminate-write-observed: NotLinearizable
 expect: caught

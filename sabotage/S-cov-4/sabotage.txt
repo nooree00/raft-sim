@@ -1,4 +1,5 @@
 description: A dimension counts its fault's injection: the Delay fault firing counts as a late delivery
+mechanism: a dimension counts its fault's injection instead of its effect
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.AFaultThatFiresWithoutItsEffectDoesNotCount

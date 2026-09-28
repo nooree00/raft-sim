@@ -1,5 +1,7 @@
 description: The runner drops torn writes while the schedule still contains Torn crashes: coverage measured from effects must fall to zero
+mechanism: the runner turns torn crashes into pending ones, so no partial record is ever left
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.CoverageTests.TheGeneratedDistributionCoversEveryDimension
+reason: partial-record-left-on-disk: 0 of 200
 expect: caught

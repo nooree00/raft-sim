@@ -1,4 +1,5 @@
 description: A started task names a sabotage with no entry
+mechanism: the breakdown gate stops resolving a started task's sabotage ids
 kind: command
 build: no
 command: dotnet "$GATES" breakdown

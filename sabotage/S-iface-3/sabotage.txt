@@ -1,4 +1,5 @@
 description: Responses are recorded when the node builds them, not when the barrier releases them to the client
+mechanism: responses are recorded when built, not when the barrier releases them
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.InterfaceCensusTests.AResponseHeldByTheBarrierWhenTheNodeCrashesNeverReachesTheClient

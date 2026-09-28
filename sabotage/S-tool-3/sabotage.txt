@@ -1,4 +1,5 @@
 description: A nullable warning must fail the CI build
+mechanism: a nullable warning does not fail the build
 kind: command
 build: no
 command: scripts/ci-build.sh

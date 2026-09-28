@@ -1,4 +1,5 @@
 description: The runner parses Partition faults and ignores them
+mechanism: the runner ignores parsed Partition faults
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ScheduleTests.EachFaultKindHasAnEffectWhenRunFromItsTextForm(kind: "Partition")

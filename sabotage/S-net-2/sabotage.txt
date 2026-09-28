@@ -1,4 +1,5 @@
 description: Partitions are symmetric: asymmetric partitions cannot be expressed
+mechanism: a partition blocks both directions
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.NetworkFaultTests.AnAsymmetricPartitionBlocksOneDirectionOnlyAndHealingRestoresIt

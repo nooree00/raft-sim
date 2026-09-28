@@ -1,4 +1,5 @@
 description: Append behaves like Put: an append replaces the value instead of extending it
+mechanism: Append replaces the value in the KV model
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway

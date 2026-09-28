@@ -198,16 +198,17 @@ public sealed partial class CoverageTests
             Coverage.Evaluate(h, 100, on ?? none, pairs ?? noPairs, rare).Failures;
         const string A = "majority-down", B = "all-down";
 
+        // Each rule's check carries its name, so a sabotage can require the rule that caught it (P3-01).
         Assert.Empty(Fail(Base()));
         var low = Base(); low[A] = Range(0, Coverage.Floor - 1);
-        Assert.Contains(Fail(low), f => f.StartsWith(A + ": 2 of 100 — below the floor", StringComparison.Ordinal));
+        Assert.True(Fail(low).Any(f => f.StartsWith(A + ": 2 of 100 — below the floor", StringComparison.Ordinal)), "floor rule: a dimension hit twice in 100 must fail");
         Assert.Empty(Fail(low, rare: new Dictionary<string, string> { [A] = "reason" }));
         var near = Base(); near[A] = Range(0, 95);
-        Assert.Contains(Fail(near), f => f.StartsWith(A + ": 95 of 100 (95% or more)", StringComparison.Ordinal));
+        Assert.True(Fail(near).Any(f => f.StartsWith(A + ": 95 of 100 (95% or more)", StringComparison.Ordinal)), "near-always rule: a dimension hit in 95 of 100 must fail");
         Assert.Empty(Fail(near, new Dictionary<string, string> { [A] = "reason" }));
 
         var same = Base(); same[A] = Range(50, 42); same[B] = Range(50, 42);
-        Assert.Contains(Fail(same), f => f.Contains("exactly the same", StringComparison.Ordinal));
+        Assert.True(Fail(same).Any(f => f.Contains("exactly the same", StringComparison.Ordinal)), "identical-sets rule: two dimensions hit by the same executions must fail");
         Assert.Empty(Fail(same, pairs: new Dictionary<(string, string), string> { [(A, B)] = "reason" }));
 
         var coincidence = Base(); coincidence[A] = Range(0, 42); coincidence[B] = Range(50, 42);

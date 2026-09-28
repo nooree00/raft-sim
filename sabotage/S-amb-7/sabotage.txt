@@ -1,5 +1,7 @@
 description: A type used only in a signature, never called: TypeRef scan, not member scan
+mechanism: Core names a disallowed type in a signature only, never calling it
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.TimeProvider
 expect: caught

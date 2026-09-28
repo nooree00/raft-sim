@@ -1,4 +1,5 @@
 description: A README step depends on an environment variable only CI sets; the walk's scrubbed environment must expose it
+mechanism: a README step depends on a CI-only environment variable
 kind: command
 runner: host
 build: no

@@ -1,4 +1,5 @@
 description: A crash keeps writes that were never completed
+mechanism: a crash keeps writes that never completed
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.DiskFaultTests.ACrashInsideTheWriteWindowLosesTheUnsyncedWrite

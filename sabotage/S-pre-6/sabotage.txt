@@ -1,4 +1,5 @@
 description: warnings-as-errors switched off inside a target (invisible to evaluation) plus a warning: the CI build must still fail
+mechanism: warnings-as-errors is disabled inside a target, invisible to evaluation
 kind: command
 build: no
 command: scripts/ci-build.sh

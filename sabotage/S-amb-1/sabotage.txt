@@ -1,5 +1,7 @@
 description: Core reads the wall clock
+mechanism: Core references the wall clock (DateTime.Now)
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+reason: System.DateTime
 expect: caught

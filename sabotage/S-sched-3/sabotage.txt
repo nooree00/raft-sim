@@ -1,4 +1,5 @@
 description: The printed reproduction loses its seed: the schedule alone does not reproduce in-run randomness
+mechanism: the printed reproduction omits the seed
 kind: test
 project: tests/Raft.Simulation.Tests
 target: Raft.Simulation.Tests.ScheduleTests.APrintedReproductionReproducesTheFailureExactlyInAnotherProcess

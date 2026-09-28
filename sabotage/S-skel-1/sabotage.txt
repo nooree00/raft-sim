@@ -1,4 +1,5 @@
 description: A project is dropped from the solution, so CI would never build it
+mechanism: a project in the table is missing from the solution
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.EveryProjectInTheTableIsInTheSolution

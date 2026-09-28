@@ -1,4 +1,5 @@
 description: Checker, which must depend on nothing, references Core
+mechanism: Checker gains a project reference to Core
 kind: test
 project: tests/Raft.Architecture.Tests
 target: Raft.Architecture.Tests.LayeringTests.ProjectReferencesFollowThePartialOrder
