@@ -1,0 +1,6 @@
+description: Recovery keeps the first record instead of the last: a restarted node forgets every term and vote after its first
+mechanism: recovery restores the first valid record, not the last
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.TermVoteLogTests.TheLastValidRecordWins
+expect: caught

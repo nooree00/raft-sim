@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/TermVoteLog.cs b/src/Raft.Core/TermVoteLog.cs
+index 0583264..f3e1053 100644
+--- a/src/Raft.Core/TermVoteLog.cs
++++ b/src/Raft.Core/TermVoteLog.cs
+@@ -93,7 +93,7 @@ public static class TermVoteLog
+                 return new(RecoveryPath.Refused, state, at, "record " + N(records) + " at byte " + N(at) + " holds a negative term or vote: corruption");
+             }
+ 
+-            state = new TermVoteState(new Term(term), vote == 0 ? null : new NodeId(vote));
++            state = records == 0 ? new TermVoteState(new Term(term), vote == 0 ? null : new NodeId(vote)) : state;
+             at += size;
+             records++;
+         }

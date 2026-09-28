@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/TermVoteLog.cs b/src/Raft.Core/TermVoteLog.cs
+index 0583264..c1fbe25 100644
+--- a/src/Raft.Core/TermVoteLog.cs
++++ b/src/Raft.Core/TermVoteLog.cs
+@@ -70,7 +70,7 @@ public static class TermVoteLog
+             if (length < 0 || remaining < size)
+             {
+                 // Runs past the end: only the final record can, and only a torn write makes it.
+-                return new(RecoveryPath.TruncatedTornTail, state, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut");
++                return new(RecoveryPath.Refused, state, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut");
+             }
+ 
+             var last = at + size == file.Length;

@@ -1,0 +1,7 @@
+description: A checksum failure before the last record is cut off like a torn tail: corruption restores an older term and vote silently
+mechanism: recovery treats corruption in an earlier record as a torn tail
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.TermVoteLogTests.ACorruptRecordBeforeTheLastRefusesToStart
+reason: corruption before the last record gave TruncatedTornTail
+expect: caught

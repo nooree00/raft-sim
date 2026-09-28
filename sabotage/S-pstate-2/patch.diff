@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/TermVoteLog.cs b/src/Raft.Core/TermVoteLog.cs
+index 0583264..db58682 100644
+--- a/src/Raft.Core/TermVoteLog.cs
++++ b/src/Raft.Core/TermVoteLog.cs
+@@ -78,7 +78,7 @@ public static class TermVoteLog
+             {
+                 return last
+                     ? new(RecoveryPath.TruncatedTornTail, state, at, "final record " + N(records) + " fails its checksum: torn, cut")
+-                    : new(RecoveryPath.Refused, state, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption");
++                    : new(RecoveryPath.TruncatedTornTail, state, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption");
+             }
+ 
+             if (length != PayloadLength)

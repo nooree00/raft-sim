@@ -1,0 +1,7 @@
+description: Recovery refuses to start on an incomplete final record: every crash that tears a write makes the node unrecoverable
+mechanism: recovery treats a torn final record as corruption
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.TermVoteLogTests.ATornFinalRecordIsCutAtEveryLength
+reason: : Refused
+expect: caught
