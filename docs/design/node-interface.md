@@ -91,6 +91,24 @@ shift any other draw.
 `IStateMachine` (`Apply`, `Snapshot`, `Restore`) is injected into a Raft node (phase 3 and later); the
 key-value store implements it. Pure, like the node.
 
+## 8a. Messages and their wire form
+
+Peers exchange `RequestVote`, `RequestVoteResponse`, `AppendEntries` and `AppendEntriesResponse`
+(Figure 2) as bytes, through `MessageCodec` in Core: a type byte, fixed-width big-endian integers,
+and a count or length before every variable part.
+
+**The canonical rule (P3-02):** every byte string decodes to at most one message, and every
+message has exactly one encoding. Decoding rejects trailing bytes, an unknown type, a boolean other
+than 0 or 1, a negative term, index, count or length, and a node id below 1. Tested both ways:
+`decode(encode(m)) = m` over generated messages, and `encode(decode(b)) = b` for every mutated
+encoding that decodes (`MessageCodecTests`).
+
+**What it does not do.** Canonical form removes the ambiguity of two encodings for one message. It
+does not make corruption visible: 95% of single-bit flips of a valid `RequestVote` decode to a
+different valid message (measured, P3-02). Detecting corruption would need a checksum. The
+simulator injects no corruption (spec §7), so none is added now; a transport that can corrupt
+bytes (phase 9's TCP host) must decide this again.
+
 ## 9. Traceability
 
 One row per item of `docs/design/figure2-checklist.md`. **Carried by** names `Raft.Core` members;

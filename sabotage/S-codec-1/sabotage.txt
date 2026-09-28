@@ -1,0 +1,7 @@
+description: The decoder ignores trailing bytes: a message plus anything decodes, so one message has unboundedly many encodings
+mechanism: the decoder accepts trailing bytes
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MessageCodecTests.EveryByteStringThatDecodesIsTheEncodingOfWhatItDecodesTo
+reason: not canonical
+expect: caught

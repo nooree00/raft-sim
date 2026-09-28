@@ -1,0 +1,7 @@
+description: A boolean decodes from any non-zero byte: 1 and 2 both mean true, two encodings of one message
+mechanism: the decoder accepts a boolean byte other than 0 or 1
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MessageCodecTests.EveryByteStringThatDecodesIsTheEncodingOfWhatItDecodesTo
+reason: not canonical
+expect: caught

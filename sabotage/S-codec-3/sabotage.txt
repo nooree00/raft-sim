@@ -1,0 +1,7 @@
+description: The decoder reads an AppendEntries' entries and drops them: a message does not decode to itself
+mechanism: decoded AppendEntries lose their entries
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MessageCodecTests.EveryMessageDecodesToItself
+reason: decoded as
+expect: caught

@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/MessageCodec.cs b/src/Raft.Core/MessageCodec.cs
+index de906b6..04d0b61 100644
+--- a/src/Raft.Core/MessageCodec.cs
++++ b/src/Raft.Core/MessageCodec.cs
+@@ -127,7 +127,7 @@ public static class MessageCodec
+ 
+         public byte Byte() => Has(1) ? (byte)Read(1) : (byte)0;
+ 
+-        public bool? Bool() => Has(1) && Read(1) is var v && v <= 1 ? v == 1 : Fail<bool>();
++        public bool? Bool() => Has(1) && Read(1) is var v ? v != 0 : Fail<bool>();
+ 
+         public Term? Term() => Has(8) && Read(8) is var v and >= 0 ? new Term(v) : Fail<Term>();
+ 

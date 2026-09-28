@@ -1,0 +1,16 @@
+diff --git a/src/Raft.Core/MessageCodec.cs b/src/Raft.Core/MessageCodec.cs
+index de906b6..1d53279 100644
+--- a/src/Raft.Core/MessageCodec.cs
++++ b/src/Raft.Core/MessageCodec.cs
+@@ -77,7 +77,10 @@ public static class MessageCodec
+                 return null;
+             }
+ 
+-            entries.Add(new LogEntry(et, command));
++            if (et.Value < 0)
++            {
++                entries.Add(new LogEntry(et, command));
++            }
+         }
+ 
+         return new AppendEntries(t, leader, pi, pt, entries, commit);

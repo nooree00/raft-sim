@@ -40,6 +40,8 @@ public sealed class AmbientDependencyTests
         "System.Collections.Generic.List`1", "System.Collections.Generic.Dictionary`2",
         "System.Collections.Generic.IReadOnlyList`1", "System.Collections.Generic.IReadOnlyDictionary`2",
         "System.Collections.Generic.IEnumerable`1", "System.Collections.Generic.IEnumerator`1",
+        // P3-02 (the message codec): collection interfaces reached through IReadOnlyList.Count and foreach; no ambient state.
+        "System.Collections.Generic.IReadOnlyCollection`1", "System.Collections.IEnumerator",
         "System.Collections.Generic.EqualityComparer`1", "System.Collections.Generic.Comparer`1",
         "System.Linq.Enumerable", "System.Text.StringBuilder", "System.Buffers.Binary.BinaryPrimitives",
         // Emitted by the compiler and SDK, not written by us; inert metadata.
