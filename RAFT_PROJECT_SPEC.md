@@ -480,6 +480,14 @@ membership and compaction split in two. Phase numbers elsewhere refer to it.)
   divergence gets deliberately broken to confirm it fires. Do this from a
   committed tree. When a sabotage survives, the first hypothesis is that the
   test does not reach the code, not that the code is unreachable.
+  The harness re-runs the test suite, and from phase 3 the suite checks the
+  invariants on a fixed sample of executions. A harness verdict is therefore a
+  claim about the sample, not about the invariant: a sabotage that breaks only
+  at execution 4,000 is caught by the soak (10,000 executions, a required CI
+  job) and not by the harness. The soak runs on every push and is never waived
+  or shrunk for time. It is slow and peripheral, which makes it the first thing
+  dropped when a phase runs long; skipping it is a change to this spec, argued
+  first, not a judgement made in the moment.
 - **Small commits**, conventional messages, every commit green. GitHub Actions
   runs only a push's head, so CI builds and fast-tests every commit in the
   pushed range. Every commit that changes more than documentation carries a

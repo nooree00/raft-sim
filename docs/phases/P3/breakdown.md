@@ -37,7 +37,13 @@ phase-3 criterion unmet, and I do not propose it slips.
    (300 executions) with the same checkers; `soak` runs 10,000 at the head of each push, sharded
    like the harness if one runner cannot do it inside 15 minutes, and becomes a required check.
    Commits below the head get the 300-execution sample through the per-commit matrix. The phase's
-   criterion is met by `soak` on the report's certified commit.
+   criterion is met by `soak` on the report's certified commit. **Approved with a consequence (reviewer):** the soak is the only
+   place the invariants run at scale, and the sample is what every harness entry checks, so a
+   sabotage that breaks only at execution 4,000 is caught by the soak and not by the harness. The
+   harness's verdict is a claim about the sample. This is written into spec §12, where the harness
+   is described. The soak is required and never waived; skipping it is a spec change argued first.
+   Its distribution is reported as effects, as P2-02 restated coverage: 10,000 executions that
+   never isolate a node are 300 at extra cost.
 3. **Invariant 11 in phase 3 is "a leader within K election timeouts".** Its second clause, "a
    submitted command commits", needs a log. It joins in phase 4, and the checker is written so that
    adding it changes the property, not the observation.
