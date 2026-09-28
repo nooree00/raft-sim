@@ -73,6 +73,27 @@ public static class WglChecker
             : undecided with { StatesExplored = explored };
     }
 
+    /// <summary>
+    /// Failure signatures for the shrinker (P2-10): "linearizability@key" for every key whose
+    /// sub-history cannot be linearized, "undecided@key" where the budget ran out. The key is part
+    /// of the signature, so shrinking one anomaly cannot converge on another at a different key.
+    /// </summary>
+    public static IReadOnlySet<string> Signatures(IReadOnlyList<Operation> ops, long budget = DefaultBudget)
+    {
+        ArgumentNullException.ThrowIfNull(ops);
+        var signatures = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var key in ops.Select(o => o.Key).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        {
+            var r = Check(ops.Where(o => o.Key == key).ToList(), budget);
+            if (r.Verdict != Verdict.Linearizable)
+            {
+                signatures.Add((r.Verdict == Verdict.Undecided ? "undecided@" : "linearizability@") + key);
+            }
+        }
+
+        return signatures;
+    }
+
     private sealed class Search<TState>(List<Operation> ops, ISequentialModel<TState> model, long budget)
     {
         private readonly HashSet<string> _seen = new(StringComparer.Ordinal);

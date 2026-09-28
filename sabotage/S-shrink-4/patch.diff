@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Checker/WglChecker.cs b/src/Raft.Checker/WglChecker.cs
+index 69c3551..dad5ebf 100644
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -87,7 +87,7 @@ public static class WglChecker
+             var r = Check(ops.Where(o => o.Key == key).ToList(), budget);
+             if (r.Verdict != Verdict.Linearizable)
+             {
+-                signatures.Add((r.Verdict == Verdict.Undecided ? "undecided@" : "linearizability@") + key);
++                signatures.Add(r.Verdict == Verdict.Undecided ? "undecided" : "linearizability");
+             }
+         }
+ 

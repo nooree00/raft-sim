@@ -221,6 +221,14 @@ finding: what happened, why no existing check caught it, what now catches it.
   *Caught by* `History.Problems` on the first recorded history, whose overlapping operations for
   one client it rejects. Nothing else would have noticed: the checker happily accepts the extra
   concurrency.
+- **A state-placed fault removes phase 1's timing enablers.** Shrunk end to end (P2-10), a
+  store-(b) failure, an acknowledged write lost to a crash, came down to one event in 13 runs: the
+  state-placed crash itself. Phase 1's time-placed version of a similar bug kept a crash and restart
+  whose only role was to shift the node's phase into a write window (5 events against 3). A crash
+  that fires *when* a write is in flight needs no event to arrange the timing. *Consequence for
+  phase 3:* state-placed faults are also the way to keep shrunk Raft schedules free of timing-only
+  events, where the property allows it. A store-(a) stale read shrank to no faults at all: the
+  anomaly needs none.
 
 - **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
   ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The

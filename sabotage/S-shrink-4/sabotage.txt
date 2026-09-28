@@ -1,0 +1,5 @@
+description: The failure signature drops the key: any rejected key counts as the same failure
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ShrinkRejectedRunTests.EachKeysAnomalyShrinksTowardItsOwnSignature
+expect: caught
