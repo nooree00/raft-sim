@@ -252,3 +252,26 @@ finding: what happened, why no existing check caught it, what now catches it.
     writes in flight never fires under the echo protocol, and must be traced UNFIRED. The
     reachability test's claim does not depend on `MinPending`, and its comment no longer says it
     does. The general form: a sabotage's target is chosen by running it, not by reading.
+- **A sabotage verified only at the stack head is verified against the final code, not its own
+  commit** (reviewer's general form, from S-det-1 and S-rare-1). Every intermediate commit's
+  sabotages are unverified. The manifest only grows, so the gap grows with every phase.
+  - *The two cases fail in opposite directions.* S-det-1 was caught 35 runs in 36. A flaky sabotage
+    is worse than a flaky test: a test that passes wrongly gets investigated, while a sabotage that
+    survives once reads as "the guard has a gap" and sends the search to the wrong place. S-rare-1
+    was never caught. That is the fourth time, across two projects, that a target chosen by reading
+    rather than by running aimed a sabotage at the wrong thing.
+  - *Now:* CI's per-commit matrix runs every commit's own harness shards. Locally, `gates
+    each-commit` does the same before each push. Landing P2-01..P2-03 before the checker work is
+    what made this catch possible inside the phase. An open register row audits whether each
+    target fails on its sabotage's mechanism or only incidentally, since the harness checks that
+    the target goes red, not why.
+  - *Lineage:* this is the shape of the CRDT project's §13.31, two mechanisms with one observable
+    and the weaker silently standing in for the other, now showing up in the sabotage manifest
+    itself. A target that goes red through an incidental path (the golden trace goes red at almost
+    any simulator change) looks the same as one that goes red through the mechanism.
+- **A forcing prediction reads more like a success than any other outcome** (P2-06). The
+  constructed generator's first rate, 77%, fell outside the predicted 25–75%. I changed the
+  mutation share until it came inside (66%). That turned the prediction into a target the work was
+  steered to, not a claim the work could refute. It is exactly the failure mode the
+  evidence/forcing classification exists to catch, and it would have been easy to count as
+  "right". *Now:* it is classed forcing and excluded from the counts.
