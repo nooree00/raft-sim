@@ -79,3 +79,17 @@ The informative ones:
 2. Your cold walk of the README (P0).
 3. Deleting `claude/blissful-goodall-358smj-sabotage` (refused here with 403).
 4. Branch protection: the required check `each-commit` keeps its name; it is now the collect job. `each-commit-list` and the `commit <sha>` jobs need not be required.
+
+## After acceptance
+
+Two gaps found during the phase-2 breakdown, both in `docs/findings.md` and both blocking phase 2
+(P2-02, P2-03):
+
+- **Coverage.** Three events phase 3 depends on (writes actually reordered at a crash, a node fully
+  isolated, every node down) occurred in none of 200 executions while the P1-10 gate was green; the
+  gate had no dimension for them, and two of its ten dimensions counted injections, not effects.
+- **The done criterion was not fully met.** "Every fault in §7 is injectable and has a test proving
+  it fires": rename has no test. `PersistWriteAt`, `PersistDelete`, `ClientRequest` and
+  `ClientResponse` are driven by no test either, and the simulator discards client responses. This
+  report did not say so; it should have.
+

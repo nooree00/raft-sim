@@ -114,3 +114,37 @@ finding: what happened, why no existing check caught it, what now catches it.
 
   Time-placed faults meet the node's state only by chance. *Now:* phase 2's P2-02 (state-triggered
   faults and a coverage floor), and the table is in `docs/phases/P2/breakdown.md`.
+- **A coverage gate fails only the dimensions it lists; an unlisted event is invisible, not 0%.**
+  Three events phase 3 depends on happened in none of 200 executions, and the P1-10 gate was green:
+  - writes actually reordered at a crash, which AppendEntries' consistency check exists for;
+  - a node fully isolated, which is how two candidates reach the same term;
+  - every node down, spec A6's "any crash schedule including all nodes".
+
+  None had a dimension. The reviewer's general form: a dimension named after a *fault* measures the
+  injection; one named after an *effect* measures the test. Two of the ten dimensions were
+  injection counts ("delayed" counted the Delay fault firing, "paused" counted resumes). The P1-01
+  traceability table's "stressed by" column names faults too; F2-01 and F2-04 cite crash-reordered,
+  whose effect never happened.
+  - *Correction:* the network-reorder dimension (189/200) was already an effect. The "69" I first
+    reported for reordering was my scratch test mis-parsing an empty write list for disk crashes in
+    the reordered-writes loss mode; the true figure is 2.
+  - *Not caught* because the 0%/100% rule can only fail a dimension that exists, and the dimensions
+    were chosen from the fault list.
+  - *Now:* P2-02. Dimensions become effects the algorithm depends on, and the traceability column is
+    rewritten in them and required to clear a floor, so the list of events is owned by the rules,
+    not by the faults.
+- **Five Core interface members were never driven by any test.** `ClientRequest` is never
+  constructed. No node emits `ClientResponse`, and the simulator's barrier release discards it
+  anyway. `PersistWriteAt`, `PersistRename` and `PersistDelete` are never constructed; `SimDisk`
+  implements them untested.
+  - *Scope:* no P1 assertion depended on a client response (there is no client), so nothing needs
+    re-running for that. But P1's done criterion, "every fault in §7 … has a test proving it
+    fires", was not met for rename, and phase 1 was accepted with that gap unreported: my miss.
+  - *Latent bug, found by reading, no test yet:* after a completed rename, the lose-synced-write
+    control restores the source file and leaves the destination.
+  - *Not caught* because the traceability test proves a member *exists*, which is all it was
+    written to prove. The residual the P1-01 task named, "a member that exists but cannot carry its
+    rule", is wider: a member can exist and never be carried at all.
+  - *Now:* P2-03. A census over test traces requires every Core input and effect type to reach the
+    world in at least one simulator test.
+
