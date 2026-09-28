@@ -1,0 +1,154 @@
+# Phase 2 — task breakdown
+
+The checker's rejecting half (spec §6, §11 phase 2), preceded by the harness sharding that phase 2
+is blocked on. Format as in `docs/phases/P1/breakdown.md`, parsed by `gates breakdown`; outcomes
+will say `(evidence)` or `(forcing)`.
+
+**Done when** (spec §11): the WGL checker rejects every known-bad history, agrees with the
+brute-force oracle on random small histories, and rejects histories produced by a deliberately
+broken non-Raft store in the simulator. And (reviewer, at P1 acceptance): the sabotage harness is
+sharded, back under its 15-minute ceiling per shard, before any other phase-2 work lands.
+
+## Ordering
+
+P2-01 first: nothing else lands until the harness is sharded and the ceiling is back at 15 minutes.
+Then P2-03 → P2-04 → P2-05 → P2-06 (known-bad histories before the checker, spec §6), and P2-07 →
+P2-08 → P2-09 (clients, broken stores, end-to-end shrinking). P2-02 is independent of the checker
+and can run alongside.
+
+**Blocking set:** P2-01, P2-03, P2-04, P2-05, P2-07, P2-08. **Deferrable if phase 2 runs long:**
+P2-06 (checker cost limits) and P2-09 (linearizability as a shrinkable failure) to phase 3 — both
+must exist before phase 3's cluster runs produce histories worth checking and shrinking. P2-02
+depends on decision 2.
+
+## Decisions for review
+
+1. **The ceiling goes back to 15 minutes in P2-01's commit, not before.** In run 36356675462 one
+   job's harness took 1023 s. Reverting ahead of sharding would make any push red whenever it lands
+   on a slow runner, including the push that carries this breakdown. The revert and the sharding
+   land together, and P2-01 closes the register row.
+2. **P2-02, rare events, is added to phase 2** (it amends the §11 phase-2 row). The measurement
+   below says several events phase 3 depends on are effectively untested. Recommendation: fix it
+   here, with the echo protocol, where it is cheap to see, rather than discover it under Raft.
+3. **A correct store as the control in P2-08.** A checker that rejects everything passes every
+   rejecting-half test. P2-05's oracle agreement guards that; a trivially correct single-node store
+   whose histories must be *accepted* is a second guard. It is not the accepting half (phase 5:
+   Raft histories, indeterminate operations, at length); it is a positive control.
+4. **Required-check names stay as they are.** The job that runs build and tests becomes
+   `build-core`; a collect job named `build` requires it and every harness shard. Your branch
+   protection (build, each-commit, secrets, readme-walk) needs no change.
+5. **Larger runner: not pursued.** As far as I can tell, GitHub's larger hosted runners are billed
+   per minute and need an organisation plan; this repository's free runners are the 4-vCPU
+   standard ones. Not verifiable from here beyond that; if you know otherwise, it is additive to
+   sharding, not a replacement.
+6. **No new dependencies.** WGL, the random-history generator and the client driver are hand-written.
+
+## What the phase-1 generator never does (measured at P1 acceptance)
+
+Over the 200 executions of the P1-10 coverage run (echo protocol, default generator), from trace
+effects:
+
+| Event | Executions |
+|---|---:|
+| a Reordered crash that actually reorders (≥2 writes in flight, a later one survives an earlier lost) | 0 |
+| a node fully isolated (partitioned both ways from both peers at once) | 0 |
+| all nodes down at once | 0 |
+| ≥2 writes in flight at a crash | 1 |
+| a crash that lost writes: Pending / Torn / Reordered | 2 / 4 / 2 |
+| a crash while paused | 5 |
+| two of three nodes down at once (majority lost) | 9 |
+| a slow disk that slowed a write | 111 |
+| a Reorder fault that held a message | 125 |
+| a resume with a backlog | 118 |
+
+The zeros are the phase-3 hazards: an isolated leader, a majority crash, disk writes reordered
+across an fsync barrier. Time-placed faults meet the node's state only by chance.
+
+## Tasks
+
+### P2-01 — Shard the sabotage harness; ceiling back to 15 minutes
+
+- **Task:** The harness takes `--shard i/n` and runs only its share, dealt round-robin over the sorted entry ids so a shard's content changes only when entries are added or removed. The shard count is derived from the manifest, not chosen per run: `n = ceil(entries / K)`, with `K` in `ci/sabotage-shard-size.txt`, a committed number, so adding entries adds shards. The per-shard ceiling returns to 15 minutes as a backstop. In the workflow, the harness leaves the build job: `build-core` (preflight, build, gates, reports, tests), one `sabotage i/n` job per shard, and a collect job named `build` (decision 4). The collect recomputes the plan from the manifest and requires every shard job to have succeeded, with every entry dealt to exactly one shard. The per-commit matrix becomes commit × shard. A commit that has no `ci/sabotage-shard-size.txt` (before this task) runs its own unsharded harness in shard 1, and its other shards report `unsharded commit`. The harness also reports its fixed cost (worktrees and baseline builds) separately from per-entry time. Closes the register row.
+- **Vacuity:** A shard plan that deals some entry to no shard, or runs zero shards, reports green having run less, which is the zero-job CI again. Guarded: a unit test over the plan (union equals the manifest, shards disjoint, none empty); the collect job recomputes the plan and requires one successful job per shard; and the existing per-entry "expected result" rule still applies inside each shard.
+- **Sabotage:** S-shard-1, S-shard-2, S-shard-3
+- **Verifiable here:** partial — the plan, the collect decision and the harness's `--shard` run locally; the workflow matrix only in CI, read back through the GitHub tools.
+- **Prediction:** Sharding saves less than its count suggests, because each shard pays a fixed cost that one unsharded run pays once: its own container, restore, and four worker worktrees with a baseline build each. I expect that fixed cost to be at least 90 s per shard on GitHub. From the slowest runner seen (1023 s for 81 entries on four workers, about 12.6 s per entry), a shard that stays under half the ceiling holds `K ≈ (450 − 90) / 12.6 ≈ 28` entries: three shards today. **Observable:** in the first CI run, every shard's reported fixed cost is ≥ 90 s, and the slowest shard's total exceeds its entries × 12.6 s by at least that fixed cost.
+- **Outcome:** pending
+
+### P2-02 — Rare events: finer dimensions, a floor, and state-triggered faults
+
+- **Task:** (Decision 2.) **New dimensions:** the table above's rows become coverage dimensions, computed from trace effects as in P1-10. **The floor rule:** a dimension hit in fewer than `F` of `N` executions is *effectively untested* and fails the suite unless declared rare with a reason. `F` is set from `N` so that a bug needing that event alone would be missed by the run with probability below 5%. **Faults placed by state, not time**, so the rare events become reachable: `CrashWhenInFlight(At, Node, MinPending, Loss)` is armed at `At` and fires at the first moment that node has at least `MinPending` writes in flight. `Isolate(At, Node, Until)` blocks every link to and from the node. `CrashMajority(At, Until)`. **Still data:** each serialises, generates from its own stream, shrinks and reproduces like every other fault, and the generator gains rates for them.
+- **Vacuity:** A state-triggered fault that never finds its state waits forever and does nothing, yet the schedule still lists it. Guarded, as in P1-10: dimensions come from effects, never from the schedule; and a fault still armed at the end of a run is reported in the trace (`UNFIRED`), and a dimension counted from it is impossible by construction.
+- **Sabotage:** S-cov-4, S-cov-5, S-rare-1, S-rare-2
+- **Verifiable here:** yes — locally.
+- **Prediction:** No rate of time-placed crashes reaches the reordered-survivor gap with the echo protocol. It writes once per 100 ticks, and a write completes in 1–3, so two writes are in flight only when a slow disk's latency (20–200) exceeds the period. The gap therefore needs a crash during a slow window of more than 100 units, on a node with a write outstanding. **Observable:** at ten times the default crash rate over 200 executions, the gap stays at 2 or fewer; with `CrashWhenInFlight(MinPending = 2)` at the default rate, it appears in at least half the executions that contain one.
+- **Outcome:** pending
+
+### P2-03 — The known-bad catalogue, audited before the checker
+
+- **Task:** An anomaly taxonomy for single-key KV histories, written down with one line of definition each: stale read; lost write; committed-then-vanished; duplicate apply of an Append; CompareAndSwap succeeding twice from one expected value; real-time order violated between non-overlapping operations; a value read that was never written; an indeterminate write observed and then un-observed; two readers observing concurrent writes in contradictory orders; Delete resurrected. Every existing hand-written history (P0-15) is classified. Each empty category gains at least one hand-written history, and each also gains a *near-miss twin*: the same history made linearizable by the smallest change, so the category is shown by a pair, not a lone reject. The brute-force oracle must reject every bad one and accept every twin. All of this lands before any WGL code (spec §6: "write those before the checker").
+- **Vacuity:** Bad histories the author believes bad because the author's model of linearizability says so; the oracle shares that model. Guarded by the H&W verdicts from outside the project (P0) and by the twins: a history that stays bad under the smallest change is testing something other than its label.
+- **Sabotage:** S-hist-6, S-hist-7
+- **Verifiable here:** yes — locally.
+- **Prediction:** The existing fifteen histories cluster in the categories that are easiest to write by hand (stale read, lost write, CompareAndSwap). **Observable:** at least two taxonomy categories are empty before this task. I expect duplicate apply of an Append, and contradictory observation order between two readers.
+- **Outcome:** pending
+
+### P2-04 — The WGL checker, decomposed per key
+
+- **Task:** Wing & Gong / Lowe linear search with memoisation over reachable (set of linearized operations, model state), in `Raft.Checker`: **Decomposition:** per key first (Herlihy & Wing locality, valid because every operation is single-key). **Indeterminate operations:** each may take effect at any point after its invocation or never, and is unconstrained by any response. **Output:** the verdict, the rejecting key and its sub-history, and the longest linearizable prefix found. **Tests:** it must reject every known-bad history (P2-03 and H&W), accept every twin, and agree with the whole-history search on the locality property test (P0).
+- **Vacuity:** A checker that rejects everything passes this task alone. Guarded by the twins (they must be accepted), by P2-05, and by decision 3's control.
+- **Sabotage:** S-wgl-1, S-wgl-2, S-wgl-3
+- **Verifiable here:** yes — locally.
+- **Prediction:** On the catalogue, memoisation barely matters: histories are short, so the search cost is dominated by the per-key split. Where it does matter, the model decides: Put's state is the last value, so reachable states grow as subsets × values, while Append's state is the whole string, which differs per order, so states grow factorially. **Observable:** on a non-linearizable history of k concurrent operations on one key followed by a Get matching no order, the states explored (a deterministic counter the checker reports) grow by at least 4× per added operation for Appends, and by at most 2.5× for Puts, over k = 4..8.
+- **Outcome:** pending
+
+### P2-05 — Differential testing against the brute-force oracle
+
+- **Task:** A seeded generator of random small histories (up to 8 operations, 1–2 keys, 1–3 clients, a share of indeterminate operations): **Linearizable by construction:** run a random sequential execution, then stretch each operation's interval without breaking the order constraints. **Non-linearizable by mutation:** alter one output, or move one interval. WGL and the oracle must agree on every history. The test reports the verdict split and fails unless both verdicts make up at least 25%. A disagreement prints the history in the text form the hand-written tests use, so it can be committed as a regression case.
+- **Vacuity:** Agreement on a distribution that is 99% one verdict says almost nothing: a checker with one verdict hard-wired agrees 99% of the time. Guarded by the verdict-split floor and by the stretch/mutate construction, which produces both verdicts on purpose.
+- **Sabotage:** S-diff-1, S-diff-2
+- **Verifiable here:** yes — locally.
+- **Prediction:** A naive generator (random operations with random outputs and random intervals) yields almost only non-linearizable histories, which is why the construction above exists. **Observable:** the naive variant, run once for the record, gives fewer than 5% linearizable histories; the constructed generator gives between 25% and 75%.
+- **Outcome:** pending
+
+### P2-06 — The checker's cost, measured deterministically
+
+- **Task:** The checker reports states explored (never wall time; P1 findings: no wall-clock assertion in a suite the harness runs). Given a budget in states, it reports "undecided" rather than running unbounded. Neither "undecided" nor "linearizable" counts as a rejection. Measured and recorded: the concurrency (operations overlapping on one key) at which a 200-operation history exhausts a budget of 10⁶ states, for Put-only, Append-only and mixed workloads. These numbers set phase 3's client count and operation mix.
+- **Vacuity:** A budget that is never reached tests nothing, and a budget reached on every history hides the checker behind "undecided". Guarded by tests on both sides: a history that must decide within the budget, and one constructed to exhaust it, which must report undecided, never a verdict.
+- **Sabotage:** S-wgl-4
+- **Verifiable here:** yes — locally.
+- **Prediction:** Per-key decomposition, not memoisation, is what makes long histories feasible. A 200-operation history over 20 keys at concurrency 3 decides in under 10⁴ states in total. The same history on one key is still decidable, but explores more than 10× as many states. **Observable:** the recorded table.
+- **Outcome:** pending
+
+### P2-07 — Clients and histories in the simulator
+
+- **Task:** **Clients:** simulated clients issue `ClientRequest` inputs to nodes and receive `ClientResponse` effects over the simulated network, so every network fault applies to client traffic too. **Recording:** each client operation's invocation and response are recorded at logical time, and an operation with no response before its timeout is recorded as indeterminate. **Text form:** the history has one, is written beside the trace, and reproduces byte-identically from the schedule. **Fix:** the simulator's barrier release currently *discards* every `ClientResponse` effect; only `Send` leaves a node. It is noticed while writing this breakdown, and is covered by a test that a response reaches its client after its persist is durable.
+- **Vacuity:** A history recorded from the client's intentions (requests) rather than from what came back would show responses that never arrived. Guarded: responses are recorded only on delivery to the client, and a test drops the response link and requires the operation to be indeterminate.
+- **Sabotage:** S-client-1, S-client-2, S-client-3
+- **Verifiable here:** yes — locally.
+- **Prediction:** Under the default fault mix, most indeterminate operations come from dropped or partitioned *responses*, not from crashes: client traffic crosses the network twice, and network faults are far more frequent than crashes. **Observable:** over 200 executions, more than two-thirds of indeterminate operations belong to a request that the node did handle, with a response sent and never delivered.
+- **Outcome:** pending
+
+### P2-08 — Broken stores in the simulator, and a correct control
+
+- **Task:** Three non-Raft KV stores built on the Core node interface, in the test project (like P1-11's planted bugs): **(a)** asynchronous primary-backup, with clients reading from the backup (spec §6's example); **(b)** a primary that acknowledges before replicating, with failover to the backup when the primary crashes, which loses acknowledged writes; **(c)** a correct single-node store that persists before it responds (decision 3). Across generated schedules, the checker must reject the histories of (a) and (b) in a stated share of executions and accept every history of (c). Each rejection names its key and anomaly.
+- **Vacuity:** Broken stores whose histories happen to be linearizable in every generated execution (a workload too sparse for the anomaly to show) make "rejects broken stores" a claim about a few seeds. Guarded by reporting the rejection rate per store and requiring it above a floor, and by (c), which must be accepted every time.
+- **Sabotage:** S-store-1, S-store-2, S-store-3
+- **Verifiable here:** yes — locally.
+- **Prediction:** Store (a) is rejected mostly *without* faults: replication delay (1–10 units) alone opens the stale-read window when a client reads just after another client's write, so its failures come from the workload's read-after-write density, not from the schedule. Store (b) is rejected only when a crash hits the primary between an acknowledgement and its replication: an interleaving of the P1-10 kind, and rare. **Observable:** store (a)'s rejection rate on fault-free schedules is within 10 points of its rate under the default mix; store (b)'s is below 10% under the default mix and above 50% with P2-02's state-triggered crash.
+- **Outcome:** pending
+
+### P2-09 — Linearizability as a failure signature: shrinking a rejected run
+
+- **Task:** A checker rejection becomes a failure signature (`linearizability@<key>`), so the P1-11 shrinker reduces a broken store's failing schedule end to end. A test shrinks a store-(b) failure and requires the result to contain the crash of the primary. The shrunk result reports which faults the swap probe marks order-sensitive. Phase 1's finding applies here too: removal proves the kept events are sufficient, not that each is a cause.
+- **Vacuity:** A signature keyed on "some key rejected" lets the shrinker converge on a different anomaly at a different key, as P1-11's first sabotage showed. Guarded: the signature carries the key, and a test plants two anomalies on different keys and shrinks each to its own.
+- **Sabotage:** S-shrink-4
+- **Verifiable here:** yes — locally.
+- **Prediction:** A store-(a) failure shrinks to zero faults, because its anomaly needs none (P2-08's prediction), while a store-(b) failure keeps the primary's crash and restart and at least one other event whose role is timing. That is phase 1's 5-versus-3 finding recurring on a real anomaly. **Observable:** the store-(a) shrink returns an empty schedule with the same signature; the store-(b) shrink returns at least three events, including the crash.
+- **Outcome:** pending
+
+## Sabotage ids
+
+New ids continue the existing series: S-hist-6/7 follow S-hist-1..5, S-cov-4/5 follow S-cov-1..3,
+and S-shrink-4 follows S-shrink-1..3. Each id's `sabotage/<id>/` entry lands in the same commit as
+the check it proves; `gates breakdown` requires it once the task has its first commit.

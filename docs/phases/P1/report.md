@@ -1,7 +1,9 @@
 # Phase 1 — report
 
-**Status: delivered, awaiting review.** `docs/phases/status.md` says `P1: in progress` until the
-reviewer accepts it. Phase 0 also stays `in progress`: its one open row is the reviewer's cold walk.
+**Status: accepted by the reviewer** (`docs/phases/status.md`: `P1: complete`). At acceptance the
+reviewer reversed the ceiling raise, which returns to 15 minutes with sharding in P2-01, and
+rejected the cheaper-entries option. Phase 0 stays `in progress`: its one open row is the
+reviewer's cold walk.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
 on the next push; the run ids below are for earlier commits.

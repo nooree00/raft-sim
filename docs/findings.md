@@ -50,6 +50,22 @@ finding: what happened, why no existing check caught it, what now catches it.
 
 ## Phase 1
 
+**The limits of shrinking — the most important finding of phase 1** (reviewer, at acceptance):
+
+- **A 1-minimal schedule can still carry faults that matter only through absolute timing, and
+  nothing distinguishes them from noise.** The planted duplicate-then-crash bug needs the crash
+  inside a 1–3-unit write window. An earlier crash and restart of the same node redraws its
+  stagger, and that decides where the windows fall. Removing that pair moves the windows away from
+  the planted crash, so ddmin must keep it. The result is 1-minimal (no single removal still fails)
+  but has 5 events against a conceptual 3. *Not a shrinker bug:* the result fails with the right
+  signature, and no event can be removed. *A limitation of the technique,* found in phase 1 where
+  it cost nothing: a shrunk Raft schedule can contain faults whose only role is timing, and neither
+  ddmin nor the swap probe detects them. Moving faults in time is not something the shrinker tries.
+- **Removal proves an order is sufficient, not that it is the cause.** Removal never reorders what
+  it keeps, so a failing schedule shrinks to its events in the failing order (the ordering case
+  shrank to exactly [Drop, Duplicate]). That shows the order suffices. Only the swap probe, which
+  exchanges the two times, shows the order is part of the cause.
+
 - **Lock-file-carrying sabotage patches went stale a third time** (S-layer-1/2/5, when P1-03 added a
   project). *Caught by* the local harness run before the push, as apply/build errors. *Now:* the
   cause is removed rather than the patches regenerated again — dependency sabotages declare
@@ -89,11 +105,12 @@ finding: what happened, why no existing check caught it, what now catches it.
   `git worktree prune` inside the container, where a worktree outside the mounted repository looks
   missing; my scratch worktree's metadata was removed (its files were not). Harmless in CI; locally,
   scratch worktrees must live where the container can see them.
-- **A 1-minimal schedule can keep events whose only role is timing.** Fault times are absolute. The
-  planted duplicate-then-crash bug needs the crash inside a 1–3-unit write window; an earlier noise
-  crash and restart of the same node redraws its stagger and so decides where the windows fall.
-  Removing that pair moves the windows away from the planted crash, so ddmin must keep it: the result
-  is 1-minimal (no single removal still fails) but 5 events against a conceptual 3. *Not a shrinker
-  bug:* the result fails for the right signature and cannot lose an event. *Consequence for phase 3:*
-  a shrunk Raft schedule can contain faults that matter only because they shift timing; the swap
-  probe does not detect this. Moving faults in time is not something the shrinker tries.
+- **Coverage fact, not a bug: some events are effectively untested at 200 executions.** P1-10's
+  "crashed" and "crashed with unsynced writes" were 153 against 8, because a write is in flight about
+  2% of the time. Measured at acceptance over the same 200 executions:
+  - never: a Reordered crash that reorders anything, a node fully isolated, all nodes down;
+  - 1: two writes in flight at a crash;
+  - 9: two of three nodes down.
+
+  Time-placed faults meet the node's state only by chance. *Now:* phase 2's P2-02 (state-triggered
+  faults and a coverage floor), and the table is in `docs/phases/P2/breakdown.md`.

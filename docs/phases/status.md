@@ -4,4 +4,4 @@ Parsed by `gates register`. One line per phase that has started: `- Pn: in progr
 `- Pn: complete`. A phase marked complete must have `docs/phases/Pn/report.md`.
 
 - P0: in progress
-- P1: in progress
+- P1: complete
