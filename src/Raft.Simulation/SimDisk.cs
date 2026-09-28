@@ -14,7 +14,11 @@ public sealed class SimDisk
 {
     private readonly SortedDictionary<string, byte[]> _durable = new(StringComparer.Ordinal);
     private readonly List<PendingWrite> _pending = [];
-    private (string File, byte[]? Before)? _lastCompleted;
+    /// <summary>
+    /// What the last completed write changed, file by file, for the positive control to undo. A list:
+    /// a rename changes two files (P2-03: an undo record of one file left the destination behind).
+    /// </summary>
+    private List<(string File, byte[]? Before)>? _lastCompleted;
     private long _lastCompleteAt;
 
     public long IssuedCount { get; private set; }
@@ -90,17 +94,20 @@ public sealed class SimDisk
             case DiskLoss.LoseSynced:
                 if (_lastCompleted is { } last)
                 {
-                    if (last.Before is null)
+                    foreach (var (file, before) in last)
                     {
-                        _durable.Remove(last.File);
-                    }
-                    else
-                    {
-                        _durable[last.File] = last.Before;
+                        if (before is null)
+                        {
+                            _durable.Remove(file);
+                        }
+                        else
+                        {
+                            _durable[file] = before;
+                        }
                     }
 
                     _lastCompleted = null;
-                    return [("lostsynced", last.File), ("lost", pending.Count)];
+                    return [("lostsynced", string.Join(',', last.Select(x => x.File))), ("lost", pending.Count)];
                 }
 
                 return [("lostsynced", "none"), ("lost", pending.Count)];
@@ -143,7 +150,13 @@ public sealed class SimDisk
 
     private void Apply(Persist op)
     {
-        _lastCompleted = (op.File, _durable.TryGetValue(op.File, out var before) ? before : null);
+        byte[]? Before(string file) => _durable.TryGetValue(file, out var b) ? b : null;
+        _lastCompleted = new List<(string File, byte[]? Before)> { (op.File, Before(op.File)) };
+        if (op is PersistRename rn)
+        {
+            _lastCompleted.Add((rn.To, Before(rn.To)));
+        }
+
         switch (op)
         {
             case PersistAppend a:

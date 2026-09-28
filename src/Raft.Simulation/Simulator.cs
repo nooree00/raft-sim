@@ -38,6 +38,26 @@ public sealed class Simulator
 
     public Trace Trace { get; } = new();
 
+    private readonly List<ClientReply> _requests = [];
+    private readonly List<ClientReply> _responses = [];
+    private readonly Dictionary<string, long> _census = new(StringComparer.Ordinal);
+
+    /// <summary>A client message: a request to submit, or a response that reached the client side (released by the barrier from a live node).</summary>
+    public sealed record ClientReply(long Time, NodeId Node, long RequestId, ReadOnlyMemory<byte> Payload);
+
+    public IReadOnlyList<ClientReply> Responses => _responses;
+
+    /// <summary>
+    /// How many of each Core input the simulator delivered to a node, and of each effect it acted on
+    /// (P2-03): use, not existence. An effect built by a node and then discarded never counts.
+    /// </summary>
+    public IReadOnlyDictionary<string, long> Census => _census;
+
+    /// <summary>Schedules a client request to arrive at a node (P2-03's client path; P2-08 adds clients over the network).</summary>
+    public void Submit(long at, NodeId node, long requestId, ReadOnlyMemory<byte> payload) => _requests.Add(new ClientReply(at, node, requestId, payload));
+
+    private void Count(string what) => _census[what] = _census.GetValueOrDefault(what) + 1;
+
     public long Steps { get; private set; }
 
     public long Now => _now;
@@ -99,6 +119,23 @@ public sealed class Simulator
         foreach (var fault in _schedule.Faults)
         {
             At(fault.At, () => Inject(fault));
+        }
+
+        foreach (var req in _requests)
+        {
+            var (id, payload) = (req.RequestId, req.Payload);
+            At(req.Time, () =>
+            {
+                var h = _hosts[req.Node.Value - 1];
+                if (h.Node is null || h.Paused)
+                {
+                    Trace.Add(_now, h.Id.ToString(), "REQUEST-LOST", ("request", id), ("reason", h.Node is null ? "down" : "paused"));
+                    return;
+                }
+
+                Trace.Add(_now, h.Id.ToString(), "REQUEST", ("request", id), ("len", payload.Length));
+                Handle(h, new ClientRequest(id, payload));
+            });
         }
 
         while (_queue.TryDequeue(out var action, out var time) && time <= _config.Duration)
@@ -325,6 +362,7 @@ public sealed class Simulator
     private void Handle(Host h, Input input)
     {
         Steps++;
+        Count("input:" + input.GetType().Name);
         var effects = h.Node!.Handle(input);
         foreach (var e in effects)
         {
@@ -339,6 +377,7 @@ public sealed class Simulator
 
                     var w = h.Disk.Issue(p, _now + latency);
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
+                    Count("effect:" + p.GetType().Name);
                     At(w.CompleteAt, () => CompleteWrite(h, w));
                     CheckArmedCrashes(h);
                     break;
@@ -346,6 +385,7 @@ public sealed class Simulator
                     h.Held.Enqueue((e, h.Disk.IssuedCount));
                     break;
                 case Emit ev:
+                    Count("effect:Emit");
                     Trace.Add(_now, h.Id.ToString(), "EVENT", [("name", (object)ev.Name), .. ev.Fields.Select(f => (f.Key, (object)f.Value))]);
                     break;
                 default:
@@ -377,7 +417,15 @@ public sealed class Simulator
             var (effect, _) = h.Held.Dequeue();
             if (effect is Send s)
             {
+                Count("effect:Send");
                 Transmit(h.Id, s);
+            }
+            else if (effect is ClientResponse r)
+            {
+                // Until P2-03 this branch did not exist: every client response was dropped here.
+                Count("effect:ClientResponse");
+                Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
+                _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
             }
         }
     }

@@ -167,6 +167,25 @@ finding: what happened, why no existing check caught it, what now catches it.
     the fix shown there.
   - *Now:* every CI script that runs git or the gates marks its own checkout safe. A test
     (`CiScriptTests`) requires it, and sabotage S-ci-2 removes it from the shard script.
+- **The rename bug, recorded red before the fix** (P2-03). Run against the unfixed `SimDisk`:
+
+  ```
+  failed DiskOperationTests.LosingASyncedRenameRestoresBothFiles
+    Assert.Equal() Failure: Strings differ   Expected: "old"   Actual: "new"
+  failed DiskOperationTests.LosingASyncedRenameOntoNothingRemovesTheDestination
+    Assert.Null() Failure: Value is not null
+  ```
+
+  - *Cause:* the lose-synced control's undo record held one file, and a rename changes two.
+  - *Now:* the record holds every file an operation changed. Sabotage S-iface-1 reinstates the bug on
+    every push and expects the test to catch it.
+  - *The same first run* also failed a torn write-at test, but that failure was mine, not the disk's:
+    I expected a 3-byte prefix written at offset 4 of an 8-byte file to truncate the file, and it
+    does not. The expectation was fixed, not `SimDisk`.
+- **The census found a gap in its own scenario list on its first run.** `PersistTruncate` was
+  driven by none of the three runs chosen to exercise every member. Echo-counter recovery issues it
+  only after a torn crash, which the preset schedule never produced. Measuring use rather than
+  existence caught the choosing, too.
 
 - **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
   ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The

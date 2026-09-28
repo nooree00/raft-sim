@@ -1,0 +1,15 @@
+diff --git a/src/Raft.Simulation/SimDisk.cs b/src/Raft.Simulation/SimDisk.cs
+index c66c323..227e9fb 100644
+--- a/src/Raft.Simulation/SimDisk.cs
++++ b/src/Raft.Simulation/SimDisk.cs
+@@ -152,10 +152,6 @@ public sealed class SimDisk
+     {
+         byte[]? Before(string file) => _durable.TryGetValue(file, out var b) ? b : null;
+         _lastCompleted = new List<(string File, byte[]? Before)> { (op.File, Before(op.File)) };
+-        if (op is PersistRename rn)
+-        {
+-            _lastCompleted.Add((rn.To, Before(rn.To)));
+-        }
+ 
+         switch (op)
+         {

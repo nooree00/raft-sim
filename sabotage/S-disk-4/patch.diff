@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/SimDisk.cs b/src/Raft.Simulation/SimDisk.cs
-index 171c696..1a750d2 100644
+index c66c323..5166f9c 100644
 --- a/src/Raft.Simulation/SimDisk.cs
 +++ b/src/Raft.Simulation/SimDisk.cs
-@@ -88,7 +88,7 @@ public sealed class SimDisk
+@@ -92,7 +92,7 @@ public sealed class SimDisk
  
                  return [("survived", Seqs(survivors)), ("pending", Seqs(pending))];
              case DiskLoss.LoseSynced:
 -                if (_lastCompleted is { } last)
 +                if (_lastCompleted is { } last && mode != DiskLoss.LoseSynced)
                  {
-                     if (last.Before is null)
+                     foreach (var (file, before) in last)
                      {

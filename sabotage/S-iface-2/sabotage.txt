@@ -1,0 +1,5 @@
+description: Phase 1's bug reinstated: the barrier release discards every client response
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.InterfaceCensusTests.EveryCoreInputAndEffectReachesTheWorldInSomeRun
+expect: caught

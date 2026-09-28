@@ -1,0 +1,19 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index ab2fba0..6d54495 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -420,13 +420,7 @@ public sealed class Simulator
+                 Count("effect:Send");
+                 Transmit(h.Id, s);
+             }
+-            else if (effect is ClientResponse r)
+-            {
+-                // Until P2-03 this branch did not exist: every client response was dropped here.
+-                Count("effect:ClientResponse");
+-                Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
+-                _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
+-            }
++
+         }
+     }
+ 
