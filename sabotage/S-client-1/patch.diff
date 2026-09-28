@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index a825009..64d24db 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -157,6 +157,7 @@ public sealed class Simulator
+         var to = ClientNode(op.Client);
+         var msg = ++_messageSeq;
+         var payload = r.Payload;
++        _clientLog[index] = _clientLog[index] with { Response = _now, Reply = payload };
+         Carry(node, to, msg, () =>
+         {
+             if (_clientLog[index].Response is null && !_timedOut.Contains(op.RequestId))

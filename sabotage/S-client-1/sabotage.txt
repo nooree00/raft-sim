@@ -1,0 +1,5 @@
+description: A reply is recorded when the node sends it, not when it reaches the client
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ClientTests.AReplyThatNeverArrivesLeavesTheOperationIndeterminateThoughTheNodeHandledIt
+expect: caught

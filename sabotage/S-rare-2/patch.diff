@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index de112ff..c2d9da8 100644
+index a825009..d6a275c 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -389,7 +389,7 @@ public sealed class Simulator
-         var hash = SimDisk.HashBytes(s.Payload.Span);
-         var link = (from, s.To);
-         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
--        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0 || _isolated.GetValueOrDefault(s.To) > 0)
+@@ -593,7 +593,7 @@ public sealed class Simulator
+     {
+         var delay = Between("delay:" + from + "->" + to, (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
+         var link = (from, to);
+-        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0 || _isolated.GetValueOrDefault(to) > 0)
 +        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0)
          {
-             Trace.Add(_now, from.ToString(), "BLOCKED", ("to", s.To.ToString()), ("id", id));
+             Trace.Add(_now, from.ToString(), "BLOCKED", ("to", to.ToString()), ("id", id));
              return;

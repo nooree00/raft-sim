@@ -1,0 +1,5 @@
+description: Client requests bypass the network: link faults cannot touch them
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ClientTests.ARequestDroppedOnTheWayIsIndeterminateAndTheClientMovesOn
+expect: caught

@@ -1,12 +1,12 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 5974659..15a0b86 100644
+index a825009..a90d233 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -245,7 +245,6 @@ public sealed class Simulator
+@@ -617,7 +617,6 @@ public sealed class Simulator
              case Duplicate:
-                 Trace.Add(_now, from.ToString(), "DUP", ("to", s.To.ToString()), ("id", id));
-                 At(deliverAt, Deliver);
--                At(deliverAt + 1, Deliver);
+                 Trace.Add(_now, from.ToString(), "DUP", ("to", to.ToString()), ("id", id));
+                 At(deliverAt, deliver);
+-                At(deliverAt + 1, deliver);
                  break;
              case Delay d:
-                 Trace.Add(_now, from.ToString(), "DELAYED", ("to", s.To.ToString()), ("id", id), ("extra", d.Extra));
+                 Trace.Add(_now, from.ToString(), "DELAYED", ("to", to.ToString()), ("id", id), ("extra", d.Extra));

@@ -20,4 +20,10 @@ public sealed record SimulationConfig
     public long MinDiskLatency { get; init; } = 1;
 
     public long MaxDiskLatency { get; init; } = 3;
+
+    /// <summary>Simulated clients (P2-08), network endpoints n101, n102, ...; each issues one operation at a time.</summary>
+    public int Clients { get; init; }
+
+    /// <summary>A client gives up on an operation after this long; it is then recorded as indeterminate.</summary>
+    public long ClientTimeout { get; init; } = 500;
 }

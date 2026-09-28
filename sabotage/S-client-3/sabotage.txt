@@ -1,0 +1,5 @@
+description: A client that times out never issues another operation
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ClientTests.ARequestDroppedOnTheWayIsIndeterminateAndTheClientMovesOn
+expect: caught

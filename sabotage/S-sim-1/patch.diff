@@ -1,12 +1,12 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 8e1cedf..d0f9c50 100644
+index a825009..72e5718 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -374,6 +374,7 @@ public sealed class Simulator
+@@ -629,6 +629,7 @@ public sealed class Simulator
                  break;
              default:
-                 At(deliverAt, Deliver);
-+                At(deliverAt + 1, Deliver);
+                 At(deliverAt, deliver);
++                At(deliverAt + 1, deliver);
                  break;
          }
  

@@ -1,0 +1,18 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index a825009..e6780f7 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -127,11 +127,12 @@ public sealed class Simulator
+         var msg = ++_messageSeq;
+         Trace.Add(_now, from.ToString(), "INVOKE", ("to", call.Node.ToString()), ("request", requestId), ("id", msg), ("len", call.Request.Length));
+         var host = _hosts[call.Node.Value - 1];
+-        Carry(from, call.Node, msg, () => ArriveAtNode(host, from, msg, () =>
++        At(_now + 1, () => ArriveAtNode(host, from, msg, () =>
+         {
+             Trace.Add(_now, host.Id.ToString(), "REQUEST", ("request", requestId), ("len", call.Request.Length));
+             Handle(host, new ClientRequest(requestId, call.Request));
+         }));
++        _ = msg;
+         At(_now + _config.ClientTimeout, () =>
+         {
+             if (_clientLog[index].Response is null && !_timedOut.Contains(requestId))

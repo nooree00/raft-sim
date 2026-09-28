@@ -47,6 +47,12 @@ public sealed record GeneratorConfig
     /// <summary>Chance per run of one total outage: every node down at once.</summary>
     public int CrashAll { get; init; } = 3_000;
 
+    /// <summary>
+    /// Clients (P2-08): when positive, the links between each client and each node get the same
+    /// network faults as links between nodes. Zero leaves every existing schedule unchanged.
+    /// </summary>
+    public int Clients { get; init; }
+
     /// <summary>Chance per run of FIFO links (TCP-like delivery in send order).</summary>
     public int Fifo { get; init; } = 4_000;
 
@@ -58,7 +64,7 @@ public sealed record GeneratorConfig
     /// <summary>A stable hash of every setting, recorded in each reproduction artifact.</summary>
     public string Hash()
     {
-        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Fifo, Controls ? 1 : 0, CrashInFlight, Isolate, CrashMajority, CrashAll }
+        var text = string.Join(';', new long[] { Nodes, Duration, Window, Drop, Duplicate, Delay, Reorder, Partition, Crash, Pause, SlowDisk, Skew, Fifo, Controls ? 1 : 0, CrashInFlight, Isolate, CrashMajority, CrashAll, Clients }
             .Select(v => v.ToString(CultureInfo.InvariantCulture)));
         return Mix.Hash(text).ToString("x16", CultureInfo.InvariantCulture);
     }
@@ -74,6 +80,8 @@ public static class FaultGenerator
         var faults = new List<Fault>();
         var nodes = Enumerable.Range(1, config.Nodes).Select(i => new NodeId(i)).ToList();
         var links = nodes.SelectMany(a => nodes.Where(b => b != a).Select(b => (a, b))).ToList();
+        var clients = Enumerable.Range(1, config.Clients).Select(Simulator.ClientNode).ToList();
+        links.AddRange(clients.SelectMany(c => nodes.SelectMany(n => new[] { (c, n), (n, c) })));
         IRandomSource R(string kind) => s.For("gen:" + kind);
         var (drop, dup, delay, reorder, part, crash, pause, slow, skew) =
             (R("drop"), R("dup"), R("delay"), R("reorder"), R("partition"), R("crash"), R("pause"), R("slow"), R("skew"));

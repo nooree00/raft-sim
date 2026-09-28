@@ -58,6 +58,120 @@ public sealed class Simulator
 
     private void Count(string what) => _census[what] = _census.GetValueOrDefault(what) + 1;
 
+    /// <summary>Clients are network endpoints n101, n102, ...: every link fault can name their links.</summary>
+    public const int ClientBase = 100;
+
+    public static NodeId ClientNode(int client) => new(ClientBase + client);
+
+    private readonly List<ClientOp> _clientLog = [];
+    private readonly Dictionary<long, int> _clientOpOf = [];
+    private readonly Dictionary<int, IRandomSource> _clientRandom = [];
+    private readonly Dictionary<int, int> _clientSequence = [];
+    private long _clientRequestSeq = 1L << 40;
+
+    /// <summary>Set before <see cref="Run"/> when <see cref="SimulationConfig.Clients"/> is positive.</summary>
+    public IClientWorkload? Workload { get; set; }
+
+    /// <summary>Every client operation, in invocation order (P2-08's history, before interpretation).</summary>
+    public IReadOnlyList<ClientOp> ClientLog => _clientLog;
+
+    /// <summary>The client log as text, one line per operation: written beside the trace, byte-identical for a schedule.</summary>
+    public string ClientLogText()
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var op in _clientLog)
+        {
+            sb.Append("op client=").Append(Inv(op.Client)).Append(" request=").Append(Inv(op.RequestId)).Append(" node=").Append(op.Node)
+                .Append(" invoke=").Append(Inv(op.Invoke)).Append(" response=").Append(op.Response is { } r ? Inv(r) : "none")
+                .Append(" req=").Append(Hex(op.Request.Span)).Append(" reply=").Append(Hex(op.Reply.Span)).Append('\n');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string Inv(long v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Hex(ReadOnlySpan<byte> bytes)
+    {
+        const string digits = "0123456789abcdef";
+        var chars = new char[bytes.Length * 2];
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            chars[2 * i] = digits[bytes[i] >> 4];
+            chars[(2 * i) + 1] = digits[bytes[i] & 15];
+        }
+
+        return new string(chars);
+    }
+
+    /// <summary>A client's next operation: sent over the network to its node, with a timeout.</summary>
+    private void IssueNext(int client)
+    {
+        if (!_clientRandom.TryGetValue(client, out var random))
+        {
+            random = _clientRandom[client] = _streams.For("client:" + Inv(client));
+        }
+
+        var sequence = _clientSequence.GetValueOrDefault(client);
+        _clientSequence[client] = sequence + 1;
+        if (Workload?.NextCall(client, sequence, random) is not { } call)
+        {
+            return;
+        }
+
+        var requestId = ++_clientRequestSeq;
+        var index = _clientLog.Count;
+        _clientLog.Add(new ClientOp(client, requestId, call.Node, call.Request, _now, null, ReadOnlyMemory<byte>.Empty));
+        _clientOpOf[requestId] = index;
+        var from = ClientNode(client);
+        var msg = ++_messageSeq;
+        Trace.Add(_now, from.ToString(), "INVOKE", ("to", call.Node.ToString()), ("request", requestId), ("id", msg), ("len", call.Request.Length));
+        var host = _hosts[call.Node.Value - 1];
+        Carry(from, call.Node, msg, () => ArriveAtNode(host, from, msg, () =>
+        {
+            Trace.Add(_now, host.Id.ToString(), "REQUEST", ("request", requestId), ("len", call.Request.Length));
+            Handle(host, new ClientRequest(requestId, call.Request));
+        }));
+        At(_now + _config.ClientTimeout, () =>
+        {
+            if (_clientLog[index].Response is null && !_timedOut.Contains(requestId))
+            {
+                _timedOut.Add(requestId);
+                Trace.Add(_now, from.ToString(), "TIMEOUT", ("request", requestId));
+                IssueNext(client);
+            }
+        });
+    }
+
+    private readonly HashSet<long> _timedOut = [];
+
+    /// <summary>A released response travels back to its client over the network; late ones are ignored.</summary>
+    private void ReplyToClient(NodeId node, ClientResponse r)
+    {
+        if (!_clientOpOf.TryGetValue(r.RequestId, out var index))
+        {
+            return; // a request injected with Submit, not by a client
+        }
+
+        var op = _clientLog[index];
+        var to = ClientNode(op.Client);
+        var msg = ++_messageSeq;
+        var payload = r.Payload;
+        Carry(node, to, msg, () =>
+        {
+            if (_clientLog[index].Response is null && !_timedOut.Contains(op.RequestId))
+            {
+                _clientLog[index] = _clientLog[index] with { Response = _now, Reply = payload };
+                Trace.Add(_now, to.ToString(), "REPLY", ("request", op.RequestId), ("id", msg), ("len", payload.Length));
+                IssueNext(op.Client);
+            }
+            else
+            {
+                Trace.Add(_now, to.ToString(), "REPLY-IGNORED", ("request", op.RequestId), ("id", msg));
+            }
+        });
+    }
+
     public long Steps { get; private set; }
 
     public long Now => _now;
@@ -119,6 +233,12 @@ public sealed class Simulator
         foreach (var fault in _schedule.Faults)
         {
             At(fault.At, () => Inject(fault));
+        }
+
+        for (var c = 1; c <= _config.Clients; c++)
+        {
+            var client = c;
+            At(client, () => IssueNext(client));
         }
 
         foreach (var req in _requests)
@@ -426,6 +546,7 @@ public sealed class Simulator
                 Count("effect:ClientResponse");
                 Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));
                 _responses.Add(new ClientReply(_now, h.Id, r.RequestId, r.Payload));
+                ReplyToClient(h.Id, r);
             }
         }
     }
@@ -433,39 +554,49 @@ public sealed class Simulator
     private void Transmit(NodeId from, Send s)
     {
         var id = ++_messageSeq;
-        var delay = Between("delay:" + from + "->" + s.To, (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
-        var hash = SimDisk.HashBytes(s.Payload.Span);
-        var link = (from, s.To);
-        Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", hash));
-        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0 || _isolated.GetValueOrDefault(s.To) > 0)
+        Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", SimDisk.HashBytes(s.Payload.Span)));
+        var to = _hosts[s.To.Value - 1];
+        var payload = s.Payload;
+        Carry(from, s.To, id, () => ArriveAtNode(to, from, id, () => Handle(to, new Receive(from, payload))));
+    }
+
+    /// <summary>A message arriving at a node: lost if the node is down, held in its backlog if paused.</summary>
+    private void ArriveAtNode(Host to, NodeId from, long id, Action handle)
+    {
+        if (to.Node is null)
         {
-            Trace.Add(_now, from.ToString(), "BLOCKED", ("to", s.To.ToString()), ("id", id));
+            Trace.Add(_now, to.Id.ToString(), "LOST", ("id", id), ("reason", "down"));
             return;
         }
 
-        var to = _hosts[s.To.Value - 1];
-        var payload = s.Payload;
-        void Deliver()
+        if (to.Paused)
         {
-            if (to.Node is null)
+            Trace.Add(_now, to.Id.ToString(), "BACKLOG", ("from", from.ToString()), ("id", id));
+            to.Backlog.Enqueue(() =>
             {
-                Trace.Add(_now, to.Id.ToString(), "LOST", ("id", id), ("reason", "down"));
-                return;
-            }
+                Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+                handle();
+            });
+            return;
+        }
 
-            if (to.Paused)
-            {
-                Trace.Add(_now, to.Id.ToString(), "BACKLOG", ("from", from.ToString()), ("id", id));
-                to.Backlog.Enqueue(() =>
-                {
-                    Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
-                    Handle(to, new Receive(from, payload));
-                });
-                return;
-            }
+        Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+        handle();
+    }
 
-            Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
-            Handle(to, new Receive(from, payload));
+    /// <summary>
+    /// The network, for any message on the link From→To (between nodes, or between a client and a
+    /// node): partitions and isolation block it; an armed link fault drops, duplicates, delays or
+    /// holds it; FIFO links keep send order; otherwise it arrives after a jittered delay.
+    /// </summary>
+    private void Carry(NodeId from, NodeId to, long id, Action deliver)
+    {
+        var delay = Between("delay:" + from + "->" + to, (ulong)id, _config.MinNetworkDelay, _config.MaxNetworkDelay);
+        var link = (from, to);
+        if (_blocked.Contains(link) || _isolated.GetValueOrDefault(from) > 0 || _isolated.GetValueOrDefault(to) > 0)
+        {
+            Trace.Add(_now, from.ToString(), "BLOCKED", ("to", to.ToString()), ("id", id));
+            return;
         }
 
         // A message held by an earlier Reorder on this link is released just after this one arrives.
@@ -478,26 +609,26 @@ public sealed class Simulator
             _lastDelivery[link] = deliverAt;
         }
 
-        switch (TakeArmed(from, s.To))
+        switch (TakeArmed(from, to))
         {
             case Drop:
-                Trace.Add(_now, from.ToString(), "DROP", ("to", s.To.ToString()), ("id", id));
+                Trace.Add(_now, from.ToString(), "DROP", ("to", to.ToString()), ("id", id));
                 break;
             case Duplicate:
-                Trace.Add(_now, from.ToString(), "DUP", ("to", s.To.ToString()), ("id", id));
-                At(deliverAt, Deliver);
-                At(deliverAt + 1, Deliver);
+                Trace.Add(_now, from.ToString(), "DUP", ("to", to.ToString()), ("id", id));
+                At(deliverAt, deliver);
+                At(deliverAt + 1, deliver);
                 break;
             case Delay d:
-                Trace.Add(_now, from.ToString(), "DELAYED", ("to", s.To.ToString()), ("id", id), ("extra", d.Extra));
-                At(deliverAt + d.Extra, Deliver);
+                Trace.Add(_now, from.ToString(), "DELAYED", ("to", to.ToString()), ("id", id), ("extra", d.Extra));
+                At(deliverAt + d.Extra, deliver);
                 break;
             case Reorder:
-                Trace.Add(_now, from.ToString(), "HELD", ("to", s.To.ToString()), ("id", id));
-                _held[link] = Deliver;
+                Trace.Add(_now, from.ToString(), "HELD", ("to", to.ToString()), ("id", id));
+                _held[link] = deliver;
                 break;
             default:
-                At(deliverAt, Deliver);
+                At(deliverAt, deliver);
                 break;
         }
 
