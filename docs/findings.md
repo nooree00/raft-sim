@@ -168,3 +168,13 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Now:* every CI script that runs git or the gates marks its own checkout safe. A test
     (`CiScriptTests`) requires it, and sabotage S-ci-2 removes it from the shard script.
 
+- **Sabotage S-det-1 could survive, about one run in 36, and did on the P2 stack.** Since P1-08 it
+  ordered the three FINAL lines by `string.GetHashCode`, which .NET randomizes per process. The
+  target compares three processes, so it passes whenever all three draw the same order of three
+  hosts: (1/6)² ≈ 1/36. It had passed every earlier run.
+  - *Not caught:* the harness runs each entry once. A sabotage whose catch is itself random looks
+    exactly like a reliable one until the unlucky run.
+  - *Now:* the sabotage writes the hash value into the trace line, so every process differs. The
+    bug class is unchanged: process-randomized state reaching the output. The rule going forward:
+    a sabotage must be caught with certainty, not with high probability. A random element in a
+    patch needs a reason why it cannot come out equal.
