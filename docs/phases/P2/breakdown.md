@@ -103,7 +103,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-shard-1, S-shard-2, S-shard-3, S-ci-2
 - **Verifiable here:** partial — the plan, the collect decision and the harness's `--shard` run locally; the workflow matrix only in CI, read back through the GitHub tools.
 - **Prediction:** Sharding saves less than its count suggests, because each shard pays a fixed cost that one unsharded run pays once: its own container, restore, and four worker worktrees with a baseline build each. I expect that fixed cost to be at least 90 s per shard on GitHub. From the slowest runner seen (1023 s for 81 entries on four workers, about 12.6 s per entry), a shard that stays under half the ceiling holds `K ≈ (450 − 90) / 12.6 ≈ 28` entries: three shards today. **Observable:** in the first CI run, every shard's reported fixed cost is ≥ 90 s, and the slowest shard's total exceeds its entries × 12.6 s by at least that fixed cost.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the fixed cost held: 177, 232, 177 and 144 s on the four shards of the first green run (36381210815), all at least 90 s. The slowest-shard clause failed: 430 s for 22 entries, against the predicted floor of 22 × 12.6 + 232 = 509 s. Past its fixed cost a shard ran at about 9 s per entry: the 12.6 s figure already contained the unsharded run's fixed cost, and I counted it twice. "Three shards today" was also wrong: 87 entries at K = 28 is four. Every shard's total was 272–430 s, well under the 15-minute ceiling; at the P2 head, 110 entries run in four shards of 310–406 s locally.
 
 ### P2-02 — Coverage measures effects the algorithm depends on; the three zeros become reachable
 
@@ -112,7 +112,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-cov-4, S-cov-5, S-cov-6, S-rare-1, S-rare-2
 - **Verifiable here:** yes — locally.
 - **Prediction:** Two of the ten phase-1 dimensions are injection counts (delayed, paused). Restated as effects, "delayed" falls by more than a third: an extra delay of 20–200 on a link that carries a message every few units is often overtaken by nothing, and often lands inside the normal jitter spread of the next one. "Paused" barely moves (less than 5%), because a pause of 100–3,000 units almost always exceeds a timeout's worth of time. Separately, no rate of time-placed crashes reaches writes reordered across a crash with the echo protocol: two writes are in flight only when a slow disk's latency exceeds the 100-tick period. **Observable:** in the first run of the restated gate, delayed ≤ 2/3 of its phase-1 count (128) and paused ≥ 95% of its phase-1 count (118); at ten times the default crash rate, writes-reordered-at-crash stays at 2 or fewer of 200, and with `CrashWhenInFlight(MinPending = 2)` at the default rate it appears in at least half the executions that contain one.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — in the first run of the restated gate, delayed restated as delivered-later-than-normal-delay *rose*, from 128 to 187 of 200, where I predicted at most 85. An extra 20–200 units almost always exceeds the normal spread, so the injection count had *under*-counted: "delayed" had counted only the Delay fault, and jitter never exceeds the maximum. Paused, restated as a step after silence longer than a timeout, fell 8% (118 → 109), not under 5%: short pauses exist. At ten times the default crash rate, writes completed out of order at a crash reached 4 of 200, against a predicted 2 or fewer. With `CrashWhenInFlight(MinPending = 2)` it appeared in 5 of the 81 executions that contained one, against a predicted at least half: two in flight is necessary, and a Reordered loss must also keep the later write and drop the earlier one. On relationships: the P1 "reordered-delivered" 189/200 on a second look is mostly delay jitter on non-FIFO links, not the Reorder fault; restated, it is 188 of 200 (94%), under the always-on line. "never delivered" measured 99% and was narrowed to lost-in-transit-to-a-live-receiver (74%): a message to a crashed node is a dead receiver, not a network loss. One pair has equal counts over different executions and is reported, not failed.
 
 ### P2-03 — Every Core input and effect driven by a simulator test
 
@@ -121,7 +121,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-iface-1, S-iface-2, S-iface-3
 - **Verifiable here:** yes — locally.
 - **Prediction:** Beyond the rename bug already found by reading, driving write-at, rename and delete through every crash mode exposes at least one more `SimDisk` defect. The torn and reordered modes were written and tested only against appends: torn keeps a prefix of an append's or write-at's data, but a write-at's prefix lands at an offset, and reordered applies survivors in issue order even when a rename's destination depends on a write the crash dropped. **Observable:** at least one of the new disk-operation tests, other than the rename/lose-synced one, fails on its first run against today's `SimDisk`.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — no `SimDisk` defect beyond the rename bug. Its test was written first and recorded red: the output is in the findings log. Torn write-at keeps its prefix at its offset, and a reordered crash that keeps a rename but drops the write it depends on leaves the destination untouched. Where the first draft of the torn write-at test disagreed with `SimDisk`, my expectation was the error. The census found a gap in its own scenario list instead: `PersistTruncate` was driven by none of the runs chosen to exercise every member.
 
 ### P2-04 — The known-bad catalogue, audited before the checker
 
@@ -130,7 +130,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-hist-6, S-hist-7
 - **Verifiable here:** yes — locally.
 - **Prediction:** The existing fifteen histories cluster in the categories that are easiest to write by hand (stale read, lost write, CompareAndSwap). **Observable:** at least two taxonomy categories are empty before this task. I expect duplicate apply of an Append, and contradictory observation order between two readers.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — three categories were empty before the task (duplicate apply of an Append, a real-time-order-only violation, a deleted value resurrected): at least two, as predicted, and duplicate Append among them. Contradictory observation order between two readers was not empty: an existing history already showed it.
 
 ### P2-05 — The WGL checker, decomposed per key
 
@@ -139,7 +139,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-wgl-1, S-wgl-2, S-wgl-3
 - **Verifiable here:** yes — locally.
 - **Prediction:** On the catalogue, memoisation barely matters: histories are short, so the search cost is dominated by the per-key split. Where it does matter, the model decides: Put's state is the last value, so reachable states grow as subsets × values, while Append's state is the whole string, which differs per order, so states grow factorially. **Observable:** on a non-linearizable history of k concurrent operations on one key followed by a Get matching no order, the states explored (a deterministic counter the checker reports) grow by at least 4× per added operation for Appends, and by at most 2.5× for Puts, over k = 4..8.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — over k = 4..8 on one key, states explored grew by ×5 to ×8 per added operation for Appends, and by ×2.3 to ×2.45 for Puts.
 
 ### P2-06 — Differential testing against the brute-force oracle
 
@@ -148,7 +148,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-diff-1, S-diff-2
 - **Verifiable here:** yes — locally.
 - **Prediction:** A naive generator (random operations with random outputs and random intervals) yields almost only non-linearizable histories, which is why the construction above exists. **Observable:** the naive variant, run once for the record, gives fewer than 5% linearizable histories; the constructed generator gives between 25% and 75%.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — the naive generator gave 243 of 1000 linearizable (24.3%), not under 5%: with short histories and three values, random outputs are often explainable. The second clause, the constructed generator at 25–75%, was forcing and is not counted. It became the test's vacuity guard: the first construction gave 77%, and I raised the mutated share from one in two to two in three to bring it inside (66% now, 989 of 1500).
 
 ### P2-07 — The checker's cost, measured deterministically
 
@@ -157,7 +157,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-wgl-4
 - **Verifiable here:** yes — locally.
 - **Prediction:** Per-key decomposition, not memoisation, is what makes long histories feasible. A 200-operation history over 20 keys at concurrency 3 decides in under 10⁴ states in total. The same history on one key is still decidable, but explores more than 10× as many states. **Observable:** the recorded table.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — 200 operations over 20 keys at concurrency 3 decided in 200 states, under 10⁴ as predicted. The one-key claim was right only for a rejected history: 5920 states against 162 over 20 keys (36×). For a linearizable one, one key also took 200: the search finds a linearization greedily and never backtracks, so decomposition matters only when it must exhaust a key. The table is in the phase report; Appends are undecided at 10⁵ from concurrency 1 on a 200-operation key.
 
 ### P2-08 — Clients and histories in the simulator
 
@@ -166,7 +166,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-client-1, S-client-2, S-client-3
 - **Verifiable here:** yes — locally.
 - **Prediction:** Under the default fault mix, most indeterminate operations come from dropped or partitioned *responses*, not from crashes: client traffic crosses the network twice, and network faults are far more frequent than crashes. **Observable:** over 200 executions, more than two-thirds of indeterminate operations belong to a request that the node did handle, with a response sent and never delivered.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — over 200 executions with two clients, 4,547 of 157,641 operations were indeterminate, and a third of those had a response released by the node and lost on the way back, against a predicted more than two-thirds (measured once; the numbers are in the P2-08 commit message). The rest had no response released: the request never reached a live node, or the node crashed while the response was held for its persist.
 
 ### P2-09 — Broken stores in the simulator, and a correct control
 
@@ -175,7 +175,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-store-1, S-store-2, S-store-3
 - **Verifiable here:** yes — locally.
 - **Prediction:** Store (a) is rejected mostly *without* faults: replication delay (1–10 units) alone opens the stale-read window when a client reads just after another client's write, so its failures come from the workload's read-after-write density, not from the schedule. Store (b) is rejected only when a crash hits the primary between an acknowledgement and its replication: an interleaving of the P1-10 kind, and rare. **Observable:** store (a)'s rejection rate on fault-free schedules is within 10 points of its rate under the default mix; store (b)'s is below 10% under the default mix and above 50% with P2-02's state-triggered crash.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — store (a): 26 of 40 rejected fault-free against 27 of 40 under the default mix, within 10 points ✓. Store (b): 0 of 40 under the default mix (below 10% ✓), and 7 of 40 with the state-placed crash, where more than half was predicted ✗. The crash loses the acknowledged write in every run, but a later read shows the loss only if no other write to that key comes first. Its floor is the coverage floor, not the predicted rate. Store (c): 0 rejections in both.
 
 ### P2-10 — Linearizability as a failure signature: shrinking a rejected run
 
@@ -184,7 +184,7 @@ changes two. Found by reading only; no test yet.
 - **Sabotage:** S-shrink-4
 - **Verifiable here:** yes — locally.
 - **Prediction:** A store-(a) failure shrinks to zero faults, because its anomaly needs none (P2-09's prediction), while a store-(b) failure keeps the primary's crash and restart and at least one other event whose role is timing. That is phase 1's 5-versus-3 finding recurring on a real anomaly. **Observable:** the store-(a) shrink returns an empty schedule with the same signature; the store-(b) shrink returns at least three events, including the crash.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — store (a) shrank to an empty schedule with the same signature ✓. Store (b) shrank to one event, the state-placed crash itself, where at least three were predicted ✗. Phase 1's timing enablers existed because a time-placed crash needed other events to land it inside a window. A crash placed by state needs none, so the 5-versus-3 finding does not recur: it was a property of time placement.
 
 ## Sabotage ids
 
