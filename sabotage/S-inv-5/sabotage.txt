@@ -1,0 +1,6 @@
+description: Liveness accepts a leader at any time after the stable suffix begins, not within the window
+mechanism: the liveness checker ignores its window
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.LivenessNeedsAnElectedLeaderActingInTheWindowAfterTheLastFault
+expect: caught

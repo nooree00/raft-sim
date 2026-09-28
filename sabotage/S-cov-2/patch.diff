@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 03f6906..3e299c6 100644
+index 63905da..4a45b63 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -218,7 +218,7 @@ public sealed class Simulator
+@@ -479,7 +479,7 @@ public sealed class Simulator
          var dropped = h.Held.Count;
          h.Held.Clear();
          var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
 -        var disk = h.Disk.Crash(loss, draws.NextUInt64);
 +        var disk = h.Disk.Crash(loss == DiskLoss.Torn ? DiskLoss.Pending : loss, draws.NextUInt64);
          Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
-     }
- 
+         if (Observe)
+         {

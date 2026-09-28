@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 57fb404..a7de09b 100644
+index 63905da..977c1b6 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -238,7 +238,7 @@ public sealed class Simulator
+@@ -509,7 +509,7 @@ public sealed class Simulator
          var random = _streams.For(Purpose("node", h.Id, "incarnation", h.Incarnation));
          h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot()));
          h.LastTick = _now;
 -        Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation));
 +        Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation), ("wall", System.Environment.TickCount64 / 1_000_000));
-     }
- 
-     private void ScheduleTick(Host h, long after) => At(_now + after, () =>
+         if (Observe)
+         {
+             _observations.Add(new StartObservation(_now, h.Id, h.Incarnation));

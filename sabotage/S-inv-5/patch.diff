@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index 6a646bf..d2254ec 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -265,7 +265,7 @@ internal static class ElectionInvariants
+                 && elected.TryGetValue((s.Message.Term, s.From), out var at) && at <= s.Time)
+             .Select(s => s.Time).DefaultIfEmpty(long.MaxValue).Min();
+         counts["checked"] = 1;
+-        if (first == long.MaxValue || first - stableFrom > window)
++        if (first == long.MaxValue)
+         {
+             return new("liveness", ["no elected leader acted within " + N(window) + " of the stable suffix starting at " + N(stableFrom)], counts);
+         }

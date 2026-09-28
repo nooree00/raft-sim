@@ -1,0 +1,6 @@
+description: A node that acts as leader without an observed quorum passes: the acting view of leadership is never checked against the elected one
+mechanism: the checker stops requiring an acting leader to have been elected
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.ActingAsLeaderWithoutAnObservedQuorumIsRejected
+expect: caught

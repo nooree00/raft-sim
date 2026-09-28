@@ -1,0 +1,6 @@
+description: Term monotonicity reads only sent messages: a durable term that goes back is invisible
+mechanism: the term-monotonicity checker ignores durable terms
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.ADurableTermThatGoesBackIsRejectedAndOneThatStaysIsNot
+expect: caught

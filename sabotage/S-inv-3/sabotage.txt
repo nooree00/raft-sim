@@ -1,0 +1,6 @@
+description: Vote Uniqueness reads only the wire: a candidate's durable vote for itself, never sent, is invisible
+mechanism: the vote-uniqueness checker ignores durable vote records
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.ASelfVoteLostFromDiskAndThenGivenAwayIsOnlyVisibleOnDisk
+expect: caught

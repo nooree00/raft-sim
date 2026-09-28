@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index 6a646bf..3406968 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -141,7 +141,7 @@ internal static class ElectionInvariants
+         var acting = h.Sends.Where(s => s.Message is AppendEntries a && a.Leader == s.From).ToList();
+         foreach (var s in acting.GroupBy(s => (s.Message.Term, s.From)).Select(g => g.First()))
+         {
+-            if (!elected.TryGetValue((s.Message.Term, s.From), out var at) || at > s.Time)
++            if (!elected.TryGetValue((s.Message.Term, s.From), out var at) && at > s.Time)
+             {
+                 violations.Add(s.From + " acts as leader of term " + N(s.Message.Term.Value) + " at " + N(s.Time) + " without an observed quorum");
+             }

@@ -38,6 +38,40 @@ public sealed class Simulator
 
     public Trace Trace { get; } = new();
 
+    /// <summary>Record <see cref="Observations"/> (P3-04). Off by default: an unobserved run is unchanged.</summary>
+    public bool Observe { get; init; }
+
+    private readonly List<Observation> _observations = [];
+    private readonly Dictionary<NodeId, Dictionary<string, byte[]>> _observedDisk = [];
+
+    public IReadOnlyList<Observation> Observations => _observations;
+
+    /// <summary>Records every durable file of the node whose content changed since it was last recorded.</summary>
+    private void ObserveDisk(Host h)
+    {
+        if (!_observedDisk.TryGetValue(h.Id, out var seen))
+        {
+            _observedDisk[h.Id] = seen = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        }
+
+        var now = h.Disk.Snapshot();
+        foreach (var (file, content) in now.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            var bytes = content.ToArray();
+            if (!seen.TryGetValue(file, out var before) || !Enumerable.SequenceEqual(before, bytes))
+            {
+                seen[file] = bytes;
+                _observations.Add(new DurableObservation(_now, h.Id, file, bytes));
+            }
+        }
+
+        foreach (var gone in seen.Select(kv => kv.Key).Where(f => !now.ContainsKey(f)).Order(StringComparer.Ordinal).ToList())
+        {
+            seen.Remove(gone);
+            _observations.Add(new DurableObservation(_now, h.Id, gone, null));
+        }
+    }
+
     private readonly List<ClientReply> _requests = [];
     private readonly List<ClientReply> _responses = [];
     private readonly Dictionary<Type, long> _inputs = [];
@@ -447,6 +481,11 @@ public sealed class Simulator
         var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
         var disk = h.Disk.Crash(loss, draws.NextUInt64);
         Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
+        if (Observe)
+        {
+            _observations.Add(new CrashObservation(_now, h.Id));
+            ObserveDisk(h);
+        }
     }
 
     /// <summary>The earliest armed one-shot fault on a link, consumed by the first message it meets.</summary>
@@ -471,6 +510,10 @@ public sealed class Simulator
         h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot()));
         h.LastTick = _now;
         Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation));
+        if (Observe)
+        {
+            _observations.Add(new StartObservation(_now, h.Id, h.Incarnation));
+        }
     }
 
     private void ScheduleTick(Host h, long after) => At(_now + after, () =>
@@ -531,6 +574,10 @@ public sealed class Simulator
 
         h.Disk.CompleteNext();
         Trace.Add(_now, h.Id.ToString(), "DURABLE", ("seq", w.Seq));
+        if (Observe)
+        {
+            ObserveDisk(h);
+        }
         Release(h);
     }
 
@@ -561,6 +608,10 @@ public sealed class Simulator
     {
         var id = ++_messageSeq;
         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", SimDisk.HashBytes(s.Payload.Span)));
+        if (Observe)
+        {
+            _observations.Add(new SentObservation(_now, from, s.To, id, s.Payload));
+        }
         var to = _hosts[s.To.Value - 1];
         var payload = s.Payload;
         Carry(from, s.To, id, () => ArriveAtNode(to, from, id, () => Handle(to, new Receive(from, payload))));
@@ -581,13 +632,23 @@ public sealed class Simulator
             to.Backlog.Enqueue(() =>
             {
                 Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+                ObserveDelivery(to.Id, from, id);
                 handle();
             });
             return;
         }
 
         Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+        ObserveDelivery(to.Id, from, id);
         handle();
+    }
+
+    private void ObserveDelivery(NodeId to, NodeId from, long id)
+    {
+        if (Observe)
+        {
+            _observations.Add(new DeliveredObservation(_now, to, from, id));
+        }
     }
 
     /// <summary>

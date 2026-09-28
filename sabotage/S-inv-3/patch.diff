@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index 6a646bf..0ac3f82 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -194,7 +194,7 @@ internal static class ElectionInvariants
+             Add(voter, term, candidate);
+         }
+ 
+-        if (!wireOnly)
++        if (wireOnly && !wireOnly)
+         {
+             foreach (var s in h.States.Where(s => s.State.VotedFor is not null))
+             {

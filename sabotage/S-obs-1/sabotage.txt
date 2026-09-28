@@ -1,0 +1,6 @@
+description: A delivery to a running node is never observed: the checkers see only backlogged deliveries
+mechanism: the simulator stops observing ordinary deliveries
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ObservationTests.ObservationsMatchTheTraceOneForOne
+expect: caught

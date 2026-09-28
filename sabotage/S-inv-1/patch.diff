@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index 6a646bf..2d1ec9d 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -133,7 +133,7 @@ internal static class ElectionInvariants
+     {
+         var violations = new List<string>();
+         var elected = h.Elections();
+-        foreach (var term in elected.Keys.GroupBy(k => k.Term).Where(g => g.Count() > 1))
++        foreach (var term in elected.Keys.GroupBy(k => k.Term).Where(g => g.Count() > 2))
+         {
+             violations.Add("term " + N(term.Key.Value) + ": elected " + string.Join(" and ", term.Select(k => k.Candidate + " at " + N(elected[k]))));
+         }

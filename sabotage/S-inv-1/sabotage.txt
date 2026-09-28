@@ -1,0 +1,6 @@
+description: Election Safety tolerates two candidates elected in one term (only three count)
+mechanism: the election-safety checker lets two candidates be elected in one term
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.TwoCandidatesElectedInOneTermAreRejectedAndOneGrantShortIsNot
+expect: caught

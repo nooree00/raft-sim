@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
+index 63905da..11ce4b9 100644
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -639,7 +639,6 @@ public sealed class Simulator
+         }
+ 
+         Trace.Add(_now, to.Id.ToString(), "DELIVER", ("from", from.ToString()), ("id", id));
+-        ObserveDelivery(to.Id, from, id);
+         handle();
+     }
+ 
