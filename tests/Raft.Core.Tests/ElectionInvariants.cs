@@ -22,11 +22,12 @@ internal sealed record InvariantResult(string Invariant, IReadOnlyList<string> V
 /// </summary>
 internal sealed class ElectionHistory
 {
-    public sealed record Sent(long Time, NodeId From, NodeId To, long Id, Message Message);
+    /// <summary>Each record keeps <c>Seq</c>, its position in the observation stream: the true order of events, which many events sharing one instant do not give.</summary>
+    public sealed record Sent(long Seq, long Time, NodeId From, NodeId To, long Id, Message Message);
 
-    public sealed record Delivered(long Time, NodeId To, NodeId From, Message Message);
+    public sealed record Delivered(long Seq, long Time, NodeId To, NodeId From, Message Message);
 
-    public sealed record Durable(long Time, NodeId Node, TermVoteState State, RecoveryPath Path);
+    public sealed record Durable(long Seq, long Time, NodeId Node, TermVoteState State, RecoveryPath Path);
 
     public List<Sent> Sends { get; } = [];
 
@@ -46,23 +47,25 @@ internal sealed class ElectionHistory
     {
         ClusterSize = clusterSize;
         var byId = new Dictionary<long, Message>();
+        long seq = 0;
         foreach (var o in observations)
         {
+            seq++;
             switch (o)
             {
                 case SentObservation s when MessageCodec.Decode(s.Payload.ToArray()) is { } m:
                     byId[s.Id] = m;
-                    Sends.Add(new Sent(s.Time, s.Node, s.To, s.Id, m));
+                    Sends.Add(new Sent(seq, s.Time, s.Node, s.To, s.Id, m));
                     break;
                 case SentObservation:
                     Undecodable++;
                     break;
                 case DeliveredObservation d when byId.TryGetValue(d.Id, out var m):
-                    Deliveries.Add(new Delivered(d.Time, d.Node, d.From, m));
+                    Deliveries.Add(new Delivered(seq, d.Time, d.Node, d.From, m));
                     break;
                 case DurableObservation { File: TermVoteLog.FileName } d:
                     var r = TermVoteLog.Recover(d.Content?.ToArray());
-                    States.Add(new Durable(d.Time, d.Node, r.State, r.Path));
+                    States.Add(new Durable(seq, d.Time, d.Node, r.State, r.Path));
                     break;
                 case StartObservation st:
                     Liveness.Add((st.Time, st.Node, true));
@@ -76,18 +79,36 @@ internal sealed class ElectionHistory
 
     /// <summary>
     /// When each candidate became elected in each term: the first moment a quorum had granted it,
-    /// counting delivered grants and its own durable vote for itself.
+    /// counting its own durable vote for itself and the grants delivered to it while it was still a
+    /// candidate in that term, meaning its latest durable record was that term with a vote for itself.
+    /// A grant that arrives after the candidate moved to a later term elects no one (found by the soak:
+    /// a delayed grant counted toward a term its candidate had already left).
     /// </summary>
     public Dictionary<(Term Term, NodeId Candidate), long> Elections()
     {
         var voters = new Dictionary<(Term, NodeId), HashSet<NodeId>>();
         var elected = new Dictionary<(Term, NodeId), long>();
+        var latest = new Dictionary<NodeId, TermVoteState>();
         var events = Deliveries.Where(d => d.Message is RequestVoteResponse { VoteGranted: true })
-            .Select(d => (d.Time, Key: (d.Message.Term, d.To), Voter: d.From))
-            .Concat(States.Where(s => s.State.VotedFor is { } v && v == s.Node).Select(s => (s.Time, Key: (s.State.Term, s.Node), Voter: s.Node)))
-            .OrderBy(e => e.Time);
-        foreach (var (time, key, voter) in events)
+            .Select(d => (d.Seq, d.Time, Grant: true, Node: d.To, d.Message.Term, Voter: d.From, State: (TermVoteState?)null))
+            .Concat(States.Select(s => (s.Seq, s.Time, Grant: false, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
+            .OrderBy(e => e.Seq);
+        foreach (var (_, time, grant, node, term, voter, state) in events)
         {
+            if (!grant)
+            {
+                latest[node] = state!;
+                if (state!.VotedFor != node)
+                {
+                    continue;
+                }
+            }
+            else if (!latest.TryGetValue(node, out var now) || now.Term != term || now.VotedFor != node)
+            {
+                continue;
+            }
+
+            var key = (term, node);
             if (!voters.TryGetValue(key, out var set))
             {
                 voters[key] = set = [];
@@ -150,7 +171,9 @@ internal static class ElectionInvariants
         foreach (var ((term, c), at) in elected)
         {
             var deadline = at + actWithin;
-            var acted = h.Sends.Any(s => s.From == c && s.Time >= at && s.Time <= deadline && (s.Message.Term > term || (s.Message is AppendEntries && s.Message.Term == term)));
+            // Acting, or leaving office: a higher term sent or made durable (a leader steps down silently on a response with a higher term).
+            var acted = h.Sends.Any(s => s.From == c && s.Time >= at && s.Time <= deadline && (s.Message.Term > term || (s.Message is AppendEntries && s.Message.Term == term)))
+                || h.States.Any(s => s.Node == c && s.Time >= at && s.Time <= deadline && s.State.Term > term);
             var stayedUp = !h.Liveness.Any(l => l.Node == c && !l.Up && l.Time > at && l.Time <= deadline);
             if (!acted && stayedUp && h.Liveness.Count > 0 && h.Liveness.Max(l => l.Time) >= deadline)
             {
@@ -217,12 +240,12 @@ internal static class ElectionInvariants
     {
         var violations = new List<string>();
         long advances = 0;
-        var events = h.States.Select(s => (s.Time, s.Node, s.State.Term, What: "durable term"))
-            .Concat(h.Sends.Select(s => (s.Time, Node: s.From, s.Message.Term, What: "sent " + s.Message.GetType().Name)));
+        var events = h.States.Select(s => (s.Seq, s.Time, s.Node, s.State.Term, What: "durable term"))
+            .Concat(h.Sends.Select(s => (s.Seq, s.Time, Node: s.From, s.Message.Term, What: "sent " + s.Message.GetType().Name)));
         foreach (var node in events.GroupBy(e => e.Node))
         {
             var max = Term.Zero;
-            foreach (var e in node.OrderBy(e => e.Time))
+            foreach (var e in node.OrderBy(e => e.Seq))
             {
                 if (e.Term < max)
                 {

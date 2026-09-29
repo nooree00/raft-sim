@@ -1,0 +1,6 @@
+description: Term monotonicity sorts a node's events by time: a later durable term lands before an earlier reply sent in the same instant (found by the P3-08 soak)
+mechanism: the checker orders same-instant events by time, not by observation
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.EventsInOneInstantAreJudgedInTheOrderTheyHappened
+expect: caught

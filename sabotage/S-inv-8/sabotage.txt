@@ -1,0 +1,6 @@
+description: An elected node that steps down silently, on a response with a higher term, is reported as never acting
+mechanism: a durable higher term does not count as leaving office
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.AnElectedNodeThatStepsDownSilentlyHasNotFailedToAct
+expect: caught

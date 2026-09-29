@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index a63b65e..d625cf7 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -103,7 +103,7 @@ internal sealed class ElectionHistory
+                     continue;
+                 }
+             }
+-            else if (!latest.TryGetValue(node, out var now) || now.Term != term || now.VotedFor != node)
++            else if (term.Value < 0 && (!latest.TryGetValue(node, out var now) || now.Term != term || now.VotedFor != node))
+             {
+                 continue;
+             }

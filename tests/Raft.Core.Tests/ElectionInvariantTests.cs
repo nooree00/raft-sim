@@ -222,4 +222,39 @@ public sealed class ElectionInvariantTests
         Assert.Equal((1, 0), (shortSuffix.Count("no-stable-suffix"), shortSuffix.Count("checked")));
         Assert.Equal((1, 0), (minority.Count("no-stable-suffix"), minority.Count("checked")));
     }
+
+    /// <summary>
+    /// Found by the soak (P3-08): many events share one instant (a paused node working through its
+    /// backlog). The checkers follow the order events were observed in, never a sort by time, which
+    /// put a later durable term before an earlier reply sent in the same tick.
+    /// </summary>
+    [Fact]
+    public void EventsInOneInstantAreJudgedInTheOrderTheyHappened()
+    {
+        var ok = new Trace().Persist(10, N1, 2, null).Send(10, N1, N2, new AppendEntriesResponse(new Term(2), true, 0)).Persist(10, N1, 3, null).History();
+        var bad = new Trace().Persist(10, N1, 3, null).Send(10, N1, N2, new AppendEntriesResponse(new Term(2), true, 0)).History();
+
+        Assert.True(ElectionInvariants.TermMonotonicity(ok).Holds, string.Join("; ", ElectionInvariants.TermMonotonicity(ok).Violations));
+        Assert.False(ElectionInvariants.TermMonotonicity(bad).Holds);
+    }
+
+    /// <summary>Also found by the soak: a leader that sees a higher term in a response steps down without sending anything; its durable term shows it left office.</summary>
+    [Fact]
+    public void AnElectedNodeThatStepsDownSilentlyHasNotFailedToAct()
+    {
+        var h = new Trace().Persist(10, N1, 2, N1).Persist(13, N2, 2, N1).Grant(14, N2, N1, 2).Persist(20, N1, 3, null).Crash(500, N3).History();
+
+        Assert.True(ElectionInvariants.ElectionSafety(h, ActWithin).Holds, string.Join("; ", ElectionInvariants.ElectionSafety(h, ActWithin).Violations));
+    }
+
+    /// <summary>Found by the soak: a grant for term 2 delivered after its candidate moved to term 3 elects no one.</summary>
+    [Fact]
+    public void AGrantArrivingAfterTheCandidateMovedOnElectsNoOne()
+    {
+        var late = new Trace().Persist(10, N1, 2, N1).Persist(200, N1, 3, N1).Grant(210, N2, N1, 2).Crash(1_000, N3).History();
+        var inTime = new Trace().Persist(10, N1, 2, N1).Grant(20, N2, N1, 2).Persist(200, N1, 3, N1).Crash(1_000, N3).History();
+
+        Assert.Equal(0, ElectionInvariants.ElectionSafety(late, ActWithin).Count("elections"));
+        Assert.Equal(1, ElectionInvariants.ElectionSafety(inTime, ActWithin).Count("elections"));
+    }
 }

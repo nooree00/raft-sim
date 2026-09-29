@@ -1,0 +1,6 @@
+description: A grant counts toward an election even when it arrives after its candidate moved to a later term (found by the P3-08 soak)
+mechanism: stale grants elect
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.AGrantArrivingAfterTheCandidateMovedOnElectsNoOne
+expect: caught

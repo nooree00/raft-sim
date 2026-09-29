@@ -372,3 +372,20 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Now:* a node that recovers a torn tail emits `PersistTruncate` to the valid length before any
     other effect. Tests written first and run red: the first effect after a torn recovery is the cut,
     and a torn crash, restart, new record and second recovery comes back clean. Sabotage S-elect-6.
+- **Three checker defects, found by the first soak-scale runs, each a false positive on a correct
+  node.** Over 300 generated executions the checkers reported ten violations, none of them real:
+  - *Order:* term monotonicity merged durable states and sends with a sort by time. A paused node
+    working through its backlog persisted terms 2, 3 and 4, each reply released behind its own
+    record, all at one instant; the sort put the final term 4 before the term-2 replies.
+  - *Stale grants:* a grant delayed past its candidate's next candidacy was counted toward the old
+    term, which "elected" a node that had already moved on.
+  - *Silent step-down:* a leader that sees a higher term in a response steps down without sending
+    anything; the "elected but never acts" check did not count the durable higher term as leaving.
+  - *Not caught:* the hand-built traces put one event per instant, never delayed a grant past a new
+    candidacy, and never stepped a leader down on a response. Each is now a twin trace.
+  - *Now:* the checkers follow the observation stream's own order (each record keeps its position),
+    count a grant only while its candidate's latest durable record is that term with a vote for
+    itself, and treat a durable higher term as leaving office. 1,000 generated executions: no
+    violation. Sabotages S-inv-6..8.
+  - *Consequence:* a checker proven only on hand-built traces is proven on the traces its author
+    thought of. The same lesson as the S-rare-1 target, one layer up.

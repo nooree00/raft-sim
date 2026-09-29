@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index a63b65e..a665b86 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -245,7 +245,7 @@ internal static class ElectionInvariants
+         foreach (var node in events.GroupBy(e => e.Node))
+         {
+             var max = Term.Zero;
+-            foreach (var e in node.OrderBy(e => e.Seq))
++            foreach (var e in node.OrderBy(e => e.Time))
+             {
+                 if (e.Term < max)
+                 {

@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index a63b65e..a9a2561 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -173,7 +173,7 @@ internal static class ElectionInvariants
+             var deadline = at + actWithin;
+             // Acting, or leaving office: a higher term sent or made durable (a leader steps down silently on a response with a higher term).
+             var acted = h.Sends.Any(s => s.From == c && s.Time >= at && s.Time <= deadline && (s.Message.Term > term || (s.Message is AppendEntries && s.Message.Term == term)))
+-                || h.States.Any(s => s.Node == c && s.Time >= at && s.Time <= deadline && s.State.Term > term);
++                || h.States.Any(s => s.Node == c && s.Time >= at && s.Time <= deadline && s.State.Term > term && s.Time < 0);
+             var stayedUp = !h.Liveness.Any(l => l.Node == c && !l.Up && l.Time > at && l.Time <= deadline);
+             if (!acted && stayedUp && h.Liveness.Count > 0 && h.Liveness.Max(l => l.Time) >= deadline)
+             {
