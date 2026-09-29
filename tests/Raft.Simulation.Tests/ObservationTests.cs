@@ -32,6 +32,7 @@ public sealed class ObservationTests
         Assert.Equal(Lines("DELIVER"), sim.Observations.OfType<DeliveredObservation>().Count());
         Assert.Equal(Lines("CRASH"), sim.Observations.OfType<CrashObservation>().Count());
         Assert.Equal(Lines("START"), sim.Observations.OfType<StartObservation>().Count());
+        Assert.Equal(Lines("PERSIST"), sim.Observations.OfType<IssuedObservation>().Count());
         Assert.True(Lines("SEND") > 100 && Lines("CRASH") > 0, "the run exercised too little to compare");
 
         // A delivery is observed after its send, never at the same instant or before (the minimum network delay is one unit).

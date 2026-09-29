@@ -555,6 +555,11 @@ public sealed class Simulator
 
                     var w = h.Disk.Issue(p, _now + latency);
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
+                    if (Observe)
+                    {
+                        _observations.Add(new IssuedObservation(_now, h.Id, p));
+                    }
+
                     Count(_effects, p.GetType());
                     At(w.CompleteAt, () => CompleteWrite(h, w));
                     CheckArmedCrashes(h);

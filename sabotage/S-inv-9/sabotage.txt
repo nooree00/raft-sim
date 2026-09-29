@@ -1,0 +1,6 @@
+description: The election checker ignores records a node has issued but not yet made durable: a grant arriving while the next candidacy is in flight elects the node in a term it has left (found by the 10,000-execution soak)
+mechanism: the checker judges candidacy by durable records only
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.AGrantArrivingWhileTheNextCandidacyIsInFlightElectsNoOne
+expect: caught

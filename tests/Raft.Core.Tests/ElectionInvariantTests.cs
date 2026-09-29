@@ -56,6 +56,13 @@ public sealed class ElectionInvariantTests
             return this;
         }
 
+        /// <summary>A term-and-vote record issued, not yet durable.</summary>
+        public Trace Issue(long t, NodeId node, long term, NodeId? vote)
+        {
+            _o.Add(new IssuedObservation(t, node, new PersistAppend(TermVoteLog.FileName, TermVoteLog.Record(new Term(term), vote))));
+            return this;
+        }
+
         /// <summary>The disk loses its last completed record (the lose-synced positive control's effect).</summary>
         public Trace LoseLastRecord(long t, NodeId node)
         {
@@ -256,5 +263,16 @@ public sealed class ElectionInvariantTests
 
         Assert.Equal(0, ElectionInvariants.ElectionSafety(late, ActWithin).Count("elections"));
         Assert.Equal(1, ElectionInvariants.ElectionSafety(inTime, ActWithin).Count("elections"));
+    }
+
+    /// <summary>Found by the 10,000-execution soak: a grant for term 2 arriving while the candidate's term-3 record is still being written elects no one; a crash that loses that record brings term 2 back.</summary>
+    [Fact]
+    public void AGrantArrivingWhileTheNextCandidacyIsInFlightElectsNoOne()
+    {
+        var inFlight = new Trace().Issue(9, N1, 2, N1).Persist(10, N1, 2, N1).Issue(200, N1, 3, N1).Grant(201, N2, N1, 2).Crash(1_000, N3).History();
+        var lostThenGranted = new Trace().Issue(9, N1, 2, N1).Persist(10, N1, 2, N1).Issue(200, N1, 3, N1).Crash(202, N1).Start(203, N1).Grant(204, N2, N1, 2).History();
+
+        Assert.Equal(0, ElectionInvariants.ElectionSafety(inFlight, ActWithin).Count("elections"));
+        Assert.Equal(1, ElectionInvariants.ElectionSafety(lostThenGranted, ActWithin).Count("elections"));
     }
 }

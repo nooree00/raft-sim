@@ -389,3 +389,16 @@ finding: what happened, why no existing check caught it, what now catches it.
     violation. Sabotages S-inv-6..8.
   - *Consequence:* a checker proven only on hand-built traces is proven on the traces its author
     thought of. The same lesson as the S-rare-1 target, one layer up.
+- **The 10,000-execution soak found a fourth checker false positive: a grant arriving while the
+  candidate's next record was still being written.** n2's term-11 candidacy was durable; n2 stood
+  again in term 12, and while that record was in flight n3's term-11 grant arrived. The checker
+  judged candidacy by the latest *durable* record, still term 11, and counted the grant; the node
+  had already moved to term 12 and ignored it. Reported as "elected, never acts"; it could as well
+  have reported two leaders in term 11.
+  - *Now:* the simulator also observes issued writes (with their bytes: what the node decided, not
+    what it said about itself), and a grant counts only while the candidate's latest record,
+    issued or durable, is that term with its own vote; after a crash, only the durable one.
+    Sabotage S-inv-9. 10,000 generated executions: no violation.
+  - *Consequence:* the durable view lags the node by one disk latency, and a checker that reads only
+    it will misjudge anything that happens inside that lag. The P3-04 prediction was about the wire
+    missing durable votes; the soak found the reverse, the disk missing decisions in flight.

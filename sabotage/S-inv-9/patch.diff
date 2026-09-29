@@ -1,0 +1,13 @@
+diff --git a/tests/Raft.Core.Tests/ElectionInvariants.cs b/tests/Raft.Core.Tests/ElectionInvariants.cs
+index 330632d..559bff4 100644
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -119,8 +119,6 @@ internal sealed class ElectionHistory
+ 
+             if (kind == 2)
+             {
+-                issuedSinceCrash.Add(node);
+-                latest[node] = state!;
+                 continue;
+             }
+ 

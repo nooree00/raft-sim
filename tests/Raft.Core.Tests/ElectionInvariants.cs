@@ -35,7 +35,12 @@ internal sealed class ElectionHistory
 
     public List<Durable> States { get; } = [];
 
+    /// <summary>Term-and-vote records the node issued, each self-contained: its intended state from that moment, durable or not.</summary>
+    public List<Durable> Intended { get; } = [];
+
     public List<(long Time, NodeId Node, bool Up)> Liveness { get; } = [];
+
+    public List<(long Seq, long Time, NodeId Node)> CrashSeqs { get; } = [];
 
     public int ClusterSize { get; }
 
@@ -67,11 +72,16 @@ internal sealed class ElectionHistory
                     var r = TermVoteLog.Recover(d.Content?.ToArray());
                     States.Add(new Durable(seq, d.Time, d.Node, r.State, r.Path));
                     break;
+                case IssuedObservation { Op: PersistAppend { File: TermVoteLog.FileName } a } i:
+                    var rec = TermVoteLog.Recover(a.Data.ToArray());
+                    Intended.Add(new Durable(seq, i.Time, i.Node, rec.State, rec.Path));
+                    break;
                 case StartObservation st:
                     Liveness.Add((st.Time, st.Node, true));
                     break;
                 case CrashObservation c:
                     Liveness.Add((c.Time, c.Node, false));
+                    CrashSeqs.Add((seq, c.Time, c.Node));
                     break;
             }
         }
@@ -80,24 +90,49 @@ internal sealed class ElectionHistory
     /// <summary>
     /// When each candidate became elected in each term: the first moment a quorum had granted it,
     /// counting its own durable vote for itself and the grants delivered to it while it was still a
-    /// candidate in that term, meaning its latest durable record was that term with a vote for itself.
-    /// A grant that arrives after the candidate moved to a later term elects no one (found by the soak:
-    /// a delayed grant counted toward a term its candidate had already left).
+    /// candidate in that term, meaning its latest record, issued or durable, was that term with a vote
+    /// for itself. A grant that arrives after the candidate moved to a later term elects no one (found by
+    /// the soak twice: a delayed grant, and a grant arriving while the next candidacy's record was still
+    /// in flight). After a crash the latest record is the durable one: writes in flight may be lost.
     /// </summary>
     public Dictionary<(Term Term, NodeId Candidate), long> Elections()
     {
         var voters = new Dictionary<(Term, NodeId), HashSet<NodeId>>();
         var elected = new Dictionary<(Term, NodeId), long>();
         var latest = new Dictionary<NodeId, TermVoteState>();
+        var durable = new Dictionary<NodeId, TermVoteState>();
+        var issuedSinceCrash = new HashSet<NodeId>();
         var events = Deliveries.Where(d => d.Message is RequestVoteResponse { VoteGranted: true })
-            .Select(d => (d.Seq, d.Time, Grant: true, Node: d.To, d.Message.Term, Voter: d.From, State: (TermVoteState?)null))
-            .Concat(States.Select(s => (s.Seq, s.Time, Grant: false, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
+            .Select(d => (d.Seq, d.Time, Kind: 0, Node: d.To, d.Message.Term, Voter: d.From, State: (TermVoteState?)null))
+            .Concat(States.Select(s => (s.Seq, s.Time, Kind: 1, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
+            .Concat(Intended.Select(s => (s.Seq, s.Time, Kind: 2, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
+            .Concat(CrashSeqs.Select(c => (c.Seq, c.Time, Kind: 3, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
             .OrderBy(e => e.Seq);
-        foreach (var (_, time, grant, node, term, voter, state) in events)
+        foreach (var (_, time, kind, node, term, voter, state) in events)
         {
-            if (!grant)
+            if (kind == 3)
             {
+                issuedSinceCrash.Remove(node);
+                latest[node] = durable.GetValueOrDefault(node, TermVoteState.Initial);
+                continue;
+            }
+
+            if (kind == 2)
+            {
+                issuedSinceCrash.Add(node);
                 latest[node] = state!;
+                continue;
+            }
+
+            if (kind == 1)
+            {
+                // An older record completing does not undo a newer one already issued.
+                durable[node] = state!;
+                if (!issuedSinceCrash.Contains(node))
+                {
+                    latest[node] = state!;
+                }
+
                 if (state!.VotedFor != node)
                 {
                     continue;

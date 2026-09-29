@@ -20,6 +20,9 @@ public sealed record DeliveredObservation(long Time, NodeId Node, NodeId From, l
 /// <summary>A durable file's content after a write completed or a crash changed it; null when the file no longer exists.</summary>
 public sealed record DurableObservation(long Time, NodeId Node, string File, ReadOnlyMemory<byte>? Content) : Observation(Time, Node);
 
+/// <summary>A write the node issued, with its bytes: what the node decided, before the disk made it durable (it may be lost in a crash).</summary>
+public sealed record IssuedObservation(long Time, NodeId Node, Persist Op) : Observation(Time, Node);
+
 /// <summary>A node crashed (its durable changes, if any, follow as <see cref="DurableObservation"/>s).</summary>
 public sealed record CrashObservation(long Time, NodeId Node) : Observation(Time, Node);
 
