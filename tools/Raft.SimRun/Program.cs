@@ -14,12 +14,13 @@ internal static class Program
         var a = args.ToList();
         if (a.Count == 0 || a[0] != "run")
         {
-            Console.Error.WriteLine("usage: simrun run (--seed N [--duration T] [--preset mix | --generate [--controls]] | --schedule FILE) [--trace FILE]");
+            Console.Error.WriteLine("usage: simrun run (--seed N [--duration T] [--preset mix | --generate [--controls]] | --schedule FILE) [--raft] [--trace FILE]");
             return 2;
         }
 
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         var traceFile = Take(a, "--trace");
+        var raft = a.Remove("--raft");
         var scheduleFile = Take(a, "--schedule");
         ScheduleText.Header header;
         FaultSchedule schedule;
@@ -42,11 +43,20 @@ internal static class Program
             header = new ScheduleText.Header(seed, duration, config.Nodes, generate ? config.Hash() : "none", Commit());
         }
 
-        var sim = new Simulator(new SimulationConfig { Duration = header.Duration, Nodes = header.Nodes }, ctx => new EchoCounterNode(ctx), header.Seed, schedule);
+        NodeFactory factory = raft ? ctx => new RaftNode(ctx) : ctx => new EchoCounterNode(ctx);
+        var sim = new Simulator(new SimulationConfig { Duration = header.Duration, Nodes = header.Nodes }, factory, header.Seed, schedule);
         var trace = sim.Run();
         if (traceFile is not null)
         {
             File.WriteAllText(traceFile, trace.Text());
+        }
+
+        if (raft)
+        {
+            // Raft's invariants are checked over observations, in Raft.Core.Tests; here the run is
+            // reproduced, and its trace is the evidence that it is the same run (P3-09).
+            Console.WriteLine($"seed={header.Seed} faults={schedule.Faults.Count} steps={sim.Steps} raft");
+            return 0;
         }
 
         var result = EchoCounterChecks.Check(trace.Lines);

@@ -362,4 +362,29 @@ internal static class ElectionInvariants
             ["leaders-elected"] = elected.Count(kv => kv.Value >= from && kv.Value <= to),
         });
     }
+
+    /// <summary>
+    /// Failure signatures for the shrinker (P3-09): "election-safety@T" for a term with more than one
+    /// elected, "vote-uniqueness@nX" and "term-monotonicity@nX" for the node that broke them.
+    /// </summary>
+    public static IReadOnlySet<string> Signatures(ElectionHistory h)
+    {
+        var set = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var term in h.Elections().Keys.GroupBy(k => k.Term).Where(g => g.Count() > 1))
+        {
+            set.Add("election-safety@" + N(term.Key.Value));
+        }
+
+        foreach (var v in VoteUniqueness(h).Violations)
+        {
+            set.Add("vote-uniqueness@" + v[..v.IndexOf(' ', StringComparison.Ordinal)]);
+        }
+
+        foreach (var v in TermMonotonicity(h).Violations)
+        {
+            set.Add("term-monotonicity@" + v[..v.IndexOf(' ', StringComparison.Ordinal)]);
+        }
+
+        return set;
+    }
 }
