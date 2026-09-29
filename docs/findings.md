@@ -361,3 +361,14 @@ finding: what happened, why no existing check caught it, what now catches it.
     red, in at least the coverage floor of runs, naming the node), with term monotonicity naming it
     in every run, and the same crash without the fsynced loss green in every run. Invariant 9 is the
     one that catches an unpersisted term directly, as spec §5 says it would.
+- **The soak's first run found a node that could not restart: recovery cut a torn tail only in
+  memory.** P3-03's recovery read past a torn final record, and P3-05's node then appended its next
+  record after the torn bytes. The next crash met them mid-file: "record 10 at byte 200 fails its
+  checksum and is not the last: corruption". The node refused to start, as designed, and the
+  timing run of 300 generated executions threw.
+  - *Not caught:* P3-03's tests recovered one crash at a time and never appended after a recovery.
+    Spec §8 says recovery "truncates a torn final record"; my recovery computed where to cut and
+    left the cutting to no one.
+  - *Now:* a node that recovers a torn tail emits `PersistTruncate` to the valid length before any
+    other effect. Tests written first and run red: the first effect after a torn recovery is the cut,
+    and a torn crash, restart, new record and second recovery comes back clean. Sabotage S-elect-6.

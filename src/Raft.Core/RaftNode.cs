@@ -41,6 +41,7 @@ public sealed class RaftNode : INode
     private long _timeout;
     private long _sinceHeartbeat;
     private bool _heardFromLeader;
+    private PersistTruncate? _cutTornTail;
     private long _sinceLeader;
 
     public RaftNode(NodeContext context, RaftOptions? options = null)
@@ -55,6 +56,13 @@ public sealed class RaftNode : INode
             throw new InvalidOperationException("refusing to start: " + recovery.Detail);
         }
 
+        // Recovery reads past a torn tail; the file must lose it before anything is appended after it,
+        // or the next recovery meets the torn record in the middle and refuses (found by the P3-08 soak).
+        if (recovery.Path == RecoveryPath.TruncatedTornTail)
+        {
+            _cutTornTail = new PersistTruncate(TermVoteLog.FileName, recovery.ValidLength);
+        }
+
         _term = recovery.State.Term;
         _votedFor = recovery.State.VotedFor;
         _timeout = NextTimeout();
@@ -65,6 +73,12 @@ public sealed class RaftNode : INode
     public IReadOnlyList<Effect> Handle(Input input)
     {
         var effects = new List<Effect>();
+        if (_cutTornTail is not null)
+        {
+            effects.Add(_cutTornTail);
+            _cutTornTail = null;
+        }
+
         switch (input)
         {
             case Tick t:

@@ -1,0 +1,6 @@
+description: A node recovering a torn tail never cuts it off: it appends after the torn bytes, and the next crash meets them mid-file and refuses to start (found by the P3-08 soak)
+mechanism: a recovered torn tail is never truncated
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionTests.ATornTailIsCutFromTheFileBeforeTheNodeAppendsAfterIt
+expect: caught

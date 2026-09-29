@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 7b891c2..a602f49 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -58,7 +58,7 @@ public sealed class RaftNode : INode
+ 
+         // Recovery reads past a torn tail; the file must lose it before anything is appended after it,
+         // or the next recovery meets the torn record in the middle and refuses (found by the P3-08 soak).
+-        if (recovery.Path == RecoveryPath.TruncatedTornTail)
++        if (recovery.Path == RecoveryPath.TruncatedTornTail && recovery.ValidLength < 0)
+         {
+             _cutTornTail = new PersistTruncate(TermVoteLog.FileName, recovery.ValidLength);
+         }

@@ -246,4 +246,45 @@ public sealed class ElectionTests
         Assert.Empty(Sends(e));
         Assert.Equal(2, Sends(Tick(n, 50)).Count(s => s.M is AppendEntries a && a.Term == new Term(1)));
     }
+
+    /// <summary>
+    /// Found by the soak's first run (P3-08): recovery skipped a torn tail without cutting it off, the
+    /// node appended after it, and the next crash met the torn record in the middle of the file,
+    /// corruption, and refused to start. The node must truncate the tail before it appends.
+    /// </summary>
+    [Fact]
+    public void ATornTailIsCutFromTheFileBeforeTheNodeAppendsAfterIt()
+    {
+        var whole = TermVoteLog.Record(new Term(2), N3);
+        var n = Node([.. whole, .. TermVoteLog.Record(new Term(3), null)[..7]]);
+
+        var e = Tick(n, 1);
+
+        Assert.True(e.Count > 0 && e[0] == new PersistTruncate(TermVoteLog.FileName, whole.Length),
+            "the first effect after recovering a torn tail must cut it off; got: " + string.Join(", ", e));
+        Assert.Empty(Tick(n, 1).OfType<PersistTruncate>());
+    }
+
+    /// <summary>The whole sequence on the simulated disk: a torn crash, a restart, a new record, a second crash, a clean recovery.</summary>
+    [Fact]
+    public void AfterATornCrashTheNextRecordIsReadableThroughTheNextRestart()
+    {
+        var disk = new Raft.Simulation.SimDisk();
+        disk.Issue(new PersistAppend(TermVoteLog.FileName, TermVoteLog.Record(new Term(1), N1)), 0);
+        disk.CompleteNext();
+        disk.Issue(new PersistAppend(TermVoteLog.FileName, TermVoteLog.Record(new Term(2), N1)), 0);
+        disk.Crash(Raft.Simulation.DiskLoss.Torn, () => 3);
+
+        var files = disk.Snapshot();
+        var node = new RaftNode(new NodeContext(N1, [N2, N3], new FixedRandom(), files));
+        foreach (var p in node.Handle(new Receive(N2, MessageCodec.Encode(new RequestVote(new Term(5), N2, 0, Term.Zero)))).OfType<Persist>())
+        {
+            disk.Issue(p, 0);
+            disk.CompleteNext();
+        }
+
+        var r = TermVoteLog.Recover(disk.Snapshot()[TermVoteLog.FileName].ToArray());
+        Assert.True(r.Path == RecoveryPath.Clean, $"after torn crash, restart and a new record: {r.Path} ({r.Detail})");
+        Assert.Equal(new TermVoteState(new Term(5), N2), r.State);
+    }
 }
