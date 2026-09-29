@@ -23,12 +23,22 @@ internal static class VerifyRun
 {
     public static readonly string[] RequiredJobs = ["build", "each-commit", "secrets", "readme-walk"];
 
+    /// <summary>
+    /// The soak is required in its own right from the phase-3 report on (P3 acceptance): through
+    /// `build` alone, moving it out of `build` would drop the requirement silently. Earlier reports
+    /// certify runs from before the job existed (P3-08), so they keep the four jobs.
+    /// </summary>
+    public const int SoakRequiredFrom = 3;
+
+    internal static IReadOnlyList<string> RequiredFor(int phase) =>
+        phase >= SoakRequiredFrom ? RequiredJobs.Append("soak").ToList() : RequiredJobs;
+
     public static Findings RunOne(Repo repo, string[] args)
     {
         var rest = args.ToList();
         var sha = Options.Take(rest, "--sha") ?? throw new ArgumentException("--sha is required");
         var f = new Findings();
-        Verify(Api.FromEnvironment(rest), sha, f);
+        Verify(Api.FromEnvironment(rest), sha, f, RequiredFor(int.MaxValue));
         return f;
     }
 
@@ -57,22 +67,23 @@ internal static class VerifyRun
                 continue;
             }
 
+            var phase = int.Parse(Path.GetFileName(Path.GetDirectoryName(report)!)[1..], System.Globalization.CultureInfo.InvariantCulture);
             f.Note($"{rel}: certifies {sha[..7]}");
-            Verify(api, sha, f);
+            Verify(api, sha, f, RequiredFor(phase));
         }
 
         return f;
     }
 
-    internal static void Verify(Api api, string sha, Findings f)
+    internal static void Verify(Api api, string sha, Findings f, IReadOnlyList<string> required)
     {
         var runs = api.Get($"actions/runs?head_sha={sha}&per_page=100");
         var jobsFor = new Func<long, string>(id => api.Get($"actions/runs/{id}/jobs?per_page=100"));
-        Evaluate(sha, runs, jobsFor, f);
+        Evaluate(sha, runs, jobsFor, f, required);
     }
 
     /// <summary>The decision, separated from HTTP so it can be tested on recorded responses.</summary>
-    internal static void Evaluate(string sha, string runsJson, Func<long, string> jobsJson, Findings f)
+    internal static void Evaluate(string sha, string runsJson, Func<long, string> jobsJson, Findings f, IReadOnlyList<string> required)
     {
         using var runs = JsonDocument.Parse(runsJson);
         var ci = runs.RootElement.GetProperty("workflow_runs").EnumerateArray()
@@ -107,7 +118,7 @@ internal static class VerifyRun
         using var jobs = JsonDocument.Parse(jobsJson(id));
         var byName = jobs.RootElement.GetProperty("jobs").EnumerateArray()
             .ToDictionary(j => j.GetProperty("name").GetString()!, j => j, StringComparer.Ordinal);
-        foreach (var name in RequiredJobs)
+        foreach (var name in required)
         {
             if (!byName.TryGetValue(name, out var job))
             {

@@ -6,7 +6,8 @@ namespace Raft.Gates.Tests;
 
 /// <summary>
 /// The CI-run verification's decision, on recorded-shape API responses. Each rule has a response
-/// that must fail it. Sabotages S-run-1..3 disable one rule each.
+/// that must fail it. Sabotages S-run-1..3 disable one rule each; S-run-4 and S-run-5 move the
+/// phase from which the soak is required.
 /// </summary>
 public sealed class VerifyRunTests
 {
@@ -17,18 +18,20 @@ public sealed class VerifyRunTests
           "head_sha":"{{sha}}","status":"{{status}}","conclusion":"{{conclusion}}"}]}
         """;
 
-    private static string Jobs(string eachCommit = "success") => $$"""
-        {"total_count":4,"jobs":[
+    private static string Jobs(string eachCommit = "success", bool soak = true) => $$"""
+        {"total_count":5,"jobs":[{{(soak ? SoakJob : "")}}
           {"name":"build","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:26:00Z"},
           {"name":"each-commit","conclusion":"{{eachCommit}}","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:23:00Z"},
           {"name":"secrets","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:22:00Z"},
           {"name":"readme-walk","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:24:00Z"}]}
         """;
 
-    private static Findings Evaluate(string runs, string jobs)
+    private const string SoakJob = """{"name":"soak","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:26:00Z"},""";
+
+    private static Findings Evaluate(string runs, string jobs, int phase = 3)
     {
         var f = new Findings();
-        VerifyRun.Evaluate(Sha, runs, _ => jobs, f);
+        VerifyRun.Evaluate(Sha, runs, _ => jobs, f, VerifyRun.RequiredFor(phase));
         return f;
     }
 
@@ -51,4 +54,14 @@ public sealed class VerifyRunTests
     [Fact]
     public void ARunForAnotherCommitIsRejected() =>
         Assert.Contains(Evaluate(Runs("success", sha: "0000000000000000000000000000000000000001"), Jobs()).Failures, m => m.Contains("another commit", StringComparison.Ordinal));
+
+    /// <summary>P3 acceptance: the soak is required in its own right where a phase-3 report is certified.</summary>
+    [Fact]
+    public void APhaseThreeReportsRunWithoutTheSoakFails() =>
+        Assert.Contains(Evaluate(Runs("success"), Jobs(soak: false)).Failures, m => m.Contains("has no job 'soak'", StringComparison.Ordinal));
+
+    /// <summary>The P1 and P2 reports certify runs from before the soak job existed; requiring it there would turn every run red.</summary>
+    [Fact]
+    public void APhaseTwoReportsRunNeedsNoSoak() =>
+        Assert.Empty(Evaluate(Runs("success"), Jobs(soak: false), phase: 2).Failures);
 }

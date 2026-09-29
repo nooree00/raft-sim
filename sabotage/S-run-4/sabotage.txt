@@ -1,0 +1,6 @@
+description: No report requires the soak: a phase-3 report certified by a run with no soak job passes, the requirement living only inside build
+mechanism: gates reports never requires the soak job
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.VerifyRunTests.APhaseThreeReportsRunWithoutTheSoakFails
+expect: caught

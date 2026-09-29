@@ -1,0 +1,6 @@
+description: Every report requires the soak, including P1 and P2, whose runs predate the job: every later run would go red on history it cannot change
+mechanism: gates reports requires the soak job for reports from before it existed
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.VerifyRunTests.APhaseTwoReportsRunNeedsNoSoak
+expect: caught
