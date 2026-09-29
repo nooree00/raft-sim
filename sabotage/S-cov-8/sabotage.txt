@@ -1,0 +1,7 @@
+description: The floor is the absolute 3 alone again: 50 hits in 10,000 executions (0.5%) pass, the count that allowed an effect at 0.08% to clear the soak
+mechanism: the coverage floor ignores its rate
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectTheFloorNearAlwaysAndIdenticalSetsButNotCoincidentalCounts
+reason: rate floor
+expect: caught

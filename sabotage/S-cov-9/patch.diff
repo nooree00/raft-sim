@@ -1,0 +1,11 @@
+--- a/src/Raft.Simulation/Coverage.cs
++++ b/src/Raft.Simulation/Coverage.cs
+@@ -58,7 +58,7 @@
+     public const double FloorRate = 0.01;
+ 
+     /// <summary>The floor for <paramref name="total"/> executions: the rate's share of them, and never below <see cref="Floor"/>.</summary>
+-    public static int FloorFor(int total, double rate = FloorRate) => Math.Max(Floor, (int)Math.Ceiling(rate * total));
++    public static int FloorFor(int total, double rate = FloorRate) => (int)Math.Ceiling(rate * total);
+ 
+     /// <summary>A count as a share of its executions, printed beside the count wherever a floor applies.</summary>
+     /// <remarks>In hundredths of a percent, rounded, in integers: the simulator's allowlist has no floating-point formatting.</remarks>

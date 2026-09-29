@@ -93,7 +93,7 @@ public sealed class BrokenStoreTests
         // The acknowledged write is lost in every run, but a later read shows it only if no write to
         // the key comes first: 7 of 40 when measured (P2-09's prediction said more than half). The
         // floor is the coverage floor: rejected often enough that missing it by chance is about 5%.
-        Assert.True(rejected >= Coverage.Floor && rejected > withoutTheCrash, $"rejected in {rejected} of {Executions} (without the state-placed crash: {withoutTheCrash})");
+        Assert.True(rejected >= Coverage.FloorFor(Executions) && rejected > withoutTheCrash, $"rejected in {rejected} of {Executions} ({Coverage.Rate(rejected, Executions)}; without the state-placed crash: {withoutTheCrash})");
         Assert.Equal(0, undecided);
     }
 

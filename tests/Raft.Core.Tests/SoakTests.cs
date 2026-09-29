@@ -167,18 +167,7 @@ public sealed class SoakTests
         }
 
         var failures = unknown.Where(e => !e.StartsWith("control:", StringComparison.Ordinal)).Select(e => $"{e}: produced but not a declared effect").ToList();
-        foreach (var (d, set) in effects)
-        {
-            if (set.Count < Coverage.Floor && !(count < SoakExecutions && RareInSample.ContainsKey(d)))
-            {
-                failures.Add($"{d}: {set.Count} of {count}, below the floor of {Coverage.Floor}");
-            }
-
-            if (set.Count >= Coverage.NearAlways * count && !AlwaysOn.ContainsKey(d))
-            {
-                failures.Add($"{d}: {set.Count} of {count} (95% or more), not declared always-on");
-            }
-        }
+        failures.AddRange(RateFailures(effects.ToDictionary(kv => kv.Key, kv => kv.Value.Count, StringComparer.Ordinal), count));
 
         var names = effects.Keys.ToList();
         for (var i = 0; i < names.Count; i++)
@@ -198,9 +187,10 @@ public sealed class SoakTests
             $"invariants 1, 8, 9, 11: no violation; elections {elections}",
             $"liveness checked in {liveness}, no stable suffix in {noSuffix}",
             timeToLeader.Count == 0 ? "time to leader: none measured" : $"time to leader after the stable suffix: max {timeToLeader.Max()}, mean {timeToLeader.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
-            "effects:",
+            $"effects (floor {Coverage.FloorFor(count, FloorRate)}: 1% of {count}, at least {Coverage.Floor}):",
         };
-        report.AddRange(effects.Select(kv => $"  {kv.Key,-42} {kv.Value.Count,6} / {count}  ({(100.0 * kv.Value.Count / count).ToString("F0", CultureInfo.InvariantCulture)}%)"));
+        report.AddRange(effects.Select(kv => $"  {kv.Key,-42} {kv.Value.Count,6} / {count}  ({Coverage.Rate(kv.Value.Count, count)})"
+            + (kv.Value.Count < Coverage.FloorFor(count, FloorRate) && BelowTheSoakFloor.ContainsKey(kv.Key) ? "  declared below the floor" : "")));
         report.AddRange(failures.Select(f => "  FAIL " + f));
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "soak-report.txt"), string.Join("\n", report) + "\n");
 
@@ -209,6 +199,81 @@ public sealed class SoakTests
     }
 
     public const int SoakExecutions = 10_000;
+
+    /// <summary>
+    /// The soak's own floor rate (P3 acceptance): held at the suite's, so that 10,000 executions must
+    /// show each effect at the rate 300 do (3 in 300), not merely the same count. The absolute minimum
+    /// of <see cref="Coverage.Floor"/> stays under it.
+    /// </summary>
+    public const double FloorRate = Coverage.FloorRate;
+
+    /// <summary>
+    /// The floor and near-always rules over one run's effect counts, at its own scale: the floor is
+    /// <see cref="FloorRate"/> of the executions, at least <see cref="Coverage.Floor"/>. A declared
+    /// effect may sit below the rate, never below the absolute minimum.
+    /// </summary>
+    internal static List<string> RateFailures(IReadOnlyDictionary<string, int> counts, int count)
+    {
+        var failures = new List<string>();
+        var floor = Coverage.FloorFor(count, FloorRate);
+        foreach (var (d, n) in counts)
+        {
+            var sampleRare = count < SoakExecutions && RareInSample.ContainsKey(d);
+            var declared = n >= Coverage.Floor && BelowTheSoakFloor.ContainsKey(d);
+            if (n < floor && !sampleRare && !declared)
+            {
+                failures.Add($"{d}: {n} of {count} ({Coverage.Rate(n, count)}), below the floor of {floor} (1% of {count}, at least {Coverage.Floor})");
+            }
+
+            if (n >= Coverage.NearAlways * count && !AlwaysOn.ContainsKey(d))
+            {
+                failures.Add($"{d}: {n} of {count} (95% or more), not declared always-on");
+            }
+        }
+
+        return failures;
+    }
+
+    /// <summary>
+    /// Effects allowed below the soak's rate floor (never below the absolute minimum), each with the
+    /// reason and the test that exercises the effect directly. Put to the reviewer at P3 acceptance.
+    /// </summary>
+    internal static readonly Dictionary<string, string> BelowTheSoakFloor = new(StringComparer.Ordinal)
+    {
+        ["writes-completed-out-of-order-at-crash"] = "8 of 10,000 (0.08%): a Raft node writes only when its term or vote changes, so two writes in flight at a crash need two changes within one disk latency (1-3 ticks). Exercised directly by TermVoteLogTests.EveryCrashModeRecoversToTheLastRecordThatSurvived (reordered loss of 1-3 in-flight term-vote records, 200 seeds) and CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable",
+    };
+
+    /// <summary>
+    /// The soak's floor at its own scale, tested here because the harness only ever runs the
+    /// 300-execution sample (spec §12): at 10,000 an effect must reach 1%, not 3 executions.
+    /// </summary>
+    [Fact]
+    public void AtSoakScaleTheFloorHoldsTheRateNotTheCount()
+    {
+        Dictionary<string, int> Counts(int total) => ElectionEffects.Concat(Coverage.Dimensions).ToDictionary(d => d, _ => total / 2, StringComparer.Ordinal);
+
+        var soak = Counts(SoakExecutions);
+        soak["split-vote"] = 50;
+        Assert.True(RateFailures(soak, SoakExecutions).Any(f => f.StartsWith("split-vote: 50 of 10000 (0.5%), below the floor of 100", StringComparison.Ordinal)),
+            "rate floor: 50 of 10,000 clears the absolute 3 and must still fail");
+
+        soak["split-vote"] = 100;
+        Assert.Empty(RateFailures(soak, SoakExecutions));
+
+        var sample = Counts(300);
+        sample["split-vote"] = 3;
+        Assert.Empty(RateFailures(sample, 300));
+        sample["split-vote"] = 2;
+        Assert.Contains(RateFailures(sample, 300), f => f.StartsWith("split-vote: 2 of 300", StringComparison.Ordinal));
+
+        const string Declared = "writes-completed-out-of-order-at-crash";
+        soak["split-vote"] = 100;
+        soak[Declared] = 8;
+        Assert.Empty(RateFailures(soak, SoakExecutions));
+        soak[Declared] = 2;
+        Assert.True(RateFailures(soak, SoakExecutions).Any(f => f.StartsWith(Declared + ": 2 of 10000", StringComparison.Ordinal)),
+            "absolute minimum: a declared effect may sit below the rate, never below 3");
+    }
 
     /// <summary>
     /// Effects allowed below the floor in the 300-execution sample only, each with its reason; the soak

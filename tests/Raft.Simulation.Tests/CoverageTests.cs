@@ -56,7 +56,7 @@ public sealed partial class CoverageTests
     public void TheGeneratedDistributionCoversEveryDimension()
     {
         var hits = Measured.Value;
-        var report = string.Join("\n", hits.Select(kv => $"  {kv.Key,-42} {kv.Value.Count,4} / {Executions}  ({100.0 * kv.Value.Count / Executions:F0}%)"));
+        var report = string.Join("\n", hits.Select(kv => $"  {kv.Key,-42} {kv.Value.Count,4} / {Executions}  ({Coverage.Rate(kv.Value.Count, Executions)})"));
         var (failures, notes) = Coverage.Evaluate(hits.ToDictionary(kv => kv.Key, kv => (IReadOnlySet<int>)kv.Value, StringComparer.Ordinal), Executions, AlwaysOn, AllowedIdentical);
         report += notes.Count == 0 ? "" : "\n  notes:\n    " + string.Join("\n    ", notes);
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "coverage-report.txt"), report + "\n");
@@ -90,9 +90,9 @@ public sealed partial class CoverageTests
                 {
                     problems.Add($"{id}: '{e}' is not a coverage dimension (effects, not fault names)");
                 }
-                else if (hits[e].Count < Coverage.Floor)
+                else if (hits[e].Count < Coverage.FloorFor(Executions))
                 {
-                    problems.Add($"{id}: '{e}' is hit in only {hits[e].Count} of {Executions} executions");
+                    problems.Add($"{id}: '{e}' is hit in only {hits[e].Count} of {Executions} executions ({Coverage.Rate(hits[e].Count, Executions)}), below the floor of {Coverage.FloorFor(Executions)}");
                 }
             }
         }
@@ -201,8 +201,16 @@ public sealed partial class CoverageTests
         // Each rule's check carries its name, so a sabotage can require the rule that caught it (P3-01).
         Assert.Empty(Fail(Base()));
         var low = Base(); low[A] = Range(0, Coverage.Floor - 1);
-        Assert.True(Fail(low).Any(f => f.StartsWith(A + ": 2 of 100 — below the floor", StringComparison.Ordinal)), "floor rule: a dimension hit twice in 100 must fail");
+        Assert.True(Fail(low).Any(f => f.StartsWith(A + ": 2 of 100 (2%) — below the floor of 3", StringComparison.Ordinal)), "floor rule: a dimension hit twice in 100 must fail, on the absolute minimum (1% of 100 is 1)");
         Assert.Empty(Fail(low, rare: new Dictionary<string, string> { [A] = "reason" }));
+
+        // The rate floor (P3 acceptance): 50 in 10,000 clears the absolute 3 and must still fail.
+        var sparse = Coverage.Dimensions.Select((d, i) => (d, i)).ToDictionary(x => x.d, x => Range(0, 1000 + x.i), StringComparer.Ordinal);
+        sparse[A] = Range(0, 50);
+        Assert.True(Coverage.Evaluate(sparse, 10_000, none, noPairs).Failures.Any(f => f.StartsWith(A + ": 50 of 10000 (0.5%) — below the floor of 100", StringComparison.Ordinal)),
+            "rate floor: a dimension hit 50 times in 10,000 must fail, above the absolute minimum and below 1%");
+        sparse[A] = Range(0, 100);
+        Assert.DoesNotContain(Coverage.Evaluate(sparse, 10_000, none, noPairs).Failures, f => f.StartsWith(A + ":", StringComparison.Ordinal));
         var near = Base(); near[A] = Range(0, 95);
         Assert.True(Fail(near).Any(f => f.StartsWith(A + ": 95 of 100 (95% or more)", StringComparison.Ordinal)), "near-always rule: a dimension hit in 95 of 100 must fail");
         Assert.Empty(Fail(near, new Dictionary<string, string> { [A] = "reason" }));

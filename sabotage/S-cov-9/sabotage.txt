@@ -1,0 +1,7 @@
+description: The floor is the rate alone: its absolute minimum of 3 is dropped, so a small sample clears it with 1 or 2 hits
+mechanism: the coverage floor loses its absolute minimum
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.TheRulesRejectTheFloorNearAlwaysAndIdenticalSetsButNotCoincidentalCounts
+reason: floor rule
+expect: caught

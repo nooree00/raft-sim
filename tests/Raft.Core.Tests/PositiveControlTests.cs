@@ -60,6 +60,6 @@ public sealed class PositiveControlTests
             "same seeds, crash losing only unsynced writes: green in every run") + "\n");
 
         Assert.True(termsNamingN2 == Runs, $"term monotonicity named n2 in only {termsNamingN2} of {Runs} runs: a lost term went unseen");
-        Assert.True(votesNamingN2 >= Coverage.Floor, $"vote uniqueness named n2 in only {votesNamingN2} of {Runs} runs: the lying disk is barely visible to the checker the spec names");
+        Assert.True(votesNamingN2 >= Coverage.FloorFor(Runs), $"vote uniqueness named n2 in only {votesNamingN2} of {Runs} runs ({Coverage.Rate(votesNamingN2, Runs)}): the lying disk is barely visible to the checker the spec names");
     }
 }

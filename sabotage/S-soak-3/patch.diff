@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/SoakTests.cs
++++ b/tests/Raft.Core.Tests/SoakTests.cs
+@@ -215,7 +215,7 @@
+     internal static List<string> RateFailures(IReadOnlyDictionary<string, int> counts, int count)
+     {
+         var failures = new List<string>();
+-        var floor = Coverage.FloorFor(count, FloorRate);
++        var floor = Coverage.Floor;
+         foreach (var (d, n) in counts)
+         {
+             var sampleRare = count < SoakExecutions && RareInSample.ContainsKey(d);

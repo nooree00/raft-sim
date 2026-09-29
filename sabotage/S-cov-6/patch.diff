@@ -1,18 +1,16 @@
-diff --git a/src/Raft.Simulation/Coverage.cs b/src/Raft.Simulation/Coverage.cs
-index 3ac1961..2a439da 100644
 --- a/src/Raft.Simulation/Coverage.cs
 +++ b/src/Raft.Simulation/Coverage.cs
-@@ -306,11 +306,11 @@ public static class Coverage
+@@ -323,11 +323,11 @@
          foreach (var d in Dimensions)
          {
              var c = Hit(d).Count;
--            if (c < Floor && !rare.ContainsKey(d))
+-            if (c < floor && !rare.ContainsKey(d))
 +            if (c < 1 && !rare.ContainsKey(d))
              {
-                 failures.Add(d + ": " + N(c) + " of " + N(total) + " — below the floor of " + N(Floor) + ", effectively untested");
+                 failures.Add(d + ": " + N(c) + " of " + N(total) + " (" + Rate(c, total) + ") — below the floor of " + N(floor) + " (1% of the executions, at least " + N(Floor) + "), effectively untested");
              }
--            else if (c < Floor)
+-            else if (c < floor)
 +            else if (c < 1)
              {
-                 notes.Add(d + ": " + N(c) + " of " + N(total) + ", declared rare: " + rare[d]);
+                 notes.Add(d + ": " + N(c) + " of " + N(total) + " (" + Rate(c, total) + "), declared rare: " + rare[d]);
              }

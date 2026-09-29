@@ -44,8 +44,32 @@ public static class Coverage
     /// </summary>
     public static readonly string[] Controls = ["control:synced-write-lost", "control:send-before-its-persist-durable"];
 
-    /// <summary>Below this many executions a dimension is effectively untested: a bug needing that event alone is missed with probability about e^-3 ≈ 5%.</summary>
+    /// <summary>
+    /// The absolute minimum under the rate floor: below this many executions a dimension is effectively
+    /// untested, since a bug needing that event alone is missed with probability about e^-3 ≈ 5%. It
+    /// stays so that a rate floor cannot be cleared by a tiny sample.
+    /// </summary>
     public const int Floor = 3;
+
+    /// <summary>
+    /// The rate floor, 3 in 300 (P3 acceptance). A floor on the count alone gives the same verdict for 3
+    /// in 300 and 3 in 10,000, which are different facts about the generator; the floor holds the rate.
+    /// </summary>
+    public const double FloorRate = 0.01;
+
+    /// <summary>The floor for <paramref name="total"/> executions: the rate's share of them, and never below <see cref="Floor"/>.</summary>
+    public static int FloorFor(int total, double rate = FloorRate) => Math.Max(Floor, (int)Math.Ceiling(rate * total));
+
+    /// <summary>A count as a share of its executions, printed beside the count wherever a floor applies.</summary>
+    /// <remarks>In hundredths of a percent, rounded, in integers: the simulator's allowlist has no floating-point formatting.</remarks>
+    public static string Rate(int count, int total)
+    {
+        var bp = ((20_000L * count) + total) / (2L * total);
+        var whole = bp / 100;
+        var frac = bp % 100;
+        var digits = frac == 0 ? "" : frac % 10 == 0 ? "." + (frac / 10).ToString(CultureInfo.InvariantCulture) : "." + frac.ToString("00", CultureInfo.InvariantCulture);
+        return whole.ToString(CultureInfo.InvariantCulture) + digits + "%";
+    }
 
     /// <summary>At or above this share a dimension must be declared always-on with a reason: the generator can rarely produce the other case.</summary>
     public const double NearAlways = 0.95;
@@ -282,8 +306,8 @@ public static class Coverage
     }
 
     /// <summary>
-    /// The build rules. A dimension hit in fewer than <see cref="Floor"/> executions is effectively
-    /// untested and fails, unless declared rare with a reason. One hit in at least
+    /// The build rules. A dimension hit in fewer than <see cref="FloorFor"/> executions (1% of them,
+    /// at least 3) is effectively untested and fails, unless declared rare with a reason. One hit in at least
     /// <see cref="NearAlways"/> of them fails unless declared always-on with a reason: it usually
     /// means the generator cannot produce the other case, or the dimension counts something broader
     /// than its name. Two dimensions hit by exactly the same set of executions fail as one
@@ -303,16 +327,17 @@ public static class Coverage
         var notes = new List<string>();
         IReadOnlySet<int> Hit(string d) => hits.TryGetValue(d, out var h) ? h : new HashSet<int>();
         string N(int v) => v.ToString(CultureInfo.InvariantCulture);
+        var floor = FloorFor(total);
         foreach (var d in Dimensions)
         {
             var c = Hit(d).Count;
-            if (c < Floor && !rare.ContainsKey(d))
+            if (c < floor && !rare.ContainsKey(d))
             {
-                failures.Add(d + ": " + N(c) + " of " + N(total) + " — below the floor of " + N(Floor) + ", effectively untested");
+                failures.Add(d + ": " + N(c) + " of " + N(total) + " (" + Rate(c, total) + ") — below the floor of " + N(floor) + " (1% of the executions, at least " + N(Floor) + "), effectively untested");
             }
-            else if (c < Floor)
+            else if (c < floor)
             {
-                notes.Add(d + ": " + N(c) + " of " + N(total) + ", declared rare: " + rare[d]);
+                notes.Add(d + ": " + N(c) + " of " + N(total) + " (" + Rate(c, total) + "), declared rare: " + rare[d]);
             }
 
             if (c >= NearAlways * total)
