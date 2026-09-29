@@ -411,6 +411,13 @@ finding: what happened, why no existing check caught it, what now catches it.
     declared rare for the sample only, with that reason; the soak must still clear the floor.
 - **The coverage floor is absolute, and weak at soak scale.** P2-02's floor is 3 executions whether
   the run is 200, 300 or 10,000. At 10,000, writes completed out of order at a crash clear it with
-  8 (0.08%); a floor proportional to the count would have flagged them. Not changed: it is P2-02's
-  rule, and the report puts the choice (a proportional floor, or a separate soak floor set where a
-  targeted state-placed fault becomes worth writing) to the reviewer.
+  8 (0.08%); a floor proportional to the count would have flagged them. Decided at P3 acceptance
+  (P3-10): the floor is max(3, 1% of the executions), the soak holds the same rate with its own
+  floor, and the rate is printed beside the count wherever a floor applies. The count alone is what
+  let 0.08% through.
+- **A test that passes against a stub is a test whose subject is not in the code under test.** When
+  the election tests were re-run against an injected stub (`Handle` returning no effects), one
+  passed: `ACorruptTermVoteFileRefusesToStart`. Its subject, refusing a corrupt record, lives in the
+  constructor, which that stub kept. Against the first stub, whose constructor did nothing, it
+  failed. A tests-first run shows which tests go red; a green one there is a statement about where
+  its subject lives, and the stub has to remove that place too.

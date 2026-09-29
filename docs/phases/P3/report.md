@@ -1,10 +1,38 @@
 # Phase 3 — report
 
-**Status: awaiting review.** `docs/phases/status.md` says `P3: in progress`, and stays that way
-until you accept the phase.
+**Status: accepted by the reviewer** (`docs/phases/status.md`: `P3: complete`). Acceptance asked
+for four changes. The two-views result is stated as the phase's result (below), and the findings
+line on the test that passed against the stub is in this commit. The coverage floor that holds the
+rate (P3-10) and the soak required in its own right (P3-11) landed in the push before it, each
+predicted first (`feab31d`).
 
 This report certifies the commit that contains it. `gates reports` checks that commit's CI run on
 the next push. The run ids below are for earlier commits.
+
+## The result of the phase: the two-views check earned its cost
+
+Decision 4 observed leadership two ways and required them to agree: "elected", a quorum of granted
+votes, and "acting", sending heartbeats. It was designed against the CRDT project's §13.31 shape
+(two mechanisms, one observable, the weaker substituting silently) before any instance of it had
+been found here.
+
+**It fired twice at soak scale, and both times it exposed a checker defect, not a node bug.**
+
+- **The silent step-down.** A leader that sees a higher term in a response steps down without
+  sending anything. The checker never counted that as leaving office, so the node looked elected
+  and never acting.
+- **The in-flight grant.** A grant arrived while the candidate's next record was still being
+  written. The checker counted it for the old term, and "elected" a node that had already moved
+  on and never acted in that term.
+
+**Without the second view, both errors would have been green.** A checker using only "elected"
+agreed with itself and reported green both times, carrying a wrong count of elections. In the
+in-flight case it could also have produced a false second leader later, a red for the wrong reason.
+Only the disagreement between the two views showed that the checker's idea of "elected" was wrong.
+
+That is a finding applied before the fact and then earning its cost. It has not happened in either
+project until now. Every earlier instance of the shape was found after it had hidden something.
+It is also the one piece of evidence that the findings log does more than record history.
 
 ## Done criteria
 
@@ -29,11 +57,13 @@ the next push. The run ids below are for earlier commits.
 | P3-07 | `CrashAfterWrite`, a state-placed fault after a write completes; the positive control and its twin | S-pos-1..3 |
 | P3-08 | `SoakTests` (300 in the suite, 10,000 in `soak`), `scripts/ci-soak.sh`, the `soak` job required through `build`, spec §12 amended | S-soak-1, S-soak-2, S-cov-7 |
 | P3-09 | `ElectionInvariants.Signatures`, `SimRun run --raft`, `ShrinkTests` | S-shrink-5 |
+| P3-10 (acceptance) | `Coverage.FloorFor`: max(3, 1% of the executions), the soak's own floor rate held at the suite's, the rate beside every count; one declaration below the soak floor | S-cov-8, S-cov-9, S-soak-3 (S-cov-6 regenerated) |
+| P3-11 (acceptance) | `gates reports` requires a successful `soak` job for a phase-3-or-later report | S-run-4, S-run-5 |
 
-**Sabotage entries:** 151 in all. 146 are run by the harness in 6 shards, and 5
+**Sabotage entries:** 156 in all. 151 are run by the harness in 6 shards, and 5
 (`runner: host`) by `scripts/host-sabotages.sh`.
 
-**Test projects** (counts at the start of phase 3 in brackets, `46ac18d`): Architecture 40 (38), Checker 130 (130), Gates 98 (95), Simulation 105 (102), Core 58 (new).
+**Test projects** (counts at the start of phase 3 in brackets, `46ac18d`): Architecture 40 (38), Checker 130 (130), Gates 100 (95), Simulation 105 (102), Core 59 (new).
 
 ## CI
 
@@ -42,15 +72,17 @@ the next push. The run ids below are for earlier commits.
   - **Harness:** six head shards of 7.4–11.5 min each.
   - **Soak:** 4 min 16 s, run in parallel with the harness.
   - **Per-commit matrix:** `each-commit-list` named 7 non-head commits, and 39 (commit, shard) jobs ran them.
+- **P3-10 and P3-11: green.** Run [36640620697](https://github.com/nooree00/raft-sim/actions/runs/36640620697) at `ff27d8e`. Its `gates reports` step checked the P3 report's run with the soak required (P3-11's outcome), and the soak job took 5 min 27 s.
 - **Local, before each push:** everything CI runs except `gates reports`, which needs the GitHub API. That covers preflight, build, gates, tests, all six harness shards in turn, the soak at 10,000, host sabotages, secret scan, README walk, and every non-head commit's own checks.
+  - **For P3-10 and P3-11 the container restarted three times mid-run, and three more runs were stopped by the session's background time limit.** The local sequence was finished in stages on the same commit: preflight through harness shard 4, then shards 5 and 6, then the soak and host checks, then each (commit, shard) of the per-commit stage as its own resumable job. No result was carried across a change of commit. One resumed stage recorded failures while Docker was down after a restart. I discarded them as environment, not code, and reran those jobs with Docker up.
   - **It caught one mistake of mine before it reached GitHub:** the outcomes commit wrote `(evidence).` where `gates breakdown` requires `(evidence) —`, and it was fixed before the push.
 - **The shard count went from 5 to 6.** 146 harness entries ÷ 28 per shard, derived from the manifest, as P2-01 designed. No workflow edit was needed.
 
 ## Predictions
 
-Nine predictions, all evidence, none forcing:
+Eleven predictions, all evidence, none forcing:
 
-- **Evidence (9):** right 4 (P3-02, P3-03, P3-05, P3-09), partly 4 (P3-01, P3-04, P3-07, P3-08), wrong 1 (P3-06).
+- **Evidence (11):** right 6 (P3-02, P3-03, P3-05, P3-09, P3-10, P3-11), partly 4 (P3-01, P3-04, P3-07, P3-08), wrong 1 (P3-06). P3-10 and P3-11 came from acceptance, and P3-10's is weak evidence: its counts were known from P3-08.
 - **Forcing:** none.
 
 The instructive ones:
@@ -69,20 +101,6 @@ The instructive ones:
   - **Time-placed:** shrinks to 3 events, the extra being the timed restart, with 2 order-sensitive pairs.
   - **What it confirms:** P2-10's finding carries over to Raft: state placement removes enablers.
   - **What it does not show:** the generated noise was small (3 events in 3,000 ticks), so "strictly smaller than its input" is a weak demonstration of the shrinker's reach. P2-10 is where that reach was shown on a larger input.
-
-## Two views of leadership: §13.31 handled prospectively
-
-Decision 4 observes leadership two ways: "elected", a quorum of granted votes, and "acting", sending heartbeats. It checks that they agree.
-
-- **Where the shape comes from:** the CRDT project's §13.31: two mechanisms with one observable, the weaker substituting silently.
-- **What is new:** this is the first time, in either project, that the shape was designed against before it was found. Every earlier instance was discovered after it had already hidden something.
-- **Why it matters:** it is the one piece of evidence that the findings log does more than record history.
-- **Did it do anything?**
-  - **Two fires, both real disagreements:** the agreement check fired twice in the soak's first runs.
-    - **The silent step-down:** a leader seeing a higher term in a response steps down without sending anything.
-    - **The in-flight grant:** a grant arrived while the candidate's next record was still being written.
-  - **Both were checker defects, not node bugs.** The checker's idea of "elected" was wrong, and "elected, never acts" is how the error showed.
-  - **Without the second view:** in both cases a checker on "elected" alone would have been silently wrong. The in-flight grant could as well have been reported as two leaders in term 11.
 
 ## Your P3-01 questions
 
@@ -151,11 +169,21 @@ What the table says:
   - **Torn records:** 620 in 10,000.
   - **Isolation:** 958 in 10,000.
   - **Only the soak can meet each of these a few hundred times.** The torn-tail restart bug was found in this band (findings).
-- **The floor is absolute, and weak at this scale.**
-  - **The rule:** 3 hits, the same number for 300 executions and for 10,000.
-  - **Where it bites:** 8 of 10,000 clears it, but it is 0.08% of executions.
-  - **Why no change here:** a floor proportional to the execution count would have flagged it. I have not changed the rule, since that is a change to P2-02's rules and yours to decide.
-  - **The alternative:** a separate absolute floor for the soak, set high enough that an effect under it is worth a targeted state-placed fault.
+- **The floor was absolute; it now holds the rate (P3-10, your decision at acceptance).**
+  - **The problem:** a floor of 3 hits gave the same verdict for 3 in 300 and 3 in 10,000, which
+    are different facts about the generator. At 10,000 an effect at 0.08% cleared it, so the soak's
+    extra 9,700 executions bought coverage the gate could not tell from noise.
+  - **Now:** an effect fails below max(3, 1% of the executions). 1% is the suite's own rate, 3 in
+    300. The soak has its own floor rate, held at the suite's: 100 of 10,000. The absolute 3 stays,
+    so a tiny sample cannot clear the rate. Every coverage report and every floor failure prints
+    the rate beside the count.
+  - **What changed:** nothing in the suite, where the floor is still 3 at 200 and 300 executions.
+    At 10,000, exactly one effect fails: writes completed out of order at a crash, 8 (0.08%), as
+    predicted.
+  - **The one exception:** it is declared below the soak floor, never below 3, with its reason and
+    the tests that exercise it directly (`TermVoteLogTests.EveryCrashModeRecoversToTheLastRecordThatSurvived`,
+    `CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable`). It is a declaration you can
+    reject; the P4 breakdown predicts it goes once logs are persisted.
 - **K = 10 has more than fivefold margin.** The longest time to a leader after the stable suffix was 564 ticks, against a 3,000-tick window.
 - **Liveness is unchecked in 21% of soak executions**, which have no stable suffix: faults last until tick 12,000, and a restart or heal can come late. The test requires at least 75% checked; the soak has 79%.
 
@@ -173,7 +201,8 @@ What the table says:
   - **In-flight grant:** judged against the durable record while the next record was being written.
   - **Why they hid:** each is now a twin trace. The hand-built traces were the ones I thought of.
 - **The soak costs less than predicted, and its value came in its first minutes.**
-- **The coverage floor is absolute, and weak at soak scale** (above, in the distribution).
+- **The coverage floor was absolute, and weak at soak scale.** It now holds the rate (P3-10).
+- **A test that passes against a stub is a test whose subject is not in the code under test.** The one election test that passed against the injected stub, `ACorruptTermVoteFileRefusesToStart`, did so because its subject lives in the constructor, which that stub kept. The stub was the wrong stub for that test.
 
 ### The tests-first red runs (P3-05 and the torn-tail fix)
 
@@ -219,12 +248,10 @@ failed ...ATornTailIsCutFromTheFileBeforeTheNodeAppendsAfterIt
 
 - **Invariant 11's commit clause (phase 4).** It is the clause the disruption rule protects in practice.
 - **Message corruption on a real transport (P9, register):** 95% of single-bit flips decode to another valid message.
-- **Whether the soak's floor should scale with its execution count** (above). Yours to decide.
+- **Writes completed out of order at a crash, declared below the soak floor** (P3-10). It is expected to clear the floor once logs are persisted (the P4 breakdown, decision 7); if it does not, the choice returns to you.
 
 ## Open items for you
 
 1. **Your cold walk of the README (P0).**
 2. **Deleting `claude/blissful-goodall-358smj-sabotage`.**
-3. **Branch protection.** Required checks are unchanged in name: `build`, `each-commit`, `secrets`, `readme-walk`.
-   - **`build`** now also requires the `soak` job, so the soak is required without a new name.
-   - **Optional:** add `soak` itself, so a skipped soak shows in the UI.
+3. **Branch protection: add `soak` to the required checks** (your decision at acceptance), beside `build`, `each-commit`, `secrets` and `readme-walk`. On the repository side, `gates reports` now requires a successful `soak` job in the run certifying any report from phase 3 on (P3-11), so the requirement no longer lives only inside `build`.

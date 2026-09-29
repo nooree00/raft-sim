@@ -148,7 +148,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-cov-8, S-cov-9, S-soak-3
 - **Verifiable here:** yes — the rules and the soak floor are unit-tested; the soak itself runs locally
 - **Prediction:** No verdict changes in the suite: at 200 executions (coverage) and 300 (the soak sample) the floor is still 3. At 10,000 it is 100, and exactly one effect falls under it: writes completed out of order at a crash (8, 0.08%). The next lowest is at least 5%, so there is no borderline case. This is mostly known from P3-08's numbers, so if right it is weak evidence. **Observable:** the floor failures at each scale, before any declaration.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — No verdict changed in the suite: the floor is 3 at 200 executions (coverage) and at 300 (the soak sample), and both runs passed unchanged. At 10,000 the floor is 100, and with the declaration removed exactly one effect failed: `writes-completed-out-of-order-at-crash: 8 of 10000 (0.08%), below the floor of 100`. The next lowest was partial records left on disk at 620 (6.2%). Weak evidence, since the counts were known from P3-08; the part that could have been wrong was an echo-cluster dimension between 1% and 1.5% at 200, and there was none. The one effect is declared below the soak floor with its reason and the tests that exercise it directly.
 
 ### P3-11 — The soak required where a report is certified (at acceptance)
 
@@ -157,7 +157,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-run-4, S-run-5
 - **Verifiable here:** partial — the decision on recorded responses; the live check only in CI
 - **Prediction:** The next push's `gates reports` stays green. The P3 report's run (36540336816) has a successful `soak` job, and the P1 and P2 reports are checked against the four jobs as before. **Observable:** the build job's `gates reports` output.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — The next push's `gates reports` (run 36640620697, at `ff27d8e`) was green. The P3 report's run 36540336816 was checked against five jobs, `soak` included (299 s), and the P0, P1 and P2 reports against the four as before (P0 was not named in the prediction; it follows the same rule).
 
 ## Sabotage ids
 
