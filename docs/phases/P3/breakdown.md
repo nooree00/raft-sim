@@ -67,7 +67,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-audit-1, S-audit-2, S-audit-3
 - **Verifiable here:** yes — the harness runs controls locally like any entry.
 - **Prediction:** Of the 112 harness entries, at least 10 name a broad target. At least 3 of those have no existing narrower test that catches their mechanism, so the audit adds tests, not only retargets. At least one currently green entry's control turns its target red: an entry whose "caught" is incidental today, as S-rare-1's would have been if its target had gone red at all. **Observable:** the audit table's counts: broad targets, entries needing a new test, controls that go red on first run.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — **Broad targets:** 23 entries aim at broad targets, against a prediction of at least 10 ✓. **New tests:** 2, against a prediction of at least 3 ✗; the rest were retargets and reasons. **Incidental catch:** found, but not by the route predicted. S-cov-5 and S-cov-6 went red through a `KeyNotFoundException` before their assertions; the `reason:` check exposed them, not a control, and no control went red on its first run. Verdicts across 120: command 24, direct 64, harness control 5, reasoned 21, repaired 3, retargeted 3.
 
 ### P3-02 — The message codec, and its canonical form
 
@@ -76,7 +76,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-codec-1, S-codec-2, S-codec-3
 - **Verifiable here:** yes — the codec and its properties run in the local suite
 - **Prediction:** Canonical form does not make corruption visible, which is the risk the register row names. A corruption that yields a valid alternative encoding is still invisible, and with fixed-width integer fields most single-byte corruptions do exactly that. **Observable:** among single-byte flips of valid `RequestVote` encodings, at least 80% decode to a different valid message. If so, the report states that canonical form removes only the two-encodings ambiguity, and that detecting corruption would need a checksum. The simulator does not inject corruption (§7), so none is added in this phase.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — 95% of single-bit flips of valid `RequestVote` encodings decode to another valid message, against a prediction of at least 80%. Canonical form removes only the two-encodings ambiguity; a checksum is phase 9's decision (register row).
 
 ### P3-03 — The term-and-vote record: durable, checksummed, recoverable
 
@@ -85,7 +85,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-pstate-1, S-pstate-2, S-pstate-3
 - **Verifiable here:** yes — hand-built files and SimDisk crash modes run locally
 - **Prediction:** Under the simulator's crash modes, only torn loss ever exercises the truncation path. A reordered loss that keeps a later append and drops an earlier one leaves a file of whole records, because `SimDisk` applies survivors in issue order at the file's end. So reordering never produces a checksum failure, and the refuse path is reached only by the hand-built corruption test. **Observable:** over the crash-mode test runs, the recovery-path counts: truncated only under torn, refused zero times outside the hand-built test.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — The truncation path ran only under torn loss. The refuse path was reached 0 times outside the hand-built corruption test.
 
 ### P3-04 — Invariants 1, 8, 9 and 11 as checkers, proven against hand-built traces
 
@@ -94,7 +94,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-inv-1, S-inv-2, S-inv-3, S-inv-4, S-inv-5, S-inv-6, S-inv-7, S-inv-8, S-inv-9, S-obs-1
 - **Verifiable here:** yes — hand-built traces run locally
 - **Prediction:** The obvious observation is wrong for at least one of the four. The wire alone gives a false negative for Vote Uniqueness: a granted vote whose response is dropped never appears on the wire, so a node that grants A (response dropped) and then B shows one grant. Only its durable vote records show two. **Observable:** among the hand-built traces, at least one rejecting trace that a wire-only version of a checker accepts. The count is reported per checker.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — A rejecting trace that a wire-only checker accepts exists, but it is not the one predicted. **Wire-only miss:** Vote Uniqueness misses the candidate's vote for itself, which is persisted but never sent. **Delivered-only miss:** the predicted dropped-grant trace is missed only by a checker restricted to delivered messages, because a grant is on the wire when sent, dropped or not. Per checker: Vote Uniqueness has 1 rejecting trace that each restricted variant accepts (wire-only: the lost self-vote; delivered-only: the dropped grant). The other three checkers were not built with restricted variants, so no count exists for them.
 
 ### P3-05 — Leader election in Core, tests first
 
@@ -103,7 +103,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-elect-1, S-elect-2, S-elect-3, S-elect-4, S-elect-5, S-elect-6
 - **Verifiable here:** yes — unit tests and simulated runs run locally
 - **Prediction:** In fault-free runs of three nodes, split votes are rare. A term with a candidate and no winner happens in fewer than 5% of elections, because the timeout spread (150 ticks) is fifteen times the largest network delay. **Observable:** over 200 fault-free executions, the checkers' election counts: terms with candidates, terms with a winner, and the ratio.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — Over 200 fault-free runs, 203 terms had a candidate and 200 had a winner: 3 without a winner (1.5%), against a prediction under 5%.
 
 ### P3-06 — The §6 disruption rule, and liveness under asymmetric partitions
 
@@ -112,7 +112,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-disrupt-1, S-disrupt-2
 - **Verifiable here:** yes — constructed and generated partitions run locally
 - **Prediction:** Without the rule, the constructed one-way partition fails invariant 11 in at least half of 200 executions: the node that hears nothing times out, raises its term, and its `RequestVote`s depose each new leader. With the rule, in none. **Observable:** the invariant-11 failure count with the rule on and with it removed, over the same 200 seeds.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — With the rule off, invariant 11 (continuity) failed 0 times of 200, not at least half. The partitioned node does depose leaders: 3995 leaders were elected after the first window with the rule off, 0 with it on, about 20 per run against 0. But every deposed leader is replaced within the window, so continuity holds. The rule's effect is churn, not loss of liveness, at this cluster size and delay.
 
 ### P3-07 — The fsynced-then-lost positive control goes red
 
@@ -121,7 +121,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-pos-1, S-pos-2, S-pos-3
 - **Verifiable here:** yes — the expected-failure runs are local
 - **Prediction:** Time-placed `LoseSynced` at the default crash rate turns an invariant red in fewer than 5% of executions: the loss has to land between a granted vote and the end of that term's election. The state-placed version does it in more than half. **Observable:** red counts over 200 executions for each placement.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — **Time-placed:** election safety or vote uniqueness went red in 9 of 200 (4.5%), against a prediction under 5% ✓. **State-placed:** red in 39 of 200 (safety 38), against a predicted majority ✗: the loss makes a second leader possible only when a second candidate reaches n2 in the same term. Term monotonicity names n2 in 200 of 200; that count is not used here, because it counts the lost term itself. And with the synced loss removed, the same seeds are green in every run.
 
 ### P3-08 — 10,000 seeded executions, and the election distribution
 
@@ -130,7 +130,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-soak-1, S-soak-2, S-cov-7
 - **Verifiable here:** partial — the sample and a local soak run; the sharded CI job only in CI.
 - **Prediction:** One runner cannot do 10,000 executions of 20,000 ticks inside 15 minutes, because a Raft node's step is heavier than the echo node's: the P1 echo cluster ran at about one step per tick per node. I expect at least two `soak` shards. The time to a leader after the stable suffix stays under 3 election timeouts in every execution, so K = 10 has more than threefold margin. **Observable:** the soak job's per-execution cost and shard count, and the maximum time-to-leader over the 10,000.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — **Shards ✗:** one runner does 10,000 executions in about 4 minutes locally, so the soak is one job, not at least two. **Time to leader ✓:** the maximum after the stable suffix over the 10,000 is 564 ticks, under 3 election timeouts (900), with a mean of 36. The soak found a real bug on its first run (a torn tail never truncated) and four checker false positives (findings log).
 
 ### P3-09 — Shrinking an election-safety failure end to end
 
@@ -139,7 +139,7 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Sabotage:** S-shrink-5
 - **Verifiable here:** yes — the shrinker runs locally
 - **Prediction:** With a state-placed loss, the shrunk schedule is at most 2 events, the state-placed crash and nothing whose role is timing (P2's finding: state placement removes enablers). A time-placed loss keeps at least one extra event whose only role is timing. **Observable:** the shrunk sizes for both placements.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — **State-placed:** 6 events shrank to 2 in 20 runs: the state-placed crash, plus one direction of the partition (`election-safety@1`). **Time-placed:** 5 events shrank to 3 in 38 runs: the crash, its restart and the partition. The extra event is the timed restart, and 2 adjacent pairs are order-sensitive; state-placed has none. Both results are 1-minimal, and the state-placed text reproduces the identical trace under `SimRun --raft`.
 
 ## Sabotage ids
 
