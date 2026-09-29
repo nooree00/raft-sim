@@ -141,8 +141,26 @@ phase-3 criterion unmet, and I do not propose it slips.
 - **Prediction:** With a state-placed loss, the shrunk schedule is at most 2 events, the state-placed crash and nothing whose role is timing (P2's finding: state placement removes enablers). A time-placed loss keeps at least one extra event whose only role is timing. **Observable:** the shrunk sizes for both placements.
 - **Outcome:** right (evidence) — **State-placed:** 6 events shrank to 2 in 20 runs: the state-placed crash, plus one direction of the partition (`election-safety@1`). **Time-placed:** 5 events shrank to 3 in 38 runs: the crash, its restart and the partition. The extra event is the timed restart, and 2 adjacent pairs are order-sensitive; state-placed has none. Both results are 1-minimal, and the state-placed text reproduces the identical trace under `SimRun --raft`.
 
+### P3-10 — A coverage floor that holds the rate, not the count (at acceptance)
+
+- **Task:** Reviewer's decision at P3 acceptance. The floor becomes proportional, with the absolute 3 kept as a minimum alongside it: a dimension or effect fails below max(3, ⌈1% of the executions⌉). 1% is the suite's own rate, 3 in 300. The soak applies its own floor rate, held at the suite's so that it keeps the rate, not the count. Every coverage report and every floor failure prints the rate beside the count. An effect the soak cannot hold at the rate either fails or is declared with a reason naming the test that exercises it directly; the declaration is put to the reviewer.
+- **Vacuity:** A rate floor that only ever computes to 3 changes nothing and looks like a fix. Guarded: the rules test gives a dimension 50 hits in 10,000, above 3 and below 1%, and requires it to fail; a dimension with 2 hits in 100 must still fail on the absolute minimum; the soak's floor is tested at 10,000 directly, because the harness only ever sees the 300-execution sample.
+- **Sabotage:** S-cov-8, S-cov-9, S-soak-3
+- **Verifiable here:** yes — the rules and the soak floor are unit-tested; the soak itself runs locally
+- **Prediction:** No verdict changes in the suite: at 200 executions (coverage) and 300 (the soak sample) the floor is still 3. At 10,000 it is 100, and exactly one effect falls under it: writes completed out of order at a crash (8, 0.08%). The next lowest is at least 5%, so there is no borderline case. This is mostly known from P3-08's numbers, so if right it is weak evidence. **Observable:** the floor failures at each scale, before any declaration.
+- **Outcome:** pending
+
+### P3-11 — The soak required where a report is certified (at acceptance)
+
+- **Task:** Reviewer's decision at P3 acceptance: the soak is a required check in its own right, not only through `build` (if the soak ever moved out of `build`, the requirement would vanish silently). In the repository: `gates reports` requires a successful `soak` job in the run that certifies a phase-3-or-later report. The P1 and P2 reports certify runs from before the job existed, so they keep the four jobs; requiring the soak for every report would turn every later run red. Branch protection itself is the person's to change.
+- **Vacuity:** A requirement tested only on a run that has a soak job passes whether or not the soak is required. Guarded: a phase-3 run with no `soak` job must fail and a phase-2 run without one must pass, both on recorded responses.
+- **Sabotage:** S-run-4, S-run-5
+- **Verifiable here:** partial — the decision on recorded responses; the live check only in CI
+- **Prediction:** The next push's `gates reports` stays green. The P3 report's run (36540336816) has a successful `soak` job, and the P1 and P2 reports are checked against the four jobs as before. **Observable:** the build job's `gates reports` output.
+- **Outcome:** pending
+
 ## Sabotage ids
 
-New series: S-audit, S-codec, S-pstate, S-inv, S-elect, S-disrupt, S-pos, S-soak. S-cov-7 follows
+New series: S-audit, S-codec, S-pstate, S-inv, S-elect, S-disrupt, S-pos, S-soak. S-cov-7..9 follow
 S-cov-1..6 and S-shrink-5 follows S-shrink-1..4. Each id's `sabotage/<id>/` entry lands in the
 same commit as the check it proves, and is run on that commit before it is pushed.
