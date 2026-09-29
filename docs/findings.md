@@ -409,3 +409,8 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *In the sample:* one effect, writes completed out of order at a crash, is 0 of 300 with Raft
     nodes (8 of 10,000 in the soak): a node writes only when its term or vote changes. It is
     declared rare for the sample only, with that reason; the soak must still clear the floor.
+- **The coverage floor is absolute, and weak at soak scale.** P2-02's floor is 3 executions whether
+  the run is 200, 300 or 10,000. At 10,000, writes completed out of order at a crash clear it with
+  8 (0.08%); a floor proportional to the count would have flagged them. Not changed: it is P2-02's
+  rule, and the report puts the choice (a proportional floor, or a separate soak floor set where a
+  targeted state-placed fault becomes worth writing) to the reviewer.
