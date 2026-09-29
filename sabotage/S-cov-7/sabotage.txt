@@ -1,0 +1,7 @@
+description: The soak never records an election during a one-way partition: the distribution loses an effect, and the floor must name it
+mechanism: an election effect is never recorded
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+reason: elected-during-one-way-partition: 0 of 300
+expect: caught

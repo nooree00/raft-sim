@@ -402,3 +402,10 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Consequence:* the durable view lags the node by one disk latency, and a checker that reads only
     it will misjudge anything that happens inside that lag. The P3-04 prediction was about the wire
     missing durable votes; the soak found the reverse, the disk missing decisions in flight.
+- **The soak costs less than predicted, and its value was in the first minutes.** 10,000
+  generated executions of 20,000 ticks take about 4 minutes locally (4 min 17 s in the SDK
+  container); P3-08 predicted at least two shards on GitHub. Before the soak existed as a job, its first runs found the torn-tail restart bug and four
+  checker false positives, none of which 300 executions or the hand-built traces had shown.
+  - *In the sample:* one effect, writes completed out of order at a crash, is 0 of 300 with Raft
+    nodes (8 of 10,000 in the soak): a node writes only when its term or vote changes. It is
+    declared rare for the sample only, with that reason; the soak must still clear the floor.

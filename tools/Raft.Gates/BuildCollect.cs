@@ -8,7 +8,8 @@ namespace Raft.Gates;
 /// <summary>
 /// The required `build` check since P2-01: the build job's work is split into `build-core`
 /// (preflight, build, gates, reports, tests) and one `sabotage i/n` job per harness shard; this
-/// collect job requires all of them. It keeps the required-check name unchanged.
+/// collect job requires all of them, and since P3-08 the `soak` job too. It keeps the required-check
+/// name unchanged.
 /// Vacuity risk: a shard job that never ran (a plan with fewer shards than the manifest needs, a
 /// matrix that expanded to nothing) passes if only the jobs present are checked. Guarded: the
 /// shard list is recomputed here from the committed manifest, and each expected shard needs
@@ -66,6 +67,22 @@ internal static class BuildCollect
         }
 
         f.Note($"{shards.Count} harness shard(s) required");
+
+        // The soak (P3-08): 10,000 executions, the only place the invariants run at scale. Required,
+        // never waived (spec §12): skipping it is a change to this gate, argued first.
+        var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == "soak").ToList();
+        if (soak.Count != 1)
+        {
+            f.Fail($"soak: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
+        }
+        else if (EachCommitMatrix.Conclusion(soak[0]) is var c && c != "success")
+        {
+            f.Fail($"soak: concluded {c ?? "none"}");
+        }
+        else
+        {
+            f.Note("soak: passed");
+        }
     }
 }
 

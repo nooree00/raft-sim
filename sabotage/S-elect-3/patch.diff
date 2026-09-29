@@ -1,10 +1,10 @@
 diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
-index 9237dea..b0ab8f8 100644
+index a6547fd..a978bf3 100644
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -130,8 +130,6 @@ public sealed class RaftNode : INode
+@@ -160,8 +160,6 @@ public sealed class RaftNode : INode
              {
-                 effects.Add(Event("step-down", new Field("term", N(_term.Value))));
+                 effects.Add(Event(Role == Role.Leader ? "leader-steps-down" : "candidate-steps-down", new Field("term", N(_term.Value))));
              }
 -
 -            Role = Role.Follower;

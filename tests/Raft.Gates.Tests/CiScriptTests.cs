@@ -31,4 +31,19 @@ public sealed class CiScriptTests
 
         Assert.True(missing.Count == 0, "CI scripts that run git without marking the checkout safe: " + string.Join(", ", missing));
     }
+
+    /// <summary>
+    /// P3-08: the soak runs 10,000 executions and refuses a report that covers fewer. Spec §12: it is
+    /// never shrunk for time; changing the number is a change to this test and to the spec. Sabotage
+    /// S-soak-2.
+    /// </summary>
+    [Fact]
+    public void TheSoakRunsTenThousandExecutionsAndChecksItsReportCoversThem()
+    {
+        var text = File.ReadAllText(Repo.Locate(null).PathOf("scripts/ci-soak.sh"));
+
+        Assert.True(text.Contains("executions=10000", StringComparison.Ordinal), "scripts/ci-soak.sh no longer runs 10,000 executions");
+        Assert.True(text.Contains("RAFT_SOAK_COUNT=$executions", StringComparison.Ordinal) && text.Contains("^$executions executions ", StringComparison.Ordinal),
+            "scripts/ci-soak.sh no longer passes the count to the test or checks that its report covers it");
+    }
 }

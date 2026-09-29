@@ -1,0 +1,7 @@
+description: The build collect accepts a run with no soak job: the only place the invariants run at scale can be skipped and the required check stays green
+mechanism: the build collect stops requiring the soak
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.ASoakThatDidNotRunFailsTheBuild
+reason: Filter not matched in collection
+expect: caught

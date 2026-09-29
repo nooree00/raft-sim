@@ -158,7 +158,7 @@ public sealed class RaftNode : INode
             _dirty = true;
             if (Role != Role.Follower)
             {
-                effects.Add(Event("step-down", new Field("term", N(_term.Value))));
+                effects.Add(Event(Role == Role.Leader ? "leader-steps-down" : "candidate-steps-down", new Field("term", N(_term.Value))));
             }
 
             Role = Role.Follower;
@@ -201,7 +201,7 @@ public sealed class RaftNode : INode
 
                 if (Role == Role.Candidate)
                 {
-                    effects.Add(Event("step-down", new Field("term", N(_term.Value))));
+                    effects.Add(Event("candidate-steps-down", new Field("term", N(_term.Value))));
                     Role = Role.Follower;
                 }
 
