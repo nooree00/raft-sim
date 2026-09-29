@@ -1,0 +1,176 @@
+# Phase 4 — task breakdown
+
+Log replication and log persistence (spec §11 phase 4). Format as in
+`docs/phases/P3/breakdown.md`, parsed by `gates breakdown`; outcomes will say `(evidence)` or
+`(forcing)`.
+
+**Done when** (spec §11): invariants 2 (Leader Append-Only), 3 (Log Matching), 4 (Leader
+Completeness), 5 (State Machine Safety), 6 (committed entries are durable), 7 (no spurious commit)
+and 10 (entry uniqueness) hold; the election restriction (§5.4.1) is re-tested now that logs are
+non-empty; a crash-during-write test passes; committed entries survive any crash schedule,
+including all nodes crashing at once. In addition, carried from phase 3:
+
+- invariant 11 gains its second clause, "a submitted command commits" (P3 decision 3), and with it
+  the disruption churn P3-06 measured becomes visible to the invariant itself;
+- invariants 1, 8, 9 and 11 keep holding over the 10,000-execution soak, now with logs, and the
+  soak reports the new distribution as effects under the rate floor (P3-10);
+- the positive control reaches the third invariant spec §5 names, Leader Completeness.
+
+## Ordering
+
+P4-01 first, before any log exists in Core (spec §12, tests first): the instruments spec §5 names,
+ghost entry ids and commitment in fact, and the checkers for 2–7 and 10, proven against hand-built
+traces. Then the pieces replication needs underneath it: P4-02 (the log file, with
+crash-during-write at every offset). Then P4-03 (replication in Core, tests first), P4-04 (the
+election restriction and Figure 8, the rule a log makes testable), P4-05 (durability under every
+crash schedule), P4-06 (invariant 11's commit clause, with clients), P4-07 (the soak and its
+distribution), P4-08 (the positive controls), P4-09 (every configured limit exercised at its
+largest legitimate value, spec §10).
+
+**Blocking set:** all nine. P4-09 is the only one that could slip without leaving a phase-4
+criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
+
+## Decisions for review
+
+1. **Ghost entry ids are assigned by the checker from observations, not carried in the bytes.**
+   Spec §5: "when a leader creates an entry, the simulator records a unique id for it". Carrying an
+   id inside the entry would make it the node's report about itself, and two distinct `Put x 1`
+   entries must still differ. So each persist the simulator observes records the step that issued
+   it: the input being handled, and its position among that step's effects. The simulator still
+   does not learn Raft (P3 decision 1).
+   - **Creation:** in `Raft.Core.Tests`, an entry a node appends while it is the leader of that
+     entry's term, at an index it did not hold, is a creation, and gets a fresh id keyed by (node,
+     step, position).
+   - **Provenance:** a follower's entry takes the id of the leader's entry it came from, traced
+     through the `AppendEntries` delivery that carried it (message ids are observed) and the
+     leader's log at the time it sent.
+   - **Why this shape:** entry uniqueness (10) is then a property of creations, and Log Matching (3)
+     compares ids, never bytes.
+2. **Commitment in fact is computed from `Durable` observations only** (spec §5: "stored durably
+   (fsynced) on a quorum"). The checker never takes commitment from `Issued` writes or from a
+   node's `commitIndex`; claimed commitment comes from the node's `LeaderCommit` on the wire and
+   from what it applies. P3-08 showed the durable view lags the node by one disk latency. Here that
+   lag is the point: an entry is committed in fact only once it is durable.
+3. **"Applied" is the one observation with no state to derive it from in phase 4, and is declared
+   so** (spec §9).
+   - **The problem:** a node applies committed entries to the key-value state machine (spec §6's
+     five operations, in Core) and emits `apply index=i`. That event is a self-report. In phase 4
+     no state machine output is persisted, so nothing independent can confirm it.
+   - **The mitigations:** the checker cross-checks each `ClientResponse` against the entry the
+     response's request created. State Machine Safety (5) is stated over applies, as the spec
+     requires.
+   - **What waits:** the history those responses form is recorded now and judged for
+     linearizability in phase 5.
+4. **The log gets its own file, separate from the term-and-vote record.**
+   - **Records:** the framing already proven in P3-03 (length, payload, checksum). Each record
+     carries (index, term, command).
+   - **Conflict resolution:** truncate to a record boundary, then append.
+   - **Recovery:** rebuilds the log from the records in order, and a record for index *i*
+     discards everything at *i* or above. A reordered loss of a truncate and a later append
+     therefore cannot resurrect a stale suffix (P4-02's prediction).
+   - **Torn and corrupt records:** recovery rules unchanged (spec §8).
+5. **Clients talk to any node; a non-leader refuses with the leader it last heard from.** There is
+   no forwarding, and no sessions until phase 8.
+   - **Duplicates are expected:** a timed-out client retries, so a duplicated `Append` is expected
+     in phase 4 and is not a phase-4 failure (phase 8's criterion is the one that forbids it).
+   - **What the commit clause counts:** invariant 11's commit clause counts a command committed by
+     its ghost id, not by its bytes.
+6. **A leader appends a no-op entry at the start of its term** (paper §8). Without it, entries from
+   earlier terms commit only when a client command arrives, and the commit clause of invariant 11
+   would depend on client timing. The no-op is an entry like any other: it gets a ghost id and it
+   counts for every invariant.
+7. **The P3-10 declaration is expected to go.** Writes completed out of order at a crash sits below
+   the soak's rate floor (8 of 10,000), declared, because a node with no log writes only on term
+   and vote changes. With log appends, two writes in flight at a crash should be common. P4-07
+   predicts it clears 1% and removes the declaration. If it does not, the choice returns to you.
+8. **No new dependencies.**
+
+## Tasks
+
+### P4-01 — Ghost entry ids, commitment in fact, and the log invariants as checkers
+
+- **Task:** Before any log exists in Core, build the instruments and checkers. **Observation:** the simulator's `Issued` observation gains the issuing step (input and effect position). **Instruments** in `Raft.Core.Tests`: ghost ids by creation and provenance (decision 1), each node's durable logical log decoded from `Durable` observations, and commitment in fact (decision 2). **Checkers:** invariants 2 (over the logical log), 3 (the (term, index) → ghost id map), 4 (committed in fact ⇒ in every later leader's log), 5 (by ghost id, globally across restarts), 6 (every committed-in-fact entry survives in the durable logs of a quorum after every crash), 7 (claimed ⊆ in fact) and 10. **Proof on hand-built traces:** each checker rejects a violating trace and accepts a twin one step away, and each asserts its mechanism with a count (entries committed, leaders with non-empty logs, terms with a commit).
+- **Vacuity:** Every one of these checkers is satisfied by empty logs, one term, or no commits (spec §5). Guarded: each checker reports its mechanism counts and each hand-built accepting trace must have commits across at least two terms; a checker that sees no entries reports it, and the simulated tests of P4-03 on assert the counts.
+- **Sabotage:** S-loginv-1, S-loginv-2, S-loginv-3, S-loginv-4, S-loginv-5, S-loginv-6, S-loginv-7, S-ghost-1
+- **Verifiable here:** yes — hand-built traces need no Raft log
+- **Prediction:** Assigning ghost ids by bytes instead of provenance misses a real violation. Two leaders of different terms each create `Put x 1` at the same index; one overwrites the other on a follower, and by bytes it is the same entry. A bytes-based State Machine Safety accepts that trace. Provenance rejects it. **Observable:** the hand-built trace with two byte-equal creations is accepted by a bytes-keyed variant of invariant 5 and rejected by the ghost-id version; the count per checker of traces a bytes-keyed variant misses.
+- **Outcome:** pending
+
+### P4-02 — The log file: append, truncate a conflicting suffix, recover from any crash
+
+- **Task:** A generalised record file with the P3-03 framing, plus the log's own format (decision 4). **Operations:** append a batch of entries; truncate the log to an index (a record boundary) before appending after a conflict. **Recovery:** truncates a torn final record, refuses any earlier checksum or length failure, and applies later-index-wins. **The crash-during-write test (spec §11):** a log is written through `SimDisk` and crashed after each write in turn, in every loss mode (pending, torn at every byte offset, reordered). Each crash must recover to a prefix of what was written, never refuse, and never contain an entry that was not written at that index.
+- **Vacuity:** A crash test that only crashes between whole records never exercises the torn path, and one that never truncates never exercises a stale suffix. Guarded: the test counts recoveries per path (truncated torn tail, whole-record prefix) and per operation that was in flight (append, truncate), and each count must be non-zero.
+- **Sabotage:** S-logfile-1, S-logfile-2, S-logfile-3
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** Without an index in each record, a reordered loss that drops a truncate and keeps the append after it recovers the new entry at the wrong index, after the stale suffix it was meant to replace. I expect the crash-mode test to find this on its first run against an index-free format; with indices and later-index-wins it cannot. **Observable:** the crash-mode test's failures against an index-free record format, run once and recorded, then zero with decision 4's format.
+- **Outcome:** pending
+
+### P4-03 — Log replication in Core, tests first
+
+- **Task:** Replication and commitment in `RaftNode`, with every behaviour written first as a unit test over hand-built inputs and expected effects, and run against a stub. **Replication:** `AppendEntries` with the consistency check on (prevLogIndex, prevLogTerm); conflict resolution by truncating the follower's suffix; `nextIndex` backtracking on rejection; `matchIndex` from successful responses. **Commitment:** commit by majority with Figure 2's rule `log[N].term == currentTerm`. **Persistence ordering:** a follower's entries are durable before it replies success, and a leader counts its own entry only once it is durable (spec §8). **Leadership:** the no-op at the start of each term (decision 6). **Apply and clients:** committed entries are applied in order to the key-value state machine; client requests are handled per decision 5. **In the simulator:** fault-free three-node runs, where every invariant from 1 to 10 holds and each run commits entries in more than one term.
+- **Vacuity:** Fault-free runs where one leader holds office for the whole run satisfy every log invariant trivially (one term, no conflicts). Guarded: the simulated test asserts commits in at least two terms per run, and at least one conflicting suffix truncated in some run of the sample; the unit tests assert the effect order (persist before send) for every reply.
+- **Sabotage:** S-repl-1, S-repl-2, S-repl-3, S-repl-4, S-repl-5, S-repl-6
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** Backtracking `nextIndex` one entry per rejection is fast enough here. The leader retries on each rejection, not on the next heartbeat. So a follower 1,000 entries behind catches up within one election timeout (150 ticks) of rejoining, and the optimisation the paper mentions (the follower returning its conflict term) is not needed. **Observable:** catch-up time in ticks for a follower isolated while the leader commits 1,000 entries, measured once in a constructed run and written beside the assembly.
+- **Outcome:** pending
+
+### P4-04 — The election restriction and Figure 8, now that logs are non-empty
+
+- **Task:** Re-test the election restriction and the current-term commit rule with real logs. **Unit tests for §5.4.1:** a voter denies a candidate whose log is less up to date, by last term and then by length, and grants one whose log is at least as up to date. **Simulated:** a node with a stale log times out first, and must not win. **Figure 8, state-placed on three nodes:** The leader of term 2 writes an entry that reaches one follower. It crashes, and a leader of term 3 writes a different entry at that index on itself only. The term-2 leader returns in term 4 and replicates its term-2 entry to a majority. The term-3 node wins again. **What must hold:** the term-2 entry must not be claimed committed in step 3. Invariants 4, 5 and 7 must hold. **The sabotages the construction exists for:** committing by counting copies, and dropping the up-to-date check.
+- **Vacuity:** A Figure 8 construction whose steps do not happen in the intended order (the returning leader never replicates the old entry, or the term-3 node never wins again) passes without testing the rule. Guarded: the test asserts each step by observation (the term-2 entry durable on a majority in term 4; a later leader of term 5 or above whose log lacks it) and counts the runs where the full shape occurred, which must clear the floor.
+- **Sabotage:** S-commit-1, S-commit-2, S-restrict-1
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** With the commit-by-counting sabotage, the construction turns invariant 7 (no spurious commit) red in every run where step 3 happens: the claim is made the moment the old entry reaches a majority. Invariants 4 and 5 go red in fewer than half of those runs, because they need step 4 as well, and step 4 needs another election the term-3 node must win. So invariant 7 is the one that catches the bug at its first step, as spec §5 says. **Observable:** per invariant, the red count under the sabotage over 200 runs of the construction, and the count of runs where each step happened.
+- **Outcome:** pending
+
+### P4-05 — Committed entries survive every crash schedule, including all nodes at once
+
+- **Task:** Invariant 6 under crashes. **Generated schedules:** the soak's generator with `CrashAll` and `CrashMajority` included (P2-02's state-placed faults). **The constructed case:** entries are claimed committed; every node then crashes at once, with unsynced writes lost; all restart; every entry committed in fact must be in the recovered logs of a quorum and in every later leader's log. **Recovery:** also runs recovery on every crash of a node whose log write was in flight, the P4-02 paths in a live cluster.
+- **Vacuity:** A crash-all test where nothing had been committed, or where no write was in flight at the crash, proves nothing about durability. Guarded: the test requires committed-in-fact entries at the moment of the crash, and counts the crashes that caught a log write in flight, which must clear the floor.
+- **Sabotage:** S-dur-1, S-dur-2
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** Acknowledging `AppendEntries` before the entries are durable does not violate invariant 6 in generated runs at the default crash rate. The window is one disk latency, and a majority must crash inside it. It does in more than half of the constructed crash-all runs, where every node crashes right after acknowledging. **Observable:** red counts, generated against constructed, with the ack-before-durable sabotage.
+- **Outcome:** pending
+
+### P4-06 — Invariant 11's commit clause, with clients
+
+- **Task:** Invariant 11 in full: after the last fault heals, with a majority up, a leader exists within K election timeouts *and a submitted command commits* (by ghost id, decision 5). **Clients:** P2-08's simulated clients submit commands to the Raft cluster, through the same network path as nodes. **The rule re-measured:** P3-06's one-way partition construction, with and without the §6 rule, now under the full clause.
+- **Vacuity:** A clause checked only in runs where clients happen to submit during the stable suffix, or that counts a command committed because its bytes appear, can pass vacuously. Guarded: clients submit throughout the run, the clause is checked in most runs (asserted, as in P3-08) and matched by ghost id, and each run reports submitted and committed counts.
+- **Sabotage:** S-live-1, S-live-2, S-disrupt-3
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** Invariant 11's commit clause makes the disruption visible that its leader clause could not (P3-06). With the §6 rule removed, the one-way partition construction fails the commit clause in at least half of 200 runs: each deposition interrupts the in-flight command, and a leader that lasts about 900 ticks at a time loses commands to client timeouts. With the rule, in none. P3-06 predicted this for the leader clause and was wrong; this is the same prediction for the clause the churn actually breaks. **Observable:** commit-clause failures, rule on and off, over the same 200 seeds.
+- **Outcome:** pending
+
+### P4-07 — The soak with logs, and the replication distribution
+
+- **Task:** The 10,000-execution soak runs invariants 1–11 (membership aside), with clients. **The new distribution, as effects:** entries committed per run; a follower caught up by backtracking; a conflicting suffix truncated; a leader crashed with uncommitted entries; an entry committed in a later term than it was created; a command retried and duplicated; a crash with a log write in flight. **Rules:** P3-10's (rate floor, 95% declaration, identical sets), with the rate beside every count. **The sample:** the 300-execution sample in the suite asserts the mechanism counts.
+- **Vacuity:** Executions in which nothing is replicated under faults (clients idle, or a single term) pass every log invariant. Guarded: every effect above must clear the soak's rate floor, and each run must commit entries.
+- **Sabotage:** S-soak-4, S-soak-5, S-cov-10
+- **Verifiable here:** partial — the sample and a local soak run; the CI job only in CI
+- **Prediction:** Two outcomes, one about the distribution and one about cost. **Distribution:** writes completed out of order at a crash rises above the soak's rate floor (1%) once logs are persisted, so decision 7's declaration can be removed. A node now writes on every replicated batch, not only on term changes. **Cost:** the soak still fits one job under 15 minutes, although the per-execution cost roughly triples with logs and clients (P3's soak took 4 min 16 s on GitHub). **Observable:** that effect's rate in the soak, and the soak job's duration.
+- **Outcome:** pending
+
+### P4-08 — The positive controls reach Leader Completeness and durability
+
+- **Task:** Extend the fsynced-then-lost control (spec §5 names Election Safety, Vote Uniqueness *or* Leader Completeness). **The existing lost vote, state-placed:** now in runs with logs. **A lost log record:** a node loses its fsynced record of a committed entry at a crash right after acknowledging it, with the other follower unable to reach the leader, so that node was part of the committing quorum. **What must go red:** invariant 6 (committed entries durable) and, once a later leader lacks the entry, invariant 4. **The twin:** the same crash losing only unsynced writes is green in every run.
+- **Vacuity:** A control that is red for a reason other than the lost fsync proves nothing about the checkers (P3-07's guard). Guarded: the twin runs, and each red must name the node and index that lost the record.
+- **Sabotage:** S-pos-4, S-pos-5
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** Losing the fsynced log record turns invariant 6 red in every run where the node was needed for the quorum, since the committed entry is then on a minority. It turns Leader Completeness red in fewer runs. A later leader must be elected without the entry, which needs the lying node's vote and not the leader's, so this is the same second-election dependence as P3-07 and P4-04. **Observable:** red counts per invariant over 200 runs, and the twin green in all 200.
+- **Outcome:** pending
+
+### P4-09 — Every configured limit, exercised at its largest legitimate value
+
+- **Task:** Spec §10: for every configured value, one test that performs the largest legitimate thing and asserts it succeeds. **Configured values:** the largest batch of entries per `AppendEntries`, the largest command, the codec's length fields for both, the log record's length field, the election timeout and heartbeat interval at their extremes, and K. **What each test does:** it uses the value at the limit, and the value one past it is refused where a refusal is the design.
+- **Vacuity:** A limit test that passes a value well inside the limit does not notice the limit is in the wrong place. Guarded: each test names the constant it exercises and uses exactly that value, and a test fails if the constant changes without the test changing (the value is read from the constant, and the one-past value must be refused).
+- **Sabotage:** S-limit-1, S-limit-2
+- **Verifiable here:** yes — the simulator and the unit tests run locally
+- **Prediction:** At least one limit is in the wrong place. My candidate: the message codec's length field for a batch caps the entries per `AppendEntries` below the batch size the leader uses. A full catch-up batch then fails to encode, and the follower never catches up. **Observable:** the first run of the largest-batch test.
+- **Outcome:** pending
+
+## Sabotage ids
+
+New series: S-loginv, S-ghost, S-logfile, S-repl, S-commit, S-restrict, S-dur, S-live, S-limit.
+S-soak-4..5 follow S-soak-1..3, S-cov-10 follows S-cov-1..9, S-disrupt-3 follows S-disrupt-1..2 and
+S-pos-4..5 follow S-pos-1..3. Each id's `sabotage/<id>/` entry lands in the same commit as the
+check it proves, and is run on that commit before it is pushed.
