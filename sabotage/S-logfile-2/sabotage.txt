@@ -1,0 +1,7 @@
+description: A record for an index already recovered is dropped instead of overriding it: a lost truncation's stale suffix wins
+mechanism: recovery ignores a later record for an index it holds
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.RecordsRoundTripAndALaterRecordForAnIndexOverridesEverythingFromIt
+reason: Assert.Equal() Failure
+expect: caught

@@ -434,3 +434,26 @@ finding: what happened, why no existing check caught it, what now catches it.
     `gates reports` accept the per-commit jobs for that sha in a later run, weakens "the run for
     that commit" and I do not propose it.
 
+
+## Phase 4
+
+- **An index in each log record was not enough: a surviving write can depend on a lost one.** P4-02
+  predicted that records carrying their index, with a later record for an index overriding
+  everything from it, recover correctly from any crash. The crash-during-write test (3 loss modes,
+  200 seeds, 3 crash-and-restart cycles each) found 3 reordered crashes where they did not. A
+  truncate-and-append of term-4 entries at 4..6 was lost, the next append (7..9) survived, and it
+  landed right after the old 4..6: contiguous, so accepted, and the recovered log joined two logs
+  that never coexisted.
+  - *Not caught by the design:* later-index-wins handles a lost truncate followed by an append that
+    rewrites the same indices. It does not handle an append whose predecessor write was lost when
+    the indices happen to line up.
+  - *Now:* each record also carries the previous entry's term, and recovery takes a record only if
+    it chains onto what it has recovered: AppendEntries' consistency check, on disk. It is sound
+    because within one node's writes an (index, term) is always the same entry, the induction Log
+    Matching rests on. The approved decision 4 said records carry (index, term, command); they now
+    carry the previous term too (the report lists it as a deviation). S-logfile-1 removes the chain
+    and the crash test goes red.
+  - *The control as predicted:* a format without indices, read in order, fails 60 of the same runs.
+  - *Also found while writing it:* truncating from an index must cut the file at the end of the live
+    entry before it, not at the live record itself. After a lost truncation the live record can sit
+    after stale records, and cutting at it brings them back (S-logfile-3).

@@ -1,0 +1,7 @@
+description: Truncating from an index cuts the file at that index's live record: after a lost truncation the stale suffix before it survives
+mechanism: log truncation cuts at the live record instead of after the entry before it
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.TruncatingAfterALostTruncationCutsTheStaleSuffixToo
+reason: Assert.Equal() Failure
+expect: caught

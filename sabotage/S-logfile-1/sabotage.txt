@@ -1,0 +1,7 @@
+description: Recovery takes any record at most one past the end, chained or not: a surviving append joins a log it was never written after
+mechanism: recovery ignores the previous-term chain
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.EveryCrashDuringAWriteRecoversToAPrefixOfWhatWasWritten
+reason: a prefix of none of
+expect: caught

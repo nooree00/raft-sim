@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -94,7 +94,7 @@
+             {
+                 unchained++;
+             }
+-            else
++            else if (index == entries.Count + 1)
+             {
+                 entries.RemoveRange((int)(index - 1), entries.Count - (int)(index - 1));
+                 entries.Add(new StoredEntry(index, new Term(term), command, end));
