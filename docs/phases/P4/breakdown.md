@@ -18,7 +18,8 @@ including all nodes crashing at once. In addition, carried from phase 3:
 
 ## Ordering
 
-P4-01 first, before any log exists in Core (spec §12, tests first): the instruments spec §5 names,
+P4-10 first, the reviewer's fix at approval for the red acceptance run: a report commit that is not
+the head of its push fails `gates each-commit`, locally. Then P4-01, before any log exists in Core (spec §12, tests first): the instruments spec §5 names,
 ghost entry ids and commitment in fact, and the checkers for 2–7 and 10, proven against hand-built
 traces. Then the pieces replication needs underneath it: P4-02 (the log file, with
 crash-during-write at every offset). Then P4-03 (replication in Core, tests first), P4-04 (the
@@ -27,7 +28,7 @@ crash schedule), P4-06 (invariant 11's commit clause, with clients), P4-07 (the 
 distribution), P4-08 (the positive controls), P4-09 (every configured limit exercised at its
 largest legitimate value, spec §10).
 
-**Blocking set:** all nine. P4-09 is the only one that could slip without leaving a phase-4
+**Blocking set:** all ten. P4-09 is the only one that could slip without leaving a phase-4
 criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 
 ## Decisions for review
@@ -61,6 +62,11 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
      requires.
    - **What waits:** the history those responses form is recorded now and judged for
      linearizability in phase 5.
+   - **The limit (reviewer, at approval):** a node that applied the *wrong* entry and responded
+     consistently with what it applied passes both the self-report and the client cross-check. The
+     cross-check catches a node that responds without applying, not one that applies wrongly.
+     Phase 5's linearizability check over the recorded history is what closes that gap; until
+     then, phase 4's state machine safety is exactly as strong as the node's own report.
 4. **The log gets its own file, separate from the term-and-vote record.**
    - **Records:** the framing already proven in P3-03 (length, payload, checksum). Each record
      carries (index, term, command).
@@ -168,9 +174,18 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Prediction:** At least one limit is in the wrong place. My candidate: the message codec's length field for a batch caps the entries per `AppendEntries` below the batch size the leader uses. A full catch-up batch then fails to encode, and the follower never catches up. **Observable:** the first run of the largest-batch test.
 - **Outcome:** pending
 
+### P4-10 — A report commit must be the head of its push (at approval)
+
+- **Task:** Reviewer's decision at P4 approval, for the red P3 acceptance run. `gates each-commit` (local), `each-commit-list` and `each-commit-collect` (CI) fail any non-head commit in the pushed range that changes a `docs/phases/P*/report.md`. A report certifies the commit that contains it and GitHub runs CI only for a push's head, so such a report can never be certified, and `gates reports`, the one gate the local sequence skips, is the only other place it would show. The local staged run gains the check as its own stage.
+- **Vacuity:** A rule tested only on histories where the report is already at the head passes whether or not it exists. Guarded: a fixture push with the report commit followed by another must fail, naming the commit and the report; the same push with the report last must pass; and a non-head commit that changes only other docs must pass, so the rule cannot be a blanket ban on docs before the head.
+- **Sabotage:** S-each-5, S-each-6
+- **Verifiable here:** yes — the rule runs on fixture histories, and on this branch's own history
+- **Prediction:** Run over the P3 acceptance push as it happened (`ff27d8e..b4ff572`), the check fails on exactly `2f9b8bc` and nothing else; run over the push that fixed it (`b4ff572..9c9e170`) it passes. This is known from the red run, so it is weak evidence; the part that could be wrong is a second report touched in that range, and I do not expect one. **Observable:** the check's failures on the two recorded ranges.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-loginv, S-ghost, S-logfile, S-repl, S-commit, S-restrict, S-dur, S-live, S-limit.
-S-soak-4..5 follow S-soak-1..3, S-cov-10 follows S-cov-1..9, S-disrupt-3 follows S-disrupt-1..2 and
+S-each-5..6 follow S-each-1..4, S-soak-4..5 follow S-soak-1..3, S-cov-10 follows S-cov-1..9, S-disrupt-3 follows S-disrupt-1..2 and
 S-pos-4..5 follow S-pos-1..3. Each id's `sabotage/<id>/` entry lands in the same commit as the
 check it proves, and is run on that commit before it is pushed.
