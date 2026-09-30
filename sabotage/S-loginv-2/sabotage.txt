@@ -1,0 +1,7 @@
+description: Durable logs that share an entry and differ before it pass
+mechanism: log matching never compares the entries below a shared one
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.LogsSharingAnEntryButDifferingBeforeItAreRejected
+reason: log-matching: expected a violation
+expect: caught

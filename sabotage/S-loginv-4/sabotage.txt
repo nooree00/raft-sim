@@ -1,0 +1,7 @@
+description: State machine safety compares applied entries by command bytes: two distinct put x 1 entries at one index look the same
+mechanism: state machine safety keys applies by bytes, not ghost id
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.TwoByteEqualEntriesAppliedAtOneIndexAreRejectedByGhostIdAndMissedByBytes
+reason: state-machine-safety: expected a violation
+expect: caught

@@ -1,0 +1,7 @@
+description: A replicated entry gets a fresh ghost id instead of its creator's: every copy looks like a new entry
+mechanism: ghost ids ignore provenance through AppendEntries
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.AReplicatedEntryCarriesItsCreatorsGhostId
+reason: Assert.Equal() Failure
+expect: caught

@@ -1,0 +1,7 @@
+description: A committed entry may fall one copy below a quorum without being reported
+mechanism: committed-durable tolerates one lost copy
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.ACommittedEntryLostFromAQuorumIsRejectedAndALossElsewhereIsNot
+reason: committed-durable: expected a violation
+expect: caught

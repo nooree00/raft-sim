@@ -1,0 +1,7 @@
+description: Commitment in fact counts copies placed by later leaders: Figure 8(c)'s term-2 entry on a majority counts as committed
+mechanism: commitment in fact counts copies regardless of the term that wrote them
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.AnOldTermsEntryOnAMajorityThroughALaterLeaderIsNotCommittedByCountingCopies
+reason: no-spurious-commit: expected a violation
+expect: caught

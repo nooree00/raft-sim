@@ -1,0 +1,7 @@
+description: A leader truncating its own log is not reported
+mechanism: leader append-only ignores a leader's truncation
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.ALeaderThatTruncatesItsOwnLogIsRejectedAndAFollowerThatDoesIsNot
+reason: leader-append-only: expected a violation
+expect: caught

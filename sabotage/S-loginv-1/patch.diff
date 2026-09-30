@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -224,7 +224,7 @@
+         var leader = _tenure.TryGetValue(i.Node, out var tenure);
+         if (i.TruncateFrom > 0 && log.Any(x => x.Index >= i.TruncateFrom))
+         {
+-            if (leader)
++            if (leader && i.TruncateFrom < 0)
+             {
+                 Fail("leader-append-only", $"{i.Node}, leader of term {N(tenure.Value)}, truncated its log from {N(i.TruncateFrom)}");
+             }

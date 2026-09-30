@@ -1,0 +1,7 @@
+description: A leader elected without an entry committed in an earlier term passes
+mechanism: leader completeness is not checked when a leader is elected
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.ALeaderOfALaterTermWithoutACommittedEntryIsRejected
+reason: leader-completeness: expected a violation
+expect: caught

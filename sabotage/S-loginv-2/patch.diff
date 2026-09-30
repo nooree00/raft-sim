@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -314,7 +314,7 @@
+             {
+                 var a = held.FirstOrDefault(x => x.Index == i)?.Ghost;
+                 var b = log.FirstOrDefault(x => x.Index == i)?.Ghost;
+-                if (a != b)
++                if (a != b && i < 0)
+                 {
+                     Fail("log-matching", $"{d.Node} and {other} share an entry at {N(shared)} but differ at {N(i)}");
+                     break;

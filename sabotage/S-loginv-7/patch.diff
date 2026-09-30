@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -256,7 +256,7 @@
+                 }
+ 
+                 list.Add(ghost);
+-                if (list.Count > 1)
++                if (list.Count > 2)
+                 {
+                     Fail("entry-uniqueness", $"({N(e.Term.Value)}, {N(e.Index)}) was created {N(list.Count)} times");
+                 }

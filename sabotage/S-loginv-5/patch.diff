@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -358,7 +358,7 @@
+         foreach (var (index, c) in _committed)
+         {
+             var holders = _durable.Values.Count(l => l.Any(x => x.Index == index && x.Ghost == c.Ghost));
+-            if (holders < _h.Quorum && _belowQuorum.Add(index))
++            if (holders < _h.Quorum - 1 && _belowQuorum.Add(index))
+             {
+                 Fail("committed-durable", $"entry {N(index)}, committed in fact, is durable on only {N(holders)} node(s) after {d.Node}'s disk changed");
+             }

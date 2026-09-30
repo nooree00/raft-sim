@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -126,7 +126,7 @@
+                         Counts["leaders-with-entries"]++;
+                     }
+ 
+-                    foreach (var (index, c) in _committed.Where(c => c.Value.Term < el.Term))
++                    foreach (var (index, c) in _committed.Where(c => c.Value.Term < el.Term && c.Key < 0))
+                     {
+                         RequireHeld(el.Node, el.Term, index, c.Ghost, "elected");
+                     }

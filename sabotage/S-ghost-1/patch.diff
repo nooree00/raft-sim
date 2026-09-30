@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -239,7 +239,7 @@
+             var e = i.Append[k];
+             string ghost;
+             Term copyTerm;
+-            if (source is { } from && _messageGhosts[from.Id].TryGetValue(e.Index, out var g))
++            if (source is { } from && _messageGhosts[from.Id].TryGetValue(e.Index, out var g) && from.Id < 0)
+             {
+                 ghost = g;
+                 copyTerm = from.Term;

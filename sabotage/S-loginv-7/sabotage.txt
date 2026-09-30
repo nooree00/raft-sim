@@ -1,0 +1,7 @@
+description: Two creations at one (term, index) pass
+mechanism: entry uniqueness allows a second creation
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.TwoCreationsAtOneTermAndIndexAreRejectedAndAtTwoIndicesAreNot
+reason: entry-uniqueness: expected a violation
+expect: caught

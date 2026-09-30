@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -385,7 +385,7 @@
+         }
+ 
+         Claim(a.Node, a.Index, $"{a.Node} applied index {N(a.Index)}");
+-        var key = _byBytes ? Convert.ToHexString(_commands.GetValueOrDefault(ghost, [])) : ghost;
++        var key = _byBytes || ghost.Length > 0 ? Convert.ToHexString(_commands.GetValueOrDefault(ghost, [])) : ghost;
+         if (_applied.TryGetValue(a.Index, out var was))
+         {
+             if (was.Key != key)
