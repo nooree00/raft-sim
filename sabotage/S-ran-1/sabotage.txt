@@ -1,0 +1,7 @@
+description: The written-versus-ran check only asks whether a project produced results, not whether each written test is among them: a test dropped from a run that still reports goes unseen
+mechanism: a written test missing from its project's results is not reported
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TestCountTests.AWrittenTestThatDidNotRunIsReportedAndOneThatRanIsNot
+reason: Alpha.Tests.Things.ATheory is written in
+expect: caught

@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Core.Tests;
 using Raft.Simulation;
 using Xunit;
 
-namespace Raft.Core.Tests;
+namespace Raft.Scale.Tests;
 
 /// <summary>
 /// P3-07: the fsynced-then-lost positive control (spec §5). A disk that loses an fsynced vote is a

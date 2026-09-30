@@ -9,4 +9,5 @@ rc=0
 gates breakdown || rc=1
 gates trailers || rc=1
 gates register || rc=1
+gates patches || rc=1
 exit "$rc"

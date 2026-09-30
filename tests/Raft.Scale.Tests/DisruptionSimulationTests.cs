@@ -3,11 +3,12 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Core.Tests;
 using Raft.Kv;
 using Raft.Simulation;
 using Xunit;
 
-namespace Raft.Core.Tests;
+namespace Raft.Scale.Tests;
 
 /// <summary>
 /// P3-06: the §6 disruption rule under a constructed one-way partition, n3 able to send to its

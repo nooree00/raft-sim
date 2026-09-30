@@ -1,0 +1,7 @@
+description: A harmless edit to a comment inside S-disk-3's hunk context makes that entry's patch stale, as P4-07's edits did to four entries unnoticed; the patches gate, using git apply as the harness does, must name it
+mechanism: an edit that leaves another entry's patch stale
+kind: command
+build: no
+command: dotnet "$GATES" patches
+expect: caught
+message: S-disk-3: patch.diff does not apply with git apply

@@ -1,7 +1,7 @@
 description: A deposed leader truncates its suffix before persisting the term that deposed it (P4-03's bug, reinstated): by its durable record it is still the leader when it cuts its log. Only a leader cut off and replaced, then reached by the new leader, meets it; aimed at the soak sample with logs
 mechanism: the new term is persisted after the log changes it authorises
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
 reason: leader-append-only
 expect: caught

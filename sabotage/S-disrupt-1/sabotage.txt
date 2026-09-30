@@ -1,7 +1,7 @@
 description: The §6 disruption rule never applies: a node that cannot hear the leader stands again and again and deposes it. Aimed at the simulated one-way partition, where leader continuity alone passes and only the no-deposition check sees it
 mechanism: RequestVote is answered even right after hearing from a current leader
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.DisruptionSimulationTests.WithTheRuleANodeThatCannotHearTheLeaderDoesNotDeposeIt
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.DisruptionSimulationTests.WithTheRuleANodeThatCannotHearTheLeaderDoesNotDeposeIt
 reason: by a node that cannot hear it
 expect: caught

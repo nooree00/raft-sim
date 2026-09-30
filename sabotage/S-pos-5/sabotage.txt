@@ -1,7 +1,7 @@
 description: The simulated disk's lose-synced fault keeps its data (S-pos-1's patch), aimed at the log-record control: the lying disk stops lying, and the control must notice that invariant 6 stays green
 mechanism: the lose-synced fault loses nothing
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.PositiveControlTests.LosingAnFsyncedLogRecordTurnsDurabilityRedAndTheSameCrashWithoutTheLossDoesNot
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.PositiveControlTests.LosingAnFsyncedLogRecordTurnsDurabilityRedAndTheSameCrashWithoutTheLossDoesNot
 reason: a lost log record went unseen
 expect: caught

@@ -1,7 +1,7 @@
 description: P4-06's prediction, recorded wrong: with the §6 rule removed, the commit clause does not see the churn under the one-way partition (0 of 151 runs where n3 did not lead, over 200 seeds). The rule's removal is caught by the deposition check, never by the commit clause, which is asserted first; the entry goes caught if the commit clause starts seeing it
 mechanism: the §6 disruption rule never applies (as S-disrupt-1), aimed at the commit clause
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.DisruptionSimulationTests.WithTheRuleANodeThatCannotHearTheLeaderDoesNotDeposeIt
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.DisruptionSimulationTests.WithTheRuleANodeThatCannotHearTheLeaderDoesNotDeposeIt
 reason: was committed in fact from
 expect: wrong-reason

@@ -1,7 +1,7 @@
 description: A follower acknowledges AppendEntries before the entries are durable: the reply goes out ahead of the log write, so the barrier does not hold it and the leader counts a copy that a crash can lose
 mechanism: a follower acknowledges entries before they are durable
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.DurabilityTests.CommittedEntriesSurviveEveryNodeOrAMajorityCrashingAtOnce
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.DurabilityTests.CommittedEntriesSurviveEveryNodeOrAMajorityCrashingAtOnce
 reason: runs with a violation
 expect: caught

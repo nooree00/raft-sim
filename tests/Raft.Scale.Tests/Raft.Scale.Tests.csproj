@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The Raft cluster in the simulator at scale (P4-11): the soak sample, durability, disruption,
+    positive controls, replication and election simulations, shrinking. Split from Raft.Core.Tests
+    so that a harness entry aimed at a unit test does not run these. The checkers are proven on
+    hand-built traces in Raft.Core.Tests and compiled in here by link.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
+    <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
+    <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />
+    <Compile Include="../Raft.Core.Tests/LogInvariants.cs" Link="Checkers/LogInvariants.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+    <ProjectReference Include="../../src/Raft.Kv/Raft.Kv.csproj" />
+    <ProjectReference Include="../../tools/Raft.SimRun/Raft.SimRun.csproj" />
+  </ItemGroup>
+</Project>

@@ -4,10 +4,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Core.Tests;
 using Raft.Simulation;
 using Xunit;
 
-namespace Raft.Core.Tests;
+namespace Raft.Scale.Tests;
 
 /// <summary>
 /// P3-08: invariants 1, 8, 9 and 11 over generated executions with partitions (asymmetric

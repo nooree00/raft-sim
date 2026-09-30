@@ -1,0 +1,7 @@
+description: The harness-target check accepts a target that ran in any project, not the one its entry names: an entry left pointing at the old project after a move would run a project without its target
+mechanism: a harness target is checked against every project's results, not its own
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TestCountTests.AHarnessTargetThatDidNotRunInItsNamedProjectIsReported
+reason: S-a-2: target
+expect: caught

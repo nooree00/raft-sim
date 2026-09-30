@@ -1,7 +1,7 @@
 description: A quorum of one: every candidate wins on its own vote. No unit test of the quorum is the target; the simulated cluster's acting-without-quorum check (decision 4's second view of leadership) must catch it
 mechanism: a candidate counts itself a quorum
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.ElectionSimulationTests.FaultFreeClustersElectALeaderAndEveryInvariantHolds
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.ElectionSimulationTests.FaultFreeClustersElectALeaderAndEveryInvariantHolds
 reason: without an observed quorum
 expect: caught

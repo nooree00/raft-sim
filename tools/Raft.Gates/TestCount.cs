@@ -15,6 +15,11 @@ namespace Raft.Gates;
 /// visible edit to the baseline in the same commit.
 /// Vacuity risk: no TRX files at all, and a loop over nothing — guarded by requiring one result
 /// set per test project on disk.
+/// P4-11: counts can be edited to agree with a test that stopped running (the CRDT project's
+/// npm-test finding: every test green, the only oracle in an excluded file). So every test written
+/// in a test project's sources must appear executed in that project's results, no test may be
+/// written under tests/ outside a project, and every harness target must run in the project its
+/// entry names.
 /// </summary>
 internal static class TestCount
 {
@@ -76,6 +81,26 @@ internal static class TestCount
             f.Fail($"{stale}: in ci/test-baseline.txt but no such test project");
         }
 
+        // Written versus ran (P4-11). A count can be edited to agree with a test that no longer runs;
+        // a test written in a project's sources and absent from its results cannot.
+        var executed = trx.SelectMany(ParseExecuted).GroupBy(t => t.Project)
+            .ToDictionary(g => g.Key, g => g.Select(t => t.Test).ToHashSet(StringComparer.Ordinal), StringComparer.Ordinal);
+        var sources = Directory.EnumerateFiles(repo.PathOf("tests"), "*.cs", SearchOption.AllDirectories)
+            .Select(p => Path.GetRelativePath(repo.Root, p).Replace('\\', '/'))
+            .Where(p => !p.Split('/').Any(s => s is "bin" or "obj"))
+            .Order(StringComparer.Ordinal)
+            .Select(p => (Path: p, Text: File.ReadAllText(repo.PathOf(p))));
+        foreach (var problem in Unexecuted(sources, expected, executed))
+        {
+            f.Fail(problem);
+        }
+
+        foreach (var problem in TargetsNotExecuted(SabotageSpec.LoadAll(repo, f).Where(s => s.Kind == "test")
+            .Select(s => (s.Id, Project: s.Get("project") ?? "", Target: s.Get("target") ?? "")), executed))
+        {
+            f.Fail(problem);
+        }
+
         if (summary is not null)
         {
             File.AppendAllLines(summary, SummaryHeader
@@ -105,6 +130,122 @@ internal static class TestCount
                 Skipped: g.Count(r => (string?)r.Attribute("outcome") is not ("Passed" or "Failed")),
                 Duration: TimeSpan.FromTicks(g.Sum(r => TimeSpan.Parse((string?)r.Attribute("duration") ?? "0", CultureInfo.InvariantCulture).Ticks))))
             .ToList();
+    }
+
+    /// <summary>Each executed (passed or failed) test in the file: its assembly and its class-qualified method name.</summary>
+    internal static IEnumerable<(string Project, string Test)> ParseExecuted(string trxPath)
+    {
+        XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
+        var doc = XDocument.Load(trxPath);
+        var byId = doc.Descendants(ns + "UnitTest").ToDictionary(
+            e => (string)e.Attribute("id")!,
+            e => (Project: Path.GetFileNameWithoutExtension((string?)e.Attribute("storage") ?? "?"),
+                  Test: e.Element(ns + "TestMethod") is { } m ? (string?)m.Attribute("className") + "." + (string?)m.Attribute("name") : "?"),
+            StringComparer.Ordinal);
+        return doc.Descendants(ns + "UnitTestResult")
+            .Where(r => (string?)r.Attribute("outcome") is "Passed" or "Failed")
+            .Select(r => byId.TryGetValue((string?)r.Attribute("testId") ?? "", out var t) ? t : ("?", "?"))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The tests written in one source file: every method marked [Fact] or [Theory], qualified by the
+    /// file's namespace and the top-level public class it sits in (nested helper classes are private).
+    /// </summary>
+    internal static IReadOnlyList<string> Written(string source)
+    {
+        var tests = new List<string>();
+        string ns = "", cls = "";
+        var pending = false;
+        var inRawString = false;
+        foreach (var raw in source.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var trimmed = line.Trim();
+
+            // A raw string literal (a fixture's source, as in TestCountTests) is text, not tests.
+            if (CountOf(line, "\"\"\"") % 2 == 1)
+            {
+                inRawString = !inRawString;
+                continue;
+            }
+
+            if (inRawString)
+            {
+                continue;
+            }
+
+            if (line.StartsWith("namespace ", StringComparison.Ordinal))
+            {
+                ns = line["namespace ".Length..].TrimEnd(';', ' ');
+            }
+            else if (line.StartsWith("public ", StringComparison.Ordinal) && line.Contains(" class ", StringComparison.Ordinal))
+            {
+                var rest = line[(line.IndexOf(" class ", StringComparison.Ordinal) + " class ".Length)..];
+                cls = new string(rest.TakeWhile(c => char.IsLetterOrDigit(c) || c == '_').ToArray());
+            }
+            else if (trimmed.StartsWith("[Fact", StringComparison.Ordinal) || trimmed.StartsWith("[Theory", StringComparison.Ordinal))
+            {
+                pending = true;
+            }
+            else if (pending && trimmed.StartsWith("public ", StringComparison.Ordinal) && trimmed.Contains('(', StringComparison.Ordinal))
+            {
+                var head = trimmed[..trimmed.IndexOf('(', StringComparison.Ordinal)];
+                tests.Add($"{ns}.{cls}.{head[(head.LastIndexOf(' ') + 1)..]}");
+                pending = false;
+            }
+        }
+
+        return tests;
+    }
+
+    private static int CountOf(string text, string part)
+    {
+        var n = 0;
+        for (var i = text.IndexOf(part, StringComparison.Ordinal); i >= 0; i = text.IndexOf(part, i + part.Length, StringComparison.Ordinal))
+        {
+            n++;
+        }
+
+        return n;
+    }
+
+    /// <summary>
+    /// Tests written but not executed in their own project's results, and tests written under tests/
+    /// outside any test project (they belong to no run).
+    /// </summary>
+    internal static IEnumerable<string> Unexecuted(IEnumerable<(string Path, string Text)> sources, IReadOnlyCollection<string> projects, IReadOnlyDictionary<string, HashSet<string>> executed)
+    {
+        foreach (var (path, text) in sources)
+        {
+            var parts = path.Split('/');
+            var project = parts.Length > 2 && projects.Contains(parts[1], StringComparer.Ordinal) ? parts[1] : null;
+            foreach (var test in Written(text))
+            {
+                if (project is null)
+                {
+                    yield return $"{test} is written in {path}, outside any test project: no run executes it";
+                }
+                else if (!executed.TryGetValue(project, out var ran) || !ran.Contains(test))
+                {
+                    yield return $"{project}: {test} is written in {path} but was not executed";
+                }
+            }
+        }
+    }
+
+    /// <summary>Harness entries whose target was not executed in the project the entry names (a theory's target names one case; its method is what ran).</summary>
+    internal static IEnumerable<string> TargetsNotExecuted(IEnumerable<(string Id, string Project, string Target)> entries, IReadOnlyDictionary<string, HashSet<string>> executed)
+    {
+        foreach (var (id, projectPath, target) in entries)
+        {
+            var project = Path.GetFileName(projectPath.TrimEnd('/'));
+            var method = target.Contains('(', StringComparison.Ordinal) ? target[..target.IndexOf('(', StringComparison.Ordinal)] : target;
+            if (!executed.TryGetValue(project, out var ran) || !ran.Contains(method))
+            {
+                yield return $"{id}: target {method} was not executed in {project}, the project the entry names";
+            }
+        }
     }
 
     private static Dictionary<string, int> ReadBaseline(Repo repo, Findings f)

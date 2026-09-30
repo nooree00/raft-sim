@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/TestCount.cs
++++ b/tools/Raft.Gates/TestCount.cs
+@@ -241,7 +241,7 @@
+         {
+             var project = Path.GetFileName(projectPath.TrimEnd('/'));
+             var method = target.Contains('(', StringComparison.Ordinal) ? target[..target.IndexOf('(', StringComparison.Ordinal)] : target;
+-            if (!executed.TryGetValue(project, out var ran) || !ran.Contains(method))
++            if (!executed.Values.Any(r => r.Contains(method)))
+             {
+                 yield return $"{id}: target {method} was not executed in {project}, the project the entry names";
+             }

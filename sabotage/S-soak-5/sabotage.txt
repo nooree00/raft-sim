@@ -1,7 +1,7 @@
 description: A leader of a term above 3 refuses every client (redirect), while still leading and heartbeating: the leader clause of invariant 11 holds, and only the commit clause sees that nothing a client asks for commits after the fault. Aimed at the soak sample
 mechanism: a later-term leader refuses clients
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
 reason: liveness-commit
 expect: caught

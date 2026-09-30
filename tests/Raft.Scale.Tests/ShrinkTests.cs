@@ -5,10 +5,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Core.Tests;
 using Raft.Simulation;
 using Xunit;
 
-namespace Raft.Core.Tests;
+namespace Raft.Scale.Tests;
 
 /// <summary>
 /// P3-09: an election-safety failure shrunk end to end. The input is the positive control's lying

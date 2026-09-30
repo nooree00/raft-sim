@@ -1,7 +1,7 @@
 description: The out-of-process reproduction runs Raft with another heartbeat interval: the text reproduces a different execution
 mechanism: SimRun --raft builds its nodes with options the in-process run does not use
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.ShrinkTests.ALyingDiskInNoiseShrinksToAOneMinimalScheduleThatReproducesInAnotherProcess
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.ShrinkTests.ALyingDiskInNoiseShrinksToAOneMinimalScheduleThatReproducesInAnotherProcess
 reason: Assert.Equal() Failure
 expect: caught

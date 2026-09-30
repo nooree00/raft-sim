@@ -17,6 +17,7 @@ internal static class Program
         ["breakdown"] = ("every task has vacuity, sabotage, verifiability, prediction, outcome (spec §12)", Breakdown.Run),
         ["verify-run"] = ("the ci run for --sha completed green with every required job", VerifyRun.RunOne),
         ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),
+        ["patches"] = ("every sabotage patch and control applies with git apply, the harness's own tool (P4 acceptance)", PatchCheck.Run),
         ["register"] = ("deferred-items register vs phase status; every NotImplementedException listed (spec §12)", Register.Run),
         ["reports"] = ("each phase report's certifying commit has a green ci run (spec §12)", VerifyRun.RunReports),
         ["sabotage"] = ("run every sabotage/ entry from a committed tree; each must give its expected result", Sabotage.Run),

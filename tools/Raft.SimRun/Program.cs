@@ -53,7 +53,7 @@ internal static class Program
 
         if (raft)
         {
-            // Raft's invariants are checked over observations, in Raft.Core.Tests; here the run is
+            // Raft's invariants are checked over observations, in Raft.Scale.Tests; here the run is
             // reproduced, and its trace is the evidence that it is the same run (P3-09).
             Console.WriteLine($"seed={header.Seed} faults={schedule.Faults.Count} steps={sim.Steps} raft");
             return 0;

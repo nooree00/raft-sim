@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/TestCount.cs
++++ b/tools/Raft.Gates/TestCount.cs
+@@ -226,7 +226,7 @@
+                 {
+                     yield return $"{test} is written in {path}, outside any test project: no run executes it";
+                 }
+-                else if (!executed.TryGetValue(project, out var ran) || !ran.Contains(test))
++                else if (!executed.ContainsKey(project))
+                 {
+                     yield return $"{project}: {test} is written in {path} but was not executed";
+                 }

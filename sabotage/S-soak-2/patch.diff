@@ -8,6 +8,6 @@ index 145a4e6..187c1a1 100755
  git config --global --add safe.directory "$PWD" # the checkout may belong to another user (CI containers)
 -executions=10000
 +executions=300
- report=tests/Raft.Core.Tests/bin/Debug/net10.0/soak-report.txt
+ report=tests/Raft.Scale.Tests/bin/Debug/net10.0/soak-report.txt
  rm -f "$report"
  status=0

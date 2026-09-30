@@ -575,3 +575,37 @@ finding: what happened, why no existing check caught it, what now catches it.
     compaction in phase 7, sessions in phase 8) is written as a deadline. Each should say whether a
     thrashing system that meets the deadline passes, and if it should not, carry a rate.
   - *Related:* the earlier entry on the commit clause's blindness is this finding's second instance.
+- **A check made with a different tool from the one that enforces it is not the same check.** I
+  checked sabotage patches with `patch --dry-run`; the harness applies them with `git apply`.
+  `patch` applies with fuzz, `git apply` does not, so my check was more permissive than the rule it
+  stood for. Four stale patches (S-disk-3, S-sim-2, S-loginv-7, S-soak-3) and a fifth I rewrote
+  by hand (S-iface-2) passed my check. They were committed at the commits that broke them, so the
+  per-commit matrix would have reported apply-failed on exactly the commits introducing the
+  mechanisms those entries test. Found only because the head's full local run reached them.
+  Same family as the CRDT project's two compilers: verified on one, enforced by another, nothing
+  signalling that they disagree.
+  - *Now:* `gates patches` runs `git apply --check --whitespace=nowarn` (the harness's command) on
+    every patch and control with every build, and so on every commit in the per-commit matrix;
+    S-patch-1 proves it names a patch made stale by an edit elsewhere. The stale patches were
+    fixed in the commits that broke them. Nothing verifies a patch with any other tool.
+  - *The sweep* (P4 acceptance: where else a check and its enforcement use different tools):
+    - *Build and tests:* local runs use the digest-pinned SDK image CI uses, through the same
+      scripts (`ci-build.sh`, `ci-test.sh`, `ci-soak.sh`), and preflight checks the pins. Same tool.
+    - *Secret scan:* the same digest-pinned gitleaks. Same tool.
+    - *Breakdown, trailers, register, testcount:* my edits are checked by running the gates
+      themselves before a commit. Same tool.
+    - *The harness shard count:* my local staged-CI script hard-coded 6 shards while CI derives
+      the count from the manifest (`gates sabotage-plan`); at 189 entries the count became 7. A
+      second instance, caught by reading, not by a run. Fixed: the local script asks
+      `gates sabotage-plan`.
+    - *Measuring a sabotage in a copy of the working tree* (`.sab`, uncommitted files included)
+      against the harness's committed-tree worktree: a patch measured in the copy is always run
+      through the harness from a commit before it is reported. Same verdict tool, different
+      input; kept as exploration only.
+    - *`gates reports`:* needs the GitHub API, so it has no local check at all. Not a different
+      tool, an absent one; it runs in CI on the push.
+    - *The README walk:* the script checks rot; the person's cold walk is the real check. Known and
+      recorded (AGENTS.md).
+    The sweep took under an hour; no register row.
+  - *General form:* when a check is performed with a tool other than the enforcing one, either use
+    the enforcing tool or make the difference itself a tested fact.

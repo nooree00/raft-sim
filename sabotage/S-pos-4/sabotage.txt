@@ -1,7 +1,7 @@
 description: Invariant 6's check after a disk change starts one index above the change: a crash that loses exactly the last record, the lost fsynced log record of the positive control, is never re-examined
 mechanism: invariant 6 skips the index a disk change starts at
 kind: test
-project: tests/Raft.Core.Tests
-target: Raft.Core.Tests.PositiveControlTests.LosingAnFsyncedLogRecordTurnsDurabilityRedAndTheSameCrashWithoutTheLossDoesNot
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.PositiveControlTests.LosingAnFsyncedLogRecordTurnsDurabilityRedAndTheSameCrashWithoutTheLossDoesNot
 reason: a lost log record went unseen
 expect: caught
