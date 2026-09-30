@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Raft.Core;
@@ -28,7 +29,7 @@ public sealed class PositiveControlTests
 
     private static (InvariantResult Safety, InvariantResult Votes, InvariantResult Terms) Check(FaultSchedule s, ulong seed)
     {
-        var (_, h) = Cluster.Run(seed, Duration, s);
+        var (_, h) = Cluster.Run(seed, Duration, s, clients: 3, workload: new RaftWorkload(int.MaxValue));
         return (ElectionInvariants.ElectionSafety(h, Cluster.Options.ElectionTimeoutMin), ElectionInvariants.VoteUniqueness(h), ElectionInvariants.TermMonotonicity(h));
     }
 
@@ -61,5 +62,54 @@ public sealed class PositiveControlTests
 
         Assert.True(termsNamingN2 == Runs, $"term monotonicity named n2 in only {termsNamingN2} of {Runs} runs: a lost term went unseen");
         Assert.True(votesNamingN2 >= Coverage.FloorFor(Runs), $"vote uniqueness named n2 in only {votesNamingN2} of {Runs} runs ({Coverage.Rate(votesNamingN2, Runs)}): the lying disk is barely visible to the checker the spec names");
+    }
+
+    /// <summary>
+    /// P4-08: the control reaches the log. n3 is isolated for the whole run, so every commit needs n1
+    /// and n2; clients write throughout. Armed at 1000, n2 crashes right after its next write completes
+    /// and the barrier releases what it held (its acknowledgement), and the disk loses that write: an
+    /// fsynced log record of an entry the leader could count. Back 20 ticks later. Invariant 6 must name
+    /// n2's disk in every run where n2 followed; Leader Completeness is counted. The twin loses only
+    /// unsynced writes, and is green. Sabotages S-pos-4, S-pos-5.
+    /// </summary>
+    [Fact]
+    public void LosingAnFsyncedLogRecordTurnsDurabilityRedAndTheSameCrashWithoutTheLossDoesNot()
+    {
+        const long duration = 3_000;
+        FaultSchedule Schedule(DiskLoss loss) => new([new Isolate(0, N3, duration), new CrashAfterWrite(1_000, N2, loss, 20)]);
+        (IReadOnlyList<InvariantResult> Results, bool N2Led) Run(DiskLoss loss, ulong seed)
+        {
+            var (sim, h) = Cluster.Run(seed, duration, Schedule(loss), clients: 3, workload: new RaftWorkload(int.MaxValue));
+            var crash = sim.Observations.OfType<CrashObservation>().First(c => c.Node == N2).Time;
+            var leader = h.Elections().Where(e => e.Value <= crash).MaxBy(e => e.Key.Term.Value).Key.Candidate;
+            return (Cluster.CheckLog(sim, h), leader == N2);
+        }
+
+        int durableNamingN2 = 0, durableRed = 0, completenessRed = 0, n2Led = 0, redWhileFollowing = 0;
+        for (var seed = 1UL; seed <= Runs; seed++)
+        {
+            var (results, led) = Run(DiskLoss.LoseSynced, seed);
+            var red = results.ToDictionary(r => r.Invariant, StringComparer.Ordinal);
+            var named = red["committed-durable"].Violations.Any(v => v.EndsWith("after n2's disk changed", StringComparison.Ordinal));
+            durableRed += red["committed-durable"].Holds ? 0 : 1;
+            durableNamingN2 += named ? 1 : 0;
+            completenessRed += red["leader-completeness"].Holds ? 0 : 1;
+            n2Led += led ? 1 : 0;
+            redWhileFollowing += !led && named ? 1 : 0;
+
+            var twin = Run(DiskLoss.Pending, seed).Results.Where(r => !r.Holds).ToList();
+            Assert.True(twin.Count == 0, $"seed {seed}: red without the lost fsync: {string.Join("; ", twin.Select(r => r.Invariant + ": " + r.Violations[0]))}");
+        }
+
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "positive-control-log.txt"), string.Join("\n",
+            $"{Runs} runs, n3 isolated, n2 loses its next fsynced write after 1000 and is back 20 ticks later; 3 clients",
+            $"committed-durable red {durableRed}, naming n2's disk {durableNamingN2}; leader-completeness red {completenessRed}",
+            $"n2 led at the crash in {n2Led}; red naming n2 in {redWhileFollowing} of the {Runs - n2Led} where it followed",
+            "same seeds, crash losing only unsynced writes: green in every run") + "\n");
+        // Where n2 follows, its write completes after the leader's, so the lost record is of an entry
+        // committed in fact; where n2 leads, its own write is lost before n1's copy completes, and the
+        // entry was never committed (measured: red in none of those runs).
+        Assert.True(Runs - n2Led >= Coverage.FloorFor(Runs), $"n2 followed in only {Runs - n2Led} of {Runs} runs: the control was barely placed");
+        Assert.True(redWhileFollowing == Runs - n2Led, $"invariant 6 named n2's disk in only {redWhileFollowing} of the {Runs - n2Led} runs where it followed: a lost log record went unseen");
     }
 }
