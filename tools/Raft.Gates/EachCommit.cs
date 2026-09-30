@@ -37,6 +37,8 @@ internal static class EachCommit
             return f;
         }
 
+        ReportsOnlyAtTheHead(repo, commits, f);
+
         // A unique path: the tests of each checked commit exercise this command too, and a fixed
         // path collided with the outer run's own worktree (seen in CI).
         var wt = Path.Combine(Path.GetTempPath(), "raft-each-commit-" + Guid.NewGuid().ToString("N"));
@@ -95,6 +97,32 @@ internal static class EachCommit
             .Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(c => c != head).ToList();
         f.Note($"range {start[..7]}..{head[..7]}: {commits.Count + 1} commit(s); the head gets the full run, {commits.Count} checked here");
         return commits;
+    }
+
+    /// <summary>
+    /// A phase report certifies the commit that contains it (spec §12), and GitHub runs CI only for a
+    /// push's head. A non-head commit that changes a report therefore makes a report no run can ever
+    /// certify; `gates reports`, the one gate the local sequence skips, would be the only other place
+    /// it shows (P4-10, from the red P3 acceptance run).
+    /// </summary>
+    internal static void ReportsOnlyAtTheHead(Repo repo, IEnumerable<string> nonHead, Findings f)
+    {
+        foreach (var c in nonHead)
+        {
+            var changed = repo.Git("diff-tree", "--no-commit-id", "--name-only", "-r", c).StdOut
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var path in changed.Where(IsReport))
+            {
+                f.Fail($"{c[..7]} changes {path} but is not the head of this push: a report certifies the commit that contains it and CI runs only a push's head, so this report could never be certified. Push the report's commit last.");
+            }
+        }
+    }
+
+    internal static bool IsReport(string path)
+    {
+        var parts = path.Split('/');
+        return parts.Length == 4 && parts[0] == "docs" && parts[1] == "phases" && parts[2].Length > 1 && parts[2][0] == 'P'
+            && parts[2][1..].All(char.IsAsciiDigit) && parts[3] == "report.md";
     }
 
     internal static string? ResolveStart(Repo repo, string since, string baseRef, Findings f)

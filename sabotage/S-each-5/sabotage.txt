@@ -1,0 +1,6 @@
+description: No path counts as a report: a report commit followed by another in the same push passes each-commit, the P3 acceptance push's shape
+mechanism: each-commit never recognises a report among a non-head commit's changes
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AReportCommitThatIsNotThePushHeadFails
+expect: caught

@@ -1,0 +1,6 @@
+description: Every docs change counts as a report: a breakdown or findings commit before the push head fails, a blanket ban in place of the rule
+mechanism: each-commit treats any docs path as a report
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AReportAtThePushHeadAndOtherDocsBeforeItPass
+expect: caught

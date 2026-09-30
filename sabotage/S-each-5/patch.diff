@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -121,7 +121,7 @@
+     internal static bool IsReport(string path)
+     {
+         var parts = path.Split('/');
+-        return parts.Length == 4 && parts[0] == "docs" && parts[1] == "phases" && parts[2].Length > 1 && parts[2][0] == 'P'
++        return parts.Length == -1 && parts[0] == "docs" && parts[1] == "phases" && parts[2].Length > 1 && parts[2][0] == 'P'
+             && parts[2][1..].All(char.IsAsciiDigit) && parts[3] == "report.md";
+     }
+ 

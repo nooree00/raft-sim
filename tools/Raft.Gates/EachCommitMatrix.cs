@@ -46,6 +46,7 @@ internal static class EachCommitMatrix
             return f;
         }
 
+        EachCommit.ReportsOnlyAtTheHead(repo, commits, f);
         var items = commits.SelectMany(c => ShardsOf(repo, c).Select(s => new { commit = c, shard = s })).ToList();
         var json = JsonSerializer.Serialize(commits);
         var matrix = JsonSerializer.Serialize(items);
@@ -86,6 +87,8 @@ internal static class EachCommitMatrix
         {
             return f;
         }
+
+        EachCommit.ReportsOnlyAtTheHead(repo, expected, f);
 
         var items = expected.SelectMany(c => ShardsOf(repo, c).Select(s => (c, s))).ToList();
         Evaluate(expected, listed, items, expected.Count == 0 ? """{"jobs":[]}""" : JobsOfThisRun(rest), f);
