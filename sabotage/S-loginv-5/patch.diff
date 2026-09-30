@@ -1,11 +1,11 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -358,7 +358,7 @@
-         foreach (var (index, c) in _committed)
+@@ -493,7 +493,7 @@
          {
-             var holders = _durable.Values.Count(l => l.Any(x => x.Index == index && x.Ghost == c.Ghost));
--            if (holders < _h.Quorum && _belowQuorum.Add(index))
-+            if (holders < _h.Quorum - 1 && _belowQuorum.Add(index))
+             var c = _committed[(int)i - 1];
+             var holders = _durable.Values.Count(l => At(l, i)?.Ghost == c.Ghost);
+-            if (holders < _h.Quorum && _belowQuorum.Add(i))
++            if (holders < _h.Quorum - 1 && _belowQuorum.Add(i))
              {
-                 Fail("committed-durable", $"entry {N(index)}, committed in fact, is durable on only {N(holders)} node(s) after {d.Node}'s disk changed");
+                 Fail("committed-durable", $"entry {N(i)}, committed in fact, is durable on only {N(holders)} node(s) after {d.Node}'s disk changed");
              }

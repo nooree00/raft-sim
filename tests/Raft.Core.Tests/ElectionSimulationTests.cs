@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Kv;
 using Raft.Simulation;
 using Xunit;
 
@@ -18,12 +19,16 @@ internal static class Cluster
     /// <summary>K = 10 election timeouts (decision 5), measured against the longest timeout.</summary>
     public static readonly long Window = 10 * Options.ElectionTimeoutMax;
 
-    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null)
+    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null, int clients = 0, IClientWorkload? workload = null)
     {
-        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes }, ctx => new RaftNode(ctx, Options), seed, schedule) { Observe = true };
+        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes, Clients = clients }, ctx => new RaftNode(ctx, Options, new KvStateMachine()), seed, schedule) { Observe = true, Workload = workload };
         sim.Run();
         return (sim, new ElectionHistory(sim.Observations, Nodes));
     }
+
+    /// <summary>The log invariants (P4-01) over one observed execution.</summary>
+    public static IReadOnlyList<InvariantResult> CheckLog(Simulator sim, ElectionHistory h) =>
+        LogInvariants.All(LogHistory.FromObservations(sim.Observations.ToList(), h, Nodes));
 
     /// <summary>The four invariants over one execution; the stable suffix starts at <paramref name="stableFrom"/>.</summary>
     public static IReadOnlyList<InvariantResult> Check(ElectionHistory h, long stableFrom, long end) =>

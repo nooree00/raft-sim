@@ -1,0 +1,7 @@
+description: A follower truncates from the first entry of every AppendEntries: a stale one carrying a prefix cuts entries that may be committed
+mechanism: a follower truncates without a conflict
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AFollowerTruncatesOnlyAConflictingSuffixAndNeverOnAStalePrefix
+reason: Assert.DoesNotContain() Failure
+expect: caught

@@ -95,7 +95,7 @@ public sealed class ElectionTests
 
         var won = Receive(n, N2, new RequestVoteResponse(new Term(1), true));
 
-        Assert.Equal([N2, N3], Sends(won).Where(s => s.M is AppendEntries a && a.Leader == N1 && a.Term == new Term(1) && a.Entries.Count == 0).Select(s => s.To).OrderBy(n => n.Value).ToList());
+        Assert.Equal([N2, N3], Sends(won).Where(s => s.M is AppendEntries a && a.Leader == N1 && a.Term == new Term(1) && a.Entries.Count == 1 && a.Entries[0].Command.Length == 0).Select(s => s.To).OrderBy(n => n.Value).ToList());
         Assert.Empty(Sends(Tick(n, 49)));
         Assert.Equal(2, Sends(Tick(n, 1)).Count(s => s.M is AppendEntries));
     }
@@ -108,7 +108,7 @@ public sealed class ElectionTests
 
         Assert.DoesNotContain(Sends(Receive(n, N2, new RequestVoteResponse(new Term(1), false))), s => s.M is AppendEntries);
         Assert.DoesNotContain(Sends(Receive(n, N3, new RequestVoteResponse(Term.Zero, true))), s => s.M is AppendEntries);
-        Assert.Equal(2, Sends(Receive(n, N3, new RequestVoteResponse(new Term(1), true))).Count(s => s.M is AppendEntries));
+        Assert.Equal(2, Sends(Receive(n, N3, new RequestVoteResponse(new Term(1), true))).Where(s => s.M is AppendEntries).Select(s => s.To).Distinct().Count());
     }
 
     [Fact]

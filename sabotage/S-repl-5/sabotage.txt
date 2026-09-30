@@ -1,0 +1,7 @@
+description: A follower accepts entries whose predecessor has another term: the consistency check compares only lengths
+mechanism: the consistency check ignores the previous entry's term
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AFollowerRejectsEntriesWhosePredecessorItDoesNotHold
+reason: Assert.False() Failure
+expect: caught

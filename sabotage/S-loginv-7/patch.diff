@@ -1,11 +1,11 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -256,7 +256,7 @@
-                 }
- 
-                 list.Add(ghost);
--                if (list.Count > 1)
-+                if (list.Count > 2)
+@@ -416,7 +416,7 @@
+                 _commands[ghost] = e.Command;
+                 var key = (e.Term, e.Index);
+                 var created = _creations[key] = _creations.GetValueOrDefault(key) + 1;
+-                if (created > 1)
++                if (created > 2)
                  {
-                     Fail("entry-uniqueness", $"({N(e.Term.Value)}, {N(e.Index)}) was created {N(list.Count)} times");
+                     Fail("entry-uniqueness", $"({N(e.Term.Value)}, {N(e.Index)}) was created {N(created)} times");
                  }

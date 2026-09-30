@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -269,7 +269,7 @@
+         for (var k = 0; k < ae.Entries.Count; k++)
+         {
+             var index = ae.PrevLogIndex + 1 + k;
+-            if (index <= _log.LastIndex && _log.TermAt(index) == ae.Entries[k].Term)
++            if (index <= _log.LastIndex && _log.TermAt(index) == ae.Entries[k].Term && index < 0)
+             {
+                 continue;
+             }

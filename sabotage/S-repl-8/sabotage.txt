@@ -1,0 +1,7 @@
+description: The leader ignores how far a rejecting follower's log goes and steps back one entry per rejection
+mechanism: the leader ignores the rejection hint
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ALeaderBacksOffOnARejectionAndRetriesAtOnce
+reason: Assert.Equal() Failure
+expect: caught

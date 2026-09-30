@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -322,7 +322,7 @@
+         // Back off to just past where the follower said its log could match (at least one entry), and
+         // retry at once; never below what the follower is known to match. P4-03 predicted that one
+         // entry per rejection was fast enough; measured, it was not (the phase report).
+-        _nextIndex[from] = Math.Max(_matchIndex[from] + 1, Math.Min(_nextIndex[from] - 1, r.MatchIndex + 1));
++        _nextIndex[from] = Math.Max(_matchIndex[from] + 1, Math.Min(_nextIndex[from] - 1, _nextIndex[from] - 1));
+         SendAppend(from, effects);
+     }
+ 

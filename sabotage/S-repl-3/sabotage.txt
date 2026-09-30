@@ -1,0 +1,7 @@
+description: A leader commits an older term's entry by counting copies: Figure 8(c)
+mechanism: commitment counts copies of entries from earlier terms
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ALeaderCommitsByMajorityOnlyAnEntryOfItsOwnTerm
+reason: Assert.Empty() Failure
+expect: caught

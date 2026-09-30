@@ -457,3 +457,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Also found while writing it:* truncating from an index must cut the file at the end of the live
     entry before it, not at the live record itself. After a lost truncation the live record can sit
     after stale records, and cutting at it brings them back (S-logfile-3).
+- **The clock-skew effect measures the protocol, not the clock, once nodes write logs.** P2-02
+  defined `clock-rate-diverged` as one node's write rate diverging from the others' by 8% or more.
+  An echo node writes on its ticks, so for it the measure follows the clock. A Raft node's writes
+  follow its role, and once the leader writes every entry first, the effect fired in 290 of 300
+  soak-sample runs. The P2 rule (95% or more must be declared) caught it.
+  - *Now:* declared always-on in the soak, with that reason, until P4-07 measures skew by what it
+    does in state, the node's perceived time, independent of protocol.
+  - *General form:* an effect defined through a side effect of the node under test measures that
+    node. It stays valid only while the node's behaviour holds still.
+- **A deposed leader truncated its log before persisting the term that deposed it.** The log
+  checkers' leader append-only check fired on the first simulated runs with one-way partitions. A
+  leader of term 1 was still in office by its durable record when it truncated its suffix, because
+  it adopted term 2, applied the new leader's entries, and saved the term only at the reply. The
+  truncation is a decision the new term authorises, so the term is persisted first now, in the
+  `AppendEntries` path before any log write.

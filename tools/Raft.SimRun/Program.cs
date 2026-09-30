@@ -43,7 +43,7 @@ internal static class Program
             header = new ScheduleText.Header(seed, duration, config.Nodes, generate ? config.Hash() : "none", Commit());
         }
 
-        NodeFactory factory = raft ? ctx => new RaftNode(ctx) : ctx => new EchoCounterNode(ctx);
+        NodeFactory factory = raft ? ctx => new RaftNode(ctx, RaftOptions.Default, new Raft.Kv.KvStateMachine()) : ctx => new EchoCounterNode(ctx);
         var sim = new Simulator(new SimulationConfig { Duration = header.Duration, Nodes = header.Nodes }, factory, header.Seed, schedule);
         var trace = sim.Run();
         if (traceFile is not null)

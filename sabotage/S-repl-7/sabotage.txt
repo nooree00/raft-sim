@@ -1,0 +1,7 @@
+description: A deposed leader truncates its suffix before persisting the term that deposed it
+mechanism: the new term is saved after the log changes it authorises
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ADeposedLeaderPersistsTheNewTermBeforeTruncatingItsSuffix
+reason: the term that deposed the leader must be persisted before the truncation it authorises
+expect: caught

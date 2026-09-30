@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+    <ProjectReference Include="../../src/Raft.Kv/Raft.Kv.csproj" />
     <ProjectReference Include="../../tools/Raft.SimRun/Raft.SimRun.csproj" />
   </ItemGroup>
 </Project>

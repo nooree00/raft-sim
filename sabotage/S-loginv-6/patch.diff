@@ -1,11 +1,16 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -328,7 +328,7 @@
-         // and is not committed.
-         foreach (var e in held)
+@@ -541,12 +541,7 @@
+         for (var j = (long)held.Count; j >= Math.Max(from, _committed.Count + 1); j--)
          {
--            var copies = _durable.Values.Count(l => l.Any(x => x.Index == e.Index && x.Ghost == e.Ghost && x.CopyTerm == e.Term));
-+            var copies = _durable.Values.Count(l => l.Any(x => x.Index == e.Index && x.Ghost == e.Ghost));
+             var e = held[(int)j - 1];
+-            if (e.CopyTerm != e.Term)
+-            {
+-                continue;
+-            }
+-
+-            var copies = _durable.Values.Count(l => At(l, j) is { } x && x.Ghost == e.Ghost && x.CopyTerm == e.Term);
++            var copies = _durable.Values.Count(l => At(l, j) is { } x && x.Ghost == e.Ghost);
              if (copies < _h.Quorum)
              {
                  continue;

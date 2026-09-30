@@ -1,0 +1,7 @@
+description: A follower commits up to the leader's commit index over entries this AppendEntries did not vouch for
+mechanism: a follower's commit is not bounded by its last new entry
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AFollowerCommitsUpToTheLeadersCommitIndexButNoFurtherThanItsLastNewEntry
+reason: Assert.Equal() Failure
+expect: caught

@@ -1,0 +1,7 @@
+description: A follower's acknowledgement leaves ahead of the entries it acknowledges, so the barrier does not hold it until they are durable
+mechanism: a follower acknowledges entries before persisting them
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AFollowerPersistsNewEntriesBeforeAcknowledgingThem
+reason: entries must be durable before the follower acknowledges them
+expect: caught

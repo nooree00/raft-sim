@@ -43,30 +43,37 @@ public sealed class Simulator
     public bool Observe { get; init; }
 
     private readonly List<Observation> _observations = [];
-    private readonly Dictionary<NodeId, Dictionary<string, byte[]>> _observedDisk = [];
+    private readonly Dictionary<NodeId, HashSet<string>> _observedFiles = [];
 
     public IReadOnlyList<Observation> Observations => _observations;
 
-    /// <summary>Records every durable file of the node whose content changed since it was last recorded.</summary>
-    private void ObserveDisk(Host h)
+    private HashSet<string> ObservedFiles(Host h) =>
+        _observedFiles.TryGetValue(h.Id, out var s) ? s : _observedFiles[h.Id] = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>A write completed: recorded as the write, which applied to the file as it was gives the file as it is.</summary>
+    private void ObserveCompleted(Host h, Persist op)
     {
-        if (!_observedDisk.TryGetValue(h.Id, out var seen))
+        ObservedFiles(h).Add(op.File);
+        if (op is PersistRename r)
         {
-            _observedDisk[h.Id] = seen = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            ObservedFiles(h).Add(r.To);
         }
 
+        _observations.Add(new DurableObservation(_now, h.Id, op.File, null, op));
+    }
+
+    /// <summary>After a crash: every durable file of the node as the disk left it, and every file it no longer has.</summary>
+    private void ObserveDisk(Host h)
+    {
+        var seen = ObservedFiles(h);
         var now = h.Disk.Snapshot();
         foreach (var (file, content) in now.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
-            var bytes = content.ToArray();
-            if (!seen.TryGetValue(file, out var before) || !Enumerable.SequenceEqual(before, bytes))
-            {
-                seen[file] = bytes;
-                _observations.Add(new DurableObservation(_now, h.Id, file, bytes));
-            }
+            seen.Add(file);
+            _observations.Add(new DurableObservation(_now, h.Id, file, content.ToArray()));
         }
 
-        foreach (var gone in seen.Select(kv => kv.Key).Where(f => !now.ContainsKey(f)).Order(StringComparer.Ordinal).ToList())
+        foreach (var gone in seen.Where(f => !now.ContainsKey(f)).Order(StringComparer.Ordinal).ToList())
         {
             seen.Remove(gone);
             _observations.Add(new DurableObservation(_now, h.Id, gone, null));
@@ -557,7 +564,7 @@ public sealed class Simulator
                     Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
                     if (Observe)
                     {
-                        _observations.Add(new IssuedObservation(_now, h.Id, p));
+                        _observations.Add(new IssuedObservation(_now, h.Id, p, Steps));
                     }
 
                     Count(_effects, p.GetType());
@@ -570,6 +577,11 @@ public sealed class Simulator
                 case Emit ev:
                     Count(_effects, typeof(Emit));
                     Trace.Add(_now, h.Id.ToString(), "EVENT", [("name", (object)ev.Name), .. ev.Fields.Select(f => (f.Key, (object)f.Value))]);
+                    if (Observe)
+                    {
+                        _observations.Add(new EmittedObservation(_now, h.Id, ev, Steps));
+                    }
+
                     break;
                 default:
                     throw new InvalidOperationException("unknown effect " + e.GetType().Name);
@@ -590,7 +602,7 @@ public sealed class Simulator
         Trace.Add(_now, h.Id.ToString(), "DURABLE", ("seq", w.Seq));
         if (Observe)
         {
-            ObserveDisk(h);
+            ObserveCompleted(h, w.Op);
         }
 
         Release(h);
@@ -688,7 +700,7 @@ public sealed class Simulator
     {
         if (Observe)
         {
-            _observations.Add(new DeliveredObservation(_now, to, from, id));
+            _observations.Add(new DeliveredObservation(_now, to, from, id, Steps + 1));
         }
     }
 

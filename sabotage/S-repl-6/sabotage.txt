@@ -1,0 +1,7 @@
+description: The leader answers a client as soon as its entry is appended, before it commits
+mechanism: a client is answered before its entry commits
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AClientRequestAtTheLeaderIsAnsweredOnlyAfterItCommitsAndIsApplied
+reason: Assert.Empty() Failure
+expect: caught

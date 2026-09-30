@@ -1,0 +1,150 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using Raft.Core;
+using Raft.Simulation;
+using Xunit;
+
+namespace Raft.Core.Tests;
+
+/// <summary>
+/// Random single-key KV operations (spec §6) from simulated clients, each sent to a random node (P4
+/// decision 5: a non-leader refuses, and the client's next operation goes elsewhere), or all to one
+/// node. Values are unique per operation.
+/// </summary>
+internal sealed class RaftWorkload(int perClient, NodeId? target = null, int keys = 3) : IClientWorkload
+{
+    public ClientCall? NextCall(int client, int sequence, IRandomSource random)
+    {
+        if (sequence >= perClient)
+        {
+            return null;
+        }
+
+        var node = target ?? new NodeId(1 + (int)random.NextLong(Cluster.Nodes));
+        var key = "k" + random.NextLong(keys).ToString(CultureInfo.InvariantCulture);
+        var value = "c" + client.ToString(CultureInfo.InvariantCulture) + "s" + sequence.ToString(CultureInfo.InvariantCulture);
+        var command = random.NextLong(4) switch
+        {
+            0 => "Put|" + key + "|" + value,
+            1 => "Append|" + key + "|" + value,
+            2 => "Get|" + key,
+            _ => "Cas|" + key + "|-|" + value,
+        };
+        return new ClientCall(node, Encoding.ASCII.GetBytes(command));
+    }
+}
+
+/// <summary>
+/// P4-03 in the simulator: three nodes with clients, each node in turn unable to send and then crashed,
+/// so that leadership changes and old leaders' suffixes conflict, and every invariant, election and
+/// log, holding in every run. Vacuity risk: a run in which
+/// one leader holds office throughout satisfies every log invariant trivially (one term, no
+/// conflicts); guarded by requiring commits in at least two terms in every run, and a conflicting
+/// suffix truncated in some run of the sample. Sabotages S-repl-1..6 run here too.
+/// </summary>
+public sealed class ReplicationSimulationTests
+{
+    private const int Runs = 100;
+    private const long Duration = 8_000;
+    private const long Healed = 3_000;
+    private static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3);
+
+    /// <summary>
+    /// Each node in turn cannot send to the others for 700 ticks, then crashes once. A leader that
+    /// cannot reach its followers still hears clients and appends entries that cannot commit, and a new
+    /// leader is elected: on healing its suffix conflicts and must be truncated. The crashes restart
+    /// nodes from disk mid-run.
+    /// </summary>
+    private static FaultSchedule EachNodeCutOffAndCrashed()
+    {
+        var faults = new List<Fault>();
+        var nodes = new[] { N1, N2, N3 };
+        for (var k = 0; k < 3; k++)
+        {
+            var n = nodes[k];
+            var at = 1_000 + (2_000 * k);
+            foreach (var other in nodes.Where(o => o != n))
+            {
+                faults.Add(new Partition(at, n, other));
+                faults.Add(new Heal(at + 700, n, other));
+            }
+
+            faults.Add(new Crash(at + 1_200, n, DiskLoss.Pending));
+            faults.Add(new Restart(at + 1_500, n));
+        }
+
+        return new FaultSchedule(faults.OrderBy(f => f.At).ToList());
+    }
+
+    [Fact]
+    public void EveryInvariantHoldsAndEachRunCommitsInMoreThanOneTerm()
+    {
+        long committed = 0, truncated = 0, applies = 0, claims = 0, minTerms = long.MaxValue;
+        var runsWithTruncation = 0;
+        for (var seed = 1UL; seed <= Runs; seed++)
+        {
+            var (sim, h) = Cluster.Run(seed, Duration, EachNodeCutOffAndCrashed(), clients: 3, workload: new RaftWorkload(400));
+            foreach (var r in Cluster.Check(h, stableFrom: 6_500, end: Duration).Concat(Cluster.CheckLog(sim, h)))
+            {
+                Assert.True(r.Holds, $"seed {seed}, {r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
+            }
+
+            var log = Cluster.CheckLog(sim, h)[0];
+            Assert.True(log.Count("terms-with-a-commit") >= 2, $"seed {seed}: commits in {log.Count("terms-with-a-commit")} term(s); the run did not exercise a change of leader");
+            minTerms = Math.Min(minTerms, log.Count("terms-with-a-commit"));
+            committed += log.Count("entries-committed");
+            truncated += log.Count("suffixes-truncated");
+            applies += log.Count("applies");
+            claims += log.Count("claims");
+            runsWithTruncation += log.Count("suffixes-truncated") > 0 ? 1 : 0;
+        }
+
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "replication.txt"), string.Join("\n",
+            $"{Runs} runs of {Duration} ticks, 3 clients to random nodes, each node in turn cut off from sending for 700 ticks, then crashed",
+            $"entries committed {committed} (mean {committed / Runs}), applies {applies}, claims {claims}",
+            $"terms with a commit: at least {minTerms} in every run",
+            $"conflicting suffixes truncated {truncated}, in {runsWithTruncation} runs") + "\n");
+        Assert.True(runsWithTruncation >= 1, "no run truncated a conflicting suffix: the sample never exercised conflict resolution");
+    }
+
+    /// <summary>
+    /// P4-03's prediction, measured: a follower isolated while the leader commits many entries catches
+    /// up, backtracking one entry per rejection, and the ticks it takes are written beside the assembly.
+    /// </summary>
+    [Fact]
+    public void AnIsolatedFollowerCatchesUpAfterTheLeaderCommitsManyEntries()
+    {
+        const ulong seed = 1;
+        var (probe, ph) = Cluster.Run(seed, 1_000);
+        var leader = ph.Elections().OrderBy(e => e.Value).Select(e => e.Key.Candidate).First();
+        var follower = new[] { N1, N2, N3 }.First(n => n != leader);
+        var (sim, h) = Cluster.Run(seed, 5_000, new FaultSchedule([new Isolate(1_000, follower, Healed)]), clients: 12, workload: new RaftWorkload(1_000, target: leader));
+        foreach (var r in Cluster.CheckLog(sim, h))
+        {
+            Assert.True(r.Holds, $"{r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
+        }
+
+        // Each node's durable log length after every change, replayed from the completed writes.
+        var views = new Dictionary<NodeId, LogHistory.FileView>();
+        var lengths = new List<(long Time, NodeId Node, long Length)>();
+        foreach (var d in sim.Observations.OfType<DurableObservation>().Where(d => d.File == EntryLog.FileName))
+        {
+            var v = views.TryGetValue(d.Node, out var x) ? x : views[d.Node] = new LogHistory.FileView();
+            _ = d.Completed is { } op ? v.Apply(op) : v.Replace(d.Content?.ToArray() ?? []);
+            lengths.Add((d.Time, d.Node, v.Count));
+        }
+
+        long LengthAt(NodeId n, long t) => lengths.Where(l => l.Node == n && l.Time <= t).Select(l => l.Length).DefaultIfEmpty(0).Last();
+        var behind = LengthAt(leader, Healed) - LengthAt(follower, Healed);
+        var target = LengthAt(leader, Healed);
+        var caughtUp = lengths.Where(l => l.Node == follower && l.Time >= Healed && l.Length >= target).Select(l => l.Time).DefaultIfEmpty(long.MaxValue).First();
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "catch-up.txt"),
+            $"leader {leader}, follower {follower} isolated 1000..{Healed}; behind by {behind} entries when healed; caught up to {target} at {(caughtUp == long.MaxValue ? "never" : caughtUp.ToString(CultureInfo.InvariantCulture))}, {(caughtUp == long.MaxValue ? "-" : (caughtUp - Healed).ToString(CultureInfo.InvariantCulture))} ticks after healing\n");
+        Assert.True(behind >= 1_000, $"the follower was only {behind} entries behind: the measurement needs at least 1000");
+        Assert.True(caughtUp < 5_000, "the isolated follower never caught up");
+    }
+}

@@ -26,6 +26,7 @@ public sealed class LogInvariantTests
     {
         private readonly List<LogHistory.Event> _e = [];
         private readonly Dictionary<NodeId, List<LogEntryAt>> _logs = new() { [N1] = [], [N2] = [], [N3] = [] };
+        private readonly Dictionary<NodeId, List<LogEntryAt>> _disks = new() { [N1] = [], [N2] = [], [N3] = [] };
         private long _seq, _step, _id;
 
         private long Seq => ++_seq;
@@ -83,9 +84,14 @@ public sealed class LogInvariantTests
         }
 
         /// <summary>Everything the node has issued becomes durable.</summary>
-        public Trace Durable(NodeId n)
+        public Trace Durable(NodeId n) => Disk(n, _logs[n].OrderBy(x => x.Index).ToList());
+
+        /// <summary>The node's disk now holds <paramref name="log"/>: recorded as the change from what it held.</summary>
+        private Trace Disk(NodeId n, List<LogEntryAt> log)
         {
-            _e.Add(new LogHistory.Durable(Seq, n, _logs[n].ToList()));
+            var (cut, added) = LogHistory.Change(_disks[n], log);
+            _disks[n] = log;
+            _e.Add(new LogHistory.Durable(Seq, n, cut, added));
             return this;
         }
 
@@ -96,7 +102,7 @@ public sealed class LogInvariantTests
             if (keep is { } k)
             {
                 _logs[n] = _logs[n].OrderBy(x => x.Index).Take(k).ToList();
-                _e.Add(new LogHistory.Durable(Seq, n, _logs[n].ToList()));
+                Disk(n, _logs[n].ToList());
             }
 
             return this;

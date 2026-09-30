@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -253,7 +253,7 @@
+         // rejection says how far this log could match: its last index when it is shorter, otherwise
+         // the index before the one that failed. The leader jumps there instead of stepping back one
+         // entry per rejection, which with heartbeats alone takes one step per interval (P4-03).
+-        if (ae.PrevLogIndex > _log.LastIndex || _log.TermAt(ae.PrevLogIndex) != ae.PrevLogTerm)
++        if (ae.PrevLogIndex > _log.LastIndex)
+         {
+             Reply(from, new AppendEntriesResponse(_term, false, Math.Min(_log.LastIndex, ae.PrevLogIndex - 1)), effects);
+             return;

@@ -52,6 +52,7 @@ internal sealed class ElectionHistory
     {
         ClusterSize = clusterSize;
         var byId = new Dictionary<long, Message>();
+        var termVote = new Dictionary<NodeId, List<byte>>();
         long seq = 0;
         foreach (var o in observations)
         {
@@ -69,7 +70,22 @@ internal sealed class ElectionHistory
                     Deliveries.Add(new Delivered(seq, d.Time, d.Node, d.From, m));
                     break;
                 case DurableObservation { File: TermVoteLog.FileName } d:
-                    var r = TermVoteLog.Recover(d.Content?.ToArray());
+                    var file = termVote.TryGetValue(d.Node, out var tf) ? tf : termVote[d.Node] = [];
+                    switch (d.Completed)
+                    {
+                        case PersistAppend a:
+                            file.AddRange(a.Data.ToArray());
+                            break;
+                        case PersistTruncate t when t.Length < file.Count:
+                            file.RemoveRange((int)t.Length, file.Count - (int)t.Length);
+                            break;
+                        case null:
+                            file.Clear();
+                            file.AddRange(d.Content?.ToArray() ?? []);
+                            break;
+                    }
+
+                    var r = TermVoteLog.Recover(file.ToArray());
                     States.Add(new Durable(seq, d.Time, d.Node, r.State, r.Path));
                     break;
                 case IssuedObservation { Op: PersistAppend { File: TermVoteLog.FileName } a } i:
@@ -95,7 +111,8 @@ internal sealed class ElectionHistory
     /// the soak twice: a delayed grant, and a grant arriving while the next candidacy's record was still
     /// in flight). After a crash the latest record is the durable one: writes in flight may be lost.
     /// </summary>
-    public Dictionary<(Term Term, NodeId Candidate), long> Elections()
+    /// <param name="bySeq">When given, receives each election's position in the observation stream (P4-03: log events order by it).</param>
+    public Dictionary<(Term Term, NodeId Candidate), long> Elections(Dictionary<(Term Term, NodeId Candidate), long>? bySeq = null)
     {
         var voters = new Dictionary<(Term, NodeId), HashSet<NodeId>>();
         var elected = new Dictionary<(Term, NodeId), long>();
@@ -108,7 +125,7 @@ internal sealed class ElectionHistory
             .Concat(Intended.Select(s => (s.Seq, s.Time, Kind: 2, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
             .Concat(CrashSeqs.Select(c => (c.Seq, c.Time, Kind: 3, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
             .OrderBy(e => e.Seq);
-        foreach (var (_, time, kind, node, term, voter, state) in events)
+        foreach (var (seq, time, kind, node, term, voter, state) in events)
         {
             if (kind == 3)
             {
@@ -152,6 +169,10 @@ internal sealed class ElectionHistory
             if (set.Add(voter) && set.Count >= Quorum && !elected.ContainsKey(key))
             {
                 elected[key] = time;
+                if (bySeq is not null)
+                {
+                    bySeq[key] = seq;
+                }
             }
         }
 

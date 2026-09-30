@@ -7,8 +7,11 @@ namespace Raft.Core;
 /// <summary>An entry as recovery found it on disk, with the byte offset just past its record.</summary>
 public sealed record StoredEntry(long Index, Term Term, byte[] Command, long EndOffset);
 
-/// <summary>The outcome of reading the log file: the entries, the path taken, and the length of its whole records.</summary>
-public sealed record EntryLogRecovery(RecoveryPath Path, IReadOnlyList<StoredEntry> Entries, long ValidLength, string Detail);
+/// <summary>
+/// The outcome of reading the log file: the entries, the path taken, the length of its whole records,
+/// and the lowest index this read added or replaced (0 when it changed nothing).
+/// </summary>
+public sealed record EntryLogRecovery(RecoveryPath Path, IReadOnlyList<StoredEntry> Entries, long ValidLength, string Detail, long FirstChanged = 0);
 
 /// <summary>
 /// The log's entries, persisted in their own append-only file (spec §8, P4 decision 4), with the
@@ -45,33 +48,40 @@ public static class EntryLog
         return b.ToArray();
     }
 
-    public static EntryLogRecovery Recover(byte[]? file)
-    {
-        var entries = new List<StoredEntry>();
-        if (file is null || file.Length == 0)
-        {
-            return new(RecoveryPath.Empty, entries, 0, "no records");
-        }
+    public static EntryLogRecovery Recover(byte[]? file) =>
+        file is null || file.Length == 0 ? new(RecoveryPath.Empty, new List<StoredEntry>(), 0, "no records") : Resume(new List<StoredEntry>(), file, file.Length, 0);
 
-        long at = 0;
+    /// <summary>
+    /// Continues a recovery: reads the records of <paramref name="file"/>'s first
+    /// <paramref name="fileLength"/> bytes from <paramref name="from"/> (the end of the whole records
+    /// already read into <paramref name="entries"/>) onto <paramref name="entries"/>, which it
+    /// changes. Recover is Resume from nothing; an observer of a growing file resumes where it
+    /// stopped instead of reading it again.
+    /// </summary>
+    public static EntryLogRecovery Resume(List<StoredEntry> entries, byte[] file, long fileLength, long from)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(file);
+        long at = from;
         var records = 0;
         var unchained = 0;
-        while (at < file.Length)
+        var firstChanged = 0L;
+        while (at < fileLength)
         {
-            var remaining = file.Length - at;
+            var remaining = fileLength - at;
             var length = remaining >= Header ? (long)Get(file, at, 4) : -1;
             var size = Header + length + Trailer;
             if (length < 0 || remaining < size)
             {
-                return new(RecoveryPath.TruncatedTornTail, entries, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut");
+                return new(RecoveryPath.TruncatedTornTail, entries, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut", firstChanged);
             }
 
-            var last = at + size == file.Length;
+            var last = at + size == fileLength;
             if (Checksum(file, (int)at, (int)(Header + length)) != Get(file, at + Header + length, 4))
             {
                 return last
-                    ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut")
-                    : new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption");
+                    ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut", firstChanged)
+                    : new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption", firstChanged);
             }
 
             if (length < Fixed)
@@ -98,13 +108,14 @@ public static class EntryLog
             {
                 entries.RemoveRange((int)(index - 1), entries.Count - (int)(index - 1));
                 entries.Add(new StoredEntry(index, new Term(term), command, end));
+                firstChanged = firstChanged == 0 ? index : Math.Min(firstChanged, index);
             }
 
             at = end;
             records++;
         }
 
-        return new(RecoveryPath.Clean, entries, at, N(records) + " record(s), " + N(entries.Count) + " entries" + (unchained > 0 ? ", " + N(unchained) + " unchained dropped" : ""));
+        return new(RecoveryPath.Clean, entries, at, N(records) + " record(s), " + N(entries.Count) + " entries" + (unchained > 0 ? ", " + N(unchained) + " unchained dropped" : ""), firstChanged);
     }
 
     private static string N(long v) => v.ToString(CultureInfo.InvariantCulture);

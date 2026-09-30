@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -262,7 +262,7 @@
+         // A new term is persisted before the log changes it authorises: a deposed leader truncating its
+         // suffix at the new leader's word acts on that term (found by the log checkers, P4-03: the
+         // truncation was issued before the term that deposed it).
+-        Save(effects);
++        _ = effects;
+ 
+         // Truncate only at a real conflict: an entry already held with the same term is the same entry
+         // (Log Matching), and a stale AppendEntries carrying a prefix must not cut what follows it.

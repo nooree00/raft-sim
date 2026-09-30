@@ -285,5 +285,8 @@ public sealed class SoakTests
     };
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>
-    private static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal)
+    {
+        ["clock-rate-diverged"] = "a broken measurement for Raft, not a property of the generator: the effect is measured as one node's write rate diverging by 8% or more, which an echo node's tick-driven writes tie to its clock, but a Raft node's writes follow its role (the leader writes every no-op and entry first), so it fires in about 97% of runs whatever the clocks do. P4-07 replaces it with the node's perceived time (findings)",
+    };
 }

@@ -1,13 +1,11 @@
-diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
-index 9237dea..d31fd79 100644
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -137,7 +137,7 @@ public sealed class RaftNode : INode
-         switch (m)
-         {
-             case RequestVote rv:
--                var grant = rv.Term == _term && (_votedFor is null || _votedFor == rv.Candidate);
-+                var grant = rv.Term == _term;
+@@ -196,7 +196,7 @@
+                 // §5.4.1, the election restriction: only a candidate whose log is at least as up to
+                 // date as the voter's, by last term and then by length, can have every committed entry.
+                 var upToDate = rv.LastLogTerm > _log.LastTerm || (rv.LastLogTerm == _log.LastTerm && rv.LastLogIndex >= _log.LastIndex);
+-                var grant = rv.Term == _term && (_votedFor is null || _votedFor == rv.Candidate) && upToDate;
++                var grant = rv.Term == _term && upToDate;
                  if (grant)
                  {
                      _votedFor = rv.Candidate;

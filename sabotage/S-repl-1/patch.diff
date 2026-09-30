@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -296,7 +296,7 @@
+             Apply(effects);
+         }
+ 
+-        Reply(from, new AppendEntriesResponse(_term, true, lastNew), effects);
++        effects.Insert(0, new Send(from, MessageCodec.Encode(new AppendEntriesResponse(_term, true, lastNew))));
+     }
+ 
+     private void OnAppendEntriesResponse(NodeId from, AppendEntriesResponse r, List<Effect> effects)

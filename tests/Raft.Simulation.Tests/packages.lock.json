@@ -127,10 +127,17 @@
       "raft.core": {
         "type": "Project"
       },
+      "raft.kv": {
+        "type": "Project",
+        "dependencies": {
+          "Raft.Core": "[1.0.0, )"
+        }
+      },
       "raft.simrun": {
         "type": "Project",
         "dependencies": {
           "Raft.Core": "[1.0.0, )",
+          "Raft.Kv": "[1.0.0, )",
           "Raft.Simulation": "[1.0.0, )"
         }
       },
