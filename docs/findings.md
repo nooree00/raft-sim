@@ -421,3 +421,16 @@ finding: what happened, why no existing check caught it, what now catches it.
   constructor, which that stub kept. Against the first stub, whose constructor did nothing, it
   failed. A tests-first run shows which tests go red; a green one there is a statement about where
   its subject lives, and the stub has to remove that place too.
+- **A report commit that is not the head of its push can never be certified.** The P3 acceptance
+  push carried the report's commit and then the P4 breakdown. GitHub runs CI for the head only, so
+  the report's commit had no run of its own, and `gates reports` failed the head's run: "no ci
+  workflow run for this commit". Every other job was green.
+  - *Not caught:* `gates reports` needs the GitHub API and is the one gate the local sequence
+    skips, so the full local run was green.
+  - *Now:* a new head commit touches the report, so it certifies a commit CI runs.
+  - *Proposed, not built (phase 4 has not started):* make the rule mechanical. `gates each-commit`
+    can fail any non-head commit in the pushed range that changes a `docs/phases/*/report.md`.
+    That is a local check, and it would have stopped this push. The alternative, letting
+    `gates reports` accept the per-commit jobs for that sha in a later run, weakens "the run for
+    that commit" and I do not propose it.
+
