@@ -190,7 +190,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-ran-1, S-ran-2, S-ran-3, S-patch-1
 - **Verifiable here:** yes — the harness shards run locally
 - **Prediction:** Two parts. **Cost:** with the simulation-scale tests out, `Raft.Core.Tests` runs in under 20 s, and every harness shard fits the 15-minute ceiling locally, shard 1 included, in under 12 minutes: most entries target unit tests or other projects, and the fixed cost falls with the baseline checks. **The gate:** S-ran-2 (a moved file excluded, the baseline edited to match) passes the count check as it stands and fails the written-versus-ran check, naming the file's tests. **Observable:** the local shard times, and S-ran-2's result against the gate with and without the new check.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — **the gate half right:** under S-ran-2 (the durability tests dropped from `Raft.Scale.Tests`, its baseline edited from 11 to 9) the count check as it stood passed ("Raft.Scale.Tests: 9 executed ... ok"), and the new check failed, naming both durability tests and the two harness entries aimed at them (S-dur-1, S-dur-2). **The cost half partly right:** `Raft.Core.Tests` runs in 8–10 s (was 81 s), under the predicted 20, and every harness shard fits the ceiling on the head's full local run: shard 1 9.4 min (563 s, fixed cost 369 s; was 22.1 min and 499 s), shards 2–7 about 11.1, 12.6, 8.9, 10.7, 10.2 and 9.6 min. Shard 3 missed the predicted 12 minutes by about half a minute. `Raft.Scale.Tests` takes 5.3 min on its own (11 tests), so an entry aimed at it still pays that, which is what keeps shard 3 near the edge; the register row for per-project builds (P5) stands.
 
 ## Sabotage ids
 
