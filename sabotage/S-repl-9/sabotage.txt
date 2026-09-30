@@ -1,0 +1,7 @@
+description: A leader acts on AppendEntries responses from earlier terms: a stale success raises its match index for a follower whose log may since have changed. Until P4-07 no test saw it, the soak sample included (findings)
+mechanism: a leader counts a stale term's acknowledgement
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ALeaderIgnoresAnAcknowledgementFromAnEarlierTerm
+reason: a term-1 acknowledgement was counted toward a term-2 commit
+expect: caught

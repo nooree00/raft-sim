@@ -86,7 +86,9 @@ public static class Coverage
         var linkOf = new Dictionary<string, (string From, string To)>(StringComparer.Ordinal);
         var undelivered = new HashSet<string>(StringComparer.Ordinal);
         var lostToDown = new HashSet<string>(StringComparer.Ordinal);
-        var persists = new Dictionary<string, int>(StringComparer.Ordinal);
+        var skewed = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var skewedSince = new Dictionary<string, long>(StringComparer.Ordinal);
+        var skewedFor = new Dictionary<string, long>(StringComparer.Ordinal);
         var persistAt = new Dictionary<(string, string), long>();
         var lastBlocked = new Dictionary<(string, string), long>();
         var lastDelivered = new Dictionary<(string, string), long>();
@@ -117,6 +119,17 @@ public static class Coverage
             }
         }
 
+        // A node's clock runs at a skewed rate while it is up: accumulated per node, stopped at a crash.
+        void SkewUntil(string n, long t)
+        {
+            if (skewed.GetValueOrDefault(n) && !down.Contains(n) && skewedSince.TryGetValue(n, out var since))
+            {
+                skewedFor[n] = skewedFor.GetValueOrDefault(n) + (t - since);
+            }
+
+            skewedSince[n] = t;
+        }
+
         long now = 0;
         foreach (var line in trace)
         {
@@ -133,6 +146,7 @@ public static class Coverage
                     }
 
                     down.Remove(node);
+                    skewedSince[node] = now;
                     Touch(node, now);
                     if (f.TryGetValue("incarnation", out var inc) && inc != "1")
                     {
@@ -142,6 +156,7 @@ public static class Coverage
                     break;
                 case "CRASH":
                     CheckIsolation(node, now);
+                    SkewUntil(node, now);
                     down.Add(node);
                     if (nodes.Count > 0 && down.Count * 2 > nodes.Count)
                     {
@@ -213,8 +228,16 @@ public static class Coverage
                     }
 
                     break;
+                case "FAULT" when f.GetValueOrDefault("kind") == "Skew":
+                    // detail=nX:numerator/denominator. Diverged: a rate 8% or more from real.
+                    var at = f["detail"].Split(':');
+                    var rate = at[1].Split('/');
+                    var num = long.Parse(rate[0], CultureInfo.InvariantCulture);
+                    var den = long.Parse(rate[1], CultureInfo.InvariantCulture);
+                    SkewUntil(at[0], now);
+                    skewed[at[0]] = Math.Abs(num - den) * 100 >= den * 8;
+                    break;
                 case "PERSIST":
-                    persists[node] = persists.GetValueOrDefault(node) + 1;
                     persistAt[(node, f["seq"])] = now;
                     break;
                 case "DURABLE":
@@ -253,8 +276,14 @@ public static class Coverage
             }
         }
 
-        // Skew shows as one node's write rate diverging from the others' by 8% or more.
-        if (persists.Count >= 2 && persists.Values.Min() > 0 && persists.Values.Max() * 100 >= persists.Values.Min() * 108)
+        // Skew as what it does to the node's time (P4-07): up for a timeout or more with its clock
+        // running 8% or more from real, so its perceived time diverged by at least that share.
+        foreach (var n in nodes)
+        {
+            SkewUntil(n, now);
+        }
+
+        if (skewedFor.Values.Any(t => t >= limits.Timeout))
         {
             hit.Add("clock-rate-diverged");
         }

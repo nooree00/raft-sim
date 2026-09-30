@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -301,7 +301,7 @@
+ 
+     private void OnAppendEntriesResponse(NodeId from, AppendEntriesResponse r, List<Effect> effects)
+     {
+-        if (Role != Role.Leader || r.Term != _term || !_nextIndex.ContainsKey(from))
++        if (Role != Role.Leader || r.Term > _term || !_nextIndex.ContainsKey(from))
+         {
+             return;
+         }

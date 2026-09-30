@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -356,7 +356,7 @@
+
+     private void OnClientRequest(ClientRequest c, List<Effect> effects)
+     {
+-        if (Role != Role.Leader)
++        if (Role != Role.Leader || _term.Value > 3)
+         {
+             var hint = Role == Role.Follower && _leaderHint is { } h ? h.ToString() : "-";
+             effects.Add(new ClientResponse(c.RequestId, Ascii("redirect|" + hint)));

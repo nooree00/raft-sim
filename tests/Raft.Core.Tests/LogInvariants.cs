@@ -30,8 +30,11 @@ internal sealed class LogHistory
     /// <summary>The node's durable log changed: a write completed, or a crash changed the disk.</summary>
     public sealed record Durable(long Seq, NodeId Node, long TruncateFrom, IReadOnlyList<LogEntryAt> Append) : Event(Seq, Node);
 
-    /// <summary>An `AppendEntries` the node sent; its `LeaderCommit` is the sender's claim of commitment.</summary>
-    public sealed record Sent(long Seq, NodeId Node, long Id, AppendEntries Message) : Event(Seq, Node);
+    /// <summary>
+    /// An `AppendEntries` the node sent; its `LeaderCommit` is the sender's claim of commitment. `Step`
+    /// is the step that composed it: the barrier may release it after later steps changed the log.
+    /// </summary>
+    public sealed record Sent(long Seq, NodeId Node, long Id, AppendEntries Message, long Step = 0) : Event(Seq, Node);
 
     /// <summary>A message delivered to the node, starting <paramref name="Step"/> there.</summary>
     public sealed record Delivered(long Seq, NodeId Node, long Id, long Step) : Event(Seq, Node);
@@ -95,7 +98,7 @@ internal sealed class LogHistory
             switch (o)
             {
                 case SentObservation s when MessageCodec.Decode(s.Payload.ToArray()) is AppendEntries ae:
-                    events.Add(new Sent(seq, s.Node, s.Id, ae));
+                    events.Add(new Sent(seq, s.Node, s.Id, ae, s.Step));
                     break;
                 case DeliveredObservation d:
                     events.Add(new Delivered(seq, d.Node, d.Id, d.Step));
@@ -236,6 +239,7 @@ internal sealed class LogAnalysis
     private readonly Dictionary<(NodeId, long, Term), (string Ghost, Term CopyTerm)> _lastIssued = [];
     private readonly List<(string Ghost, Term Term)> _committed = [];
     private readonly List<CommitInFact> _commits = [];
+    private readonly Dictionary<NodeId, List<(long Step, Held Entry)>> _removed = [];
     private readonly Dictionary<string, long> _createdAt = new(StringComparer.Ordinal);
     private readonly Dictionary<long, (string Key, NodeId Node)> _applied = [];
     private readonly Dictionary<NodeId, Term> _tenure = [];
@@ -275,6 +279,12 @@ internal sealed class LogAnalysis
                     OnDurable(du);
                     break;
                 case LogHistory.Crashed c:
+                    _removed.Remove(c.Node);
+                    if (_tenure.ContainsKey(c.Node) && Intended(c.Node).Count > _committed.Count)
+                    {
+                        Counts["leaders-crashed-with-uncommitted-entries"]++;
+                    }
+
                     _tenure.Remove(c.Node);
                     Intended(c.Node).Clear();
                     Intended(c.Node).AddRange(Durable(c.Node));
@@ -315,6 +325,7 @@ internal sealed class LogAnalysis
     public Dictionary<string, long> Counts { get; } = new(StringComparer.Ordinal)
     {
         ["elections"] = 0, ["leaders-with-entries"] = 0, ["suffixes-truncated"] = 0, ["applies"] = 0, ["claims"] = 0,
+        ["leaders-crashed-with-uncommitted-entries"] = 0, ["committed-in-a-later-term"] = 0,
     };
 
     /// <summary>
@@ -326,6 +337,9 @@ internal sealed class LogAnalysis
 
     /// <summary>Every entry committed in fact, in index order (P4-06: invariant 11's commit clause reads it).</summary>
     public IReadOnlyList<CommitInFact> Commits => _commits;
+
+    /// <summary>The command a created entry carries, by ghost id, or null for an entry never created.</summary>
+    public byte[]? CommandOf(string ghost) => _commands.GetValueOrDefault(ghost);
 
     /// <summary>The ghost id of the entry a node holds at an index in its intended log, or null.</summary>
     public string? GhostAt(NodeId node, long index) => At(Intended(node), index)?.Ghost;
@@ -345,6 +359,16 @@ internal sealed class LogAnalysis
     /// <summary>Claims above this index are verified again: the node's log changed at or below it.</summary>
     private void Lower(NodeId node, long index) => _claimVerified[node] = Math.Min(_claimVerified.GetValueOrDefault(node), index);
 
+    /// <summary>Entries removed from a node's intended log since it last crashed, with the step that removed them.</summary>
+    private void Removed(NodeId node, long step, List<Held> log, long from)
+    {
+        var removed = _removed.TryGetValue(node, out var r) ? r : _removed[node] = [];
+        for (var j = from; j <= log.Count; j++)
+        {
+            removed.Add((step, log[(int)j - 1]));
+        }
+    }
+
     private void OnSent(LogHistory.Sent s)
     {
         var m = s.Message;
@@ -353,7 +377,11 @@ internal sealed class LogAnalysis
         for (var k = 0; k < m.Entries.Count; k++)
         {
             var index = m.PrevLogIndex + 1 + k;
-            var held = At(log, index);
+            var term = m.Entries[k].Term;
+            // The log as it was when the message was composed: an entry a later step removed, while
+            // the barrier held this message behind an earlier write, was held then (P4-07).
+            var held = At(log, index) is { } now && now.Term == term ? now
+                : _removed.GetValueOrDefault(s.Node)?.Where(x => x.Step > s.Step && x.Entry.Index == index && x.Entry.Term == term).Select(x => x.Entry).FirstOrDefault();
             if (held is not null && held.Term == m.Entries[k].Term)
             {
                 ghosts[index] = held.Ghost;
@@ -407,6 +435,7 @@ internal sealed class LogAnalysis
                 Fail("leader-append-only", $"{i.Node}, leader of term {N(tenure.Value)}, truncated its log from {N(i.TruncateFrom)}");
             }
 
+            Removed(i.Node, i.Step, log, i.TruncateFrom);
             log.RemoveRange((int)i.TruncateFrom - 1, log.Count - (int)i.TruncateFrom + 1);
             Lower(i.Node, i.TruncateFrom - 1);
             Counts["suffixes-truncated"]++;
@@ -456,6 +485,7 @@ internal sealed class LogAnalysis
 
             if (e.Index <= log.Count)
             {
+                Removed(i.Node, i.Step, log, e.Index);
                 log.RemoveRange((int)e.Index - 1, log.Count - (int)e.Index + 1);
                 Lower(i.Node, e.Index - 1);
             }
@@ -581,6 +611,11 @@ internal sealed class LogAnalysis
                 }
 
                 _committed.Add((ghost, e.Term));
+                if (held[(int)p - 1].Term < e.Term)
+                {
+                    Counts["committed-in-a-later-term"]++;
+                }
+
                 _commits.Add(new CommitInFact(ghost, p, seq, _createdAt.GetValueOrDefault(ghost, -1), _commands.TryGetValue(ghost, out var c) && c.Length > 0));
                 foreach (var (leader, term) in _tenure.Where(t => t.Value > e.Term).ToList())
                 {

@@ -83,6 +83,23 @@ public sealed class ReplicationTests
         throw new InvalidOperationException("no election within 400 ticks");
     }
 
+    /// <summary>
+    /// A leader of term 2 ignores an acknowledgement from term 1: it answered another term's
+    /// AppendEntries, about a log that may since have changed. The same acknowledgement in term 2
+    /// commits. Found missing in P4-07: S-repl-9 left every test green, the soak sample included.
+    /// </summary>
+    [Fact]
+    public void ALeaderIgnoresAnAcknowledgementFromAnEarlierTerm()
+    {
+        var stale = Node(N1, LogFile(E(T1, "Put|x|1")), TermVoteLog.Record(T1, null));
+        Lead(stale, T2);
+        Assert.True(Applied(Receive(stale, N2, new AppendEntriesResponse(T1, true, 2))).Count == 0, "a term-1 acknowledgement was counted toward a term-2 commit");
+
+        var current = Node(N1, LogFile(E(T1, "Put|x|1")), TermVoteLog.Record(T1, null));
+        Lead(current, T2);
+        Assert.Equal([1L, 2L], Applied(Receive(current, N2, new AppendEntriesResponse(T2, true, 2))));
+    }
+
     [Fact]
     public void ANewLeaderAppendsANoOpPersistingItBeforeReplicatingIt()
     {

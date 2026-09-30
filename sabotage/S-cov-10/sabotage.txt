@@ -1,0 +1,7 @@
+description: The perceived-time measure keeps a node's skew clock running across a crash: time down under a skew counts as perceived time that diverged, though the node perceived nothing
+mechanism: skewed time counted while the node was down
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.ClockRateDivergedIsTheNodesPerceivedTimeNotItsWrites
+reason: its perceived time never diverged
+expect: caught

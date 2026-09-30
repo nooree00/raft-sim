@@ -1,12 +1,10 @@
-diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 04603b6..e9b87f4 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -142,7 +142,6 @@ public sealed class Simulator
+@@ -202,7 +202,6 @@
              {
                  _timedOut.Add(requestId);
                  Trace.Add(_now, from.ToString(), "TIMEOUT", ("request", requestId));
--                At(_now + 1, () => IssueNext(client));
+-                At(_now + 1, () => IssueNext(client, call));
              }
          });
      }

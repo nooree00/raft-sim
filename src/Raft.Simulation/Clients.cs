@@ -11,9 +11,17 @@ namespace Raft.Simulation;
 public interface IClientWorkload
 {
     ClientCall? NextCall(int client, int sequence, IRandomSource random);
+
+    /// <summary>
+    /// What the client sends when <paramref name="timedOut"/> went unanswered: null (the default) moves
+    /// on to the next operation; a workload that retries returns the same bytes, to any node (P4-07).
+    /// The retry is a new operation to the simulator, which never learns that the bytes repeat.
+    /// </summary>
+    ClientCall? Retry(int client, ClientCall timedOut, IRandomSource random) => null;
 }
 
-public sealed record ClientCall(NodeId Node, ReadOnlyMemory<byte> Request);
+/// <summary>An operation to send: to <c>Node</c>, <c>After</c> units from now (a client's think time, P4-07).</summary>
+public sealed record ClientCall(NodeId Node, ReadOnlyMemory<byte> Request, long After = 0);
 
 /// <summary>
 /// One client operation as the client saw it: invoked when sent, responded when a reply reached the

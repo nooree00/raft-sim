@@ -167,6 +167,20 @@ public sealed partial class CoverageTests
         Assert.DoesNotContain(dimension, hit);
     }
 
+    /// <summary>
+    /// P4-07: skew as what it does to the node's time. A clock 10% fast for the run diverges; the same
+    /// rate on a node that is up for less than a timeout under it, or a rate within 8%, does not.
+    /// </summary>
+    [Fact]
+    public void ClockRateDivergedIsTheNodesPerceivedTimeNotItsWrites()
+    {
+        Assert.True(Hits(out _, new Skew(0, N1, 11, 10)).Contains("clock-rate-diverged"), "a clock 10% fast for the whole run must count");
+        Assert.False(Hits(out _, new Skew(0, N1, 107, 100)).Contains("clock-rate-diverged"), "a clock 7% fast is within the 8% bound");
+        Assert.False(
+            Hits(out _, new Crash(5_000, N1, DiskLoss.Pending), new Skew(5_000, N1, 11, 10), new Restart(19_950, N1)).Contains("clock-rate-diverged"),
+            "skewed while down, and up under the skew for less than a timeout: its perceived time never diverged");
+    }
+
     [Fact]
     public void TheThreeEventsPhaseOneNeverProducedAreReachable()
     {

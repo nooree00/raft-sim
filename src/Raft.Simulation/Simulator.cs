@@ -151,20 +151,38 @@ public sealed class Simulator
     }
 
     /// <summary>A client's next operation: sent over the network to its node, with a timeout.</summary>
-    private void IssueNext(int client)
+    private void IssueNext(int client, ClientCall? timedOut = null)
     {
         if (!_clientRandom.TryGetValue(client, out var random))
         {
             random = _clientRandom[client] = _streams.For("client:" + Inv(client));
         }
 
-        var sequence = _clientSequence.GetValueOrDefault(client);
-        _clientSequence[client] = sequence + 1;
-        if (Workload?.NextCall(client, sequence, random) is not { } call)
+        var call = timedOut is null ? null : Workload?.Retry(client, timedOut, random);
+        if (call is null)
         {
-            return;
+            var sequence = _clientSequence.GetValueOrDefault(client);
+            _clientSequence[client] = sequence + 1;
+            call = Workload?.NextCall(client, sequence, random);
+            if (call is null)
+            {
+                return;
+            }
         }
 
+        if (call.After > 0)
+        {
+            At(_now + call.After, () => Invoke(client, call));
+        }
+        else
+        {
+            Invoke(client, call);
+        }
+    }
+
+    /// <summary>Sends a client's operation over the network to its node, and arms its timeout.</summary>
+    private void Invoke(int client, ClientCall call)
+    {
         var requestId = ++_clientRequestSeq;
         var index = _clientLog.Count;
         _clientLog.Add(new ClientOp(client, requestId, call.Node, call.Request, _now, null, ReadOnlyMemory<byte>.Empty));
@@ -184,7 +202,7 @@ public sealed class Simulator
             {
                 _timedOut.Add(requestId);
                 Trace.Add(_now, from.ToString(), "TIMEOUT", ("request", requestId));
-                At(_now + 1, () => IssueNext(client));
+                At(_now + 1, () => IssueNext(client, call));
             }
         });
     }
@@ -226,6 +244,16 @@ public sealed class Simulator
 
     public IReadOnlyList<SimDisk> Disks => _hosts.Select(h => h.Disk).ToList();
 
+    /// <summary>An effect the barrier holds until write <c>Barrier</c> is durable, and the step that emitted it.</summary>
+    private sealed class HeldEffect(Effect effect, long barrier, long step)
+    {
+        public Effect Effect { get; } = effect;
+
+        public long Barrier { get; } = barrier;
+
+        public long Step { get; } = step;
+    }
+
     /// <summary>A node's runtime: its instance (null while crashed), disk, and sends held by the barrier.</summary>
     private sealed class Host(NodeId id)
     {
@@ -238,7 +266,7 @@ public sealed class Simulator
         public SimDisk Disk { get; } = new();
 
         /// <summary>Sends and client responses waiting for every earlier persist to be durable.</summary>
-        public Queue<(Effect Effect, long Barrier)> Held { get; } = new();
+        public Queue<HeldEffect> Held { get; } = new();
 
         public long LastTick { get; set; }
 
@@ -452,6 +480,7 @@ public sealed class Simulator
     {
         LinkFault l => l.From + "->" + l.To,
         Crash c => c.Node + ":" + c.Loss,
+        Skew k => k.Node + ":" + Inv(k.Numerator) + "/" + Inv(k.Denominator),
         NodeFault n => n.Node.ToString(),
         _ => "-",
     };
@@ -572,7 +601,7 @@ public sealed class Simulator
                     CheckArmedCrashes(h);
                     break;
                 case Send or ClientResponse:
-                    h.Held.Enqueue((e, h.Disk.IssuedCount));
+                    h.Held.Enqueue(new HeldEffect(e, h.Disk.IssuedCount, Steps));
                     break;
                 case Emit ev:
                     Count(_effects, typeof(Emit));
@@ -640,11 +669,12 @@ public sealed class Simulator
         var violate = _now < h.ViolateBarrierUntil;
         while (h.Held.Count > 0 && (violate || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
         {
-            var (effect, _) = h.Held.Dequeue();
+            var held = h.Held.Dequeue();
+            var effect = held.Effect;
             if (effect is Send s)
             {
                 Count(_effects, typeof(Send));
-                Transmit(h.Id, s);
+                Transmit(h.Id, s, held.Step);
             }
             else if (effect is ClientResponse r)
             {
@@ -657,13 +687,13 @@ public sealed class Simulator
         }
     }
 
-    private void Transmit(NodeId from, Send s)
+    private void Transmit(NodeId from, Send s, long step)
     {
         var id = ++_messageSeq;
         Trace.Add(_now, from.ToString(), "SEND", ("to", s.To.ToString()), ("id", id), ("len", s.Payload.Length), ("h", SimDisk.HashBytes(s.Payload.Span)));
         if (Observe)
         {
-            _observations.Add(new SentObservation(_now, from, s.To, id, s.Payload));
+            _observations.Add(new SentObservation(_now, from, s.To, id, s.Payload, step));
         }
         var to = _hosts[s.To.Value - 1];
         var payload = s.Payload;

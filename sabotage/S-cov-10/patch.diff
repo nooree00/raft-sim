@@ -1,0 +1,10 @@
+--- a/src/Raft.Simulation/Coverage.cs
++++ b/src/Raft.Simulation/Coverage.cs
+@@ -146,7 +146,6 @@
+                     }
+
+                     down.Remove(node);
+-                    skewedSince[node] = now;
+                     Touch(node, now);
+                     if (f.TryGetValue("incarnation", out var inc) && inc != "1")
+                     {

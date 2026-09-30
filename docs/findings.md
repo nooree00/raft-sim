@@ -502,3 +502,37 @@ finding: what happened, why no existing check caught it, what now catches it.
   timeouts sees outages, not degradation.
   - *General form:* a bound generous enough to hold for every correct run is too generous to see a
     slowdown; degradation needs a rate, measured, not a bound, asserted.
+- **The log checker judged a message by the sender's log at release, not at composition.** The
+  first soak with logs failed log matching on seed 4: "n1 sent entry 26 of term 1 that its log does
+  not hold". n1, leader of term 1, composed an AppendEntries carrying 26, held by the barrier behind
+  its write of 26; it then learnt of term 2 and truncated 26; the write completed and the barrier
+  released the old message. The message was true when composed, and a late release is only network
+  delay. The checker (P4-01) compared it with the log at release.
+  - *Now:* the simulator records the step that emitted each send (`SentObservation.Step`), and the
+    checker accepts an entry a later step removed.
+  - *General form:* a checker that reads an effect at the time it is observed, where the system
+    decided it earlier, sees a history that never happened. Every observation needs the moment of
+    decision as well as the moment of effect.
+- **Clients without a pause made the soak cost an hour.** Three clients that issue their next
+  operation one tick after a reply commit about 900 entries a run; an execution cost 410 ms locally
+  against 54 without clients, and 10,000 would have taken about an hour, against P4-07's prediction
+  that the cost would roughly triple. The cost follows the log's volume (bytes checksummed, copied,
+  decoded and checked), not the number of steps (69,000 against 57,000).
+  - *Now:* each client pauses 100 ticks before a new operation (`ClientCall.After`): about 145
+    entries a run and 63 ms, with the commit clause checked as often.
+- **With log writes, state-placed crashes fire, and the stable suffix moved.** A crash armed to fire
+  when writes are in flight almost never fired on a node that wrote only term changes; with a write
+  per replicated batch it fires at once, and its restart (up to 3,000 later) left too short a suffix
+  in 27% of the sample, below the 75% the soak requires. The run now lasts 22,000 ticks, not 20,000.
+- **`clock-rate-diverged` is now the node's perceived time.** The skew fault's line carries its rate,
+  and the effect is a node up for a timeout or more under a rate 8% or more from real. It fires in
+  53% of the sample, where the write-rate measure fired in 97%, and its always-on declaration is gone.
+- **No test saw a leader count an acknowledgement from an earlier term.** Planned as S-soak-4, the
+  sabotage (the leader's `r.Term != _term` guard loosened to `r.Term > _term`) left the whole Core
+  project green, the 300-execution soak sample included. A stale success reaches a leader only if it
+  led the earlier term too, and matters only if its log changed in between, so generated runs almost
+  never meet it.
+  - *Now:* a unit test (`ALeaderIgnoresAnAcknowledgementFromAnEarlierTerm`) and S-repl-9. S-soak-4
+    now reinstates P4-03's bug, which the sample does catch.
+  - *General form:* a guard whose failure needs two rare events together is not covered by a sample
+    of generated runs; it needs a constructed input.

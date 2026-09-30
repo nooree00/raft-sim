@@ -1,7 +1,7 @@
 0000000000 n1 START incarnation=1
 0000000000 n2 START incarnation=1
 0000000000 n3 START incarnation=1
-0000000000 sim FAULT kind=Skew detail=n1
+0000000000 sim FAULT kind=Skew detail=n1:11/10
 0000000001 n1 EVENT name=recovered value=0
 0000000001 n2 EVENT name=recovered value=0
 0000000001 n3 EVENT name=recovered value=0

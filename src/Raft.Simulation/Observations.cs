@@ -11,8 +11,12 @@ namespace Raft.Simulation;
 /// </summary>
 public abstract record Observation(long Time, NodeId Node);
 
-/// <summary>A message released by the barrier and handed to the network (it may still be dropped or blocked).</summary>
-public sealed record SentObservation(long Time, NodeId Node, NodeId To, long Id, ReadOnlyMemory<byte> Payload) : Observation(Time, Node);
+/// <summary>
+/// A message released by the barrier and handed to the network (it may still be dropped or blocked).
+/// <c>Step</c> is the step that emitted it, which may be earlier than the release: the node composed it
+/// from its state then (P4-07).
+/// </summary>
+public sealed record SentObservation(long Time, NodeId Node, NodeId To, long Id, ReadOnlyMemory<byte> Payload, long Step = 0) : Observation(Time, Node);
 
 /// <summary>A message handed to the receiving node's Handle, as step <paramref name="Step"/> of the run (P4-01: provenance of what the node writes in that step).</summary>
 public sealed record DeliveredObservation(long Time, NodeId Node, NodeId From, long Id, long Step = 0) : Observation(Time, Node);

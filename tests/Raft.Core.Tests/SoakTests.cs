@@ -18,10 +18,35 @@ namespace Raft.Core.Tests;
 /// Vacuity risk: executions green because nothing happened. Guarded: every run must elect a leader
 /// that acts; liveness must be checked in most runs, not skipped for want of a stable suffix; and
 /// every effect below must clear the floor. Sabotages S-soak-1, S-soak-2, S-cov-7.
+/// P4-07: with three clients retrying on timeout, the log invariants (2-7, 10) and invariant 11's
+/// commit clause run too, and replication's effects join the distribution. Every run must commit
+/// entries in fact, and the commit clause must be checked in most runs. Sabotages S-soak-4, S-soak-5,
+/// S-cov-10.
 /// </summary>
 public sealed class SoakTests
 {
-    public const long FaultsUntil = 12_000, Duration = 20_000;
+    /// <summary>
+    /// Faults are generated until 12,000. The run goes to 22,000 (20,000 until P4-07): with log writes on
+    /// every replicated batch, a state-placed crash armed near 12,000 now fires, and its restart (up to
+    /// 3,000 later) left too short a stable suffix in 27% of runs.
+    /// </summary>
+    public const long FaultsUntil = 12_000, Duration = 22_000;
+    public const int Clients = 3;
+
+    /// <summary>
+    /// Each client pauses this long before a new operation (P4-07). Without it the three clients commit
+    /// about 900 entries a run and an execution costs 7.6 times a client-free one (410 ms against 54,
+    /// locally), which would put the 10,000-execution soak near an hour. At 100 an execution commits
+    /// about 145 entries and costs 63 ms; the commit clause is checked as often.
+    /// </summary>
+    public const long Think = 100;
+
+    /// <summary>What replication did in a run (P4-07), measured from the log analysis and the observations.</summary>
+    public static readonly string[] ReplicationEffects =
+    [
+        "follower-caught-up-by-backtracking", "conflicting-suffix-truncated", "leader-crashed-with-uncommitted-entries",
+        "entry-committed-in-a-later-term", "command-retried-and-duplicated", "crash-with-a-log-write-in-flight",
+    ];
 
     public static readonly string[] ElectionEffects =
     [
@@ -120,6 +145,81 @@ public sealed class SoakTests
         return hit;
     }
 
+    /// <summary>The replication effects one execution produced.</summary>
+    internal static HashSet<string> Replication(IReadOnlyList<Observation> observations, ElectionHistory h, LogAnalysis log)
+    {
+        var hit = new HashSet<string>(StringComparer.Ordinal);
+
+        // A follower refused an AppendEntries of its term, and later accepted one from the same leader in that term.
+        var refused = new HashSet<(NodeId, NodeId, Term)>();
+        foreach (var s in h.Sends)
+        {
+            if (s.Message is AppendEntriesResponse r)
+            {
+                if (!r.Success)
+                {
+                    refused.Add((s.From, s.To, r.Term));
+                }
+                else if (refused.Contains((s.From, s.To, r.Term)))
+                {
+                    hit.Add("follower-caught-up-by-backtracking");
+                    break;
+                }
+            }
+        }
+
+        if (log.Counts["suffixes-truncated"] > 0)
+        {
+            hit.Add("conflicting-suffix-truncated");
+        }
+
+        if (log.Counts["leaders-crashed-with-uncommitted-entries"] > 0)
+        {
+            hit.Add("leader-crashed-with-uncommitted-entries");
+        }
+
+        if (log.Counts["committed-in-a-later-term"] > 0)
+        {
+            hit.Add("entry-committed-in-a-later-term");
+        }
+
+        // Two entries committed with the same bytes: every write a client composes carries a value unique
+        // to the client and its sequence, so the second is a retry of the first (P4 decision 5: expected
+        // in phase 4). A Get carries no value, and two Gets of one key are two operations.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var c in log.Commits.Where(c => c.Command))
+        {
+            if (log.CommandOf(c.Ghost) is { } bytes && bytes is not [(byte)'G', (byte)'e', (byte)'t', ..] && !seen.Add(Convert.ToHexString(bytes)))
+            {
+                hit.Add("command-retried-and-duplicated");
+                break;
+            }
+        }
+
+        // A node crashed with an entry-log write issued and not yet durable.
+        var pending = new Dictionary<NodeId, int>();
+        foreach (var o in observations)
+        {
+            switch (o)
+            {
+                case IssuedObservation { Op.File: EntryLog.FileName }:
+                    pending[o.Node] = pending.GetValueOrDefault(o.Node) + 1;
+                    break;
+                case DurableObservation { File: EntryLog.FileName, Completed: not null }:
+                    pending[o.Node] = pending.GetValueOrDefault(o.Node) - 1;
+                    break;
+                case StartObservation:
+                    pending[o.Node] = 0;
+                    break;
+                case CrashObservation when pending.GetValueOrDefault(o.Node) > 0:
+                    hit.Add("crash-with-a-log-write-in-flight");
+                    break;
+            }
+        }
+
+        return hit;
+    }
+
     private static int Env(string name, int fallback) =>
         int.TryParse(Environment.GetEnvironmentVariable(name), NumberStyles.None, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : fallback;
 
@@ -128,20 +228,34 @@ public sealed class SoakTests
     {
         var first = Env("RAFT_SOAK_FIRST", 1);
         var count = Env("RAFT_SOAK_COUNT", 300);
-        var effects = ElectionEffects.Concat(Coverage.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
+        var effects = ElectionEffects.Concat(ReplicationEffects).Concat(Coverage.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
         var timeToLeader = new List<long>();
         var unknown = new SortedSet<string>(StringComparer.Ordinal);
-        int liveness = 0, noSuffix = 0;
-        long elections = 0;
+        int liveness = 0, noSuffix = 0, commitChecked = 0;
+        long elections = 0, committed = 0, minCommitted = long.MaxValue;
+        var timeToCommit = new List<long>();
         for (var seed = first; seed < first + count; seed++)
         {
             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = FaultsUntil });
-            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule);
-            var stable = StableFrom(schedule, sim.Observations);
+            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule, Clients, new RaftWorkload(int.MaxValue, retry: true, think: Think));
+            var observations = sim.Observations.ToList();
+            var stable = StableFrom(schedule, observations);
             var results = Cluster.Check(h, stable, Duration);
-            foreach (var r in results)
+            var log = new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes));
+            var commit = CommitLiveness.Clause(h, observations, log, stable, Duration, Cluster.Window, 2 * Cluster.Window);
+            foreach (var r in results.Concat(LogAnalysis.Names.Select(log.Result)).Append(commit))
             {
                 Assert.True(r.Holds, $"seed {seed}, {r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
+            }
+
+            var entries = log.Counts["entries-committed"];
+            Assert.True(entries > 0, $"seed {seed}: nothing was committed in fact");
+            committed += entries;
+            minCommitted = Math.Min(minCommitted, entries);
+            commitChecked += (int)commit.Count("checked");
+            if (commit.Counts.TryGetValue("time-to-commit", out var tc))
+            {
+                timeToCommit.Add(tc);
             }
 
             Assert.True(results[0].Count("acting-leaders") >= 1, $"seed {seed}: no leader was elected and acted");
@@ -153,7 +267,7 @@ public sealed class SoakTests
                 timeToLeader.Add(t);
             }
 
-            foreach (var e in Effects(h, sim.Trace.Lines, schedule).Concat(Coverage.Of(sim.Trace.Lines)))
+            foreach (var e in Effects(h, sim.Trace.Lines, schedule).Concat(Replication(observations, h, log)).Concat(Coverage.Of(sim.Trace.Lines)))
             {
                 if (effects.TryGetValue(e, out var set))
                 {
@@ -184,8 +298,10 @@ public sealed class SoakTests
         var report = new List<string>
         {
             $"{count} executions (seeds {first}..{first + count - 1}), faults generated until {FaultsUntil}, run to {Duration}",
-            $"invariants 1, 8, 9, 11: no violation; elections {elections}",
-            $"liveness checked in {liveness}, no stable suffix in {noSuffix}",
+            $"invariants 1-11 (membership aside): no violation; elections {elections}; {Clients} clients, retrying on timeout",
+            $"liveness checked in {liveness}, no stable suffix in {noSuffix}; the commit clause checked in {commitChecked}",
+            $"entries committed in fact: {committed} ({committed / count} per execution, fewest {minCommitted})",
+            timeToCommit.Count == 0 ? "time to commit: none measured" : $"time to a command committed after the stable suffix: max {timeToCommit.Max()}, mean {timeToCommit.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
             timeToLeader.Count == 0 ? "time to leader: none measured" : $"time to leader after the stable suffix: max {timeToLeader.Max()}, mean {timeToLeader.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
             $"effects (floor {Coverage.FloorFor(count, FloorRate)}: 1% of {count}, at least {Coverage.Floor}):",
         };
@@ -194,6 +310,7 @@ public sealed class SoakTests
         report.AddRange(failures.Select(f => "  FAIL " + f));
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "soak-report.txt"), string.Join("\n", report) + "\n");
 
+        Assert.True(commitChecked >= count * 3 / 4, $"the commit clause was checked in only {commitChecked} of {count} runs: invariant 11's second clause was barely tested");
         Assert.True(liveness >= count * 3 / 4, $"liveness checked in only {liveness} of {count} runs: most had no stable suffix, so invariant 11 was barely tested");
         Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
@@ -212,14 +329,15 @@ public sealed class SoakTests
     /// <see cref="FloorRate"/> of the executions, at least <see cref="Coverage.Floor"/>. A declared
     /// effect may sit below the rate, never below the absolute minimum.
     /// </summary>
-    internal static List<string> RateFailures(IReadOnlyDictionary<string, int> counts, int count)
+    internal static List<string> RateFailures(IReadOnlyDictionary<string, int> counts, int count, IReadOnlyDictionary<string, string>? belowTheFloor = null)
     {
+        belowTheFloor ??= BelowTheSoakFloor;
         var failures = new List<string>();
         var floor = Coverage.FloorFor(count, FloorRate);
         foreach (var (d, n) in counts)
         {
             var sampleRare = count < SoakExecutions && RareInSample.ContainsKey(d);
-            var declared = n >= Coverage.Floor && BelowTheSoakFloor.ContainsKey(d);
+            var declared = n >= Coverage.Floor && belowTheFloor.ContainsKey(d);
             if (n < floor && !sampleRare && !declared)
             {
                 failures.Add($"{d}: {n} of {count} ({Coverage.Rate(n, count)}), below the floor of {floor} (1% of {count}, at least {Coverage.Floor})");
@@ -237,11 +355,10 @@ public sealed class SoakTests
     /// <summary>
     /// Effects allowed below the soak's rate floor (never below the absolute minimum), each with the
     /// reason and the test that exercises the effect directly. Put to the reviewer at P3 acceptance.
+    /// Empty since P4-07: writes completed out of order at a crash, declared then (8 of 10,000),
+    /// reached 165 of 10,000 once logs were written on every replicated batch.
     /// </summary>
-    internal static readonly Dictionary<string, string> BelowTheSoakFloor = new(StringComparer.Ordinal)
-    {
-        ["writes-completed-out-of-order-at-crash"] = "8 of 10,000 (0.08%): a Raft node writes only when its term or vote changes, so two writes in flight at a crash need two changes within one disk latency (1-3 ticks). Exercised directly by TermVoteLogTests.EveryCrashModeRecoversToTheLastRecordThatSurvived (reordered loss of 1-3 in-flight term-vote records, 200 seeds) and CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable",
-    };
+    internal static readonly Dictionary<string, string> BelowTheSoakFloor = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The soak's floor at its own scale, tested here because the harness only ever runs the
@@ -267,11 +384,12 @@ public sealed class SoakTests
         Assert.Contains(RateFailures(sample, 300), f => f.StartsWith("split-vote: 2 of 300", StringComparison.Ordinal));
 
         const string Declared = "writes-completed-out-of-order-at-crash";
+        var declaration = new Dictionary<string, string>(StringComparer.Ordinal) { [Declared] = "declared for this test" };
         soak["split-vote"] = 100;
         soak[Declared] = 8;
-        Assert.Empty(RateFailures(soak, SoakExecutions));
+        Assert.Empty(RateFailures(soak, SoakExecutions, declaration));
         soak[Declared] = 2;
-        Assert.True(RateFailures(soak, SoakExecutions).Any(f => f.StartsWith(Declared + ": 2 of 10000", StringComparison.Ordinal)),
+        Assert.True(RateFailures(soak, SoakExecutions, declaration).Any(f => f.StartsWith(Declared + ": 2 of 10000", StringComparison.Ordinal)),
             "absolute minimum: a declared effect may sit below the rate, never below 3");
     }
 
@@ -279,14 +397,8 @@ public sealed class SoakTests
     /// Effects allowed below the floor in the 300-execution sample only, each with its reason; the soak
     /// (10,000) must still clear the floor for them.
     /// </summary>
-    private static readonly Dictionary<string, string> RareInSample = new(StringComparer.Ordinal)
-    {
-        ["writes-completed-out-of-order-at-crash"] = "8 of 10,000 in the soak, 0 of 300 here: a Raft node writes only when its term or vote changes, so two writes in flight at a crash need two changes within one disk latency (1-3 ticks)",
-    };
+    private static readonly Dictionary<string, string> RareInSample = new(StringComparer.Ordinal);
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>
-    private static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal)
-    {
-        ["clock-rate-diverged"] = "a broken measurement for Raft, not a property of the generator: the effect is measured as one node's write rate diverging by 8% or more, which an echo node's tick-driven writes tie to its clock, but a Raft node's writes follow its role (the leader writes every no-op and entry first), so it fires in about 97% of runs whatever the clocks do. P4-07 replaces it with the node's perceived time (findings)",
-    };
+    private static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal);
 }
