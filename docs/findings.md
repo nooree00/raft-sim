@@ -543,3 +543,10 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Now:* `MaxCommandBytes`, and `RaftOptions.Refusal`, checked when a node is built.
   - *General form:* spec §10's rule presumes each limit is written down. The first finding of a
     limit census is the limits nobody wrote.
+- **The default batch hides Figure 8.** P4-04's construction needs the old term's entry to reach a
+  majority without the new leader's no-op. With 64 entries per AppendEntries the old entry travels
+  with the no-op in one write and commits legitimately, so the shape cannot occur and a
+  commit-by-counting bug is masked. The Figure 8 test runs with a batch of 1; a second test records
+  that the default masks it.
+  - *General form:* an optimisation that coalesces steps can remove the interleaving a safety rule
+    exists for; the test of the rule must turn the optimisation off.

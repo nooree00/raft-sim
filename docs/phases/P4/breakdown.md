@@ -100,7 +100,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-loginv-1, S-loginv-2, S-loginv-3, S-loginv-4, S-loginv-5, S-loginv-6, S-loginv-7, S-ghost-1
 - **Verifiable here:** yes — hand-built traces need no Raft log
 - **Prediction:** Assigning ghost ids by bytes instead of provenance misses a real violation. Two leaders of different terms each create `Put x 1` at the same index; one overwrites the other on a follower, and by bytes it is the same entry. A bytes-based State Machine Safety accepts that trace. Provenance rejects it. **Observable:** the hand-built trace with two byte-equal creations is accepted by a bytes-keyed variant of invariant 5 and rejected by the ghost-id version; the count per checker of traces a bytes-keyed variant misses.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the hand-built trace with two byte-equal `Put x 1` creations at one index, in different terms, one overwriting the other on a follower, is accepted by the bytes-keyed variant of invariant 5 and rejected by the ghost-id version. Only invariant 5 has a bytes-keyed variant to compare: the other checkers compare ghost ids by construction, so the count of traces a bytes-keyed variant misses is 1 of 1. Every checker rejects its violating trace and accepts its twin (S-loginv-1..7, S-ghost-1 caught).
 
 ### P4-02 — The log file: append, truncate a conflicting suffix, recover from any crash
 
@@ -109,7 +109,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-logfile-1, S-logfile-2, S-logfile-3
 - **Verifiable here:** yes — the simulator and the unit tests run locally
 - **Prediction:** Without an index in each record, a reordered loss that drops a truncate and keeps the append after it recovers the new entry at the wrong index, after the stale suffix it was meant to replace. I expect the crash-mode test to find this on its first run against an index-free format; with indices and later-index-wins it cannot. **Observable:** the crash-mode test's failures against an index-free record format, run once and recorded, then zero with decision 4's format.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the index-free format failed the crash-during-write test on its first run, 60 failures, as predicted. But indices with later-index-wins were not enough: 3 reordered crashes recovered a surviving append after a lost truncate-and-append, joining two logs that never coexisted (findings). Each record now also carries the previous entry's term and recovery takes only records that chain; the test then passes with 0 failures. The record format deviates from decision 4 by that field.
 
 ### P4-03 — Log replication in Core, tests first
 
@@ -118,7 +118,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-repl-1, S-repl-2, S-repl-3, S-repl-4, S-repl-5, S-repl-6, S-repl-7, S-repl-8
 - **Verifiable here:** yes — the simulator and the unit tests run locally
 - **Prediction:** Backtracking `nextIndex` one entry per rejection is fast enough here. The leader retries on each rejection, not on the next heartbeat. So a follower 1,000 entries behind catches up within one election timeout (150 ticks) of rejoining, and the optimisation the paper mentions (the follower returning its conflict term) is not needed. **Observable:** catch-up time in ticks for a follower isolated while the leader commits 1,000 entries, measured once in a constructed run and written beside the assembly.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — one entry per rejection was not fast enough: a follower 3,008 entries behind took 1,033 ticks to catch up, far beyond one election timeout. With the rejection carrying a hint (the follower's last index, or the index before the leader's probe), the same follower caught up in 599 ticks, and in the committed test a follower 1,201 entries behind catches up 399 ticks after healing. The hint is the follower's log length, not the paper's conflict term.
 
 ### P4-04 — The election restriction and Figure 8, now that logs are non-empty
 
@@ -127,7 +127,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-commit-1, S-commit-2, S-restrict-1
 - **Verifiable here:** yes — the simulator and the unit tests run locally
 - **Prediction:** With the commit-by-counting sabotage, the construction turns invariant 7 (no spurious commit) red in every run where step 3 happens: the claim is made the moment the old entry reaches a majority. Invariants 4 and 5 go red in fewer than half of those runs, because they need step 4 as well, and step 4 needs another election the term-3 node must win. So invariant 7 is the one that catches the bug at its first step, as spec §5 says. **Observable:** per invariant, the red count under the sabotage over 200 runs of the construction, and the count of runs where each step happened.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — under S-commit-1 the construction goes red on invariant 7 at the step where the old entry reaches a majority, as predicted. The other half has no sample: the construction is exact (a hand-driven `ManualCluster`), one execution rather than 200 runs, so "fewer than half" cannot be counted. Found while building it: with the default batch the old entry travels with the new leader's no-op in one write, is committed legitimately, and the Figure 8 shape cannot occur (a test records that the default masks it; the Figure 8 test uses a batch of 1).
 
 ### P4-05 — Committed entries survive every crash schedule, including all nodes at once
 
@@ -181,7 +181,7 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Sabotage:** S-each-5, S-each-6
 - **Verifiable here:** yes — the rule runs on fixture histories, and on this branch's own history
 - **Prediction:** Run over the P3 acceptance push as it happened (`ff27d8e..b4ff572`), the check fails on exactly `2f9b8bc` and nothing else; run over the push that fixed it (`b4ff572..9c9e170`) it passes. This is known from the red run, so it is weak evidence; the part that could be wrong is a second report touched in that range, and I do not expect one. **Observable:** the check's failures on the two recorded ranges.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — over `ff27d8e..b4ff572` the check fails on exactly `2f9b8bc`, naming it and the report, and nothing else; over `b4ff572..9c9e170` it passes. Weak evidence, as stated: the result was known from the red run, and the part that could have been wrong (a second report in the range) was not.
 
 ## Sabotage ids
 
