@@ -28,7 +28,7 @@ crash schedule), P4-06 (invariant 11's commit clause, with clients), P4-07 (the 
 distribution), P4-08 (the positive controls), P4-09 (every configured limit exercised at its
 largest legitimate value, spec §10).
 
-**Blocking set:** all ten. P4-09 is the only one that could slip without leaving a phase-4
+**Blocking set:** all eleven (P4-11 added at the ceiling, before the push). P4-09 is the only one that could slip without leaving a phase-4
 criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 
 ## Decisions for review
@@ -183,9 +183,18 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Prediction:** Run over the P3 acceptance push as it happened (`ff27d8e..b4ff572`), the check fails on exactly `2f9b8bc` and nothing else; run over the push that fixed it (`b4ff572..9c9e170`) it passes. This is known from the red run, so it is weak evidence; the part that could be wrong is a second report touched in that range, and I do not expect one. **Observable:** the check's failures on the two recorded ranges.
 - **Outcome:** right (evidence) — over `ff27d8e..b4ff572` the check fails on exactly `2f9b8bc`, naming it and the report, and nothing else; over `b4ff572..9c9e170` it passes. Weak evidence, as stated: the result was known from the red run, and the part that could have been wrong (a second report in the range) was not.
 
+### P4-11 — Simulation-scale tests in their own project, and a gate that every written test ran (at the ceiling)
+
+- **Task:** The head's full local run failed the harness ceiling: shard 1 took 22.1 min for 27 entries (499 s fixed cost, about 31 s per entry), because every entry runs its target's whole project and `Raft.Core.Tests` now takes 81 s, most of it simulation-scale tests that unit-targeted entries do not need. **The split (reviewer's option A):** the cluster tests that run the simulator at scale (the soak sample, durability, disruption, positive controls, replication and election simulations, shrinking) move to a new project, `tests/Raft.Scale.Tests`; the checkers stay in `Raft.Core.Tests`, where they are proven on hand-built traces, and are compiled into the new project by link. Harness entries aimed at moved tests are retargeted; the soak script names the new project; the layering table gains its row. **The gate (reviewer's addition):** `gates testcount` also requires that every `[Fact]` and `[Theory]` written in a test project's sources was executed in that project's results, that no test is written under `tests/` outside a test project, and that every harness entry's target was executed in the project the entry names.
+- **Vacuity:** The split's own risk is the CRDT project's npm-test finding: a test moved out of the project people run is a test that no longer runs, and the counts can be edited to match. Guarded by the written-versus-ran check, proven by a sabotage that drops a moved test file from compilation and edits the baseline to agree, which today's count check would pass.
+- **Sabotage:** S-ran-1, S-ran-2, S-ran-3
+- **Verifiable here:** yes — the harness shards run locally
+- **Prediction:** Two parts. **Cost:** with the simulation-scale tests out, `Raft.Core.Tests` runs in under 20 s, and every harness shard fits the 15-minute ceiling locally, shard 1 included, in under 12 minutes: most entries target unit tests or other projects, and the fixed cost falls with the baseline checks. **The gate:** S-ran-2 (a moved file excluded, the baseline edited to match) passes the count check as it stands and fails the written-versus-ran check, naming the file's tests. **Observable:** the local shard times, and S-ran-2's result against the gate with and without the new check.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-loginv, S-ghost, S-logfile, S-repl, S-commit, S-restrict, S-dur, S-live, S-limit.
 S-each-5..6 follow S-each-1..4, S-soak-4..5 follow S-soak-1..3, S-cov-10 follows S-cov-1..9, S-disrupt-3 follows S-disrupt-1..2 and
-S-pos-4..5 follow S-pos-1..3. Each id's `sabotage/<id>/` entry lands in the same commit as the
+S-pos-4..5 follow S-pos-1..3. S-ran is new at P4-11. Each id's `sabotage/<id>/` entry lands in the same commit as the
 check it proves, and is run on that commit before it is pushed.
