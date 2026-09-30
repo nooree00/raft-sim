@@ -1,0 +1,7 @@
+description: The leader sends a client's entry before persisting it, so the barrier does not hold the send and the leader counts its own copy before it is durable
+mechanism: a leader counts its own entry before it is durable
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ALeaderPersistsAClientsEntryBeforeSendingIt
+reason: a client's entry must be persisted before the AppendEntries that carries it
+expect: caught

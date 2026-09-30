@@ -256,4 +256,23 @@ public sealed class ReplicationTests
         var cut = IndexOf<PersistTruncate>(e, p => p.File == EntryLog.FileName);
         Assert.True(term >= 0 && cut >= 0 && term < cut, "the term that deposed the leader must be persisted before the truncation it authorises");
     }
+
+    /// <summary>
+    /// P4-05: a leader persists a client's entry before the AppendEntries that carries it, so the barrier
+    /// holds the send and the leader never counts a copy of its own that is not yet durable. The crash
+    /// tests cannot see a leader that sends first (measured: S-dur-3 left them green): its own write
+    /// takes at most 3 ticks, and a follower's acknowledgement at least 3 (two hops and a write), so
+    /// the window in which the leader counts a copy it has not got is empty or a single tick.
+    /// </summary>
+    [Fact]
+    public void ALeaderPersistsAClientsEntryBeforeSendingIt()
+    {
+        var n = Node(N1);
+        Lead(n, T1);
+        var request = n.Handle(new ClientRequest(1, Cmd("Put|x|1")));
+
+        var persist = IndexOf<PersistAppend>(request, p => p.File == EntryLog.FileName);
+        var carrying = request.ToList().FindIndex(x => x is Send s && MessageCodec.Decode(s.Payload.ToArray()) is AppendEntries { Entries.Count: > 0 });
+        Assert.True(persist >= 0 && persist < carrying, "a client's entry must be persisted before the AppendEntries that carries it");
+    }
 }

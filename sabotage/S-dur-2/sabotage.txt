@@ -1,0 +1,7 @@
+description: Recovery treats the final whole record as torn and cuts it: a node restarting loses its last entry, and after all nodes crash a committed entry can be on none of them
+mechanism: recovery loses the final whole record
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.DurabilityTests.CommittedEntriesSurviveEveryNodeOrAMajorityCrashingAtOnce
+reason: committed-durable
+expect: caught

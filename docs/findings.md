@@ -472,3 +472,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   it adopted term 2, applied the new leader's entries, and saved the term only at the reply. The
   truncation is a decision the new term authorises, so the term is persisted first now, in the
   `AppendEntries` path before any log write.
+- **The crash tests cannot see a leader that sends before it persists.** S-dur-3 moved the leader's
+  write of a client entry after the AppendEntries that carry it. 100 crash runs (every node or a
+  majority at once, 16% catching a write in flight under the patch) stayed green. The leader's own
+  write takes at most 3 ticks, and the first acknowledgement it could count takes at least 3 (two
+  hops and a follower's write), so the window where it counts a copy it lacks is at most one tick.
+  - *Now:* the order is held by a unit test on the effects (`ReplicationTests`), and S-dur-3 targets it.
+  - *General form:* a timing window the simulator's latency bounds close is out of reach of any
+    schedule of faults. Holding such a property needs a test of the order itself, or bounds that open the window.
+- **An early acknowledgement is a spurious claim, not a lost commit.** P4-05 predicted that a
+  follower acknowledging before its write would break invariant 6 only when every node crashed
+  inside the window. The checker counts a copy toward commitment in fact only once it is durable
+  (P4-01), so the leader's claim runs ahead of the fact at every such commit, and invariant 7 fires
+  in every run, crash or not (100 of 100 generated, 50 of 50 constructed; invariant 6 in none).
+  - *General form:* where a checker defines the fact by durable state, a durability bug shows as a
+    claim ahead of the fact, found without the crash that would make it matter.
