@@ -1,0 +1,14 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -290,9 +290,9 @@
+         }
+ 
+         var lastNew = ae.PrevLogIndex + ae.Entries.Count;
+-        if (ae.LeaderCommit > _commitIndex)
++        if (lastNew > _commitIndex)
+         {
+-            _commitIndex = Math.Min(ae.LeaderCommit, lastNew);
++            _commitIndex = lastNew;
+             Apply(effects);
+         }
+ 

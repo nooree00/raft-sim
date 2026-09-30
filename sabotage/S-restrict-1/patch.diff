@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -196,7 +196,7 @@
+                 // §5.4.1, the election restriction: only a candidate whose log is at least as up to
+                 // date as the voter's, by last term and then by length, can have every committed entry.
+                 var upToDate = rv.LastLogTerm > _log.LastTerm || (rv.LastLogTerm == _log.LastTerm && rv.LastLogIndex >= _log.LastIndex);
+-                var grant = rv.Term == _term && (_votedFor is null || _votedFor == rv.Candidate) && upToDate;
++                var grant = rv.Term == _term && (_votedFor is null || _votedFor == rv.Candidate);
+                 if (grant)
+                 {
+                     _votedFor = rv.Candidate;

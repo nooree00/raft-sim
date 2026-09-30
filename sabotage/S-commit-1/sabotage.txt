@@ -1,0 +1,7 @@
+description: A leader commits an earlier term's entry once it is on a majority: in Figure 8 it claims e committed, and a later leader overwrites it
+mechanism: commitment counts copies of entries from earlier terms
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionRestrictionTests.Figure8OnThreeNodesNeverCommitsTheOldTermsEntryByCountingCopies
+reason: no-spurious-commit
+expect: caught

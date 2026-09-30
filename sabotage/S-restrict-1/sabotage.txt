@@ -1,0 +1,7 @@
+description: A voter grants a candidate whose log lacks committed entries: n3, with an empty log, wins after n1 committed two entries on n2
+mechanism: the election restriction is not checked
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionRestrictionTests.ACandidateMissingACommittedEntryIsRefused
+reason: leader-completeness
+expect: caught

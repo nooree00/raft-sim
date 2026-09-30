@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -331,7 +331,7 @@
+     {
+         for (var n = _log.LastIndex; n > _commitIndex; n--)
+         {
+-            if (_log.TermAt(n) != _term)
++            if (_log.TermAt(n) != _term && n < 0)
+             {
+                 break;
+             }

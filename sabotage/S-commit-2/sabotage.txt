@@ -1,0 +1,7 @@
+description: A follower commits and applies every entry it acknowledges, whatever the leader's commit index: in Figure 8 n2 applies e
+mechanism: a follower's commit ignores the leader's commit index
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionRestrictionTests.Figure8OnThreeNodesNeverCommitsTheOldTermsEntryByCountingCopies
+reason: no-spurious-commit
+expect: caught
