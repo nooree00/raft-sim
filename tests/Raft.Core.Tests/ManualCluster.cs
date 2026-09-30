@@ -43,6 +43,9 @@ internal sealed class ManualCluster
 
     public Role RoleOf(NodeId n) => _nodes[n]?.Role ?? Role.Follower;
 
+    /// <summary>The cluster's clock: one unit per input handled.</summary>
+    public long Now => _time;
+
     private sealed class ConstantRandom(ulong value) : IRandomSource
     {
         public ulong NextUInt64() => value;

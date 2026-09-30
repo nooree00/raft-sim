@@ -235,6 +235,8 @@ internal sealed class LogAnalysis
     private readonly Dictionary<string, byte[]> _commands = [];
     private readonly Dictionary<(NodeId, long, Term), (string Ghost, Term CopyTerm)> _lastIssued = [];
     private readonly List<(string Ghost, Term Term)> _committed = [];
+    private readonly List<CommitInFact> _commits = [];
+    private readonly Dictionary<string, long> _createdAt = new(StringComparer.Ordinal);
     private readonly Dictionary<long, (string Key, NodeId Node)> _applied = [];
     private readonly Dictionary<NodeId, Term> _tenure = [];
     private readonly Dictionary<NodeId, long> _claimVerified = [];
@@ -314,6 +316,16 @@ internal sealed class LogAnalysis
     {
         ["elections"] = 0, ["leaders-with-entries"] = 0, ["suffixes-truncated"] = 0, ["applies"] = 0, ["claims"] = 0,
     };
+
+    /// <summary>
+    /// An entry committed in fact: its ghost id and index, the event (observation sequence number) at
+    /// which a quorum's durable copies committed it, the event that created it, and whether it carries
+    /// a client's command (a leader's no-op is empty).
+    /// </summary>
+    public sealed record CommitInFact(string Ghost, long Index, long Seq, long CreatedSeq, bool Command);
+
+    /// <summary>Every entry committed in fact, in index order (P4-06: invariant 11's commit clause reads it).</summary>
+    public IReadOnlyList<CommitInFact> Commits => _commits;
 
     /// <summary>The ghost id of the entry a node holds at an index in its intended log, or null.</summary>
     public string? GhostAt(NodeId node, long index) => At(Intended(node), index)?.Ghost;
@@ -416,6 +428,7 @@ internal sealed class LogAnalysis
                 ghost = "g" + N(++_ghosts);
                 copyTerm = e.Term;
                 _commands[ghost] = e.Command;
+                _createdAt[ghost] = i.Seq;
                 var key = (e.Term, e.Index);
                 var created = _creations[key] = _creations.GetValueOrDefault(key) + 1;
                 if (created > 1)
@@ -487,7 +500,7 @@ internal sealed class LogAnalysis
         }
 
         CheckMatching(d.Node, held, from);
-        Commit(held, from);
+        Commit(held, from, d.Seq);
 
         // Invariant 6: every entry committed in fact stays durable on a quorum. Only indices at or
         // above the change can have lost a copy.
@@ -538,7 +551,7 @@ internal sealed class LogAnalysis
     /// later leader does not count: in Figure 8(c) the term-2 entry is on a majority and is not
     /// committed. A new quorum can only form at an index this node's disk just changed.
     /// </summary>
-    private void Commit(List<Held> held, long from)
+    private void Commit(List<Held> held, long from, long seq)
     {
         for (var j = (long)held.Count; j >= Math.Max(from, _committed.Count + 1); j--)
         {
@@ -568,6 +581,7 @@ internal sealed class LogAnalysis
                 }
 
                 _committed.Add((ghost, e.Term));
+                _commits.Add(new CommitInFact(ghost, p, seq, _createdAt.GetValueOrDefault(ghost, -1), _commands.TryGetValue(ghost, out var c) && c.Length > 0));
                 foreach (var (leader, term) in _tenure.Where(t => t.Value > e.Term).ToList())
                 {
                     RequireHeld(leader, term, p, ghost, "in office");

@@ -1,0 +1,7 @@
+description: The commit clause counts a new leader's no-op as a submitted command: a leader elected after the fault satisfies it without committing anything a client asked for
+mechanism: the commit clause counts a leader's no-op
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CommitLivenessTests.ANewLeadersNoOpAloneDoesNotSatisfyTheClause
+reason: it is no client's command
+expect: caught

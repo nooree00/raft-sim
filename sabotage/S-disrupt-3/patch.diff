@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 5fa702f..efe41e4 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -131,7 +131,7 @@ public sealed class RaftNode : INode
+         // Paper §6: a server that believes a current leader exists, having heard from one within the
+         // minimum election timeout (or being the leader), disregards RequestVote: it neither adopts the
+         // term nor answers. A node that cannot hear the leader then cannot depose it by standing.
+-        if (m is RequestVote && _options.DisruptionRule && (Role == Role.Leader || (_heardFromLeader && _sinceLeader < _options.ElectionTimeoutMin)))
++        if (m is RequestVote && !_options.DisruptionRule && (Role == Role.Leader || (_heardFromLeader && _sinceLeader < _options.ElectionTimeoutMin)))
+         {
+             effects.Add(Event("requestvote-ignored", new Field("from", from.ToString())));
+             return;

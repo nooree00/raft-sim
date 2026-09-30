@@ -1,0 +1,7 @@
+description: The commit clause counts any client command committed after the suffix began, including one created before it: a cluster that commits nothing new passes on an old entry, as a clause matching by bytes would
+mechanism: the commit clause counts a command created before the stable suffix
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CommitLivenessTests.AResubmittedCommandThatNeverCommitsFailsAlthoughTheSameBytesCommittedBefore
+reason: the same bytes committed before it must not count
+expect: caught

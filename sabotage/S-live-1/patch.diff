@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/CommitLiveness.cs
++++ b/tests/Raft.Core.Tests/CommitLiveness.cs
+@@ -29,7 +29,7 @@
+         }
+ 
+         long Time(long seq) => observations[(int)seq - 1].Time;
+-        var commands = log.Commits.Where(c => c.Command && c.CreatedSeq > 0 && Time(c.CreatedSeq) >= stableFrom).ToList();
++        var commands = log.Commits.Where(c => c.Command && c.CreatedSeq > 0).ToList();
+         counts["checked"] = 1;
+         counts["commands-committed"] = commands.Count;
+         var first = commands.Select(c => Time(c.Seq)).DefaultIfEmpty(long.MaxValue).Min();

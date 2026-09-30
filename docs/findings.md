@@ -487,3 +487,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   in every run, crash or not (100 of 100 generated, 50 of 50 constructed; invariant 6 in none).
   - *General form:* where a checker defines the fact by durable state, a durability bug shows as a
     claim ahead of the fact, found without the crash that would make it matter.
+- **A leader that can send but not hear holds office and commits nothing.** P3-06's one-way
+  partition cuts n3 off from hearing its peers. In 49 of 200 seeds n3 was the leader when it began:
+  its heartbeats still arrive, so n1 and n2 never time out, and their acknowledgements never reach
+  it, so nothing commits until the partition heals. Leader continuity passed in all 49; the commit
+  clause (P4-06) is the first check to see it. It is not a bug under this spec: CheckQuorum, the
+  remedy, is out of scope (spec §2), and invariant 11 asks for a commit only after faults heal.
+  - *Now:* those seeds are counted and reported, not asserted; the clause is asserted on the rest.
+  - *For the reviewer:* if a never-healing one-way partition around the leader should be survivable,
+    that is CheckQuorum, a scope change.
+- **The commit clause is blind to the disruption it was predicted to expose.** With the §6 rule
+  off, leaders changed 21 times per run and throughput halved, but in 0 of 151 runs did 3,000
+  ticks pass without a commit (P4-06, wrong). A liveness clause bounded by a window of ten election
+  timeouts sees outages, not degradation.
+  - *General form:* a bound generous enough to hold for every correct run is too generous to see a
+    slowdown; degradation needs a rate, measured, not a bound, asserted.
