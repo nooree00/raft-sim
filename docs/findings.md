@@ -550,3 +550,28 @@ finding: what happened, why no existing check caught it, what now catches it.
   that the default masks it.
   - *General form:* an optimisation that coalesces steps can remove the interleaving a safety rule
     exists for; the test of the rule must turn the optimisation off.
+- **A bounded-liveness assertion is satisfied by a system that thrashes fast enough.** Two
+  instances, one level apart. P3-06: with the §6 rule off, a node that cannot hear the leader
+  deposed it about 20 times per run (3,995 leaders over 200 runs), and invariant 11's leader clause never failed, because each deposed
+  leader was replaced within the window. P4-06: with the rule off again, leaders changed 21 times per
+  run and committed commands halved (74,470 against 148,810 over 200 runs), and the commit clause
+  never failed in the 151 runs where the cut-off node did not lead, because no 3,000-tick stretch
+  passed without a commit. Both clauses are deadlines: something must happen within K. A deadline
+  generous enough for every correct run is met by a degraded one that still does the thing, just
+  often and badly. Liveness-as-a-deadline cannot express liveness-as-a-rate.
+  - *What the rate version would need* (not built):
+    - *A baseline per execution:* the same seed, workload and schedule with the fault removed, which
+      the deterministic simulator gives for the cost of a second run.
+    - *A rate measured over windows:* commands committed in fact per window (by ghost id), and
+      leader changes per window, over the stretch the fault is meant to be tolerated in.
+    - *A stated tolerance:* for instance, at least half the baseline's commit rate and no more than
+      one leader change per window. A number chosen and justified, as K was, not inferred.
+    - *A scope:* which faults a correct protocol must tolerate at full rate (the one-way partition
+      with the §6 rule, where the rule is the claim) and which only at a deadline (a partition around
+      the leader without CheckQuorum, spec §2).
+    - *Its own vacuity guard:* the rate check is only as good as the baseline's rate, so the baseline
+      must itself clear a floor.
+  - *For later phases:* every remaining liveness criterion (membership changes in phase 6,
+    compaction in phase 7, sessions in phase 8) is written as a deadline. Each should say whether a
+    thrashing system that meets the deadline passes, and if it should not, carry a rate.
+  - *Related:* the earlier entry on the commit clause's blindness is this finding's second instance.

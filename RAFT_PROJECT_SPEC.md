@@ -34,7 +34,12 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
 - Performance optimisation (batching, pipelining, leader leases) until §11's
   final phase, and only against a measured baseline.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
-  is in scope (§5); the thesis extensions are not.
+  is in scope (§5); the thesis extensions are not. Excluded with its
+  consequence measured (P4-06): under a one-way partition that never heals,
+  a leader that can send but not hear keeps office and commits nothing. It
+  was the leader in 49 of 200 seeds of that construction, and those seeds
+  are counted, not asserted; invariant 11 asks for progress only after
+  faults heal.
 
 ## 3. Stack
 

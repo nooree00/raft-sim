@@ -10,7 +10,7 @@ names the script that enforces it, or says plainly that nothing does.
 | Predict before implementing | `gates trailers`: each task's first `Task:` commit must descend from the commit that introduced its current prediction | CI, build job |
 | Every non-documentation commit names its task | `gates trailers` (`Task: Pn-nn` trailer) | CI, build job |
 | Sabotage is a standing practice, from a committed tree | `gates sabotage --shard i/n` (container), one job per shard, the shard count derived from the manifest (`ci/sabotage-shard-size.txt`), 15-minute ceiling per shard; `gates build-collect` requires every shard; `scripts/host-sabotages.sh` (host), every push | CI, sabotage i/n, build and secrets jobs |
-| Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit and harness shard running that commit's own scripts (`scripts/ci-commit.sh`: shard 1 runs its preflight, build, gates, tests and harness share; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per (commit, shard). Locally: `gates each-commit`, the same checks one after another. The head gets the full run | CI, each-commit-list / commit SHA / each-commit jobs |
+| Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit and harness shard running that commit's own scripts (`scripts/ci-commit.sh`: shard 1 runs its preflight, build, gates, tests and harness share; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per (commit, shard). The head gets the full run. Before a push, locally, only the head's full run (P4 acceptance, below); the per-commit matrix is verified in CI and must be green before merge | CI, each-commit-list / commit SHA / each-commit jobs |
 | Invariants at scale: the harness's verdict covers the suite's sample only; 10,000 executions run in the soak, never waived (spec §12) | `scripts/ci-soak.sh` (10,000 executions, refuses a report covering fewer); `gates build-collect` requires exactly one passing `soak` job; `gates reports` requires a successful `soak` job in the run certifying any report from phase 3 on; branch protection lists `soak` (the person's setting) | CI, soak and build jobs |
 | Keep a register; unimplemented throws and is listed | `gates register` | CI, build job |
 | A phase report certifies the commit that contains it | `gates reports` (`gates verify-run --sha`) | CI, build job |
@@ -32,6 +32,11 @@ names the script that enforces it, or says plainly that nothing does.
 - A prediction's outcome is `(evidence)` or `(forcing)`. Forcing: writing it changed the work, so
   it could not come true. Evidence: it could have been wrong about something that was then not
   changed. Only evidence tests the prediction; report the two counts separately.
-- Run the full CI sequence locally before every push, documentation-only pushes included —
-  sabotages patch documentation too (P0 findings log).
+- Before every push, run the head's full CI sequence locally, documentation-only pushes included
+  (sabotages patch documentation too, P0 findings log): preflight, build, gates, tests, every
+  harness shard, the soak at 10,000, host sabotages, secret scan, README walk. Per-commit
+  verification runs in CI, is required, and must be green before merge; it is not run locally
+  (P4 acceptance: 73 (commit, shard) jobs were about 17 hours in series, against minutes in CI's
+  parallel matrix). A bad intermediate commit is therefore caught after the push, on the branch,
+  not before it.
 - Build and test through `scripts/in-sdk.sh`; the host SDK is not trusted.
