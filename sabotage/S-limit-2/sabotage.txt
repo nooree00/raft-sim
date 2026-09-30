@@ -1,0 +1,7 @@
+description: The command-size check is off by one: a command of exactly MaxCommandBytes, the largest legitimate command, is refused as too large
+mechanism: the command limit refuses its own limit
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LimitTests.TheLargestCommandIsAppendedAndOneByteMoreIsRefused
+reason: a command of exactly the largest size was not appended
+expect: caught

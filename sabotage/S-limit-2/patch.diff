@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -395,7 +395,7 @@
+             return;
+         }
+ 
+-        if (c.Payload.Length > _options.MaxCommandBytes)
++        if (c.Payload.Length >= _options.MaxCommandBytes)
+         {
+             effects.Add(new ClientResponse(c.RequestId, Ascii("too-large|" + _options.MaxCommandBytes.ToString(CultureInfo.InvariantCulture))));
+             return;

@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -35,7 +35,7 @@
+     public string? Refusal() =>
+         ElectionTimeoutMin < 1 ? "ElectionTimeoutMin is below 1"
+         : HeartbeatInterval < 1 ? "HeartbeatInterval is below 1"
+-        : HeartbeatInterval * HeartbeatsPerTimeout > ElectionTimeoutMin ? "HeartbeatInterval exceeds a third of ElectionTimeoutMin"
++        : HeartbeatInterval * HeartbeatsPerTimeout >= ElectionTimeoutMin ? "HeartbeatInterval exceeds a third of ElectionTimeoutMin"
+         : ElectionTimeoutMax - ElectionTimeoutMin < HeartbeatInterval ? "the election timeout's spread is less than one heartbeat"
+         : MaxEntriesPerAppend < 1 ? "MaxEntriesPerAppend is below 1"
+         : MaxCommandBytes < 1 || MaxCommandBytes > LargestCommandFor(MaxEntriesPerAppend) ? "MaxCommandBytes is outside 1 and the largest command a full batch can encode"

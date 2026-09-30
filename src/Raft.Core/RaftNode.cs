@@ -7,12 +7,39 @@ namespace Raft.Core;
 /// <summary>
 /// Timing and limits, in the node's own ticks (P3 decision 5): election timeout uniform in
 /// [min, max), heartbeats every interval, at most <see cref="MaxEntriesPerAppend"/> entries in one
-/// AppendEntries. <see cref="DisruptionRule"/> is on in every real configuration; it can be turned
-/// off only so that P3-06 and P4-06 can measure what the rule prevents.
+/// AppendEntries, commands of at most <see cref="MaxCommandBytes"/>. <see cref="DisruptionRule"/> is on
+/// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
+/// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
 /// </summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64)
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576)
 {
+    /// <summary>
+    /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
+    /// never starts an election (P4-09: at 149 against 150, 57 of 100 fault-free runs elected again).
+    /// </summary>
+    public const int HeartbeatsPerTimeout = 3;
+
+    /// <summary>An encoded AppendEntries: its fixed fields, then per entry a term and a length.</summary>
+    private const long AppendEntriesFixed = 41, PerEntry = 12;
+
     public static RaftOptions Default { get; } = new();
+
+    /// <summary>The largest command for which a full batch of <paramref name="batch"/> still encodes into one array.</summary>
+    public static int LargestCommandFor(int batch) => (int)(((int.MaxValue - AppendEntriesFixed) / Math.Max(1, batch)) - PerEntry);
+
+    /// <summary>
+    /// Why these options are refused, or null. The election timeout's spread must be at least one
+    /// heartbeat (at a spread of one tick every node times out together and no leader is ever
+    /// elected, P4-09), and a full batch of the largest commands must encode.
+    /// </summary>
+    public string? Refusal() =>
+        ElectionTimeoutMin < 1 ? "ElectionTimeoutMin is below 1"
+        : HeartbeatInterval < 1 ? "HeartbeatInterval is below 1"
+        : HeartbeatInterval * HeartbeatsPerTimeout > ElectionTimeoutMin ? "HeartbeatInterval exceeds a third of ElectionTimeoutMin"
+        : ElectionTimeoutMax - ElectionTimeoutMin < HeartbeatInterval ? "the election timeout's spread is less than one heartbeat"
+        : MaxEntriesPerAppend < 1 ? "MaxEntriesPerAppend is below 1"
+        : MaxCommandBytes < 1 || MaxCommandBytes > LargestCommandFor(MaxEntriesPerAppend) ? "MaxCommandBytes is outside 1 and the largest command a full batch can encode"
+        : null;
 }
 
 /// <summary>A server's role (paper §5.1).</summary>
@@ -63,6 +90,11 @@ public sealed class RaftNode : INode
         ArgumentNullException.ThrowIfNull(context);
         _context = context;
         _options = options ?? RaftOptions.Default;
+        if (_options.Refusal() is { } refusal)
+        {
+            throw new ArgumentException("options refused: " + refusal, nameof(options));
+        }
+
         _stateMachine = stateMachine ?? new NoStateMachine();
         var file = context.Files.TryGetValue(TermVoteLog.FileName, out var f) ? f.ToArray() : null;
         var recovery = TermVoteLog.Recover(file);
@@ -360,6 +392,12 @@ public sealed class RaftNode : INode
         {
             var hint = Role == Role.Follower && _leaderHint is { } h ? h.ToString() : "-";
             effects.Add(new ClientResponse(c.RequestId, Ascii("redirect|" + hint)));
+            return;
+        }
+
+        if (c.Payload.Length > _options.MaxCommandBytes)
+        {
+            effects.Add(new ClientResponse(c.RequestId, Ascii("too-large|" + _options.MaxCommandBytes.ToString(CultureInfo.InvariantCulture))));
             return;
         }
 

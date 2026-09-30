@@ -536,3 +536,10 @@ finding: what happened, why no existing check caught it, what now catches it.
     now reinstates P4-03's bug, which the sample does catch.
   - *General form:* a guard whose failure needs two rare events together is not covered by a sample
     of generated runs; it needs a constructed input.
+- **Two of the configured limits did not exist.** P4-09 predicted a limit in the wrong place; the
+  codec's 32-bit fields carry a full batch of 1 MiB commands. Instead, commands had no bound at all,
+  and no option was checked: a heartbeat just under the election timeout, or a timeout spread of
+  one tick, was accepted and broke elections (57 of 100 runs re-elected; 100 of 100 never elected).
+  - *Now:* `MaxCommandBytes`, and `RaftOptions.Refusal`, checked when a node is built.
+  - *General form:* spec §10's rule presumes each limit is written down. The first finding of a
+    limit census is the limits nobody wrote.

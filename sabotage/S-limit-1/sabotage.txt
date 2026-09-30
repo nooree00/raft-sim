@@ -1,0 +1,7 @@
+description: The heartbeat bound is off by one: a heartbeat of exactly a third of the minimum election timeout, the largest legitimate value (and the default's), is refused
+mechanism: the heartbeat bound refuses its own limit
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LimitTests.EachOptionAtItsBoundIsAcceptedAndOnePastItRefused(limit: "heartbeat")
+reason: HeartbeatInterval exceeds a third
+expect: caught
