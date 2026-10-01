@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -455,7 +455,7 @@
+     {
+         var shares = Enumerable.Range(0, workers).Select(_ => new List<string>()).ToList();
+         var ordered = units.Order(StringComparer.Ordinal).ToList();
+-        for (var i = 0; i < ordered.Count; i++)
++        for (var i = 0; i < ordered.Count - 1; i++)
+         {
+             shares[i % workers].Add(ordered[i]);
+         }

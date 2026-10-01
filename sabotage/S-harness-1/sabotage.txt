@@ -1,0 +1,6 @@
+description: P4-12's guard on the narrowed build: a real change to Raft.Core, aimed at a target in Raft.Checker.Tests, whose build does not include Raft.Core. Under the solution build the target ran against the changed tree and survived; under the target-project build nothing the target uses is rebuilt, and the harness must say so (not compiled in) rather than report a verdict on stale code
+mechanism: none: the harness's own control for a patch outside its target's build
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.LocalityTests.AHistoryIsLinearizableIffEachKeysSubhistoryIs
+expect: not-compiled-in

@@ -1,0 +1,7 @@
+description: The shard's baseline assignment drops its last unit: one target project, or one command group, is never checked unpatched, so a target already failing before its patch would be reported caught
+mechanism: a baseline unit assigned to no worker
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.HarnessScopeTests.EveryBaselineUnitIsAssignedToExactlyOneWorker
+reason: a unit dropped or doubled
+expect: caught

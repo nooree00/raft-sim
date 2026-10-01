@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -17,7 +17,7 @@
+     /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
+     /// never starts an election (P4-09: at 149 against 150, 57 of 100 fault-free runs elected again).
+     /// </summary>
+-    public const int HeartbeatsPerTimeout = 3;
++    public const int HeartbeatsPerTimeout = 4;
+ 
+     /// <summary>An encoded AppendEntries: its fixed fields, then per entry a term and a length.</summary>
+     private const long AppendEntriesFixed = 41, PerEntry = 12;

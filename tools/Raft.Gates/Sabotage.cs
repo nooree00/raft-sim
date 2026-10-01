@@ -89,6 +89,11 @@ internal static class Sabotage
         var workers = Math.Clamp(workersOption is null ? Environment.ProcessorCount : int.Parse(workersOption, System.Globalization.CultureInfo.InvariantCulture), 1, 4);
         workers = Math.Min(workers, specs.Count);
         var shares = Enumerable.Range(0, workers).Select(k => specs.Where((_, i) => i % workers == k).ToList()).ToList();
+
+        // Baseline checks once per shard (P4-12): each target project, and each command group, is
+        // checked by one worker, against all of the shard's targets in it.
+        var units = BaselineUnits(specs);
+        var baselineShares = AssignBaselines(units.Select(u => u.Key).ToList(), workers);
         var trees = Enumerable.Range(0, workers).Select(k => Path.Combine(Path.GetTempPath(), $"raft-sabotage-worktree-{k}")).ToList();
         foreach (var wt in trees)
         {
@@ -117,7 +122,8 @@ internal static class Sabotage
             System.Threading.Tasks.Parallel.For(0, workers, k =>
             {
                 results[k] = new Findings();
-                ready[k] = RunAll(trees[k], shares[k], results[k], clock);
+                var mineUnits = baselineShares[k].Select(key => units[key]).ToList();
+                ready[k] = RunAll(trees[k], shares[k], mineUnits, results[k], clock);
             });
         }
         finally
@@ -155,7 +161,7 @@ internal static class Sabotage
     }
 
     /// <summary>Runs one worker's share; returns the harness clock when the worker was ready for its first entry.</summary>
-    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, Findings f, Stopwatch clock)
+    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyList<IReadOnlyList<SabotageSpec>> baselineUnits, Findings f, Stopwatch clock)
     {
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
@@ -171,7 +177,7 @@ internal static class Sabotage
         f.Require(baseline.Count == projects.Count, $"hashed {baseline.Count} assemblies for {projects.Count} projects");
 
         // Every target must pass unpatched, or a red result says nothing about the patch.
-        var baselineFailures = BaselineChecks(wt, specs, env);
+        var baselineFailures = BaselineChecks(wt, baselineUnits.SelectMany(u => u).ToList(), env);
         foreach (var bf in baselineFailures)
         {
             f.Fail(bf);
@@ -235,7 +241,7 @@ internal static class Sabotage
             return true;
         }
 
-        var rebuild = Build(wt);
+        var rebuild = Build(wt, BuildScope(spec));
         if (rebuild.Ok && SameHashes(Hashes(wt, projects), baseline))
         {
             return true;
@@ -257,7 +263,7 @@ internal static class Sabotage
             return Done("apply-failed", apply.StdErr.Trim());
         }
 
-        var build = Build(wt, forceRestore: spec.ForceRestore);
+        var build = Build(wt, BuildScope(spec), forceRestore: spec.ForceRestore);
         if (!build.Ok)
         {
             return Done("build-error", FirstError(build));
@@ -286,7 +292,7 @@ internal static class Sabotage
 
         foreach (var group in specs.Where(s => s.Kind == "test").GroupBy(s => s.Get("project")!))
         {
-            var results = RunTests(wt, group.Key);
+            var results = RunTests(wt, group.Key, group.Select(s => TargetMethod(s.Get("target")!)).Distinct(StringComparer.Ordinal).ToList());
             foreach (var spec in group)
             {
                 var mine = Matching(results, spec.Get("target")!);
@@ -333,7 +339,7 @@ internal static class Sabotage
 
         if (spec.Build)
         {
-            var build = Build(wt, forceRestore: spec.ForceRestore);
+            var build = Build(wt, BuildScope(spec), forceRestore: spec.ForceRestore);
             if (!build.Ok)
             {
                 return Done("build-error", FirstError(build));
@@ -341,7 +347,9 @@ internal static class Sabotage
 
             if (spec.ChangesAssemblies && SameHashes(Hashes(wt, projects), baseline))
             {
-                return Done("not-compiled-in", "every assembly is byte-identical to the baseline");
+                return Done("not-compiled-in", spec.Kind == "test"
+                    ? $"every assembly is byte-identical to the baseline after building {spec.Get("project")}: the patch is outside its target's build"
+                    : "every assembly is byte-identical to the baseline");
             }
         }
 
@@ -387,7 +395,7 @@ internal static class Sabotage
 
     private sealed record TestResult(string Name, string Outcome, string Message);
 
-    private static List<TestResult> RunTests(string wt, string project)
+    private static List<TestResult> RunTests(string wt, string project, IReadOnlyList<string>? only = null)
     {
         var dir = Path.Combine(wt, "TestResults", "sabotage");
         if (Directory.Exists(dir))
@@ -395,7 +403,14 @@ internal static class Sabotage
             Directory.Delete(dir, recursive: true);
         }
 
-        Proc.Run("dotnet", wt, "test", "--project", project, "--no-build", "--report-xunit-trx", "--results-directory", dir);
+        var args = new List<string> { "test", "--project", project, "--no-build", "--report-xunit-trx", "--results-directory", dir };
+        foreach (var method in only ?? [])
+        {
+            args.Add("--filter-method");
+            args.Add(method);
+        }
+
+        Proc.Run("dotnet", wt, [.. args]);
         XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
         return Directory.Exists(dir)
             ? Directory.GetFiles(dir, "*.trx").SelectMany(t => XDocument.Load(t).Descendants(ns + "UnitTestResult"))
@@ -407,17 +422,45 @@ internal static class Sabotage
     private static List<TestResult> Matching(IEnumerable<TestResult> results, string target) =>
         results.Where(r => r.Name == target || r.Name.StartsWith(target + "(", StringComparison.Ordinal)).ToList();
 
-    private static ProcessResult Build(string wt, bool forceRestore = false)
+    /// <summary>
+    /// What an entry builds (P4-12): a test entry, its target project and that project's references;
+    /// anything else, the solution. A patch outside a test entry's build leaves every assembly as it
+    /// was, which the not-compiled-in guard reports.
+    /// </summary>
+    internal static string BuildScope(SabotageSpec spec) => spec.Kind == "test" ? spec.Get("project")! : "Raft.slnx";
+
+    private static ProcessResult Build(string wt, string scope = "Raft.slnx", bool forceRestore = false)
     {
         if (!forceRestore)
         {
-            return Proc.Run("dotnet", wt, "build", "Raft.slnx", "-nologo", "-v:q", "-warnaserror");
+            return Proc.Run("dotnet", wt, "build", scope, "-nologo", "-v:q", "-warnaserror");
         }
 
         var restore = Proc.Run("dotnet", wt, "restore", "Raft.slnx", "--force-evaluate", "-p:RestoreLockedMode=false", "-nologo", "-v:q");
         return restore.Ok
-            ? Proc.Run("dotnet", wt, "build", "Raft.slnx", "--no-restore", "-nologo", "-v:q", "-warnaserror")
+            ? Proc.Run("dotnet", wt, "build", scope, "--no-restore", "-nologo", "-v:q", "-warnaserror")
             : restore;
+    }
+
+    /// <summary>A target's method, without a theory case's arguments: what a baseline filter names.</summary>
+    internal static string TargetMethod(string target) => target.Contains('(', StringComparison.Ordinal) ? target[..target.IndexOf('(', StringComparison.Ordinal)] : target;
+
+    /// <summary>The shard's baseline checks: one unit per target project (test entries), one per baseline command (command entries).</summary>
+    internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>
+        specs.GroupBy(s => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command")), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.ToList(), StringComparer.Ordinal);
+
+    /// <summary>Every baseline unit to exactly one worker, round-robin in ordinal order: deterministic.</summary>
+    internal static List<List<string>> AssignBaselines(IReadOnlyList<string> units, int workers)
+    {
+        var shares = Enumerable.Range(0, workers).Select(_ => new List<string>()).ToList();
+        var ordered = units.Order(StringComparer.Ordinal).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            shares[i % workers].Add(ordered[i]);
+        }
+
+        return shares;
     }
 
     private static ProcessResult Bash(string wt, string command, IReadOnlyDictionary<string, string> env) =>
