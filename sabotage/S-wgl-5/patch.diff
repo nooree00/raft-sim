@@ -4,6 +4,6 @@
          foreach (var (key, sub) in groups)
          {
 -            var search = new Search<TState>(sub, model, budget);
-+            var search = new Search<TState>(sub.Where(o => !o.IsIndeterminate).ToList(), model, budget);
++            var search = new Search<TState>(sub, model, budget - explored);
              var verdict = search.Run();
              explored += search.Explored;

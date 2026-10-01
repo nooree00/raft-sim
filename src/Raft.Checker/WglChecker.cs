@@ -33,7 +33,10 @@ public sealed record CheckResult(Verdict Verdict, string? Key, IReadOnlyList<Ope
 /// operation responded before it was invoked. An indeterminate operation (no response) may be
 /// linearized at any point after its invocation, or never, and is unconstrained by any response: the
 /// search succeeds once every completed operation has been placed. A budget in states turns an
-/// unbounded search into <see cref="Verdict.Undecided"/>, never into a verdict.
+/// unbounded search into <see cref="Verdict.Undecided"/>, never into a verdict. Each key's search has
+/// the whole budget (P5-05): shared, an undecided verdict named whichever key was being searched when
+/// an earlier key had spent it. A key that cannot be linearized is reported even when another key was
+/// undecided; <see cref="CheckResult.StatesExplored"/> is the total over keys. Sabotages S-wgl-5, S-wgl-6.
 /// </summary>
 public static class WglChecker
 {
@@ -53,7 +56,7 @@ public static class WglChecker
         CheckResult? undecided = null;
         foreach (var (key, sub) in groups)
         {
-            var search = new Search<TState>(sub, model, budget - explored);
+            var search = new Search<TState>(sub, model, budget);
             var verdict = search.Run();
             explored += search.Explored;
             if (verdict == Verdict.NotLinearizable)
@@ -64,7 +67,6 @@ public static class WglChecker
             if (verdict == Verdict.Undecided)
             {
                 undecided ??= new CheckResult(Verdict.Undecided, key, sub, search.LongestPrefix, explored);
-                break;
             }
         }
 

@@ -1,0 +1,6 @@
+description: the keys share one budget again, so a key is undecided for states an earlier key spent
+mechanism: the WGL checker's budget is shared across keys
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.EachKeyHasTheWholeBudgetSoAKeyIsNotUndecidedForWhatAnotherSpent
+expect: caught

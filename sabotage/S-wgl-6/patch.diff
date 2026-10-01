@@ -1,0 +1,8 @@
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -68,4 +68,5 @@
+             {
+                 undecided ??= new CheckResult(Verdict.Undecided, key, sub, search.LongestPrefix, explored);
++                break;
+             }
+         }

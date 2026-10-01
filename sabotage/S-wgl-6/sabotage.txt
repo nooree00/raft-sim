@@ -1,0 +1,6 @@
+description: the search stops at the first undecided key, hiding a later key that cannot be linearized
+mechanism: an undecided key masks a later rejection
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.AKeyThatCannotBeLinearizedIsReportedAlthoughAnEarlierKeyWasUndecided
+expect: caught

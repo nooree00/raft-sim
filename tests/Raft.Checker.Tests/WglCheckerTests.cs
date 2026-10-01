@@ -76,6 +76,39 @@ public sealed class WglCheckerTests
         Assert.Equal(400, agreed);
     }
 
+    /// <summary>n concurrent appends to one key, then a read that sees them in index order: linearizable, at a cost that grows with n.</summary>
+    private static List<Operation> Appends(string key, int n) =>
+        Enumerable.Range(0, n).Select(i => new Operation(i, OpKind.Append, key, 0, 100, Value: key + i.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            .Append(new Operation(99, OpKind.Get, key, 200, 210, Output: string.Concat(Enumerable.Range(0, n).Select(i => key + i.ToString(System.Globalization.CultureInfo.InvariantCulture))))).ToList();
+
+    [Fact]
+    public void EachKeyHasTheWholeBudgetSoAKeyIsNotUndecidedForWhatAnotherSpent()
+    {
+        var a = Appends("a", 7);
+        var b = Appends("b", 5);
+        var sa = WglChecker.Check(a).StatesExplored;
+        var sb = WglChecker.Check(b).StatesExplored;
+        var budget = Math.Max(sa, sb) + 1;
+        Assert.True(sa + sb > budget, $"a {sa} and b {sb} must not fit one budget of {budget} together");
+
+        var r = WglChecker.Check([.. a, .. b], budget);
+
+        Assert.True(r.IsLinearizable, $"{r.Verdict} at key {r.Key}: each key fits the budget alone ({sa}, {sb} of {budget})");
+        Assert.Equal(sa + sb, r.StatesExplored);
+    }
+
+    [Fact]
+    public void AKeyThatCannotBeLinearizedIsReportedAlthoughAnEarlierKeyWasUndecided()
+    {
+        var undecidable = Enumerable.Range(0, 10).Select(i => new Operation(i, OpKind.Append, "a", 0, 100, Value: i.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            .Append(new Operation(99, OpKind.Get, "a", 200, 210, Output: "no order gives this"));
+        var stale = new[] { new Operation(20, OpKind.Put, "b", 0, 10, Value: "1"), new Operation(21, OpKind.Get, "b", 20, 30, Output: "never written") };
+
+        var r = WglChecker.Check([.. undecidable, .. stale], budget: 1_000);
+
+        Assert.Equal((Verdict.NotLinearizable, "b"), (r.Verdict, r.Key));
+    }
+
     [Fact]
     public void AnExhaustedBudgetIsUndecidedNeverAVerdict()
     {
