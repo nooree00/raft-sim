@@ -3,6 +3,10 @@
 The checker's accepting half (spec §11 phase 5). Format as in `docs/phases/P4/breakdown.md`,
 parsed by `gates breakdown`; outcomes will say `(evidence)` or `(forcing)`.
 
+**Approved** (reviewer): all six decisions, with P5-00 added first. Decision 1 is safe rather than
+assumed because P5-04's variant 3 plants the one case where dropping a refusal is wrong. Decision 3
+makes a slow checker visible rather than quietly permissive.
+
 **Done when** (spec §11): the checker accepts the histories a correct cluster produces, including
 indeterminate operations. In addition, carried forward:
 
@@ -15,7 +19,9 @@ indeterminate operations. In addition, carried forward:
 
 ## Ordering
 
-P5-01 first (the history the checker is given: the adapter decides what the checker can see, and
+P5-00 first, a tooling task (reviewer, at approval): the breakdown gate must reject a sabotage id
+cited by two tasks. This breakdown's first draft cited S-hist-1..3 for P5-01, ids phase 0 already
+owns, and the gate accepted it. Then P5-01 (the history the checker is given: the adapter decides what the checker can see, and
 every later task inherits its choices). Then P5-02 (indeterminate operations, constructed exactly,
 where the spec says the two naive treatments reject correct histories), P5-03 (the accepting half
 over generated runs), P5-04 (the rejecting side, on broken Raft: phase 4 decision 3's limit),
@@ -25,7 +31,8 @@ The harness-cost row the register promised to phase 5 closed early, as P4-12, so
 here. Phase 4's finding on tooling order applies: any tooling-cost change this phase needs lands
 first, and costs are measured on GitHub's runners, the machine that enforces the ceiling.
 
-**Blocking set:** all five; each carries part of §11's criterion or its vacuity guard.
+**Blocking set:** all six. P5-00 is tooling, but it lands first by phase 4's tooling-order rule, and
+every later task's sabotage ids are checked by it.
 
 ## Decisions for review
 
@@ -47,9 +54,21 @@ first, and costs are measured on GitHub's runners, the machine that enforces the
    stays protocol-agnostic: it knows operations, not Raft's reply format.
 5. **The workload gains `Delete`.** Spec §6 lists five operations and phase 4's workload issued
    four; a checker accepting histories that never contain a `Delete` says nothing about `Delete`.
+   This is the distribution lesson (phase 2: an effect never produced is never tested) applied to
+   the workload instead of the faults. The workload is the one dimension nothing has measured yet,
+   so P5-03's report counts each operation kind and each must clear the floor, as effects do.
 6. **No new dependencies.**
 
 ## Tasks
+
+### P5-00 — A sabotage id is owned by one task (tooling, first)
+
+- **Task:** `gates breakdown` fails when a sabotage id appears in the `Sabotage` list of more than one task, naming every task that cites it. A task that proves its claim with an entry another task owns says so explicitly, as `; shared: S-x-n`, and a shared id must be owned by exactly one other task. The one existing double citation, S-pre-4 (owned by P0-10, preflight; cited by P0-05 because preflight is what checks the workflow's image pin), becomes P0-05's `shared:`.
+- **Vacuity:** A rule that counts citations per breakdown file, or only among pending tasks, misses exactly the case that happened: a pending phase-5 task citing a completed phase-0 task's id. Guarded: the hand-built cases put the two citations in different phases, one done and one pending, and the run over the real breakdowns must name S-hist-1..3 on the commit that had them (`9f8f28c`).
+- **Sabotage:** S-bd-7, S-bd-8
+- **Verifiable here:** yes — the gate runs locally over the real breakdowns and hand-built ones
+- **Prediction:** Known before writing it, so not evidence: the rule finds S-pre-4 in the current breakdowns and S-hist-1..3 at `9f8f28c`, nothing else. **What the collision would have cost, if not caught:** P5-01's `sabotage/S-hist-1/` would have collided with phase 0's. Either the new entry overwrites phase 0's, which deletes a checker sabotage with every gate still green (the id exists and is cited), or the existing entry stands and P5-01's sabotage requirement is met by phase 0's checker entries, so the harness reports green against a mechanism P5-01 never touched. The evidence part, on the sweep of other identifiers the gates resolve: `gates register` accepts a done row whose evidence names a test that exists in the sources but is never executed, because it resolves the name textually, not against a test run. **Observable:** the gate's output at `9f8f28c` and now, and the register's behaviour on a done row citing a test that `gates testcount` would report unexecuted.
+- **Outcome:** pending
 
 ### P5-01 — The client history a correct cluster produces, as the checker sees it
 
@@ -98,6 +117,6 @@ first, and costs are measured on GitHub's runners, the machine that enforces the
 
 ## Sabotage ids
 
-New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5. Each id's
+S-bd-7..8 follow S-bd-1..6. New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5. Each id's
 `sabotage/<id>/` entry lands in the same commit as the check it proves, and is run on that commit
 before it is pushed.
