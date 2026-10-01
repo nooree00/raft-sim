@@ -1,0 +1,11 @@
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -53,7 +53,7 @@
+         CheckResult? undecided = null;
+         foreach (var (key, sub) in groups)
+         {
+-            var search = new Search<TState>(sub, model, budget - explored);
++            var search = new Search<TState>(sub.Where(o => !o.IsIndeterminate).ToList(), model, budget - explored);
+             var verdict = search.Run();
+             explored += search.Explored;
+             if (verdict == Verdict.NotLinearizable)

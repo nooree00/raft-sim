@@ -1,0 +1,6 @@
+description: construction (a) never delivers the write to n2, so it never commits and the read sees nothing; the history is still linearizable, and only the step assertions notice
+mechanism: the construction's write never reaches a majority
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.IndeterminateConstructionTests.TheHistoryIsAcceptedByTheCheckerAndTheOracle(construction: "timed-out-then-committed")
+expect: caught

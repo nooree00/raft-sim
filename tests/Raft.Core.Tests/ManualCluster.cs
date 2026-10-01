@@ -26,6 +26,8 @@ internal sealed class ManualCluster
     private readonly Dictionary<NodeId, Dictionary<string, byte[]>> _files = [];
     private readonly Dictionary<NodeId, int> _incarnation = [];
     private readonly List<(long Id, NodeId From, NodeId To, byte[] Payload)> _inFlight = [];
+    private readonly List<(long Id, int Client, NodeId Node, string Command, long Invoke)> _requests = [];
+    private readonly Dictionary<long, (long Time, byte[] Reply)> _replies = [];
     private long _time, _step, _id, _request;
 
     public ManualCluster(RaftOptions options, ulong n1Offset = 0, ulong n2Offset = 149, ulong n3Offset = 0)
@@ -80,6 +82,9 @@ internal sealed class ManualCluster
                 case Emit ev:
                     Observations.Add(new EmittedObservation(_time, n, ev, _step));
                     break;
+                case ClientResponse r:
+                    _replies.TryAdd(r.RequestId, (_time, r.Payload.ToArray()));
+                    break;
             }
         }
     }
@@ -116,7 +121,23 @@ internal sealed class ManualCluster
         throw new InvalidOperationException(n + " did not stand within 1000 ticks");
     }
 
-    public void Client(NodeId n, string command) => Handle(n, new ClientRequest(++_request, Encoding.ASCII.GetBytes(command)));
+    /// <summary>Sends a client request to <paramref name="n"/> on behalf of <paramref name="client"/>; the request id.</summary>
+    public long Client(NodeId n, string command, int client = 0)
+    {
+        _requests.Add((++_request, client, n, command, _time + 1));
+        Handle(n, new ClientRequest(_request, Encoding.ASCII.GetBytes(command)));
+        return _request;
+    }
+
+    /// <summary>
+    /// Every client request as the simulator's client log records it (P5-02): a request still
+    /// unanswered is indeterminate. A crashed or deposed leader never answers, so its pending
+    /// requests stay unanswered.
+    /// </summary>
+    public IReadOnlyList<ClientOp> ClientLog() =>
+        _requests.Select(r => _replies.TryGetValue(r.Id, out var a)
+            ? new ClientOp(r.Client, r.Id, r.Node, Encoding.ASCII.GetBytes(r.Command), r.Invoke, a.Time, a.Reply)
+            : new ClientOp(r.Client, r.Id, r.Node, Encoding.ASCII.GetBytes(r.Command), r.Invoke, null, ReadOnlyMemory<byte>.Empty)).ToList();
 
     /// <summary>Delivers, in order, every message now in flight from <paramref name="from"/> to <paramref name="to"/>; messages to a node that is down are lost.</summary>
     public int Deliver(NodeId from, NodeId to)

@@ -1,0 +1,10 @@
+--- a/tests/Raft.Core.Tests/IndeterminateConstructionTests.cs
++++ b/tests/Raft.Core.Tests/IndeterminateConstructionTests.cs
+@@ -73,7 +73,6 @@
+     {
+         var c = Elected();
+         c.Client(N1, "Put|k|a", client: 0);
+-        c.Deliver(N1, N2);
+         var gaveUp = c.Now;
+         c.Crash(N1);
+         N2Leads(c, N2, N3);

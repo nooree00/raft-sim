@@ -1,0 +1,6 @@
+description: the WGL checker treats an indeterminate operation as never having taken effect
+mechanism: the WGL checker drops indeterminate operations before its search
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.IndeterminateConstructionTests.TheHistoryIsAcceptedByTheCheckerAndTheOracle(construction: "timed-out-then-committed")
+expect: caught
