@@ -630,3 +630,24 @@ finding: what happened, why no existing check caught it, what now catches it.
     bounded, named set.
   - *And the rule applied to itself:* P4-12's own prediction commit carries the tooling before
     P4-12, so it too is checked with the slow harness as predicted: in run [36810331470](https://github.com/nooree00/raft-sim/actions/runs/36810331470), `50f1720` shard 3 failed the ceiling (its checks step about 16.5 min) while the head's seven shards, with P4-12's tooling, passed (slowest 12.75 min). P4-12 was measured on GitHub, the enforcing machine, and still missed its 12-minute observable by about 0.75 min; it was under the ceiling, which is what the rule protects.
+
+## Phase 5
+
+- **An identifier that resolves to the wrong thing produces a green verdict about something that
+  was not tested.** The first draft of the phase-5 breakdown gave P5-01 the sabotage ids S-hist-1..3,
+  which P0-15 has owned since phase 0, and `gates breakdown` accepted it: it checked that each id
+  resolves to an entry, not whose entry it is. Had it gone further, P5-01's `sabotage/S-hist-1/`
+  either overwrites phase 0's entry, deleting a checker sabotage with every gate still green (the
+  id exists and is cited), or leaves it standing, and P5-01's requirement is met by phase 0's
+  checker entries: the harness reports caught against a mechanism P5-01 never touched. Same family
+  as the stale patches (`patch` against `git apply`) and the two compilers: something resolves, and
+  nothing checks that it resolves to the right thing.
+  - *Now:* a sabotage id is owned by one task across every breakdown; another task relying on it
+    cites it as `; shared:` (P5-00, S-bd-7, S-bd-8).
+  - *The sweep found a second instance:* `gates register` accepted a done row whose evidence named
+    any method in the built test assemblies, a private helper included. Evidence must now be a
+    method marked [Fact] or [Theory], which `gates testcount` requires to run (S-reg-5).
+  - *And a third, while fixing the first:* I numbered the new register sabotage S-reg-3, taken by
+    P0-08 since phase 0. The new rule named it on its first run. The rule was written because I make
+    this mistake; I made it again within the hour, which is the argument for the gate over care.
+
