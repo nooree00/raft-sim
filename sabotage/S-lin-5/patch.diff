@@ -1,0 +1,16 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -404,5 +404,12 @@
+         Save(effects);
+         effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
+-        _pending[_log.LastIndex] = c.RequestId;
++        if (c.RequestId % 4 == 0)
++        {
++            effects.Add(new ClientResponse(c.RequestId, Ascii("redirect|-")));
++        }
++        else
++        {
++            _pending[_log.LastIndex] = c.RequestId;
++        }
+         foreach (var peer in _context.Peers)
+         {

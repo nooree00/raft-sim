@@ -1,0 +1,7 @@
+description: a leader refuses every fourth client after appending its command
+mechanism: a node refuses a client whose command it has appended
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.LinearizabilityTests.TheFirstSoakHistoriesAreLinearizable
+reason: linearizability at key
+expect: caught

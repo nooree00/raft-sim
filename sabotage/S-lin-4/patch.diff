@@ -1,0 +1,16 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -404,5 +404,12 @@
+         Save(effects);
+         effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
+-        _pending[_log.LastIndex] = c.RequestId;
++        if (c.Payload.Span[0] is (byte)'G' or (byte)'C')
++        {
++            _pending[_log.LastIndex] = c.RequestId;
++        }
++        else
++        {
++            effects.Add(new ClientResponse(c.RequestId, Ascii("ok")));
++        }
+         foreach (var peer in _context.Peers)
+         {

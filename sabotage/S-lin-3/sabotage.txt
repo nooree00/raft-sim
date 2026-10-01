@@ -1,0 +1,7 @@
+description: a node applies the entry after the committed one and answers consistently with what it applied (phase 4 decision 3's limit)
+mechanism: a node applies the wrong log entry and reports it as applied
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.LinearizabilityTests.TheFirstSoakHistoriesAreLinearizable
+reason: linearizability at key
+expect: caught

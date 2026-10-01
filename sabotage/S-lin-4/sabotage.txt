@@ -1,0 +1,7 @@
+description: the leader answers a write when it appends it, before it is committed
+mechanism: a leader answers a client before the command commits
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.LinearizabilityTests.TheFirstSoakHistoriesAreLinearizable
+reason: linearizability at key
+expect: caught
