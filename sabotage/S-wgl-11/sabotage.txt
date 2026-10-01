@@ -1,0 +1,7 @@
+description: the append reduction ignores Get outputs, so an Append a read observed is removed
+mechanism: the append reduction ignores reads that observed the value
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory(name: "indeterminate-append-observed-by-value")
+reason: indeterminate-append-observed-by-value
+expect: caught

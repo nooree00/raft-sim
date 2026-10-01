@@ -125,6 +125,21 @@ public sealed class WglCheckerTests
     }
 
     [Fact]
+    public void AnIndeterminateAppendNoObservationDependsOnIsRemovedBeforeTheSearch()
+    {
+        // Rejected, so the search must exhaust what it can reach; no output contains a z value and no Cas fails.
+        var writes = Enumerable.Range(0, 5).Select(i => new Operation(i, OpKind.Append, "x", 0, 100, Value: i.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            .Append(new Operation(99, OpKind.Get, "x", 200, 210, Output: "no order gives this")).ToList();
+        var unobserved = Enumerable.Range(0, 4).Select(i => new Operation(50 + i, OpKind.Append, "x", 0, null, Value: "z" + i.ToString(System.Globalization.CultureInfo.InvariantCulture))).ToList();
+
+        var with = WglChecker.Check([.. writes, .. unobserved]);
+        var without = WglChecker.Check(writes);
+
+        Assert.Equal((Verdict.NotLinearizable, Verdict.NotLinearizable), (with.Verdict, without.Verdict));
+        Assert.Equal(without.StatesExplored, with.StatesExplored);
+    }
+
+    [Fact]
     public void ACompletedReadIsNeverRemoved()
     {
         var ops = new[]

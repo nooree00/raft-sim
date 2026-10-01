@@ -1,0 +1,6 @@
+description: no append reduction: every unobserved indeterminate Append stays in the search
+mechanism: the KV model removes no indeterminate Append
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.AnIndeterminateAppendNoObservationDependsOnIsRemovedBeforeTheSearch
+expect: caught

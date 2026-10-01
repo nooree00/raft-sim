@@ -32,6 +32,29 @@ public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
 
     public bool IsReadOnly(Operation op) => op?.Kind == OpKind.Get;
 
+    /// <summary>
+    /// P5-06: an indeterminate Append is removed unless an observation can depend on it: a completed
+    /// Get whose output contains its value, a completed Cas expecting a value that contains it, or a
+    /// completed Cas that failed after the Append could have taken effect (an Append makes an absent
+    /// key present and changes any value, so its effect alone can fail a Cas). Values are unique per
+    /// operation in the workloads, so an Append whose value no output contains was not in effect at
+    /// any read. Sabotages S-wgl-9..12.
+    /// </summary>
+    public IReadOnlyList<Operation> Reduce(IReadOnlyList<Operation> subHistory)
+    {
+        ArgumentNullException.ThrowIfNull(subHistory);
+        return subHistory.Where(a => !(a.IsIndeterminate && a.Kind == OpKind.Append && !Observable(a, subHistory))).ToList();
+    }
+
+    private static bool Observable(Operation append, IReadOnlyList<Operation> history) =>
+        history.Any(o => o.Key == append.Key && !o.IsIndeterminate && o.Kind switch
+        {
+            OpKind.Get => o.Output is { } output && output.Contains(append.Value!, StringComparison.Ordinal),
+            OpKind.CompareAndSwap => (o.Expected?.Contains(append.Value!, StringComparison.Ordinal) ?? false)
+                || (o.Output == "false" && append.Invoke < o.Response),
+            _ => false,
+        });
+
     /// <summary>Applies <paramref name="op"/> to <paramref name="state"/> in place and returns its output.</summary>
     public string? Apply(Dictionary<string, string> state, Operation op)
     {

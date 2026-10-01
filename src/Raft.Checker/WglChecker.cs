@@ -59,7 +59,7 @@ public static class WglChecker
         CheckResult? undecided = null;
         foreach (var (key, sub) in groups)
         {
-            var search = new Search<TState>(sub, model, budget);
+            var search = new Search<TState>(model.Reduce(sub).ToList(), model, budget);
             var verdict = search.Run();
             explored += search.Explored;
             if (verdict == Verdict.NotLinearizable)

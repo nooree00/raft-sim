@@ -1,0 +1,9 @@
+--- a/src/Raft.Checker/KvModel.cs
++++ b/src/Raft.Checker/KvModel.cs
+@@ -44,5 +44,5 @@
+     {
+         ArgumentNullException.ThrowIfNull(subHistory);
+-        return subHistory.Where(a => !(a.IsIndeterminate && a.Kind == OpKind.Append && !Observable(a, subHistory))).ToList();
++        return subHistory;
+     }
+ 

@@ -1,0 +1,8 @@
+--- a/src/Raft.Checker/KvModel.cs
++++ b/src/Raft.Checker/KvModel.cs
+@@ -50,5 +50,4 @@
+         history.Any(o => o.Key == append.Key && !o.IsIndeterminate && o.Kind switch
+         {
+-            OpKind.Get => o.Output is { } output && output.Contains(append.Value!, StringComparison.Ordinal),
+             OpKind.CompareAndSwap => (o.Expected?.Contains(append.Value!, StringComparison.Ordinal) ?? false)
+                 || (o.Output == "false" && append.Invoke < o.Response),

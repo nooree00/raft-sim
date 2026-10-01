@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Raft.Checker;
 
 /// <summary>
@@ -26,6 +28,14 @@ public interface ISequentialModel<TState>
     /// change a verdict, and each one doubles the sets of operations the search can reach.
     /// </summary>
     bool IsReadOnly(Operation op) => false;
+
+    /// <summary>
+    /// A sub-history with the indeterminate operations no observation depends on removed (P5-06).
+    /// Removing an indeterminate operation chooses "it never took effect", always allowed, so a
+    /// reduction can only make the checker reject more, never accept more: a wrong one rejects a
+    /// correct history. The default removes nothing.
+    /// </summary>
+    IReadOnlyList<Operation> Reduce(IReadOnlyList<Operation> subHistory) => subHistory;
 }
 
 public static class SequentialModel

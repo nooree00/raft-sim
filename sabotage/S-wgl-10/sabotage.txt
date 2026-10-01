@@ -1,0 +1,7 @@
+description: the append reduction looks only at values, so an Append whose effect alone failed a Cas is removed
+mechanism: the append reduction ignores failed Cas operations
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory(name: "indeterminate-append-explains-a-failed-cas")
+reason: indeterminate-append-explains-a-failed-cas
+expect: caught
