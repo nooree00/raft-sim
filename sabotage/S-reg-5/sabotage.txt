@@ -1,0 +1,7 @@
+description: a done register row cites a helper method, not a test
+mechanism: a done row's evidence resolves to a method that is not marked [Fact] or [Theory]
+kind: command
+build: no
+command: dotnet "$GATES" register
+expect: caught
+message: no test named 'Raft.Gates.Tests.HarnessScopeTests.Spec'

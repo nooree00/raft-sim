@@ -1,0 +1,7 @@
+description: P5-01 cites phase 0's S-hist-1..3 as its own, as the first draft of the phase-5 breakdown did
+mechanism: a pending task cites as its own sabotage ids a done task in another phase already owns
+kind: command
+build: no
+command: dotnet "$GATES" breakdown
+expect: caught
+message: S-hist-1: cited as its own by P0-15 and P5-01

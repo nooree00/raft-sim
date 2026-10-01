@@ -74,6 +74,37 @@ public sealed class BreakdownTests
         Assert.Equal(valid, !f.Failures.Any(m => m.Contains("Outcome must be", StringComparison.Ordinal)));
     }
 
+    private static BreakdownTask Task(string id, string sabotage, string outcome = "pending")
+    {
+        var md = GitFixture.Breakdown()
+            .Replace("### P9-01", "### " + id, StringComparison.Ordinal)
+            .Replace("- **Sabotage:** S-widget-1", "- **Sabotage:** " + sabotage, StringComparison.Ordinal)
+            .Replace("- **Outcome:** pending", "- **Outcome:** " + outcome, StringComparison.Ordinal);
+        return Assert.Single(Breakdown.Parse($"docs/phases/{id[..id.IndexOf('-', StringComparison.Ordinal)]}/breakdown.md", md.Split('\n'), new Findings()));
+    }
+
+    [Fact]
+    public void ASabotageIdOwnedByADoneTaskInOnePhaseAndCitedByAPendingTaskInAnotherFails()
+    {
+        var f = new Findings();
+        Breakdown.CheckOwnership([Task("P0-15", "S-hist-1, S-hist-2", "right (evidence) — the oracle agreed."), Task("P5-01", "S-hist-1")], f);
+
+        Assert.Contains(f.Failures, m => m.StartsWith("S-hist-1: cited as its own by P0-15 and P5-01", StringComparison.Ordinal));
+        Assert.DoesNotContain(f.Failures, m => m.StartsWith("S-hist-2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AnotherTasksIdIsCitedAsSharedAndASharedIdNobodyOwnsFails()
+    {
+        var ok = new Findings();
+        Breakdown.CheckOwnership([Task("P0-10", "S-pre-4"), Task("P0-05", "S-ci-1; shared: S-pre-4; manual: one red run by hand")], ok);
+        Assert.Empty(ok.Failures);
+
+        var orphan = new Findings();
+        Breakdown.CheckOwnership([Task("P0-05", "S-ci-1; shared: S-pre-9")], orphan);
+        Assert.Contains(orphan.Failures, m => m.Contains("shares S-pre-9, which must be owned by exactly one other task (owned by: none)", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void AnOutcomeWithoutAVerdictFails() =>
         Assert.Contains(Check(GitFixture.Breakdown().Replace("- **Outcome:** pending", "- **Outcome:** it went fine", StringComparison.Ordinal)).Failures,

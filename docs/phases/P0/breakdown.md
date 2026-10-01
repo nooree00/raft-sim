@@ -107,7 +107,7 @@ enough by not rebuilding what a sabotage does not touch:
 
 - **Task:** `.github/workflows/ci.yml`, on push to any branch; the build job runs inside the digest-pinned container; every step calls `scripts/*.sh` under `set -euo pipefail`, so the YAML holds no logic.
 - **Vacuity:** A workflow that triggers only on pull requests, so no run happens; `continue-on-error`; an exit code swallowed by `| tee`; a step that runs zero tests and succeeds.
-- **Sabotage:** S-ci-1, S-pre-4; manual: one deliberately red run on `claude/blissful-goodall-358smj-sabotage`, run id recorded in the phase report, branch deleted afterwards
+- **Sabotage:** S-ci-1; shared: S-pre-4; manual: one deliberately red run on `claude/blissful-goodall-358smj-sabotage`, run id recorded in the phase report, branch deleted afterwards
 - **Verifiable here:** partial — the scripts run locally in the image; the live run can only be read through the GitHub tools.
 - **Prediction:** In a container job the checkout is owned by a different user, so git inside the gates fails with "detected dubious ownership"; and there is no Docker socket inside the job, so gitleaks must be a separate job on the runner. **Observable:** the first run's first git-using step fails on a git command.
 - **Outcome:** partly (evidence) — dubious ownership: right, the first CI run failed on the preflight's git calls (actions/checkout marks the tree safe only under a temporary HOME). No Docker socket: wrong, the runner mounts /var/run/docker.sock into container jobs; it is the image that lacks the docker CLI.

@@ -48,6 +48,8 @@ internal static partial class Breakdown
             }
         }
 
+        CheckOwnership(tasks, f);
+
         foreach (var orphan in sabotages.Except(referenced).Order(StringComparer.Ordinal))
         {
             f.Fail($"{orphan}: sabotage not referenced by any task");
@@ -169,10 +171,8 @@ internal static partial class Breakdown
 
         if (t.Fields.TryGetValue("Sabotage", out var sab))
         {
-            var parts = sab.Split("; manual:", 2, StringSplitOptions.TrimEntries);
-            var ids = parts[0].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            var manual = parts.Length > 1 && parts[1].Length > 0;
-            foreach (var sid in ids)
+            var (ids, shared, manual) = SabotageIds(sab);
+            foreach (var sid in ids.Concat(shared))
             {
                 if (!SabotageId().IsMatch(sid))
                 {
@@ -191,8 +191,8 @@ internal static partial class Breakdown
                 }
             }
 
-            f.Require(ids.Length > 0 || manual, $"{t.Id}: no sabotage ids and no '; manual:' description");
-            if (ids.Length == 0)
+            f.Require(ids.Count + shared.Count > 0 || manual, $"{t.Id}: no sabotage ids and no '; manual:' description");
+            if (ids.Count + shared.Count == 0)
             {
                 f.Require(!t.Fields.GetValueOrDefault("Verifiable here", "").StartsWith("yes", StringComparison.Ordinal),
                     $"{t.Id}: verifiable here 'yes' but the sabotage is manual only");
@@ -213,6 +213,59 @@ internal static partial class Breakdown
         {
             f.Require(outcome == "pending" || OutcomeLine().IsMatch(outcome),
                 $"{t.Id}: Outcome must be 'pending' or 'right|wrong|partly (evidence|forcing) — what happened'");
+        }
+    }
+
+    /// <summary>
+    /// A Sabotage field: "S-a-1, S-a-2; shared: S-b-3; manual: what is done by hand". The leading
+    /// ids are the task's own; shared ids are another task's entries this task also relies on.
+    /// </summary>
+    internal static (IReadOnlyList<string> Own, IReadOnlyList<string> Shared, bool Manual) SabotageIds(string field)
+    {
+        var parts = field.Split("; manual:", 2, StringSplitOptions.TrimEntries);
+        var manual = parts.Length > 1 && parts[1].Length > 0;
+        var own = parts[0].Split("; shared:", 2, StringSplitOptions.TrimEntries);
+        static List<string> Ids(string s) => s.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        return (Ids(own[0]), own.Length > 1 ? Ids(own[1]) : [], manual);
+    }
+
+    /// <summary>
+    /// P5-00: a sabotage id is owned by exactly one task, across every phase's breakdown. An id
+    /// cited as its own by two tasks resolves for both, so the second task's requirement is met by
+    /// the first's entry and the harness reports on a mechanism the second never touched (phase 5's
+    /// first draft cited phase 0's S-hist-1..3). Vacuity risk: checking per file or only among
+    /// pending tasks misses that case, which spans a done phase-0 task and a pending phase-5 one;
+    /// sabotage S-bd-8.
+    /// </summary>
+    internal static void CheckOwnership(IReadOnlyList<BreakdownTask> tasks, Findings f)
+    {
+        var owners = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var shares = new List<(string Task, string Id)>();
+        foreach (var t in tasks)
+        {
+            if (!t.Fields.TryGetValue("Sabotage", out var sab))
+            {
+                continue;
+            }
+
+            var (own, shared, _) = SabotageIds(sab);
+            foreach (var id in own)
+            {
+                (owners.TryGetValue(id, out var l) ? l : owners[id] = []).Add(t.Id);
+            }
+
+            shares.AddRange(shared.Select(id => (t.Id, id)));
+        }
+
+        foreach (var (id, by) in owners.Where(o => o.Value.Count > 1).OrderBy(o => o.Key, StringComparer.Ordinal))
+        {
+            f.Fail($"{id}: cited as its own by {string.Join(" and ", by)}; a sabotage id is owned by one task (another task cites it as '; shared: {id}')");
+        }
+
+        foreach (var (task, id) in shares)
+        {
+            var by = owners.GetValueOrDefault(id, []);
+            f.Require(by.Count == 1 && by[0] != task, $"{task}: shares {id}, which must be owned by exactly one other task (owned by: {(by.Count == 0 ? "none" : string.Join(", ", by))})");
         }
     }
 

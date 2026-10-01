@@ -37,7 +37,7 @@ internal static partial class Register
         var rows = Rows(repo, f);
         f.Require(rows.Count > 0, "docs/register.md has no rows");
 
-        var testMethods = new Lazy<HashSet<string>>(() => BuiltMethods(repo, "tests/"));
+        var testMethods = new Lazy<HashSet<string>>(() => BuiltMethods(repo, "tests/", testsOnly: true));
         foreach (var r in rows)
         {
             f.Require(phases.Contains(r.Phase), $"'{r.Item}': promised to unknown phase '{r.Phase}'");
@@ -47,7 +47,7 @@ internal static partial class Register
                     f.Require(!completed.Contains(r.Phase), $"'{r.Item}': open, but promised to {r.Phase}, which is complete");
                     break;
                 case "done":
-                    f.Require(testMethods.Value.Contains(r.Evidence), $"'{r.Item}': done, but no test named '{r.Evidence}' in the built test assemblies");
+                    f.Require(testMethods.Value.Contains(r.Evidence), $"'{r.Item}': done, but no test named '{r.Evidence}' in the built test assemblies (a method marked [Fact] or [Theory]; any other method is not a test)");
                     break;
                 case "dropped":
                     var touched = repo.Git("show", "--name-only", "--format=", r.Evidence);
@@ -154,8 +154,13 @@ internal static partial class Register
         return rows;
     }
 
-    /// <summary>"Namespace.Type.Method" for every method defined in the built assemblies of projects under a prefix.</summary>
-    internal static HashSet<string> BuiltMethods(Repo repo, string prefix)
+    /// <summary>
+    /// "Namespace.Type.Method" for every method defined in the built assemblies of projects under a
+    /// prefix; with testsOnly, only methods marked [Fact] or [Theory]. P5-00's sweep: a done row
+    /// citing a helper method passed, because any method definition resolved. Whether a test ran is
+    /// `gates testcount`'s (every written test must execute). Sabotage S-reg-5.
+    /// </summary>
+    internal static HashSet<string> BuiltMethods(Repo repo, string prefix, bool testsOnly = false)
     {
         var set = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (_, md) in Assemblies(repo, prefix))
@@ -163,6 +168,11 @@ internal static partial class Register
             foreach (var h in md.MethodDefinitions)
             {
                 var m = md.GetMethodDefinition(h);
+                if (testsOnly && !IsTest(md, m))
+                {
+                    continue;
+                }
+
                 set.Add(TypeName(md, m.GetDeclaringType()) + "." + md.GetString(m.Name));
             }
         }
@@ -270,6 +280,24 @@ internal static partial class Register
         return declaring.IsNil
             ? (md.GetString(td.Namespace) is { Length: > 0 } ns ? ns + "." : "") + md.GetString(td.Name)
             : TypeName(md, declaring) + "+" + md.GetString(td.Name);
+    }
+
+    private static bool IsTest(MetadataReader md, MethodDefinition m)
+    {
+        foreach (var h in m.GetCustomAttributes())
+        {
+            var ctor = md.GetCustomAttribute(h).Constructor;
+            if (ctor.Kind == HandleKind.MemberReference && md.GetMemberReference((MemberReferenceHandle)ctor).Parent is { Kind: HandleKind.TypeReference } parent)
+            {
+                var name = md.GetString(md.GetTypeReference((TypeReferenceHandle)parent).Name);
+                if (name is "FactAttribute" or "TheoryAttribute")
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static List<(PEReader Pe, MetadataReader Md)> Assemblies(Repo repo, string prefix)

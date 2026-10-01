@@ -65,7 +65,7 @@ every later task's sabotage ids are checked by it.
 
 - **Task:** `gates breakdown` fails when a sabotage id appears in the `Sabotage` list of more than one task, naming every task that cites it. A task that proves its claim with an entry another task owns says so explicitly, as `; shared: S-x-n`, and a shared id must be owned by exactly one other task. The one existing double citation, S-pre-4 (owned by P0-10, preflight; cited by P0-05 because preflight is what checks the workflow's image pin), becomes P0-05's `shared:`.
 - **Vacuity:** A rule that counts citations per breakdown file, or only among pending tasks, misses exactly the case that happened: a pending phase-5 task citing a completed phase-0 task's id. Guarded: the hand-built cases put the two citations in different phases, one done and one pending, and the run over the real breakdowns must name S-hist-1..3 on the commit that had them (`9f8f28c`).
-- **Sabotage:** S-bd-7, S-bd-8
+- **Sabotage:** S-bd-7, S-bd-8, S-reg-5
 - **Verifiable here:** yes — the gate runs locally over the real breakdowns and hand-built ones
 - **Prediction:** Known before writing it, so not evidence: the rule finds S-pre-4 in the current breakdowns and S-hist-1..3 at `9f8f28c`, nothing else. **What the collision would have cost, if not caught:** P5-01's `sabotage/S-hist-1/` would have collided with phase 0's. Either the new entry overwrites phase 0's, which deletes a checker sabotage with every gate still green (the id exists and is cited), or the existing entry stands and P5-01's sabotage requirement is met by phase 0's checker entries, so the harness reports green against a mechanism P5-01 never touched. The evidence part, on the sweep of other identifiers the gates resolve: `gates register` accepts a done row whose evidence names a test that exists in the sources but is never executed, because it resolves the name textually, not against a test run. **Observable:** the gate's output at `9f8f28c` and now, and the register's behaviour on a done row citing a test that `gates testcount` would report unexecuted.
 - **Outcome:** pending
@@ -117,6 +117,6 @@ every later task's sabotage ids are checked by it.
 
 ## Sabotage ids
 
-S-bd-7..8 follow S-bd-1..6. New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5. Each id's
+S-bd-7..8 follow S-bd-1..6, S-reg-5 follows S-reg-1..4. New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5. Each id's
 `sabotage/<id>/` entry lands in the same commit as the check it proves, and is run on that commit
 before it is pushed.

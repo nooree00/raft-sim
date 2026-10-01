@@ -1,0 +1,6 @@
+description: sabotage-id ownership counted per breakdown file, so a citation across phases goes unseen
+mechanism: the ownership check keys owners by file and id instead of id alone
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.BreakdownTests.ASabotageIdOwnedByADoneTaskInOnePhaseAndCitedByAPendingTaskInAnotherFails
+expect: caught

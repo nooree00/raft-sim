@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Breakdown.cs
++++ b/tools/Raft.Gates/Breakdown.cs
+@@ -251,7 +251,7 @@
+             var (own, shared, _) = SabotageIds(sab);
+             foreach (var id in own)
+             {
+-                (owners.TryGetValue(id, out var l) ? l : owners[id] = []).Add(t.Id);
++                (owners.TryGetValue(t.File + ":" + id, out var l) ? l : owners[t.File + ":" + id] = []).Add(t.Id);
+             }
+ 
+             shares.AddRange(shared.Select(id => (t.Id, id)));
