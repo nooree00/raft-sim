@@ -55,7 +55,7 @@ first, and costs are measured on GitHub's runners, the machine that enforces the
 
 - **Task:** An adapter from the simulator's client log to a checker history, under decisions 1–2: refusals dropped and counted, timeouts indeterminate, a fresh logical client after each timeout, retries as separate operations, `Get`/`Cas` outputs from the reply. Proven on hand-built client logs, each rule rejecting a malformed mapping and accepting its twin one step away.
 - **Vacuity:** An adapter that drops operations can make any history pass (a lost write whose operation is dropped leaves nothing to contradict), and one that drops indeterminate operations can make correct histories fail. Guarded: every client operation is accounted for (mapped, refused, or indeterminate, with the three counts summing to the log), and the hand-built logs include each case.
-- **Sabotage:** S-hist-1, S-hist-2, S-hist-3
+- **Sabotage:** S-adapt-1, S-adapt-2, S-adapt-3
 - **Verifiable here:** yes — hand-built logs and the simulator run locally
 - **Prediction:** Keeping a timed-out client's later operations on the same logical client, instead of a fresh one, rejects correct histories: at least 5% of the 300-execution sample goes red under that variant, because a client's next operation then appears to follow its indeterminate one in real time, which forbids the indeterminate one from taking effect after it. **Observable:** rejected runs in the sample under the variant, against none with the adapter as decided.
 - **Outcome:** pending
@@ -98,6 +98,6 @@ first, and costs are measured on GitHub's runners, the machine that enforces the
 
 ## Sabotage ids
 
-New series: S-hist, S-indet, S-lin. S-soak-6 follows S-soak-1..5. Each id's
+New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5. Each id's
 `sabotage/<id>/` entry lands in the same commit as the check it proves, and is run on that commit
 before it is pushed.
