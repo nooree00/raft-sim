@@ -110,6 +110,33 @@ public sealed class WglCheckerTests
     }
 
     [Fact]
+    public void AnIndeterminateReadIsRemovedBeforeTheSearchAndChangesNoVerdict()
+    {
+        // Rejected, so the search must exhaust what it can reach: with the reads kept, every subset of them is reachable too.
+        var writes = Enumerable.Range(0, 5).Select(i => new Operation(i, OpKind.Append, "x", 0, 100, Value: i.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            .Append(new Operation(99, OpKind.Get, "x", 200, 210, Output: "no order gives this")).ToList();
+        var reads = Enumerable.Range(0, 6).Select(i => new Operation(50 + i, OpKind.Get, "x", 0, null)).ToList();
+
+        var with = WglChecker.Check([.. writes, .. reads]);
+        var without = WglChecker.Check(writes);
+
+        Assert.Equal((Verdict.NotLinearizable, Verdict.NotLinearizable), (with.Verdict, without.Verdict));
+        Assert.Equal(without.StatesExplored, with.StatesExplored);
+    }
+
+    [Fact]
+    public void ACompletedReadIsNeverRemoved()
+    {
+        var ops = new[]
+        {
+            new Operation(1, OpKind.Put, "x", 0, 10, Value: "1"),
+            new Operation(2, OpKind.Get, "x", 20, 30, Output: "never written"),
+        };
+
+        Assert.Equal(Verdict.NotLinearizable, WglChecker.Check(ops).Verdict);
+    }
+
+    [Fact]
     public void AnExhaustedBudgetIsUndecidedNeverAVerdict()
     {
         var ops = Enumerable.Range(0, 10).Select(i => new Operation(i, OpKind.Append, "x", 0, 100, Value: i.ToString(System.Globalization.CultureInfo.InvariantCulture)))

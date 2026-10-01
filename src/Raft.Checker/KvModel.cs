@@ -30,6 +30,8 @@ public sealed class KvModel : ISequentialModel<Dictionary<string, string>>
     internal static void Field(System.Text.StringBuilder sb, string s) =>
         sb.Append(s.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(':').Append(s);
 
+    public bool IsReadOnly(Operation op) => op?.Kind == OpKind.Get;
+
     /// <summary>Applies <paramref name="op"/> to <paramref name="state"/> in place and returns its output.</summary>
     public string? Apply(Dictionary<string, string> state, Operation op)
     {

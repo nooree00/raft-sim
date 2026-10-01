@@ -19,6 +19,13 @@ public interface ISequentialModel<TState>
     /// (linearized operations, fingerprint); two states with one fingerprint would merge searches.
     /// </summary>
     string Fingerprint(TState state);
+
+    /// <summary>
+    /// True for an operation that never changes the state (a read). Indeterminate, it has no effect
+    /// and no output to explain, so the WGL checker removes it before the search (P5-05): it cannot
+    /// change a verdict, and each one doubles the sets of operations the search can reach.
+    /// </summary>
+    bool IsReadOnly(Operation op) => false;
 }
 
 public static class SequentialModel

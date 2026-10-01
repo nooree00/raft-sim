@@ -1,0 +1,8 @@
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -52,5 +52,4 @@
+         ArgumentNullException.ThrowIfNull(ops);
+         ArgumentNullException.ThrowIfNull(model);
+-        ops = ops.Where(o => !(o.IsIndeterminate && model.IsReadOnly(o))).ToList();
+         var groups = decompose
+             ? ops.GroupBy(o => o.Key, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => (Key: (string?)g.Key, Ops: g.ToList())).ToList()

@@ -1,0 +1,6 @@
+description: the read reduction removes completed reads too, whose outputs are the evidence
+mechanism: the WGL checker removes a completed read before its search
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.ACompletedReadIsNeverRemoved
+expect: caught

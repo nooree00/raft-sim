@@ -37,6 +37,8 @@ public sealed record CheckResult(Verdict Verdict, string? Key, IReadOnlyList<Ope
 /// the whole budget (P5-05): shared, an undecided verdict named whichever key was being searched when
 /// an earlier key had spent it. A key that cannot be linearized is reported even when another key was
 /// undecided; <see cref="CheckResult.StatesExplored"/> is the total over keys. Sabotages S-wgl-5, S-wgl-6.
+/// An indeterminate read-only operation is removed before the search (<see cref="ISequentialModel{TState}.IsReadOnly"/>):
+/// it changes nothing and its output is unknown, so no linearization depends on it. Sabotages S-wgl-7, S-wgl-8.
 /// </summary>
 public static class WglChecker
 {
@@ -49,6 +51,7 @@ public static class WglChecker
     {
         ArgumentNullException.ThrowIfNull(ops);
         ArgumentNullException.ThrowIfNull(model);
+        ops = ops.Where(o => !(o.IsIndeterminate && model.IsReadOnly(o))).ToList();
         var groups = decompose
             ? ops.GroupBy(o => o.Key, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => (Key: (string?)g.Key, Ops: g.ToList())).ToList()
             : [(Key: (string?)null, Ops: ops.ToList())];

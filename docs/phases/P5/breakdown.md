@@ -110,13 +110,13 @@ every later task's sabotage ids are checked by it.
 
 - **Task:** The 10,000-execution soak runs the checker on every history, with P5-03's report at soak scale and decision 3's rule for `Unknown`. **Revised at the ceiling (reviewer, after the first local soak left 37 searches undecided):** in this order, each re-measured before the next: (i) each key's search gets its own budget, so an undecided verdict names the key that exhausted it (with the budget shared, a 24-operation key was reported while a larger one had spent it); the eight examined seeds re-measured; (ii) indeterminate reads removed before the search (sound: such a read changes nothing and constrains nothing); (iii) the soak re-measured on three keys; (iv) the workload spread over six keys, re-measured. What stays undecided is brought to the reviewer, not declared. The Append-values reduction is not part of this task (P5-06 if needed).
 - **Vacuity:** A soak whose checker never meets a hard history proves little about the budget. Guarded: the maximum states explored is reported beside the budget, and the histories at the top of the distribution are kept as named seeds.
-- **Sabotage:** S-wgl-5, S-wgl-6
+- **Sabotage:** S-wgl-5, S-wgl-6, S-wgl-7, S-wgl-8
 - **Verifiable here:** partial — a local soak run; the CI job only in CI
 - **Prediction:** Checking adds under 20% to the soak job's time on GitHub's runners, because the per-key sub-histories are short. **Observable:** the `soak` job's duration in CI against the same job on the phase-4 head (run [36810331470](https://github.com/nooree00/raft-sim/actions/runs/36810331470)), same seeds; the local figure is reported beside it, not used. **Added before (i)-(iv), the prediction above unchanged:** (i) with per-key budgets, at least 6 of the 8 examined seeds stay undecided and at least 6 keep the key they were reported at, because the reported keys already hold 53-71 operations; (ii) removing indeterminate reads after (i) decides at most 3 of the 8, because their indeterminate operations are mostly writes; (iii) on three keys after (i) and (ii) the soak leaves between 15 and 35 of 10,000 undecided, and checking costs no less than 400 s locally, because an undecided search now spends a full budget on its key; (iv) six keys after (iii) leave at least 1 and at most 6 undecided.
 - **Outcome:** pending
 
 ## Sabotage ids
 
-S-bd-7..8 follow S-bd-1..6, S-reg-5 follows S-reg-1..4. New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5, S-wgl-5..6 follow S-wgl-1..4. Each id's
+S-bd-7..8 follow S-bd-1..6, S-reg-5 follows S-reg-1..4. New series: S-adapt, S-indet, S-lin (S-hist is taken: S-hist-1..7 are phase 0 and 2's checker entries). S-soak-6 follows S-soak-1..5, S-wgl-5..8 follow S-wgl-1..4. Each id's
 `sabotage/<id>/` entry lands in the same commit as the check it proves, and is run on that commit
 before it is pushed.

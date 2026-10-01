@@ -1,0 +1,6 @@
+description: indeterminate reads stay in the search, each doubling the sets of operations it can reach
+mechanism: the WGL checker keeps indeterminate reads
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.AnIndeterminateReadIsRemovedBeforeTheSearchAndChangesNoVerdict
+expect: caught

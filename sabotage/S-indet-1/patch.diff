@@ -1,6 +1,6 @@
 --- a/src/Raft.Checker/WglChecker.cs
 +++ b/src/Raft.Checker/WglChecker.cs
-@@ -57,5 +57,5 @@
+@@ -60,5 +60,5 @@
          foreach (var (key, sub) in groups)
          {
 -            var search = new Search<TState>(sub, model, budget);
