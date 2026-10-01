@@ -14,5 +14,5 @@
  Raft.Checker.Tests 130
  Raft.Simulation.Tests 106
  Raft.Core.Tests 116
--Raft.Scale.Tests 11
-+Raft.Scale.Tests 9
+-Raft.Scale.Tests 12
++Raft.Scale.Tests 10

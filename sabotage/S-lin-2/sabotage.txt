@@ -1,0 +1,7 @@
+description: the workload stops issuing Delete, as phase 4's did; a checker accepting these histories says nothing about Delete
+mechanism: an operation kind disappears from the workload
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+reason: history-delete-completed: in 0 of 300 histories
+expect: caught

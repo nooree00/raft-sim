@@ -1,0 +1,9 @@
+--- a/tests/Raft.Scale.Tests/RaftWorkload.cs
++++ b/tests/Raft.Scale.Tests/RaftWorkload.cs
+@@ -38,5 +38,5 @@
+             1 => "Append|" + key + "|" + value,
+             2 => "Get|" + key,
+-            3 => "Delete|" + key,
++            3 => "Get|" + key,
+             _ => "Cas|" + key + "|-|" + value,
+         };

@@ -1,0 +1,9 @@
+--- a/tests/Raft.Scale.Tests/SoakTests.cs
++++ b/tests/Raft.Scale.Tests/SoakTests.cs
+@@ -415,5 +415,5 @@
+     {
+         declared ??= BudgetExhaustionDeclared;
+-        if (undecided.Count == 0)
++        if (undecided.Count >= 0)
+         {
+             return [];
