@@ -28,7 +28,7 @@ crash schedule), P4-06 (invariant 11's commit clause, with clients), P4-07 (the 
 distribution), P4-08 (the positive controls), P4-09 (every configured limit exercised at its
 largest legitimate value, spec §10).
 
-**Blocking set:** all eleven (P4-11 added at the ceiling, before the push). P4-09 is the only one that could slip without leaving a phase-4
+**Blocking set:** all twelve (P4-11 and P4-12 added at the ceiling, before the push). P4-09 is the only one that could slip without leaving a phase-4
 criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 
 ## Decisions for review
@@ -192,9 +192,18 @@ criterion unmet (it is §10's rule, not §11's), and I do not propose it slips.
 - **Prediction:** Two parts. **Cost:** with the simulation-scale tests out, `Raft.Core.Tests` runs in under 20 s, and every harness shard fits the 15-minute ceiling locally, shard 1 included, in under 12 minutes: most entries target unit tests or other projects, and the fixed cost falls with the baseline checks. **The gate:** S-ran-2 (a moved file excluded, the baseline edited to match) passes the count check as it stands and fails the written-versus-ran check, naming the file's tests. **Observable:** the local shard times, and S-ran-2's result against the gate with and without the new check.
 - **Outcome:** partly (evidence) — **the gate half right:** under S-ran-2 (the durability tests dropped from `Raft.Scale.Tests`, its baseline edited from 11 to 9) the count check as it stood passed ("Raft.Scale.Tests: 9 executed ... ok"), and the new check failed, naming both durability tests and the two harness entries aimed at them (S-dur-1, S-dur-2). **The cost half partly right:** `Raft.Core.Tests` runs in 8–10 s (was 81 s), under the predicted 20, and every harness shard fits the ceiling on the head's full local run: shard 1 9.4 min (563 s, fixed cost 369 s; was 22.1 min and 499 s), shards 2–7 about 11.1, 12.6, 8.9, 10.7, 10.2 and 9.6 min. Shard 3 missed the predicted 12 minutes by about half a minute. `Raft.Scale.Tests` takes 5.3 min on its own (11 tests), so an entry aimed at it still pays that, which is what keeps shard 3 near the edge; the register row for per-project builds (P5) stands.
 
+### P4-12 — Harness entries build their target project; baseline checks once per shard (register row P5, brought forward)
+
+- **Task:** Run [36779855011](https://github.com/nooree00/raft-sim/actions/runs/36779855011) failed the ceiling at the head: shard 3 took 15.8 min of harness (16.4 min as a job), every entry giving its expected result. GitHub's runners are about 1.4 times slower than the SDK container (fixed cost 516 s against 369 s locally for comparable shards), so P4-11's local measurement (12.6 min) was not the one that mattered. **The change (reviewer, at the ceiling: the register row's fix, not a smaller shard):** a test entry builds only its target project and that project's references, for its patch, its revert and its control; command entries keep the solution build. Baseline checks run once per shard rather than once per worker, each target project assigned to one worker, and filtered to the shard's targets in that project. The not-compiled-in guard stays: a patch outside the target's build closure leaves every assembly byte-identical and is reported as not compiled in, never as caught or survived. The P5 register row closes.
+- **Vacuity:** A build narrowed past what the target needs runs stale code, and a stale target looks survived (or caught for a reason the patch did not cause). Guarded by the not-compiled-in guard, proven by an entry whose patch lies outside its target's closure and must report not-compiled-in (it reported survived under the solution build). A baseline split across workers can drop a project's check, so a target that fails unpatched would go unnoticed; guarded by a unit test that every target project is assigned exactly once.
+- **Sabotage:** S-harness-1, S-harness-2
+- **Verifiable here:** partial — the shards run locally; the observable is GitHub's
+- **Prediction:** The slowest GitHub harness shard on the head falls below 12 minutes (from 15.8 for shard 3), with every entry giving its expected result. Locally the slowest shard falls from 12.6 to under 8.5 minutes; the GitHub figure is the local one times about 1.4, which is the reason the observable is GitHub's. Most of an entry's time outside its test run is two solution builds (patch and revert) compiling thirteen projects to change one, and most of the fixed cost is several workers running the same 5-minute baseline of `Raft.Scale.Tests` at once. **Its own cost, predicted:** this prediction's commit is verified in CI with the tooling before the change, so its per-commit shard 3 fails the ceiling as `0bb3372`'s did (15–16 min); it joins the named set of commits unverifiable in CI. **Observable:** the slowest GitHub shard of the head's run, and that commit's shard 3.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-loginv, S-ghost, S-logfile, S-repl, S-commit, S-restrict, S-dur, S-live, S-limit.
 S-each-5..6 follow S-each-1..4, S-soak-4..5 follow S-soak-1..3, S-cov-10 follows S-cov-1..9, S-disrupt-3 follows S-disrupt-1..2 and
-S-pos-4..5 follow S-pos-1..3. S-ran and S-patch are new at P4-11. Each id's `sabotage/<id>/` entry lands in the same commit as the
+S-pos-4..5 follow S-pos-1..3. S-ran and S-patch are new at P4-11; S-harness at P4-12. Each id's `sabotage/<id>/` entry lands in the same commit as the
 check it proves, and is run on that commit before it is pushed.
