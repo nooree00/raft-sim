@@ -24,12 +24,19 @@ public sealed class WorkflowCheckTests
     {
         var seen = false;
         var problems = Preflight.WorkflowProblems(
-            [$"    container: {Pinned}", $"      - uses: actions/checkout@{Sha}", "      - run: scripts/ci-build.sh"],
+            [$"    container: {Pinned}", $"      - uses: actions/checkout@{Sha}", "      - run: scripts/ci-build.sh", "        run: scripts/ci-test.sh"],
             Pinned, ref seen).ToArray();
 
         Assert.Empty(problems);
         Assert.True(seen);
     }
+
+    /// <summary>P5-07: harness entries run some projects; the build job runs them all. Sabotage S-count-5.</summary>
+    [Theory]
+    [InlineData("        run: scripts/ci-test.sh Raft.Gates.Tests")]
+    [InlineData("      - run: scripts/ci-test.sh Raft.Core.Tests Raft.Scale.Tests")]
+    public void ATestStepGivenAListOfProjectsIsAProblem(string line) =>
+        Assert.Single(Problems(line));
 
     [Theory]
     [InlineData("    container: mcr.microsoft.com/dotnet/sdk:10.0")]

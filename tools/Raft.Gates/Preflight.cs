@@ -128,6 +128,12 @@ internal static partial class Preflight
                 }
             }
 
+            // P5-07: the test script takes a list of projects for harness entries; CI runs them all.
+            if (TestSubset().IsMatch(code))
+            {
+                problems.Add($"line {n}: the test step runs a subset of the test projects");
+            }
+
             var uses = UsesAction().Match(code);
             var usesRef = uses.Groups["ref"].Value;
             if (uses.Success && !(usesRef.Length == 40 && usesRef.All(Uri.IsHexDigit)))
@@ -195,6 +201,9 @@ internal static partial class Preflight
 
     [GeneratedRegex(@"(?:image:|container:|docker://|docker\s+run\b[^\n]*?\s)\s*(?<img>[a-z0-9][a-z0-9./_-]*/[a-z0-9./_-]+(?::[\w.-]+)?(?:@sha256:[0-9a-f]+)?)")]
     private static partial Regex ImageReference();
+
+    [GeneratedRegex(@"ci-test\.sh[ \t]+[^\s;&|]")]
+    private static partial Regex TestSubset();
 
     [GeneratedRegex(@"uses:\s*(?<action>[\w.-]+/[\w./-]+)@(?<ref>[\w.-]+)")]
     private static partial Regex UsesAction();

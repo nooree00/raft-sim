@@ -2,6 +2,6 @@ description: A test is deleted without touching the baseline
 mechanism: a test disappears while the committed baseline count stays
 kind: command
 build: yes
-command: scripts/ci-test.sh
+command: scripts/ci-test.sh Raft.Gates.Tests
 expect: caught
 message: — change ci/test-baseline.txt in the same commit if intended

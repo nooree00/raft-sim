@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Preflight.cs
++++ b/tools/Raft.Gates/Preflight.cs
+@@ -129,7 +129,7 @@
+             }
+ 
+             // P5-07: the test script takes a list of projects for harness entries; CI runs them all.
+-            if (TestSubset().IsMatch(code))
++            if (TestSubset().IsMatch(code) && n < 0)
+             {
+                 problems.Add($"line {n}: the test step runs a subset of the test projects");
+             }

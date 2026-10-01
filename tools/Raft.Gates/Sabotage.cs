@@ -115,6 +115,7 @@ internal static class Sabotage
             }
         }
 
+        var worktrees = clock.Elapsed;
         var results = new Findings[workers];
         var ready = new TimeSpan[workers];
         try
@@ -149,7 +150,7 @@ internal static class Sabotage
 
         // Fixed cost: worktrees, baseline builds and baseline checks, until the slowest worker is
         // ready to run its first entry (P2-01's prediction is about this number).
-        f.Note($"fixed cost {ready.Max().TotalSeconds:F0}s (worktrees, baseline builds, baseline checks; slowest worker)");
+        f.Note($"fixed cost {ready.Max().TotalSeconds:F0}s (worktrees, baseline builds, baseline checks; slowest worker), of which setup (manifest, worktrees) {worktrees.TotalSeconds:F0}s");
         f.Note($"total {clock.Elapsed.TotalSeconds:F0}s for {specs.Count} sabotages on {workers} workers (ceiling {ceiling.TotalMinutes:F0} min)");
         f.Require(clock.Elapsed <= ceiling, $"harness took {clock.Elapsed.TotalMinutes:F1} min, over the {ceiling.TotalMinutes:F0}-minute ceiling — the manifest has outgrown the design; decide, do not run it less often");
         if (summary is not null)
@@ -166,7 +167,9 @@ internal static class Sabotage
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
 
+        var started = clock.Elapsed;
         var build = Build(wt);
+        var built = clock.Elapsed;
         if (!build.Ok)
         {
             f.Fail($"baseline build failed in {wt}:\n{Tail(build)}");
@@ -177,13 +180,16 @@ internal static class Sabotage
         f.Require(baseline.Count == projects.Count, $"hashed {baseline.Count} assemblies for {projects.Count} projects");
 
         // Every target must pass unpatched, or a red result says nothing about the patch.
-        var baselineFailures = BaselineChecks(wt, baselineUnits.SelectMany(u => u).ToList(), env);
+        var timings = new List<string>();
+        var baselineFailures = BaselineChecks(wt, baselineUnits.SelectMany(u => u).ToList(), env, timings);
         foreach (var bf in baselineFailures)
         {
             f.Fail(bf);
         }
 
+        // The fixed cost's split, per worker (P6 row "Harness fixed cost", first step; P5-07).
         var ready = clock.Elapsed;
+        f.Note($"fixed cost split, {Path.GetFileName(wt)}: ready at {ready.TotalSeconds:F0}s; baseline build {(built - started).TotalSeconds:F0}s; baseline checks {(ready - built).TotalSeconds:F0}s ({(timings.Count == 0 ? "none" : string.Join("; ", timings))})");
         if (baselineFailures.Count > 0)
         {
             return ready;
@@ -286,12 +292,14 @@ internal static class Sabotage
             : Done("red", "the target fails with the mechanism removed: " + Short(string.Join(" | ", failed.Select(r => r.Message))));
     }
 
-    private static List<string> BaselineChecks(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, string> env)
+    private static List<string> BaselineChecks(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, string> env, List<string> timings)
     {
         var failures = new List<string>();
+        var unit = Stopwatch.StartNew();
 
         foreach (var group in specs.Where(s => s.Kind == "test").GroupBy(s => s.Get("project")!))
         {
+            unit.Restart();
             var results = RunTests(wt, group.Key, group.Select(s => TargetMethod(s.Get("target")!)).Distinct(StringComparer.Ordinal).ToList());
             foreach (var spec in group)
             {
@@ -305,15 +313,20 @@ internal static class Sabotage
                     failures.Add($"{spec.Id}: target {spec.Get("target")} does not pass unpatched");
                 }
             }
+
+            timings.Add($"{Path.GetFileName(group.Key.TrimEnd('/'))} {unit.Elapsed.TotalSeconds:F0}s");
         }
 
         foreach (var group in specs.Where(s => s.Kind == "command").GroupBy(s => s.Get("baseline") ?? s.Get("command")!, StringComparer.Ordinal))
         {
+            unit.Restart();
             var r = Bash(wt, group.Key, env);
             if (!r.Ok)
             {
                 failures.Add($"{string.Join(", ", group.Select(s => s.Id))}: baseline command fails unpatched: {group.Key}\n{Tail(r)}");
             }
+
+            timings.Add($"'{group.Key}' {unit.Elapsed.TotalSeconds:F0}s");
         }
 
         return failures;

@@ -117,4 +117,18 @@ public sealed class TestCountTests
 
         Assert.Equal(["S-a-2: target Alpha.Tests.Things.AFact was not executed in Alpha.Tests, the project the entry names"], problems);
     }
+
+    /// <summary>P5-07: a run over named projects covers those; a name that is not a project fails, or a typo narrows the run to nothing. Sabotage S-count-4.</summary>
+    [Fact]
+    public void ANamedProjectThatIsNotATestProjectIsAProblem()
+    {
+        string[] all = ["Alpha.Tests", "Beta.Tests"];
+
+        Assert.Equal(all, TestCount.Scope(all, null).Expected);
+        Assert.Empty(TestCount.Scope(all, null).Problems);
+        Assert.Equal(["Beta.Tests"], TestCount.Scope(all, "Beta.Tests").Expected);
+        Assert.Empty(TestCount.Scope(all, "Beta.Tests").Problems);
+        Assert.Equal(["--projects: Gamma.Tests is not a test project under tests/"], TestCount.Scope(all, "Alpha.Tests,Gamma.Tests").Problems);
+        Assert.Equal(["--projects names no project"], TestCount.Scope(all, "").Problems);
+    }
 }
