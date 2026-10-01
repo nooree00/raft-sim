@@ -28,10 +28,11 @@ jobs:
         run: scripts/ci-build.sh
       - name: probe
         run: |
-          for spec in "3044 k3 24000000" "7723 k3 8000000" "7723 k3 16000000" "7723 k3 24000000" "7723 k3 32000000" "7723 k3 40000000"; do
+          for spec in "3044 k3 24000000" "7723 k3 8000000" "7723 k3 16000000" "7723 k3 24000000" "7723 k3 32000000" "7723 k3 40000000" "7723 k3 48000000" "7723 k3 56000000"; do
             set -- $spec
             code=0; RAFT_PROBE_SEED=$1 RAFT_PROBE_KEY=$2 RAFT_PROBE_BUDGET=$3 dotnet test --project tests/Raft.Scale.Tests --no-build --filter-method "*ProbeBudget*" > out.txt 2>&1 || code=$?
-            grep -h "PROBE" out.txt tests/Raft.Scale.Tests/bin/Debug/net10.0/probe.txt 2>/dev/null | tail -1
+            tail -1 /tmp/probe.txt 2>/dev/null || true
             echo "seed $1 budget $3: exit $code"
             grep -iE "out of memory|OutOfMemory|killed" out.txt | head -3 || true
           done
+          echo ALL; cat /tmp/probe.txt || true

@@ -25,6 +25,6 @@ public sealed class ProbeBudget
         var r = WglChecker.Check(sub, budget);
         var peak = Process.GetCurrentProcess().PeakWorkingSet64 / 1_000_000;
         Console.WriteLine(FormattableString.Invariant($"PROBE seed {seed} {key} budget {budget}: {r.Verdict} {r.StatesExplored} states {sw.Elapsed.TotalSeconds:F1}s peak {peak} MB"));
-        System.IO.File.AppendAllText("probe.txt", FormattableString.Invariant($"seed {seed} {key} budget {budget}: {r.Verdict} {r.StatesExplored} states {sw.Elapsed.TotalSeconds:F1}s peak {peak} MB\n"));
+        System.IO.File.AppendAllText("/tmp/probe.txt", FormattableString.Invariant($"seed {seed} {key} budget {budget}: {r.Verdict} {r.StatesExplored} states {sw.Elapsed.TotalSeconds:F1}s peak {peak} MB\n"));
     }
 }
