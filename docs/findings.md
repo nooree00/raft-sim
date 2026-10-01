@@ -650,4 +650,25 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *And a third, while fixing the first:* I numbered the new register sabotage S-reg-3, taken by
     P0-08 since phase 0. The new rule named it on its first run. The rule was written because I make
     this mistake; I made it again within the hour, which is the argument for the gate over care.
+- **A correct fix for a wrong reason, the reason measurably wrong.** With 37 of 10,000 soak
+  searches undecided, the reviewer ordered the per-key budget first, on the ground that an undecided
+  verdict named whichever key was being searched when the shared budget ran out, so every hardness
+  number was suspect. Measured on the eight examined seeds at three keys, that ground was false: the
+  other keys cost at most 2,198 states, every undecided key kept its key, and the 53-71 operation
+  range stood. The fix earned its place for two reasons nobody gave. At six keys the misattribution
+  was real (a 24-operation key reported). And the old search stopped at the first undecided key, so
+  a later key that could not be linearized went unreported: an undecided verdict masked a rejection.
+  That is soundness, not reporting (S-wgl-6).
+  - *Cleaner than most instances:* the stated reason was tested before the change landed, and the
+    measurement says it was wrong, while the change is right.
+- **Matching an answered write to a committed entry by its bytes fails for operations without a
+  unique value. Twice in one phase, same cause, two places.** At P5-03 the soak's
+  `command-retried-and-duplicated` effect counted two committed `Delete|k` entries as a retry,
+  because writes were assumed unique by bytes and a `Delete` carries no value (fixed: Gets and
+  Deletes are excluded). At P5-04 my check of the early-answer variant matched answered writes to
+  committed entries by bytes, and the lost `Delete|k2` in seed 288 matched an unrelated committed
+  one, so a catch with the predicted mechanism looked like an unexplained second mechanism. Same
+  family as P5-00's sabotage ids: an identifier that resolves, to the wrong thing.
+  - *Rule:* identity by content holds only where content is unique; a workload with value-less
+    operations needs identity by origin (client and request id), or the check must exclude them.
 
