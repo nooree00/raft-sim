@@ -1,0 +1,6 @@
+description: A test run over named projects accepts a name that is no test project, so a typo narrows the run to nothing
+mechanism: the scope of a named run drops unknown names without a problem
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TestCountTests.ANamedProjectThatIsNotATestProjectIsAProblem
+expect: caught

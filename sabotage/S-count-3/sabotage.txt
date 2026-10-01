@@ -2,6 +2,6 @@ description: Every test in one project is skipped
 mechanism: every test of one project is skipped
 kind: command
 build: yes
-command: scripts/ci-test.sh
+command: scripts/ci-test.sh Raft.Architecture.Tests
 expect: caught
 message: Raft.Architecture.Tests: 0 executed

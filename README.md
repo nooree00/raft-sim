@@ -22,7 +22,8 @@ scripts/in-sdk.sh scripts/ci-test.sh
 ```
 
 `ci-build.sh` restores in locked mode and builds with every warning an error; `ci-test.sh` runs
-each test project and holds the executed-test counts to `ci/test-baseline.txt`.
+each test project and holds the executed-test counts to `ci/test-baseline.txt` (given project names,
+only those, as a harness entry runs them; CI names none).
 
 ## The gates
 

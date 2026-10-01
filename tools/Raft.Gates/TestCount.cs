@@ -20,6 +20,9 @@ namespace Raft.Gates;
 /// in a test project's sources must appear executed in that project's results, no test may be
 /// written under tests/ outside a project, and every harness target must run in the project its
 /// entry names.
+/// P5-07: `--projects A,B` holds all of this to the named projects only, for a harness entry whose
+/// mechanism needs only them (`scripts/ci-test.sh A B`); CI names none. A name that is not a test
+/// project fails, or a typo would narrow the run to nothing (sabotage S-count-4).
 /// </summary>
 internal static class TestCount
 {
@@ -32,14 +35,25 @@ internal static class TestCount
         var rest = args.ToList();
         var results = Options.Take(rest, "--results") ?? "TestResults";
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+        var only = Options.Take(rest, "--projects");
         var f = new Findings();
 
-        var expected = repo.ProjectFiles()
+        var all = repo.ProjectFiles()
             .Where(p => p.StartsWith("tests/", StringComparison.Ordinal))
             .Select(p => Path.GetFileNameWithoutExtension(p))
             .Order(StringComparer.Ordinal)
             .ToList();
-        f.Require(expected.Count > 0, "no test projects under tests/");
+        f.Require(all.Count > 0, "no test projects under tests/");
+        var (expected, scopeProblems) = Scope(all, only);
+        foreach (var problem in scopeProblems)
+        {
+            f.Fail(problem);
+        }
+
+        if (only is not null)
+        {
+            f.Note($"projects named: {string.Join(", ", expected)} ({expected.Count} of {all.Count}); the others are not checked by this run");
+        }
 
         var dir = repo.PathOf(results);
         var trx = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.trx", SearchOption.AllDirectories) : [];
@@ -71,12 +85,12 @@ internal static class TestCount
             f.Note($"{project}: {r.Executed} executed, {r.Skipped} skipped, {r.Duration.TotalSeconds:F1}s");
         }
 
-        foreach (var extra in actual.Keys.Except(expected, StringComparer.Ordinal))
+        foreach (var extra in actual.Keys.Except(all, StringComparer.Ordinal))
         {
             f.Fail($"{extra}: results from a test assembly that is not a project under tests/");
         }
 
-        foreach (var stale in baseline.Keys.Except(expected, StringComparer.Ordinal))
+        foreach (var stale in baseline.Keys.Except(all, StringComparer.Ordinal))
         {
             f.Fail($"{stale}: in ci/test-baseline.txt but no such test project");
         }
@@ -88,6 +102,7 @@ internal static class TestCount
         var sources = Directory.EnumerateFiles(repo.PathOf("tests"), "*.cs", SearchOption.AllDirectories)
             .Select(p => Path.GetRelativePath(repo.Root, p).Replace('\\', '/'))
             .Where(p => !p.Split('/').Any(s => s is "bin" or "obj"))
+            .Where(p => p.Split('/') is var parts && (parts.Length <= 2 || !all.Contains(parts[1], StringComparer.Ordinal) || expected.Contains(parts[1], StringComparer.Ordinal)))
             .Order(StringComparer.Ordinal)
             .Select(p => (Path: p, Text: File.ReadAllText(repo.PathOf(p))));
         foreach (var problem in Unexecuted(sources, expected, executed))
@@ -96,6 +111,7 @@ internal static class TestCount
         }
 
         foreach (var problem in TargetsNotExecuted(SabotageSpec.LoadAll(repo, f).Where(s => s.Kind == "test")
+            .Where(s => expected.Contains(Path.GetFileName((s.Get("project") ?? "").TrimEnd('/')), StringComparer.Ordinal))
             .Select(s => (s.Id, Project: s.Get("project") ?? "", Target: s.Get("target") ?? "")), executed))
         {
             f.Fail(problem);
@@ -109,6 +125,27 @@ internal static class TestCount
         }
 
         return f;
+    }
+
+    /// <summary>
+    /// The projects a run covers: every test project when none are named, else the named ones, each of
+    /// which must be a test project (an unknown name would narrow the run to nothing).
+    /// </summary>
+    internal static (IReadOnlyList<string> Expected, IReadOnlyList<string> Problems) Scope(IReadOnlyList<string> all, string? only)
+    {
+        if (only is null)
+        {
+            return (all, []);
+        }
+
+        var named = only.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.Ordinal).ToList();
+        var problems = named.Except(all, StringComparer.Ordinal).Select(n => $"--projects: {n} is not a test project under tests/").ToList();
+        if (named.Count == 0)
+        {
+            problems.Add("--projects names no project");
+        }
+
+        return (all.Intersect(named, StringComparer.Ordinal).ToList(), problems);
     }
 
     /// <summary>One result per test assembly in the file, named after the assembly's file name.</summary>

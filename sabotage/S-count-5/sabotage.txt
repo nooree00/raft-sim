@@ -1,0 +1,6 @@
+description: The CI test step is given a list of projects and runs a subset, unseen by the workflow check
+mechanism: the workflow check no longer flags a test step given project names
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.WorkflowCheckTests.ATestStepGivenAListOfProjectsIsAProblem
+expect: caught

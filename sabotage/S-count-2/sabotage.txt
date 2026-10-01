@@ -2,6 +2,6 @@ description: The test run stops writing TRX
 mechanism: the test run writes no TRX results
 kind: command
 build: no
-command: scripts/ci-test.sh
+command: scripts/ci-test.sh Raft.Gates.Tests
 expect: caught
 message: no TRX files under TestResults
