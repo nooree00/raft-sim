@@ -86,7 +86,7 @@ every later task's sabotage ids are checked by it.
 - **Sabotage:** S-indet-1, S-indet-2
 - **Verifiable here:** yes — exact constructions run locally
 - **Prediction:** Both wrong treatments reject (a), as spec §6 says, and both accept (b). Indeterminate-as-failed also rejects (c), because the second copy of the value has no completed operation that wrote it. **Observable:** each treatment's verdict on each construction.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the three constructions hold as built (each step asserted on the disks and the client log) and both the WGL checker and the oracle accept all three. Of spec §6's treatments, "as failed" and "dropped" reject (a) and accept (b), as predicted, and "as failed" rejects (c), as predicted. The prediction's implied contrast, that dropping would accept (c), is wrong: in this checker both names are one transformation (the write has no effect), so dropping rejects (c) too, and the spec's two treatments are one. Measured beside them, what a naive recorder does, closing the operation at the moment its client gave up: it accepts (a) and (c) and rejects (b), the reverse pattern, because a write forced to take effect before the timeout must show in the later read even when the cluster truncated it. None of the three naive treatments accepts all three histories; only "at any point after invocation, or never" does. S-indet-1 (the checker drops indeterminate operations) and S-indet-2 (construction (a)'s write never reaches n2, which leaves a history that is still linearizable and is caught only by the step assertions) caught on `e2f2f41`.
 
 ### P5-03 — The checker accepts the histories of generated runs
 
