@@ -1,0 +1,6 @@
+description: the soak's budget too small for the hardest decided histories
+mechanism: the named hardest seeds no longer fit the budget
+kind: test
+project: tests/Raft.Budget.Tests
+target: Raft.Budget.Tests.BudgetTests.TheSoaksHardestDecidedHistoriesAreDecidedWithinTheBudget(seed: 9302)
+expect: caught

@@ -1,0 +1,9 @@
+--- a/tests/Raft.Scale.Tests/KnownLimits.cs
++++ b/tests/Raft.Scale.Tests/KnownLimits.cs
+@@ -64,5 +64,5 @@
+ 
+         var digest = Digest(history.Where(o => o.Key == entry.Key));
+-        if (digest != entry.Digest)
++        if (digest != entry.Digest && entry.Seed < 0)
+         {
+             return (false, $"{entry.Id}: seed {seed}, key {entry.Key} no longer has the recorded history (digest {digest[..12]}, recorded {entry.Digest[..12]}): re-measure it or remove the entry");

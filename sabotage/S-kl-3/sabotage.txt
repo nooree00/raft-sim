@@ -1,0 +1,6 @@
+description: a recorded known limit that became decidable still counts as recorded
+mechanism: a known limit outlives its reason
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.KnownLimitTests.ARecordedLimitThatBecomesDecidableFailsAsStale
+expect: caught

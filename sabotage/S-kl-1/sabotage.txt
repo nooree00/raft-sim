@@ -1,0 +1,6 @@
+description: a recorded known limit matched by seed and key alone, whatever the history
+mechanism: a known limit matches a history it was not measured on
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.KnownLimitTests.AnUndecidedSearchIsARecordedLimitOnlyForItsSeedKeyAndExactHistory
+expect: caught
