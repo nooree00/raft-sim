@@ -609,3 +609,24 @@ finding: what happened, why no existing check caught it, what now catches it.
     The sweep took under an hour; no register row.
   - *General form:* when a check is performed with a tool other than the enforcing one, either use
     the enforcing tool or make the difference itself a tested fact.
+- **A tooling-cost fix landing at commit N leaves commits 1..N-1 permanently slower to verify; and if
+  the fix is measured on a faster machine than the one that enforces, the phase cannot be verified
+  at all.** Each commit is checked in CI with its own contemporaneous tooling (`scripts/ci-commit.sh`
+  at that commit), so P4-11's split could not help the commits before it: their per-commit jobs ran
+  the whole Core suite in every harness entry. The cost grows with the stack's depth and is paid on
+  every run that carries those commits. P4-11 was placed correctly given what was known (the ceiling
+  was met only at the head's full run), but it was measured locally and passed (slowest shard 12.6
+  min), and GitHub's runners are about 1.4 times slower: the head's own shard 3 took 15.8 min there.
+  - *Rule:* a tooling-cost fix belongs at the start of a phase, not at its end, or the phase's own
+    history carries the old cost for as long as it is re-verified.
+  - *Rule:* measure on the machine that enforces. Same family as the CRDT project's two compilers and
+    `patch` against `git apply`: verified on one, enforced by another, nothing signalling that they
+    disagree. P4-12's prediction names the slowest GitHub shard as its observable for this reason.
+  - *What it cost here:* the per-commit matrix has a hole at P4-03..P4-12 (thirteen commits with `50f1720`, the jobs
+    listed in the P4 report under "Commits never verified in CI"), four of whose jobs were cancelled
+    at the 40-minute job timeout and have no verdict at all. Accepted as unverifiable in CI
+    (reviewer, at the ceiling), not exempted: the commits are permanent, so an exemption would be
+    too. It is S-rare-1's class returning, verified at the head and not at its own commit, for a
+    bounded, named set.
+  - *And the rule applied to itself:* P4-12's own prediction commit carries the tooling before
+    P4-12, so it too is checked with the slow harness as predicted: in run [36810331470](https://github.com/nooree00/raft-sim/actions/runs/36810331470), `50f1720` shard 3 failed the ceiling (its checks step about 16.5 min) while the head's seven shards, with P4-12's tooling, passed (slowest 12.75 min). P4-12 was measured on GitHub, the enforcing machine, and still missed its 12-minute observable by about 0.75 min; it was under the ceiling, which is what the rule protects.
