@@ -1,0 +1,9 @@
+--- a/tests/Raft.Scale.Tests/KnownLimits.cs
++++ b/tests/Raft.Scale.Tests/KnownLimits.cs
+@@ -69,5 +69,5 @@
+         }
+ 
+-        return lin.Verdict == Verdict.Undecided && lin.Key == entry.Key
++        return lin.Verdict != Verdict.NotLinearizable
+             ? (true, null)
+             : (false, $"{entry.Id}: seed {seed}, key {entry.Key} is no longer undecided at the budget ({lin.Verdict}): the entry is stale; remove it");

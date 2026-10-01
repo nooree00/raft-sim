@@ -27,7 +27,7 @@ public sealed class LinearizabilityTests
             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakTests.FaultsUntil });
             var (sim, _) = Cluster.Run((ulong)seed, SoakTests.Duration, schedule, SoakTests.Clients, new RaftWorkload(int.MaxValue, retry: true, think: SoakTests.Think));
             var client = ClientHistory.From(sim.ClientLog);
-            var lin = WglChecker.Check(client.History);
+            var lin = WglChecker.Check(client.History, SoakTests.CheckerBudget);
             Assert.True(lin.Verdict != Verdict.NotLinearizable, $"seed {seed}, linearizability at key {lin.Key}: no linearization past\n  {string.Join("\n  ", lin.LongestPrefix.TakeLast(5))}");
             Assert.True(lin.Verdict != Verdict.Undecided, $"seed {seed}: linearizability undecided at key {lin.Key} (budget exhausted)");
             Assert.Empty(History.Problems(client.History));

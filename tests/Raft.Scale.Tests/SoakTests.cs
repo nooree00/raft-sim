@@ -32,21 +32,11 @@ namespace Raft.Scale.Tests;
 /// </summary>
 public sealed class SoakTests
 {
-    /// <summary>
-    /// Faults are generated until 12,000. The run goes to 22,000 (20,000 until P4-07): with log writes on
-    /// every replicated batch, a state-placed crash armed near 12,000 now fires, and its restart (up to
-    /// 3,000 later) left too short a stable suffix in 27% of runs.
-    /// </summary>
-    public const long FaultsUntil = 12_000, Duration = 22_000;
-    public const int Clients = 3;
+    /// <summary>The soak's settings, shared with the budget tests (<see cref="SoakConfig"/>).</summary>
+    public const long FaultsUntil = SoakConfig.FaultsUntil, Duration = SoakConfig.Duration, Think = SoakConfig.Think, CheckerBudget = SoakConfig.CheckerBudget;
 
-    /// <summary>
-    /// Each client pauses this long before a new operation (P4-07). Without it the three clients commit
-    /// about 900 entries a run and an execution costs 7.6 times a client-free one (410 ms against 54,
-    /// locally), which would put the 10,000-execution soak near an hour. At 100 an execution commits
-    /// about 145 entries and costs 63 ms; the commit clause is checked as often.
-    /// </summary>
-    public const long Think = 100;
+    /// <summary>Clients per execution (<see cref="SoakConfig"/>).</summary>
+    public const int Clients = SoakConfig.Clients;
 
     /// <summary>What replication did in a run (P4-07), measured from the log analysis and the observations.</summary>
     public static readonly string[] ReplicationEffects =
@@ -280,7 +270,13 @@ public sealed class SoakTests
         var timeToCommit = new List<long>();
         var contents = HistoryContents.ToDictionary(d => d, _ => 0, StringComparer.Ordinal);
         var undecided = new List<string>();
+        var unverified = new List<string>();
+        var limits = KnownLimits.Recorded;
+        var limitFailures = new List<string>();
         long operations = 0, indeterminate = 0, refused = 0, maxStates = 0;
+        var hardest = new List<(long States, int Seed)>();
+        var checking = new System.Diagnostics.Stopwatch();
+        var total = System.Diagnostics.Stopwatch.StartNew();
         var maxPerKey = 0;
         for (var seed = first; seed < first + count; seed++)
         {
@@ -301,9 +297,23 @@ public sealed class SoakTests
             Assert.True(client.Accounted == sim.ClientLog.Count && client.History.Count == client.Completed + client.Indeterminate, $"seed {seed}: the adapter lost operations");
             var problems = History.Problems(client.History);
             Assert.True(problems.Count == 0, $"seed {seed}, the client history is malformed: {string.Join("; ", problems.Take(3))}");
-            var lin = WglChecker.Check(client.History);
+            checking.Start();
+            var lin = WglChecker.Check(client.History, CheckerBudget);
+            checking.Stop();
+            hardest.Add((lin.StatesExplored, seed));
             Assert.True(lin.Verdict != Verdict.NotLinearizable, $"seed {seed}, linearizability at key {lin.Key}: no linearization past\n  {string.Join("\n  ", lin.LongestPrefix.TakeLast(5))}\nof\n  {string.Join("\n  ", lin.SubHistory.Take(40))}");
-            if (lin.Verdict == Verdict.Undecided)
+            var (recorded, limitFailure) = KnownLimits.Judge(limits, seed, client.History, lin);
+            if (limitFailure is not null)
+            {
+                limitFailures.Add(limitFailure);
+            }
+
+            if (lin.Verdict == Verdict.Undecided && recorded)
+            {
+                var entry = limits.Single(e => e.Seed == seed);
+                unverified.Add($"{entry.Id} (seed {seed}, key {entry.Key}). Its linearizability is unknown: the search exhausts {CheckerBudget} states without a verdict. Recorded as a known limit against the register row \"{entry.RegisterRow}\" ({entry.ApprovedIn})");
+            }
+            else if (lin.Verdict == Verdict.Undecided)
             {
                 undecided.Add($"seed {seed} (key {lin.Key}, {lin.SubHistory.Count} operations)");
             }
@@ -354,6 +364,7 @@ public sealed class SoakTests
         failures.AddRange(RateFailures(effects.ToDictionary(kv => kv.Key, kv => kv.Value.Count, StringComparer.Ordinal), count));
         failures.AddRange(ContentFailures(contents, count));
         failures.AddRange(BudgetFailures(undecided, count));
+        failures.AddRange(limitFailures);
 
         var names = effects.Keys.ToList();
         for (var i = 0; i < names.Count; i++)
@@ -375,7 +386,9 @@ public sealed class SoakTests
             $"entries committed in fact: {committed} ({committed / count} per execution, fewest {minCommitted})",
             timeToCommit.Count == 0 ? "time to commit: none measured" : $"time to a command committed after the stable suffix: max {timeToCommit.Max()}, mean {timeToCommit.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
             timeToLeader.Count == 0 ? "time to leader: none measured" : $"time to leader after the stable suffix: max {timeToLeader.Max()}, mean {timeToLeader.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
-            $"linearizability (WGL, budget {WglChecker.DefaultBudget} states): {count - undecided.Count} accepted, 0 rejected, {undecided.Count} undecided; most states explored {maxStates}",
+            $"linearizability (WGL, budget {CheckerBudget} states per key): {count - undecided.Count - unverified.Count} checked and accepted, 0 rejected; {unverified.Count} unverified{(unverified.Count == 0 ? "" : ": " + string.Join("; ", unverified))}; any other undecided search fails the run ({undecided.Count} here); most states explored {maxStates}",
+            $"hardest histories (states explored, seed): {string.Join(", ", hardest.OrderByDescending(x => x.States).Take(5).Select(x => $"{x.States} seed {x.Seed}"))}",
+            $"time: checking {checking.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)} s of {total.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)} s",
             $"client histories: {operations} operations ({operations / count} per execution), {indeterminate} indeterminate, {refused} refusals left out; largest per-key sub-history {maxPerKey}",
             $"history contents (floor {Coverage.FloorFor(count, FloorRate)}):",
         };

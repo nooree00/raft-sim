@@ -60,6 +60,8 @@ internal static partial class Register
             }
         }
 
+        KnownLimits(repo, rows, f);
+
         var openText = string.Join("\n", rows.Where(r => r.Status == "open").Select(r => r.Item));
         var throwing = NotImplementedSites(repo, f);
         foreach (var site in throwing)
@@ -70,6 +72,45 @@ internal static partial class Register
         f.Note($"{rows.Count} rows, completed phases [{string.Join(", ", completed.Order(StringComparer.Ordinal))}], {throwing.Count} NotImplementedException sites");
         return f;
     }
+
+    /// <summary>
+    /// P5-05: every recorded known limit (ci/known-limits.txt, spec §6) names one open register row it
+    /// is promised to, and the phase report that approved it, which must exist and name the entry's
+    /// id. An entry added outside a phase review has no report to point at. Sabotage S-reg-6.
+    /// </summary>
+    internal static void KnownLimits(Repo repo, IReadOnlyList<Row> rows, Findings f)
+    {
+        var path = repo.PathOf("ci/known-limits.txt");
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in File.ReadAllLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')))
+        {
+            var c = line.Split('|', StringSplitOptions.TrimEntries);
+            if (c.Length != 6 || !KnownLimitId().IsMatch(c[0]) || !c[4].StartsWith("register: ", StringComparison.Ordinal) || !c[5].StartsWith("report: ", StringComparison.Ordinal))
+            {
+                f.Fail($"ci/known-limits.txt: malformed entry '{line}'");
+                continue;
+            }
+
+            var id = c[0];
+            f.Require(ids.Add(id), $"ci/known-limits.txt: {id} recorded twice");
+            var row = c[4]["register: ".Length..];
+            var open = rows.Count(r => r.Status == "open" && r.Item.StartsWith(row, StringComparison.Ordinal));
+            f.Require(open == 1, $"{id}: cites the register row '{row}', which matches {open} open rows (exactly one required)");
+            var report = c[5]["report: ".Length..];
+            var reportPath = repo.PathOf(report);
+            f.Require(report.StartsWith("docs/phases/", StringComparison.Ordinal) && report.EndsWith("/report.md", StringComparison.Ordinal) && File.Exists(reportPath)
+                && Regex.IsMatch(File.ReadAllText(reportPath), $@"\b{Regex.Escape(id)}\b"),
+                $"{id}: cites '{report}', which is not a phase report that names {id}");
+        }
+    }
+
+    [GeneratedRegex(@"^KL-\d+$")]
+    private static partial Regex KnownLimitId();
 
     internal static HashSet<string> SpecPhases(Repo repo) =>
         repo.ReadText("RAFT_PROJECT_SPEC.md").Split('\n')

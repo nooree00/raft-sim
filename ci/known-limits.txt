@@ -1,0 +1,6 @@
+# Recorded known limits (P5-05, spec §6): soak executions whose linearizability the checker cannot
+# decide within the budget. Each matches one exact history (the digest of one key's sub-history),
+# must stay undecided while recorded, is reported as unverified, cites an open register row and the
+# phase report that approved it (`gates register`), and is named in KnownLimitTests. Any other
+# undecided search fails the soak.
+# id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report

@@ -1,0 +1,8 @@
+--- a/tests/Raft.Scale.Tests/SoakConfig.cs
++++ b/tests/Raft.Scale.Tests/SoakConfig.cs
+@@ -32,4 +32,4 @@
+     /// decide fails the soak unless it is a recorded known limit (ci/known-limits.txt).
+     /// </summary>
+-    public const long CheckerBudget = 32_000_000;
++    public const long CheckerBudget = 2_000_000;
+ }
