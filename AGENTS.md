@@ -13,7 +13,7 @@ names the script that enforces it, or says plainly that nothing does.
 | Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit and harness shard running that commit's own scripts (`scripts/ci-commit.sh`: shard 1 runs its preflight, build, gates, tests and harness share; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per (commit, shard). The head gets the full run. Before a push, locally, only the head's full run (P4 acceptance, below); the per-commit matrix is verified in CI and must be green before merge | CI, each-commit-list / commit SHA / each-commit jobs |
 | Invariants at scale: the harness's verdict covers the suite's sample only; 10,000 executions run in the soak, never waived (spec §12) | `scripts/ci-soak.sh` (10,000 executions, refuses a report covering fewer); `gates build-collect` requires exactly one passing `soak` job; `gates reports` requires a successful `soak` job in the run certifying any report from phase 3 on; branch protection lists `soak` (the person's setting) | CI, soak and build jobs |
 | Keep a register; unimplemented throws and is listed | `gates register` | CI, build job |
-| A phase report certifies the commit that contains it | `gates reports` (`gates verify-run --sha`) | CI, build job |
+| A phase report certifies the commit that contains it | `gates reports` (`gates verify-run --sha`). **Known residual: it has no local check, structurally** — it needs the GitHub API to find the certifying run, so a head whose full local run passed can still fail it. It produced phase 3's one red run (the report commit was not the push head); `gates each-commit`'s report-at-head rule (P4-10) is the local part that can be checked | CI, build job only |
 | No test project runs zero tests; counts change only visibly | `gates testcount` against `ci/test-baseline.txt` | CI, build job |
 | Pins and environment checked before any result is believed | `gates preflight` | CI, first step |
 | No secrets in history | `scripts/secret-scan.sh` (gitleaks, digest-pinned) | CI, secrets job |
@@ -34,7 +34,9 @@ names the script that enforces it, or says plainly that nothing does.
   changed. Only evidence tests the prediction; report the two counts separately.
 - Before every push, run the head's full CI sequence locally, documentation-only pushes included
   (sabotages patch documentation too, P0 findings log): preflight, build, gates, tests, every
-  harness shard, the soak at 10,000, host sabotages, secret scan, README walk. Per-commit
+  harness shard, the soak at 10,000, host sabotages, secret scan, README walk. `gates reports` is
+  the one gate this cannot include (it needs the GitHub API; see its row): a passing local run says
+  nothing about it. Per-commit
   verification runs in CI, is required, and must be green before merge; it is not run locally
   (P4 acceptance: 73 (commit, shard) jobs were about 17 hours in series, against minutes in CI's
   parallel matrix). A bad intermediate commit is therefore caught after the push, on the branch,
