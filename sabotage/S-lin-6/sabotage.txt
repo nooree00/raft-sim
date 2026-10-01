@@ -1,0 +1,6 @@
+description: the effects' floor applied to undecided searches, so a rare one passes as a rare effect would
+mechanism: an undecided search below the floor's rate is accepted
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.AnExhaustedSearchAlwaysFailsTheRun
+expect: caught

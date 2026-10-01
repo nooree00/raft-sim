@@ -2,5 +2,5 @@ description: a linearizability search that exhausts its budget counts as accepta
 mechanism: the soak's budget rule accepts an undecided verdict
 kind: test
 project: tests/Raft.Scale.Tests
-target: Raft.Scale.Tests.SoakTests.AnExhaustedSearchFailsTheRunUnlessDeclaredAndBelowTheFloor
+target: Raft.Scale.Tests.SoakTests.AnExhaustedSearchAlwaysFailsTheRun
 expect: caught

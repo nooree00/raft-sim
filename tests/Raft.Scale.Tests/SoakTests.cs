@@ -25,7 +25,7 @@ namespace Raft.Scale.Tests;
 /// entries in fact, and the commit clause must be checked in most runs. Sabotages S-soak-4, S-soak-5,
 /// S-cov-10.
 /// P5-03: every execution's client history (P5-01's adapter) must be well formed and accepted by the
-/// WGL checker; a search that exhausts its budget fails the run unless declared (P5 decision 3). What
+/// WGL checker; a search that exhausts its budget fails the run (P5 decision 3, without its declaration path). What
 /// the histories contain is measured like effects: each mechanism a weak checker would also accept
 /// without (indeterminate operations, concurrency, reads, each operation kind) must clear the floor
 /// (P5 decision 5). Sabotages S-lin-1, S-lin-2.
@@ -91,13 +91,6 @@ public sealed class SoakTests
         If(history.Where(o => o.Value is not null).GroupBy(o => (o.Kind, o.Key, o.Value)).Any(g => g.Count() > 1), "history-write-retried");
         return hit;
     }
-
-    /// <summary>
-    /// Runs whose linearizability search may exhaust its budget, each with its reason (P5 decision 3):
-    /// an exhausted search is neither a pass nor a rejection, and an undeclared one fails the run.
-    /// Empty: none is declared.
-    /// </summary>
-    internal static readonly Dictionary<string, string> BudgetExhaustionDeclared = new(StringComparer.Ordinal);
 
     public static readonly string[] ElectionEffects =
     [
@@ -408,22 +401,15 @@ public sealed class SoakTests
             .ToList();
 
     /// <summary>
-    /// P5 decision 3: a budget-exhausted search is never acceptance. It fails the run unless declared
-    /// (<see cref="BudgetExhaustionDeclared"/>) and below the floor's rate.
+    /// P5 decision 3: a budget-exhausted search is never acceptance, and it is never declared. An
+    /// undecided search is a checker that could not answer; a declaration below the floor says an
+    /// effect is rare and why, a different claim, and the floor was built for effects (reviewer, P5-05:
+    /// the declaration path decision 3 first allowed is closed). Sabotages S-lin-1, S-lin-6.
     /// </summary>
-    internal static List<string> BudgetFailures(IReadOnlyList<string> undecided, int count, IReadOnlyDictionary<string, string>? declared = null)
-    {
-        declared ??= BudgetExhaustionDeclared;
-        if (undecided.Count == 0)
-        {
-            return [];
-        }
-
-        var floor = Coverage.FloorFor(count, FloorRate);
-        return declared.ContainsKey("budget-exhausted") && undecided.Count < floor
+    internal static List<string> BudgetFailures(IReadOnlyList<string> undecided, int count) =>
+        undecided.Count == 0
             ? []
-            : [$"linearizability undecided in {undecided.Count} of {count} runs (budget exhausted){(declared.ContainsKey("budget-exhausted") ? $", at or above the floor of {floor}" : ", not declared")}: {string.Join(", ", undecided.Take(5))}"];
-    }
+            : [$"linearizability undecided in {undecided.Count} of {count} runs (budget exhausted): {string.Join(", ", undecided.Take(5))}"];
 
     /// <summary>
     /// The soak's own floor rate (P3 acceptance): held at the suite's, so that 10,000 executions must
@@ -501,16 +487,13 @@ public sealed class SoakTests
             "absolute minimum: a declared effect may sit below the rate, never below 3");
     }
 
-    /// <summary>P5 decision 3 at the rule's own scale: undecided is never acceptance, and a declaration covers only a rate below the floor.</summary>
+    /// <summary>P5 decision 3: one undecided search fails the run, however rare, at any scale.</summary>
     [Fact]
-    public void AnExhaustedSearchFailsTheRunUnlessDeclaredAndBelowTheFloor()
+    public void AnExhaustedSearchAlwaysFailsTheRun()
     {
         Assert.Empty(BudgetFailures([], 300));
-        Assert.Contains("not declared", Assert.Single(BudgetFailures(["seed 7 (key k1, 80 operations)"], 300)), StringComparison.Ordinal);
-
-        var declared = new Dictionary<string, string>(StringComparer.Ordinal) { ["budget-exhausted"] = "declared for this test" };
-        Assert.Empty(BudgetFailures(["seed 7"], 300, declared));
-        Assert.Contains("at or above the floor of 3", Assert.Single(BudgetFailures(["seed 7", "seed 8", "seed 9"], 300, declared)), StringComparison.Ordinal);
+        Assert.Contains("undecided in 1 of 300", Assert.Single(BudgetFailures(["seed 7 (key k1, 80 operations)"], 300)), StringComparison.Ordinal);
+        Assert.Contains("undecided in 1 of 10000", Assert.Single(BudgetFailures(["seed 7"], SoakExecutions)), StringComparison.Ordinal);
     }
 
     /// <summary>
