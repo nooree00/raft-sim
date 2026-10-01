@@ -1,0 +1,6 @@
+description: a refused operation is mapped as a completed one
+mechanism: the adapter maps a refusal (redirect, too-large) as an operation that took effect
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ClientHistoryTests.ARefusedOperationIsLeftOutAndCounted
+expect: caught

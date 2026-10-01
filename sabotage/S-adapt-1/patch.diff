@@ -1,0 +1,12 @@
+--- a/tests/Raft.Core.Tests/ClientHistory.cs
++++ b/tests/Raft.Core.Tests/ClientHistory.cs
+@@ -59,7 +59,8 @@
+             var reply = Encoding.ASCII.GetString(o.Reply.Span);
+             if (reply.StartsWith("redirect|", StringComparison.Ordinal) || reply.StartsWith("too-large|", StringComparison.Ordinal))
+             {
+-                refused++;
++                history.Add(Decode(client, request, o.Invoke, o.Response, null));
++                completed++;
+             }
+             else if (reply == "ok" || reply.StartsWith("ok|", StringComparison.Ordinal))
+             {

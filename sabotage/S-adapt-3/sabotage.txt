@@ -1,0 +1,6 @@
+description: a timed-out client keeps its logical client
+mechanism: the adapter does not start a fresh logical client after a timeout
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ClientHistoryTests.AfterATimeoutTheClientsNextOperationBelongsToAFreshLogicalClient
+expect: caught

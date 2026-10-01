@@ -121,6 +121,9 @@
           "xunit.v3.runner.common": "[4.0.1]"
         }
       },
+      "raft.checker": {
+        "type": "Project"
+      },
       "raft.core": {
         "type": "Project"
       },

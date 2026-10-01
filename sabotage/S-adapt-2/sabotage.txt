@@ -1,0 +1,6 @@
+description: a timed-out operation is counted but left out of the history
+mechanism: the adapter drops indeterminate operations from the history
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ClientHistoryTests.ATimedOutOperationIsIndeterminateAndMayTakeEffectAfterItsTimeout
+expect: caught

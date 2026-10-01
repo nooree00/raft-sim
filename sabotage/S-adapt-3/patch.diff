@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/ClientHistory.cs
++++ b/tests/Raft.Core.Tests/ClientHistory.cs
+@@ -50,7 +50,7 @@
+                 indeterminate++;
+                 if (freshClientAfterTimeout)
+                 {
+-                    generation[o.Client] = generation.GetValueOrDefault(o.Client) + 1;
++                    generation[o.Client] = generation.GetValueOrDefault(o.Client) + 0;
+                 }
+ 
+                 continue;

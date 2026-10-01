@@ -13,6 +13,7 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
     <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
     <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
     <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />
@@ -22,6 +23,7 @@
     <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
     <ProjectReference Include="../../src/Raft.Kv/Raft.Kv.csproj" />
+    <ProjectReference Include="../../src/Raft.Checker/Raft.Checker.csproj" />
     <ProjectReference Include="../../tools/Raft.SimRun/Raft.SimRun.csproj" />
   </ItemGroup>
 </Project>

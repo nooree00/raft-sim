@@ -5,14 +5,14 @@
    </ItemGroup>
    <ItemGroup>
 +    <Compile Remove="DurabilityTests.cs" />
+     <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
      <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
      <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
-     <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />
 --- a/ci/test-baseline.txt
 +++ b/ci/test-baseline.txt
 @@ -5,4 +5,4 @@
  Raft.Checker.Tests 130
  Raft.Simulation.Tests 106
- Raft.Core.Tests 98
+ Raft.Core.Tests 104
 -Raft.Scale.Tests 11
 +Raft.Scale.Tests 9

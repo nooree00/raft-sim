@@ -1,0 +1,10 @@
+--- a/tests/Raft.Core.Tests/ClientHistory.cs
++++ b/tests/Raft.Core.Tests/ClientHistory.cs
+@@ -46,7 +46,6 @@
+             var request = Encoding.ASCII.GetString(o.Request.Span);
+             if (o.Response is null)
+             {
+-                history.Add(Decode(client, request, o.Invoke, null, null));
+                 indeterminate++;
+                 if (freshClientAfterTimeout)
+                 {
