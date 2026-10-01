@@ -116,7 +116,55 @@ public static class KnownHistories
             Get(3, "x", "1", 40, 50),
         ], Category: "delete-resurrected"),
 
+        // P5-06, planted before the append reduction: an Append unobserved by value, observed by
+        // absence (an Append makes an absent key present), in histories that must be rejected.
+        new("indeterminate-append-present-then-absent", false, Hand,
+        [
+            Append(1, "x", "a", 0, null),
+            Cas(2, "x", null, "b", false, 10, 20),
+            Get(3, "x", null, 30, 40),
+        ], Category: "indeterminate-observed-then-unobserved"),
+        new("failed-cas-before-the-only-append", false, Hand,
+        [
+            Cas(2, "x", null, "b", false, 0, 10),
+            Append(1, "x", "a", 30, null),
+        ], Category: "real-time-order-only"),
         // --- must be accepted ---
+        // P5-06: histories whose only explanation is an indeterminate Append's effect, its value
+        // unobserved, or observed. An append reduction must keep each of them accepted.
+        new("indeterminate-append-explains-a-failed-cas", true, Hand,
+        [
+            Append(1, "x", "a", 0, null),
+            Cas(2, "x", null, "b", false, 10, 20),
+        ]),
+        new("indeterminate-append-between-absence-and-a-failed-cas", true, Hand,
+        [
+            Get(1, "x", null, 0, 10),
+            Append(2, "x", "a", 5, null),
+            Cas(3, "x", null, "b", false, 20, 30),
+        ]),
+        new("indeterminate-append-changes-the-value-a-cas-expected", true, Hand,
+        [
+            Put(1, "x", "p", 0, 10),
+            Append(2, "x", "a", 5, null),
+            Cas(3, "x", "p", "b", false, 20, 30),
+        ]),
+        new("indeterminate-append-present-then-kept", true, Hand,
+        [
+            Append(1, "x", "a", 0, null),
+            Cas(2, "x", null, "b", false, 10, 20),
+            Get(3, "x", "a", 30, 40),
+        ], TwinOf: "indeterminate-append-present-then-absent"),
+        new("indeterminate-append-concurrent-with-the-failed-cas", true, Hand,
+        [
+            Cas(2, "x", null, "b", false, 0, 10),
+            Append(1, "x", "a", 0, null),
+        ], TwinOf: "failed-cas-before-the-only-append"),
+        new("indeterminate-append-observed-by-value", true, Hand,
+        [
+            Append(1, "x", "a", 0, null),
+            Get(2, "x", "a", 20, 30),
+        ]),
         new("read-inside-write-interval", true, Hand,
         [
             Put(1, "x", "1", 0, 10),

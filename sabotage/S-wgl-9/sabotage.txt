@@ -1,0 +1,7 @@
+description: every indeterminate Append removed before the search, the widest wrong append reduction
+mechanism: the checker treats an indeterminate Append as never taking effect
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.WglCheckerTests.TheCheckerClassifiesEveryKnownHistory(name: "indeterminate-append-explains-a-failed-cas")
+reason: indeterminate-append-explains-a-failed-cas
+expect: caught
