@@ -12,8 +12,8 @@ namespace Raft.Scale.Tests;
 /// check; this is the harness's cheaper target for the broken variants of `RaftNode` (S-lin-3..5),
 /// so that three more entries do not each cost a 300-execution soak, and so that a variant is
 /// reported as caught by the checker rather than by whichever soak assertion runs first. Forty
-/// seeds include the first two in which answering a write at append is caught (28 and 37); if a
-/// change moves them, S-lin-4 survives and says so.
+/// seeds include the first in which answering a write at append is caught (21 on six keys; 28 and 37
+/// on three); if a change moves it past 40, S-lin-4 survives and says so.
 /// </summary>
 public sealed class LinearizabilityTests
 {
