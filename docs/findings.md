@@ -685,3 +685,13 @@ finding: what happened, why no existing check caught it, what now catches it.
   read as fixed cost in four shards was the entries' own cost. The reviewer's reading (design 1
   would leave it at 433 s) was a guess about composition the code already answered; the per-worker
   split, printed since P5-07, shows it directly.
+- **The measurement existed and the inference did not.** I measured that phase-5 trees before P5-07
+  exceed the harness ceiling, and that measurement was the reason for P5-07; I did not connect it to
+  the per-commit matrix, which runs exactly those trees. The first push's CI run went red on the
+  three commits between the budget commit and P5-07's code (shard 3, 978 s of 900).
+  - *Fixed by order:* P5-07 moved before the budget commit, force-pushed with the reviewer's
+    approval, so the fix precedes the problem it solves (P4's rule for tooling cost).
+  - *A loophole, found and declined:* a push's matrix covers only the commits since the previous
+    push, so the next push would have been green while the three commits stayed red for good.
+    "Every commit green" would have been false and looked true, the shape of four earlier findings
+    here. Not taken; brought to the reviewer.

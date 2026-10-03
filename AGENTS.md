@@ -11,7 +11,7 @@ names the script that enforces it, or says plainly that nothing does.
 | Every non-documentation commit names its task | `gates trailers` (`Task: Pn-nn` trailer) | CI, build job |
 | Sabotage is a standing practice, from a committed tree | `gates sabotage --shard i/n` (container), one job per shard, the shard count derived from the manifest (`ci/sabotage-shard-size.txt`), 15-minute ceiling per shard; `gates build-collect` requires every shard; `scripts/host-sabotages.sh` (host), every push | CI, sabotage i/n, build and secrets jobs |
 | Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit and harness shard running that commit's own scripts (`scripts/ci-commit.sh`: shard 1 runs its preflight, build, gates, tests and harness share; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per (commit, shard). The head gets the full run. Before a push, locally, only the head's full run (P4 acceptance, below); the per-commit matrix is verified in CI and must be green before merge | CI, each-commit-list / commit SHA / each-commit jobs |
-| Invariants at scale: the harness's verdict covers the suite's sample only; 10,000 executions run in the soak, never waived (spec §12) | `scripts/ci-soak.sh` (10,000 executions, refuses a report covering fewer); `gates build-collect` requires exactly one passing `soak` job; `gates reports` requires a successful `soak` job in the run certifying any report from phase 3 on; branch protection lists `soak` (the person's setting) | CI, soak and build jobs |
+| Invariants at scale: the harness's verdict covers the suite's sample only; 10,000 executions run in the soak, never waived (spec §12) | `scripts/ci-soak.sh` (10,000 executions, refuses a report covering fewer), in CI only, not in the local pre-push run (P5 acceptance); `gates build-collect` requires exactly one passing `soak` job; `gates reports` requires a successful `soak` job in the run certifying any report from phase 3 on; branch protection lists `soak` (the person's setting) | CI, soak and build jobs |
 | Keep a register; unimplemented throws and is listed | `gates register` | CI, build job |
 | A phase report certifies the commit that contains it | `gates reports` (`gates verify-run --sha`). **Known residual: it has no local check, structurally** — it needs the GitHub API to find the certifying run, so a head whose full local run passed can still fail it. It produced phase 3's one red run (the report commit was not the push head); `gates each-commit`'s report-at-head rule (P4-10) is the local part that can be checked | CI, build job only |
 | No test project runs zero tests; counts change only visibly | `gates testcount` against `ci/test-baseline.txt` | CI, build job |
@@ -34,9 +34,15 @@ names the script that enforces it, or says plainly that nothing does.
   changed. Only evidence tests the prediction; report the two counts separately.
 - Before every push, run the head's full CI sequence locally, documentation-only pushes included
   (sabotages patch documentation too, P0 findings log): preflight, build, gates, tests, every
-  harness shard, the soak at 10,000, host sabotages, secret scan, README walk. `gates reports` is
+  harness shard, host sabotages, secret scan, README walk. `gates reports` is
   the one gate this cannot include (it needs the GitHub API; see its row): a passing local run says
-  nothing about it. Per-commit
+  nothing about it. **The soak is not run locally** (P5 acceptance): it runs in CI, is required, and
+  must be green before merge. It is deterministic and runs identically there, a red soak is a
+  finding rather than something fixed before a push (KL-1), and it had become a quarter of the local
+  run (1,364 s of about 92 minutes at P5-07) and grows with the checker, while the rest stayed
+  nearly flat (about 70 minutes against 65 at P4). **What this costs:** a soak failure is
+  discovered after a push, on the branch, not before it. If the local run without the soak passes
+  90 minutes, that goes to the person again; it is not decided here. Per-commit
   verification runs in CI, is required, and must be green before merge; it is not run locally
   (P4 acceptance: 73 (commit, shard) jobs were about 17 hours in series, against minutes in CI's
   parallel matrix). A bad intermediate commit is therefore caught after the push, on the branch,

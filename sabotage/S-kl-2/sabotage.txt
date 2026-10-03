@@ -1,0 +1,7 @@
+description: KL-1 replaced by another entry, the count unchanged
+mechanism: a recorded known limit is swapped for one nobody reviewed
+kind: test
+changes-assemblies: no
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.KnownLimitTests.TheRecordedKnownLimitsAreExactlyTheReviewedOnes
+expect: caught

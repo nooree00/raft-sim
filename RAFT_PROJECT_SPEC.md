@@ -279,6 +279,41 @@ So the checker is a separate deliverable.
   single-key.
 - A brute-force permutation oracle for small histories (≈8 operations) is kept
   alongside, as a differential reference for the WGL checker.
+- **The checker's limit (measured in phase 5).** The WGL checker memoises every
+  state it reaches, so memory is the binding constraint, and usable memory, not
+  total: a budget that fits in memory and one that completes while swapping are
+  different numbers, and the second is useless under a CI time limit. Cost is
+  driven by how indeterminate writes overlap and interleave with the
+  observations on one key, not by how many there are: measured over 60,000
+  keys, no per-key count separates decidable histories from undecidable ones;
+  one undecided key had zero observed indeterminate Appends, and the costliest
+  decided key (865,895 states) had none at all. The budget is therefore set to
+  what the enforcing runner can hold: 32,000,000 states per key, 12.5 GB
+  measured on the GitHub runner (15.1 GB available), where time per state is
+  still flat. 40,000,000 states needs 14.9 GB and is already slower; 48,000,000
+  swaps and runs three times slower per state; 56,000,000 is killed. A history
+  exceeding the budget fails the soak rather than being excluded. No sound
+  reduction removes an indeterminate write observed by a completed read.
+- **Recorded known limits.** A history the checker cannot decide within the
+  budget fails the soak; there is no declaration and no floor. One exception
+  exists, and it is measured, not granted: a *recorded known limit* is a single
+  soak execution, named by its seed, the key whose search exhausts the budget,
+  and a SHA-256 digest of that key's sub-history. It carries its
+  states-and-memory curve, the open register row promised to resolve it, and the
+  phase report that approved it; `gates register` checks that the row is open
+  and that the report exists and names the entry. It applies only to that exact
+  sub-history: any change to the workload, the simulator, Raft or the adapter
+  changes the digest, and the entry stops matching and fails the soak. While
+  recorded, the execution is still checked on every soak run and must still be
+  undecided at the budget; an entry that becomes decidable is stale and fails
+  the soak until it is removed. It never counts as accepted: the soak reports it
+  as unverified, under its own name, and says that its linearizability is
+  unknown. No rate, count or floor attaches to the list, and the soak's tests
+  name its exact entries, so adding or replacing one is a visible edit to a
+  reviewed set. Today it holds one entry: **KL-1**, seed 7723, key k3,
+  undecided at 32,000,000 states (12.5 GB on the GitHub runner; still undecided
+  at 48,000,000 while swapping), promised to the register's structural-measure
+  row.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct

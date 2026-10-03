@@ -14,7 +14,7 @@ public sealed class KnownLimitTests
     /// <summary>The reviewed set, by identity, not by count: replacing an entry fails as surely as adding one (S-kl-2).</summary>
     [Fact]
     public void TheRecordedKnownLimitsAreExactlyTheReviewedOnes() =>
-        Assert.Empty(KnownLimits.Recorded.Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
+        Assert.Equal(["KL-1 7723 k3 39ee32132eedf0e44199123a62a7462a13fb95f847fa5e67deceee8ccacb97cf"], KnownLimits.Recorded.Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
 
     private static readonly List<Operation> History =
     [
