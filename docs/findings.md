@@ -695,3 +695,11 @@ finding: what happened, why no existing check caught it, what now catches it.
     push, so the next push would have been green while the three commits stayed red for good.
     "Every commit green" would have been false and looked true, the shape of four earlier findings
     here. Not taken; brought to the reviewer.
+  - *Second instance, one layer up:* the force-push that reordered P5-07 left CI unable to resolve
+    the previous head, and `each-commit-list` fell back to the merge-base with `origin/main`. I had
+    checked that the fallback range covers every rewritten commit, and it does; I had not checked
+    what that range does to the other rules reading it. The report-at-head rule rejected 13 phase
+    reports from P0 to P4, each the head of its own push, and the run (37146478876) checked none of
+    the six rewritten commits. The range was checked for one property and not the others it feeds.
+    Recovered with a ref at the old head and a re-run of the same event; the defect is in the
+    register (a fallback that silently changes its meaning).
