@@ -1,6 +1,11 @@
 # Phase 5 — report
 
-**Status: submitted for review.** The checker's accepting half (spec §11 phase 5): P5-00 to P5-07,
+**Status: accepted** (reviewer, on run 37146478876 attempt 2, green: 55 jobs, the per-commit matrix
+over the five rewritten commits on all eight shards; the status line folded into the next push).
+Run 37154892122, on the branch `prerewrite-b96fc4b`, is red and is noise: the branch was pushed at
+the pre-rewrite head only so that the re-run could resolve the previous push's head (register:
+`each-commit-list`'s silent fallback); its CI ran the old history with the same unresolvable range
+and fails the same way. It is not a failure of this phase. The checker's accepting half (spec §11 phase 5): P5-00 to P5-07,
 with P5-00 added first at approval, P5-06 at the checker's ceiling and P5-07 at the harness's. The reviewer's decisions during the
 phase are applied: decision 3's declaration path closed (an undecided search always fails), the
 checker's budget set to what the enforcing runner holds in usable memory, a structural measure of
@@ -137,7 +142,9 @@ from the four shards that hold no whole-suite entry (fixed cost 92-192 s).
   (`Raft.Budget.Tests`). Design 1 removed the whole-suite baselines, about 350 s each, which sat
   inside "fixed cost". The P6 fixed-cost row is untouched, and now has its split (register).
 - **On GitHub (the first push of this code, run 37090873754):** every head job green; harness shard
-  jobs 333-704 s; the soak job 1,275 s against 572 s at the phase-4 head. Its per-commit matrix
+  jobs 333-704 s; the soak job 1,275 s against 572 s at the phase-4 head. The certifying run (the same
+  code after the reorder, 37146478876 attempt 2): shard jobs 286-688 s, the soak job 924 s. The same
+  soak on two runners differed by 38%. Its per-commit matrix
   went red at the three commits before P5-07, now reordered (P5-07's outcome).
 - **The soak:** 10,000 executions, 9,999 accepted, 0 rejected, 1 unverified (KL-1), no other search
   undecided; 1,364 s locally, checking 580 s of it.
