@@ -672,3 +672,16 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *Rule:* identity by content holds only where content is unique; a workload with value-less
     operations needs identity by origin (client and request id), or the check must exclude them.
 
+- **A feature that makes under-testing expressible ships with the guard against expressing it by
+  accident.** P5-07 let the test script run named projects only, so harness entries could stop
+  paying for the whole suite. That opened two ways to under-test: a misspelt project name narrows a
+  run to nothing, and a project list in the CI test step narrows the run that enforces everything.
+  Both were closed in the commit that opened them (S-count-4, S-count-5).
+  - *Rule (reviewer, at P5-07):* the pattern to keep. A change that adds a way to run, check or
+    count less carries, in the same commit, the check that stops it being used where it must not be.
+- **"Fixed cost" held the cost it was supposed to exclude.** The harness counts everything until
+  the slowest worker reaches its first entry as fixed cost, and a command entry's baseline is run
+  there. For a whole-suite entry that baseline is a full test run, so about 350 s of the 433-487 s
+  read as fixed cost in four shards was the entries' own cost. The reviewer's reading (design 1
+  would leave it at 433 s) was a guess about composition the code already answered; the per-worker
+  split, printed since P5-07, shows it directly.
