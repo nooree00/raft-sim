@@ -1,6 +1,6 @@
 # Phase 4 — report
 
-**Status: submitted for review.** Log replication and log persistence (spec §11 phase 4), P4-01 to
+**Status: accepted** (reviewer, at the start of phase 5; the status line folded into the next push). Log replication and log persistence (spec §11 phase 4), P4-01 to
 P4-10 as approved, P4-11, added when the head's full local run failed the harness ceiling, and
 P4-12, added when GitHub's run of the head failed it again (the P5 register row, brought forward).
 The reviewer's decisions at the end of the phase are applied: per-commit verification moved to CI

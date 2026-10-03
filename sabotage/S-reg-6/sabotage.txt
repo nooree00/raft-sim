@@ -1,0 +1,7 @@
+description: KL-1 cites a phase report that never approved it
+mechanism: a recorded known limit points at a report that does not name it
+kind: command
+build: no
+command: dotnet "$GATES" register
+expect: caught
+message: KL-1: cites 'docs/phases/P4/report.md', which is not a phase report that names KL-1

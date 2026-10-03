@@ -1,0 +1,7 @@
+--- a/ci/known-limits.txt
++++ b/ci/known-limits.txt
+@@ -5,3 +5,3 @@
+ # undecided search fails the soak.
+ # id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report
+-KL-1 | 7723 | k3 | 39ee32132eedf0e44199123a62a7462a13fb95f847fa5e67deceee8ccacb97cf | register: A structural measure of linearizability-checking cost | report: docs/phases/P5/report.md
++KL-2 | 3044 | k3 | 39ee32132eedf0e44199123a62a7462a13fb95f847fa5e67deceee8ccacb97cf | register: A structural measure of linearizability-checking cost | report: docs/phases/P5/report.md
