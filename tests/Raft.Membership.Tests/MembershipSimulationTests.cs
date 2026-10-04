@@ -236,7 +236,7 @@ public sealed class MembershipSimulationTests
         Assert.Equal(RecordedMembershipLimits, KnownLimits.RecordedIn(Profile.LimitsFile).Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
 
     /// <summary>The reviewed set (ci/known-limits-membership.txt), approved by the phase-6 report.</summary>
-    private static readonly string[] RecordedMembershipLimits = [];
+    private static readonly string[] RecordedMembershipLimits = ["KL-2 8741 k5 081204a0f61123069be79e2b92c98900a03d92f0b8183d60404b81cc5d04087f"];
 
     [Fact]
     public void TheMembershipSampleHoldsEveryInvariant() =>

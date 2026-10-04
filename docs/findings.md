@@ -735,3 +735,34 @@ finding: what happened, why no existing check caught it, what now catches it.
   them, not by changing the measure until it passed; the sabotaged node still shows 864 adoptions.
   The third error was in the control: runs without the rule were described as the same executions
   replayed, and they are other executions, since the rule changes who leads.
+- **P6-07's measure was wrong a fourth time, found the same way.** With the spares quiet (P6-14), the
+  disruption test went red on one adoption (seed 84). Reading it: the receiver's clock ran 20% fast,
+  and it had waited the rule's 150 units on its own clock, 136 of the simulation's. The node followed
+  the rule; the measure counted the window in the simulation's time. Four errors in one measure, each
+  in what "a disruption" means rather than in arithmetic: an adoption the rule allows, an adoption by
+  a later request, executions that were not the same ones, and a window on the wrong clock.
+- **A distribution at 100% was a bug, not a fact about five servers.** P6-10's measurement had
+  split-vote and requestvote-ignored in every membership execution, and P6-11 predicted they would
+  stay there "because five servers elect differently". Six executions printed showed the spares
+  standing from about 300 on: `RaftNode` took itself plus its peers for its initial configuration,
+  so a spare, given the three members, believed it belonged to a fourth. `ManualCluster` never
+  ticked its spares, so no construction reached it. The reviewer's §13.30 reading of a rate at 100%
+  (the generator cannot produce the other case) was right in spirit and pointed one layer deeper:
+  the cluster could not. Every membership measurement from P6-07 to P6-10 ran with it.
+- **The isolation detector counted only a leader's isolation.** It asked that every peer had sent to
+  the isolated node; an isolated follower's peers have no reason to. 10.8% of baseline executions
+  counted, against 30.9% once the node's own view decides, and 0.1% of membership executions,
+  against 47.3%. My prediction blamed the spares and was wrong twice over: excluding idle nodes
+  moved it from 1 to 6 of 1,000.
+- **The membership soak found the node wrong.** Its first local run stopped at seed 1462: a node
+  recovered a torn term-vote record, issued the cut and then a record, and a crash kept the record
+  and lost the cut, which the disk model allows (any subset of writes in flight survives) and which
+  P3-08's fix (cut before appending) assumed away. The next restart refused the file. Both
+  recoveries now skip a torn record that a valid one follows within a record's length; a corrupted
+  whole record is still refused. Before the fix every torn length refused (availability lost, no
+  data). Found at 1,462 executions of a workload whose spares, crashes and five nodes the baseline's
+  10,000 never combine.
+- **The running count** (reviewer, at P6-09's acceptance): the checker wrong about a correct node,
+  four times (P3 twice, P4 once, P6's invariant 6 at seed 152). This phase also ran the other way:
+  generated executions found the node wrong twice (P6-14, P6-15), and the measures of what happened
+  wrong six times (P6-07 four times, the isolation detector, and S-cov-11 caught for the wrong reason).

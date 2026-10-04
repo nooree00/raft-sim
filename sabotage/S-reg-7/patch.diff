@@ -1,7 +1,7 @@
 --- a/ci/known-limits-membership.txt
 +++ b/ci/known-limits-membership.txt
-@@ -2,3 +2,4 @@
- # soak's executions only. The two soaks run the same seeds on different workloads, so each is judged
+@@ -3,3 +3,4 @@
  # only by its own file. Same format and rules (spec §6, `gates register`).
  # id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report
+ KL-2 | 8741 | k5 | 081204a0f61123069be79e2b92c98900a03d92f0b8183d60404b81cc5d04087f | register: A structural measure of linearizability-checking cost | report: docs/phases/P6/report.md
 +KL-9 | 1 | k0 | 00
