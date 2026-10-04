@@ -749,11 +749,22 @@ finding: what happened, why no existing check caught it, what now catches it.
   ticked its spares, so no construction reached it. The reviewer's §13.30 reading of a rate at 100%
   (the generator cannot produce the other case) was right in spirit and pointed one layer deeper:
   the cluster could not. Every membership measurement from P6-07 to P6-10 ran with it.
-- **The isolation detector counted only a leader's isolation.** It asked that every peer had sent to
-  the isolated node; an isolated follower's peers have no reason to. 10.8% of baseline executions
-  counted, against 30.9% once the node's own view decides, and 0.1% of membership executions,
-  against 47.3%. My prediction blamed the spares and was wrong twice over: excluding idle nodes
-  moved it from 1 to 6 of 1,000.
+- **A dimension named after an effect still measured the mechanism: §13.30 one level deeper.**
+  "Node isolated for a timeout" counted a node as isolated only if every peer had tried to send to
+  it, which happens mainly when the isolated node is the leader (its followers stand and ask it for
+  votes); an isolated follower's peers have no reason to send. 10.8% of baseline executions counted,
+  against 30.9% once the isolated node's own view decides, and 0.1% of membership executions, against
+  31.3% (47.3% while the spares campaigned). Phase 2 restated the dimensions as effects instead of
+  the faults injected (P2-02, the CRDT project's §13.30); this one already carried an effect's name
+  and was still the mechanism, observed from the peers. *Rule (reviewer, at phase 6's acceptance):*
+  restating a dimension as an effect is not sufficient; the effect has to be observed from the party
+  it happens to. My prediction blamed the spares and was wrong twice over: excluding idle nodes moved
+  it from 1 to 6 of 1,000. The reviewer had asked for a generator change; the generator was fine.
+- **Both of the reviewer's diagnoses this phase were wrong, and measurement corrected both:** the
+  isolation rate (a generator problem, read; the detector, found) and split-vote and
+  requestvote-ignored at 100% (the generator, read; a spare campaigning from a configuration of the
+  members plus itself, found). The numbers were real both times; the reading was not, and the
+  correction came from printing the cases behind them.
 - **The membership soak found the node wrong.** Its first local run stopped at seed 1462: a node
   recovered a torn term-vote record, issued the cut and then a record, and a crash kept the record
   and lost the cut, which the disk model allows (any subset of writes in flight survives) and which
@@ -763,6 +774,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   data). Found at 1,462 executions of a workload whose spares, crashes and five nodes the baseline's
   10,000 never combine.
 - **The running count** (reviewer, at P6-09's acceptance): the checker wrong about a correct node,
-  four times (P3 twice, P4 once, P6's invariant 6 at seed 152). This phase also ran the other way:
+  four times (P3 twice, P4 once, P6's invariant 6 at seed 152), the node wrong twice. That ratio is
+  the argument for why the checker gets its own vacuity guards. This phase also ran the other way:
   generated executions found the node wrong twice (P6-14, P6-15), and the measures of what happened
   wrong six times (P6-07 four times, the isolation detector, and S-cov-11 caught for the wrong reason).

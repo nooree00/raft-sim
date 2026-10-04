@@ -1,6 +1,16 @@
 # Phase 6 — report
 
-**Status: for review.** Membership changes by joint consensus (spec §11 phase 6): P6-00 to P6-15,
+**Status: accepted** (reviewer, on run 37233678710, green: every job, the per-commit matrix and
+both soaks). Decisions at acceptance: the sample-only floor exemption taken (2 of 300 is the sample
+being small, not the effect being rare; a five-node-only generator change to satisfy a sample floor
+would tune the system to the instrument); the fixed-cost row kept at phase 7 (the only structural
+headroom left, 729 s of the 900 s ceiling used); the disk model kept exactly as it is (a model
+stricter than reality is the point; the node is fixed for the model, and the report records that a
+real file system would not produce P6-15's case); the 729 s shard noted, no action. KL-2 approved;
+its curve on the GitHub runner is to be measured (P7-01). P6-12's and P6-13's late numbers are folded
+in below and in the breakdown.
+
+Membership changes by joint consensus (spec §11 phase 6): P6-00 to P6-15,
 without P6-02 (promised to phase 11). P6-00 to P6-09 were accepted at P6-10's measurement; the
 reviewer's three decisions then are applied: the membership soak is a soak of its own (P6-12), the
 generator is adjusted and not declared (P6-11), and S-ran-2 is narrowed (P6-13). Two tasks were
@@ -50,7 +60,10 @@ With all four fixed: over 200 executions with removals, a removed server stood i
 with a live leader adopted its term; without the rule, a removed server stood in 27 of the same
 seeds' executions and its terms were adopted 1,580 times, in all 27.
 
-**The checker wrong about a correct node, the running count: four.** P3 twice (the silent
+**The running count: the checker wrong about a correct node four times, the node wrong twice.** That
+ratio is the argument for why the checker gets its own vacuity guards.
+
+**The checker wrong about a correct node: four.** P3 twice (the silent
 step-down, the in-flight grant), P4 once (the barrier-release message), and P6's: invariant 6 asked
 a committed entry to stay on a quorum of the configuration it was committed under, forever (seed
 152 of the first membership sample); it now asks a quorum of the latest committed configuration.
@@ -61,8 +74,8 @@ a committed entry to stay on a quorum of the configuration it was committed unde
   the three members, believed it belonged to a four-server configuration and stood from the start
   of every membership execution. `ManualCluster` never ticked its spares. Every membership
   measurement from P6-07 to P6-10 ran with it, and it is why split-vote and requestvote-ignored sat
-  at 100% in P6-10's measurement: the reviewer's §13.30 reading (a rate at 100% means the other case
-  cannot be produced) was right, one layer deeper than the generator.
+  at 100% in P6-10's measurement. The reviewer read them as a generator problem; it was a node
+  campaigning from a configuration of members plus itself.
 - **P6-15.** The membership soak's first local run stopped at seed 1462 on a node that refused to
   start. It had recovered a torn term-vote record, issued the cut and then a record, and a crash kept
   the record and lost the cut, which the disk model allows (any subset of writes in flight
@@ -71,11 +84,25 @@ a committed entry to stay on a quorum of the configuration it was committed unde
   a torn one within a record's length; a corrupted whole record has no such successor), for both
   files. Before the fix every torn length refused: availability lost, no data.
 
-**The isolation detector counted only a leader's isolation** (P6-11): it asked that every peer had
-sent to the isolated node, which an isolated follower's peers have no reason to do. 0.1% of
-membership executions and 10.8% of baseline ones counted; 31.3% and 30.9% once the node's own view
-decides. Isolation during a change, where joint consensus earns its keep, was effectively untested
-before; it is in 30.16% of the membership soak.
+**The phase's finding: a dimension named after an effect still measured the mechanism** (P6-11).
+"Node isolated for a timeout" counted a node as isolated only if every peer had tried to send to
+it, which happens mainly when the isolated node is the leader (its followers stand and ask it for
+votes); an isolated follower's peers have no reason to send to it. So 0.1% of membership executions
+and 10.8% of baseline ones counted, an artifact; counting what the isolated node saw (everything
+it sent blocked, at least one send to it blocked, nothing delivered for a timeout) gives 31.3% and
+30.9%. This is the CRDT project's §13.30 one level deeper than we had seen it. Phase 2 restated the
+dimensions as effects rather than as the faults the generator injected (P2-02); this one was
+already named after an effect and still measured the mechanism, because it observed the effect
+from the peers instead of from the party it happens to. Restating dimensions as effects is not
+sufficient: the effect has to be observed from the party it happens to. Isolation during a change,
+where joint consensus earns its keep, was effectively untested before; it is in 30.16% of the
+membership soak. Phase 7's dimensions are written to that rule from the start (P7-09).
+
+**Both of the reviewer's diagnoses this phase were wrong, and measurement corrected both.** The
+generator was asked to change for the isolation rate, and the detector was wrong; split-vote and
+requestvote-ignored at 100% were read as the generator, and they were the spares campaigning. In
+both cases the numbers were real and the reading of them was not, and the correction came from
+printing the cases behind the numbers.
 
 ### KL-2, approved here
 
@@ -101,7 +128,7 @@ becomes decidable.
 
 ## Predictions
 
-**Evidence 14, forcing 1.** Right 5, partly 5, wrong 5. Each outcome is in the breakdown.
+**Evidence 14, forcing 1.** Right 4, partly 6, wrong 5. Each outcome is in the breakdown.
 
 | Task | Outcome | In one line |
 |---|---|---|
@@ -116,8 +143,8 @@ becomes decidable.
 | P6-09 | partly | the construction red at once; the sample catches the direct change in 3-4%, not under 1% |
 | P6-10 | partly | states explored down 50% (decided), not up under 10%; a new undecided search, right |
 | P6-11 | wrong | isolation 47% of membership executions, not 6-14%; the baseline's up 20 points; split votes at 100% for a reason I did not guess |
-| P6-12 | partly | no violation, one undecided search, right; seed 8741 survived the generator change; the CI ratio still to read |
-| P6-13 | right | S-ran-2 8.8 s locally; the GitHub half from this push's run |
+| P6-12 | partly | no violation, one undecided search, right; seed 8741 survived the generator change; the CI ratio 0.92, not 1.0-1.6 |
+| P6-13 | partly | S-ran-2 22 s on GitHub (8.8 locally), its shard no longer the slowest; 77 s below the median, outside the one-sided "within 60 s" I wrote |
 | P6-14 | partly | the construction failed as predicted, the two effects fell; P6-07's test went red on the measure's fourth error |
 | P6-15 | right | both recoveries refused at every torn length; fixed; the baseline soak's executions unchanged, KL-1 holding |
 
@@ -174,16 +201,20 @@ Checker 167 (167), Simulation 108 (106), Core 141 (116), Scale 16 (16), Budget 3
 - **The harness:** 256 container entries in 9 shards (28 per shard); S-ran-2's command baseline 5 s, from 281 s on GitHub.
 - **The full local run without the soak** passed on this commit before the push; its stage times
   go to the reviewer with the push. The per-commit matrix and both soaks run in CI only.
-- **P6-12's third number** (the membership soak job against the baseline soak job, within one run)
-  and P6-13's GitHub half are read from this push's run.
+- **The certifying run (37233678710), folded in after acceptance:** the membership soak job 1,226 s
+  and the baseline soak job 1,335 s, a ratio of 0.92 (P6-12 predicted 1.0 to 1.6); harness shards'
+  fixed cost 103-316 s (median 180 s) and totals 335-729 s of the 900 s ceiling; S-ran-2's shard 6
+  at 103 s, the lowest, its entry 22.2 s and its command baseline 13 s.
 
 ## Findings added this phase
 
 In `docs/findings.md` under Phase 6: the first membership sample found the checker wrong (invariant
 6); a sabotage that removes a dimension can fail an invariant first (S-cov-11); a measure that goes
 red on correct code is read case by case (P6-07, three errors, then a fourth); a distribution at
-100% was a bug, not a fact about five servers (P6-14); the isolation detector counted only a
-leader's isolation; the membership soak found the node wrong (P6-15); and the running count.
+100% was a bug, not a fact about five servers (P6-14); a dimension named after an effect still
+measuring the mechanism (the isolation detector: an effect is observed from the party it happens
+to); the membership soak found the node wrong (P6-15); both of the reviewer's diagnoses corrected
+by measurement; and the running count.
 
 ## Still the person's
 
