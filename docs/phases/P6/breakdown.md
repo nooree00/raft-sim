@@ -49,7 +49,7 @@ P6-08 (the simulator: more node ids than the configuration, membership requests 
 coverage dimensions), P6-09 (the classic unsafe change, constructed: the positive control for this
 phase), P6-10 (the soak with membership changes, and its cost).
 
-**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10, P6-11, P6-12, P6-13, P6-14. P6-01 is blocking only
+**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10, P6-11, P6-12, P6-13, P6-14, P6-15. P6-01 is blocking only
 as a register row: the phase cannot be complete with rows promised to it left open (`gates register`).
 
 ## Decisions for review
@@ -188,7 +188,7 @@ as a register row: the phase cannot be complete with rows promised to it left op
 
 - **Task:** A second soak, 10,000 executions of the membership workload on the P6-11 generator: every invariant, linearizability with the known-limit machinery, the effects and history contents with their floors, the membership dimensions with theirs (completed changes per execution among them), and its own report; run by its own CI job, required by the build collect job and by `gates reports` like the baseline soak. The 300-execution sample of the same test runs in the suite. The baseline soak, its test and its known limits are unchanged. Its undecided searches are recorded as known limits of the membership soak, each with its states-and-memory curve measured locally (2 to 32 million states), approved by the phase-6 report.
 - **Vacuity:** A membership soak whose requests mostly fail or never complete checks one configuration; guarded by the completed-change floor. A known limit recorded against the wrong soak would match nothing and go unseen, or match a baseline execution with the same seed; guarded by keeping the two soaks' entries in two files, each judged only by its own soak, with the tests naming each set. Sabotages: S-soak-7, membership requests dropped from the membership soak's workload: the completed-change floor goes red; S-kl-4, the membership soak judged against the baseline's known limits.
-- **Sabotage:** S-soak-7, S-kl-4
+- **Sabotage:** S-soak-7, S-kl-4, S-soak-8, S-soak-9
 - **Verifiable here:** partial — the soak runs locally; the CI job and its gates only in CI
 - **Prediction:** None of P6-10's three undecided searches survives P6-11's generator change, since every membership schedule changes; the membership soak has between 1 and 5 undecided searches, none of which decides at any budget from 2 to 32 million states. No invariant is violated. In the first CI run, within that run, the membership soak job takes between 1.0 and 1.6 times the baseline soak job (1.30 locally in P6-10's measurement). **Observable:** the membership soak's report, the curves, and the two soak jobs' durations in one run.
 - **Outcome:** pending
@@ -211,11 +211,20 @@ as a register row: the phase cannot be complete with rows promised to it left op
 - **Prediction:** The construction fails against today's node by name: the spare asks for votes in term 2. With the fix, on P6-11's 1,000 seeds with its two changes, split-vote and requestvote-ignored both fall below 95% (they stand at 100% with the spares campaigning), and every assertion in `Raft.Membership.Tests` (P6-07, P6-08) still holds. What the bug did to the earlier measurements is reported, not predicted. **Observable:** the construction's failure against today's node; the two effects' counts on the same 1,000 seeds before and after.
 - **Outcome:** pending
 
+### P6-15 — A torn record followed by a later one (found by the membership soak)
+
+- **Task:** Found by the first local run of the membership soak (seed 1462): a node restarts with a torn term-vote record at the tail, issues the cut (P3-08) and then a record, and an armed crash with a reordered loss keeps the record and loses the cut; the record lands after the torn bytes, and the next restart refuses the file ("record 0 at byte 0 fails its checksum and is not the last: corruption"). The disk model lets any subset of writes in flight survive (docs/design/node-interface.md §4) and the node never learns what is durable, so no order of issue makes the cut land first; recovery must tell a torn write from corruption by structure. A torn write keeps at most a record's length less one byte, so a valid record follows it within less than one record's length; a corrupted whole record has no such successor and is still refused. Tests first, by construction on the simulated disk, for the term-vote log and the entry log.
+- **Vacuity:** A construction whose second crash does not lose the cut and keep the record never reaches the case; guarded by asserting the file holds the torn bytes followed by the record before recovering it. A recovery that skips anything would pass it and accept corruption; guarded by the existing refusal tests (a whole record corrupted before the last stays refused) and a new one: a whole corrupted record followed by a valid one. Sabotages: S-pstate-4, the skip extended to a whole record's length (corruption accepted); S-logfile-4, the entry log refusing a torn record followed by a later one.
+- **Sabotage:** S-pstate-4, S-logfile-4
+- **Verifiable here:** yes — `SimDisk`, the recovery functions and the soak run locally
+- **Prediction:** Both constructions fail against today's recovery by refusal: the term-vote log's (as seed 1462 did) and the entry log's, whose recovery has the same "fails its checksum and is not the last" rule after the same cut-then-append (`CutTornTail`, P3-08's fix for that file). With the fix, both recover to the record that followed the torn bytes; every existing refusal test still refuses; and the baseline soak's executions are unchanged (none ever reached a refusal, which throws), so KL-1's digest still matches. **Observable:** the two constructions against today's recovery and the fixed one; the existing refusal tests; KL-1 in the baseline soak.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-range (P6-00), S-cfg (P6-03), S-joint (P6-04), S-member (P6-05..07,
 P6-09). S-harness-3 follows S-harness-1..2, S-disrupt-4 follows S-disrupt-1..3, S-cov-11 follows
-S-cov-1..10, S-soak-7 follows S-soak-1..6; S-cov-12 follows S-cov-11, S-kl-4 follows S-kl-1..3, and S-gen is a new series (P6-11). Each id's `sabotage/<id>/` entry lands in the same commit
+S-cov-1..10, S-soak-7 follows S-soak-1..6; S-cov-12 follows S-cov-11, S-kl-4 follows S-kl-1..3, S-soak-8..9 follow S-soak-7, S-member-7 follows S-member-6, S-pstate-4 and S-logfile-4 follow their series, and S-gen is a new series (P6-11). Each id's `sabotage/<id>/` entry lands in the same commit
 as the check it proves, and is run on that commit before it is pushed.
 
 ## Register rows opened here
