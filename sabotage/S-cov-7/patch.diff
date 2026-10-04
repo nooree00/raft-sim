@@ -1,8 +1,6 @@
-diff --git a/tests/Raft.Scale.Tests/SoakTests.cs b/tests/Raft.Scale.Tests/SoakTests.cs
-index 9222977..36bf1c2 100644
---- a/tests/Raft.Scale.Tests/SoakTests.cs
-+++ b/tests/Raft.Scale.Tests/SoakTests.cs
-@@ -90,7 +90,7 @@ public sealed class SoakTests
+--- a/tests/Raft.Scale.Tests/Soak.cs
++++ b/tests/Raft.Scale.Tests/Soak.cs
+@@ -122,7 +122,7 @@
                  && !schedule.Faults.OfType<Heal>().Any(x => x.From == p.From && x.To == p.To && x.At >= p.At && x.At <= at)).ToList();
              if (partitions.Any(p => !partitions.Any(q => q.From == p.To && q.To == p.From)))
              {

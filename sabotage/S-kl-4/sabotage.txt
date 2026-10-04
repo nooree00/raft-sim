@@ -1,0 +1,7 @@
+description: The membership soak judged against the baseline soak's known limits (P6-12)
+mechanism: the membership profile reads ci/known-limits.txt instead of its own file
+kind: test
+project: tests/Raft.Membership.Tests
+target: Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSoakIsJudgedByItsOwnRecordedKnownLimits
+reason: Assert.Equal() Failure
+expect: caught

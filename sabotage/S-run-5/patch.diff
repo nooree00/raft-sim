@@ -1,11 +1,11 @@
 --- a/tools/Raft.Gates/VerifyRun.cs
 +++ b/tools/Raft.Gates/VerifyRun.cs
-@@ -31,7 +31,7 @@
-     public const int SoakRequiredFrom = 3;
- 
+@@ -36,7 +36,7 @@
      internal static IReadOnlyList<string> RequiredFor(int phase) =>
--        phase >= SoakRequiredFrom ? RequiredJobs.Append("soak").ToList() : RequiredJobs;
-+        phase >= 0 ? RequiredJobs.Append("soak").ToList() : RequiredJobs;
+         phase >= MembershipSoakRequiredFrom ? [.. RequiredJobs, "soak", "soak-membership"]
+         : phase >= SoakRequiredFrom ? RequiredJobs.Append("soak").ToList()
+-        : RequiredJobs;
++        : RequiredJobs.Append("soak").ToList();
  
      public static Findings RunOne(Repo repo, string[] args)
      {

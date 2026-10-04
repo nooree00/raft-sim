@@ -76,38 +76,46 @@ internal static partial class Register
     /// <summary>
     /// P5-05: every recorded known limit (ci/known-limits.txt, spec §6) names one open register row it
     /// is promised to, and the phase report that approved it, which must exist and name the entry's
-    /// id. An entry added outside a phase review has no report to point at. Sabotage S-reg-6.
+    /// id. An entry added outside a phase review has no report to point at. Sabotage S-reg-6. P6-12:
+    /// the membership soak keeps its own entries (ci/known-limits-membership.txt), held to the same,
+    /// with ids unique across both files. Sabotage S-reg-7.
     /// </summary>
     internal static void KnownLimits(Repo repo, IReadOnlyList<Row> rows, Findings f)
     {
-        var path = repo.PathOf("ci/known-limits.txt");
-        if (!File.Exists(path))
-        {
-            return;
-        }
-
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var line in File.ReadAllLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')))
+        foreach (var file in KnownLimitFiles)
         {
-            var c = line.Split('|', StringSplitOptions.TrimEntries);
-            if (c.Length != 6 || !KnownLimitId().IsMatch(c[0]) || !c[4].StartsWith("register: ", StringComparison.Ordinal) || !c[5].StartsWith("report: ", StringComparison.Ordinal))
+            var path = repo.PathOf(file);
+            if (!File.Exists(path))
             {
-                f.Fail($"ci/known-limits.txt: malformed entry '{line}'");
                 continue;
             }
 
-            var id = c[0];
-            f.Require(ids.Add(id), $"ci/known-limits.txt: {id} recorded twice");
-            var row = c[4]["register: ".Length..];
-            var open = rows.Count(r => r.Status == "open" && r.Item.StartsWith(row, StringComparison.Ordinal));
-            f.Require(open == 1, $"{id}: cites the register row '{row}', which matches {open} open rows (exactly one required)");
-            var report = c[5]["report: ".Length..];
-            var reportPath = repo.PathOf(report);
-            f.Require(report.StartsWith("docs/phases/", StringComparison.Ordinal) && report.EndsWith("/report.md", StringComparison.Ordinal) && File.Exists(reportPath)
-                && Regex.IsMatch(File.ReadAllText(reportPath), $@"\b{Regex.Escape(id)}\b"),
-                $"{id}: cites '{report}', which is not a phase report that names {id}");
+            foreach (var line in File.ReadAllLines(path).Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')))
+            {
+                var c = line.Split('|', StringSplitOptions.TrimEntries);
+                if (c.Length != 6 || !KnownLimitId().IsMatch(c[0]) || !c[4].StartsWith("register: ", StringComparison.Ordinal) || !c[5].StartsWith("report: ", StringComparison.Ordinal))
+                {
+                    f.Fail($"{file}: malformed entry '{line}'");
+                    continue;
+                }
+
+                var id = c[0];
+                f.Require(ids.Add(id), $"{file}: {id} recorded twice");
+                var row = c[4]["register: ".Length..];
+                var open = rows.Count(r => r.Status == "open" && r.Item.StartsWith(row, StringComparison.Ordinal));
+                f.Require(open == 1, $"{id}: cites the register row '{row}', which matches {open} open rows (exactly one required)");
+                var report = c[5]["report: ".Length..];
+                var reportPath = repo.PathOf(report);
+                f.Require(report.StartsWith("docs/phases/", StringComparison.Ordinal) && report.EndsWith("/report.md", StringComparison.Ordinal) && File.Exists(reportPath)
+                    && Regex.IsMatch(File.ReadAllText(reportPath), $@"\b{Regex.Escape(id)}\b"),
+                    $"{id}: cites '{report}', which is not a phase report that names {id}");
+            }
         }
     }
+
+    /// <summary>The baseline soak's known limits, then the membership soak's (P6-12).</summary>
+    private static readonly string[] KnownLimitFiles = ["ci/known-limits.txt", "ci/known-limits-membership.txt"];
 
     [GeneratedRegex(@"^KL-\d+$")]
     private static partial Regex KnownLimitId();

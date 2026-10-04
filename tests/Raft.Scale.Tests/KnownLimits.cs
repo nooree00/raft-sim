@@ -27,8 +27,14 @@ public static class KnownLimits
 {
     public const string FileName = "known-limits.txt";
 
-    /// <summary>The recorded entries, from the copy of ci/known-limits.txt next to the test assembly.</summary>
-    public static IReadOnlyList<KnownLimit> Recorded => Parse(File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, FileName)));
+    /// <summary>The membership soak's own entries (P6-12): each soak is judged only by its own, since the two run the same seeds.</summary>
+    public const string MembershipFileName = "known-limits-membership.txt";
+
+    /// <summary>The baseline soak's recorded entries, from the copy of ci/known-limits.txt next to the test assembly.</summary>
+    public static IReadOnlyList<KnownLimit> Recorded => RecordedIn(FileName);
+
+    /// <summary>The entries of one soak's file (ci/&lt;fileName&gt;, copied next to the test assembly).</summary>
+    public static IReadOnlyList<KnownLimit> RecordedIn(string fileName) => Parse(File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, fileName)));
 
     /// <summary>Lines "KL-n | seed | key | digest | register: row text | report: path"; '#' starts a comment.</summary>
     public static IReadOnlyList<KnownLimit> Parse(IEnumerable<string> lines) =>

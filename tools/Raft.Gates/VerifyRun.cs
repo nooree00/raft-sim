@@ -30,8 +30,13 @@ internal static class VerifyRun
     /// </summary>
     public const int SoakRequiredFrom = 3;
 
+    /// <summary>The membership soak, a soak of its own (P6-12), is required likewise from the phase-6 report on.</summary>
+    public const int MembershipSoakRequiredFrom = 6;
+
     internal static IReadOnlyList<string> RequiredFor(int phase) =>
-        phase >= SoakRequiredFrom ? RequiredJobs.Append("soak").ToList() : RequiredJobs;
+        phase >= MembershipSoakRequiredFrom ? [.. RequiredJobs, "soak", "soak-membership"]
+        : phase >= SoakRequiredFrom ? RequiredJobs.Append("soak").ToList()
+        : RequiredJobs;
 
     public static Findings RunOne(Repo repo, string[] args)
     {

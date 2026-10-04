@@ -1,0 +1,7 @@
+description: Membership requests dropped from the membership soak's workload, so it checks one configuration and the completed-change floor must go red (P6-12)
+mechanism: the workload never draws a membership request
+kind: test
+project: tests/Raft.Membership.Tests
+target: Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
+reason: membership-change-completed: 0 of 300
+expect: caught

@@ -1,17 +1,15 @@
-diff --git a/tools/Raft.Gates/BuildCollect.cs b/tools/Raft.Gates/BuildCollect.cs
-index 9ff2a80..6d14439 100644
 --- a/tools/Raft.Gates/BuildCollect.cs
 +++ b/tools/Raft.Gates/BuildCollect.cs
-@@ -71,7 +71,11 @@ internal static class BuildCollect
-         // The soak (P3-08): 10,000 executions, the only place the invariants run at scale. Required,
-         // never waived (spec §12): skipping it is a change to this gate, argued first.
-         var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == "soak").ToList();
--        if (soak.Count != 1)
-+        if (soak.Count == 0)
-+        {
-+            f.Note("soak: did not run");
-+        }
-+        else if (soak.Count != 1)
+@@ -77,7 +77,11 @@
+         foreach (var name in Soaks)
          {
-             f.Fail($"soak: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
-         }
+             var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == name).ToList();
+-            if (soak.Count != 1)
++            if (soak.Count == 0)
++            {
++                f.Note($"{name}: did not run");
++            }
++            else if (soak.Count != 1)
+             {
+                 f.Fail($"{name}: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
+             }

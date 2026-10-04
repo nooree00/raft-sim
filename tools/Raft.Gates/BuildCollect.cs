@@ -17,6 +17,9 @@ namespace Raft.Gates;
 /// </summary>
 internal static class BuildCollect
 {
+    /// <summary>The soak jobs the build requires, each exactly once and green.</summary>
+    internal static readonly string[] Soaks = ["soak", "soak-membership"];
+
     public static Findings Run(Repo repo, string[] args)
     {
         var rest = args.ToList();
@@ -68,20 +71,24 @@ internal static class BuildCollect
 
         f.Note($"{shards.Count} harness shard(s) required");
 
-        // The soak (P3-08): 10,000 executions, the only place the invariants run at scale. Required,
-        // never waived (spec §12): skipping it is a change to this gate, argued first.
-        var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == "soak").ToList();
-        if (soak.Count != 1)
+        // The soaks (P3-08; the membership soak, its own soak, P6-12): 10,000 executions each, the only
+        // place the invariants run at scale. Required, never waived (spec §12): skipping one is a change
+        // to this gate, argued first.
+        foreach (var name in Soaks)
         {
-            f.Fail($"soak: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
-        }
-        else if (EachCommitMatrix.Conclusion(soak[0]) is var c && c != "success")
-        {
-            f.Fail($"soak: concluded {c ?? "none"}");
-        }
-        else
-        {
-            f.Note("soak: passed");
+            var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == name).ToList();
+            if (soak.Count != 1)
+            {
+                f.Fail($"{name}: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
+            }
+            else if (EachCommitMatrix.Conclusion(soak[0]) is var c && c != "success")
+            {
+                f.Fail($"{name}: concluded {c ?? "none"}");
+            }
+            else
+            {
+                f.Note($"{name}: passed");
+            }
         }
     }
 }

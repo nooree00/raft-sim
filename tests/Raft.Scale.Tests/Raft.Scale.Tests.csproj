@@ -29,5 +29,7 @@
   <ItemGroup>
     <!-- P5-05: the recorded known limits, read by the soak; `gates register` reads the same file. -->
     <None Include="../../ci/known-limits.txt" Link="known-limits.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- P6-12: the membership soak's own known limits, named by KnownLimitTests beside the baseline's. -->
+    <None Include="../../ci/known-limits-membership.txt" Link="known-limits-membership.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

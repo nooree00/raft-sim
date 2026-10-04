@@ -18,8 +18,8 @@ public sealed class VerifyRunTests
           "head_sha":"{{sha}}","status":"{{status}}","conclusion":"{{conclusion}}"}]}
         """;
 
-    private static string Jobs(string eachCommit = "success", bool soak = true) => $$"""
-        {"total_count":5,"jobs":[{{(soak ? SoakJob : "")}}
+    private static string Jobs(string eachCommit = "success", bool soak = true, bool membershipSoak = true) => $$"""
+        {"total_count":6,"jobs":[{{(soak ? SoakJob : "")}}{{(membershipSoak ? MembershipSoakJob : "")}}
           {"name":"build","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:26:00Z"},
           {"name":"each-commit","conclusion":"{{eachCommit}}","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:23:00Z"},
           {"name":"secrets","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:22:00Z"},
@@ -27,6 +27,8 @@ public sealed class VerifyRunTests
         """;
 
     private const string SoakJob = """{"name":"soak","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:26:00Z"},""";
+
+    private const string MembershipSoakJob = """{"name":"soak-membership","conclusion":"success","started_at":"2026-09-27T16:21:32Z","completed_at":"2026-09-27T16:28:00Z"},""";
 
     private static Findings Evaluate(string runs, string jobs, int phase = 3)
     {
@@ -64,4 +66,12 @@ public sealed class VerifyRunTests
     [Fact]
     public void APhaseTwoReportsRunNeedsNoSoak() =>
         Assert.Empty(Evaluate(Runs("success"), Jobs(soak: false), phase: 2).Failures);
+
+    /// <summary>P6-12: the membership soak is required in its own right where a phase-6 report is certified, and not before.</summary>
+    [Fact]
+    public void APhaseSixReportsRunWithoutTheMembershipSoakFails()
+    {
+        Assert.Contains(Evaluate(Runs("success"), Jobs(membershipSoak: false), phase: 6).Failures, m => m.Contains("has no job 'soak-membership'", StringComparison.Ordinal));
+        Assert.Empty(Evaluate(Runs("success"), Jobs(membershipSoak: false), phase: 5).Failures);
+    }
 }

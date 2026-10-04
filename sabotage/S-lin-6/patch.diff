@@ -1,9 +1,11 @@
---- a/tests/Raft.Scale.Tests/SoakTests.cs
-+++ b/tests/Raft.Scale.Tests/SoakTests.cs
-@@ -408,5 +408,5 @@
+--- a/tests/Raft.Scale.Tests/Soak.cs
++++ b/tests/Raft.Scale.Tests/Soak.cs
+@@ -390,7 +390,7 @@
+     /// the declaration path decision 3 first allowed is closed). Sabotages S-lin-1, S-lin-6.
      /// </summary>
      internal static List<string> BudgetFailures(IReadOnlyList<string> undecided, int count) =>
 -        undecided.Count == 0
 +        undecided.Count < Coverage.FloorFor(count, FloorRate)
              ? []
              : [$"linearizability undecided in {undecided.Count} of {count} runs (budget exhausted): {string.Join(", ", undecided.Take(5))}"];
+ 

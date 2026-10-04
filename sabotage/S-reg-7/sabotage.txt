@@ -1,0 +1,7 @@
+description: A malformed entry in the membership soak's known limits, which `gates register` must read as it reads the baseline soak's (P6-12)
+mechanism: an entry without its register row and report in ci/known-limits-membership.txt
+kind: command
+build: no
+command: dotnet "$GATES" register
+expect: caught
+message: ci/known-limits-membership.txt: malformed entry 'KL-9 | 1 | k0 | 00'

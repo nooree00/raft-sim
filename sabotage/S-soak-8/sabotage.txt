@@ -1,0 +1,6 @@
+description: The build collect job stops requiring the membership soak (P6-12)
+mechanism: the required soak jobs are the baseline soak alone
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AMembershipSoakThatDidNotRunOrWentRedFailsTheBuild
+expect: caught

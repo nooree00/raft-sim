@@ -1,0 +1,11 @@
+--- a/tests/Raft.Membership.Tests/MembershipSimulationTests.cs
++++ b/tests/Raft.Membership.Tests/MembershipSimulationTests.cs
+@@ -214,7 +214,7 @@
+     /// the membership dimensions with theirs (completed changes among them). Sabotages S-soak-7, S-kl-4.
+     /// </summary>
+     internal static readonly SoakProfile Profile = new(
+-        "membership-report.txt", ", with membership changes", Spares, () => new MembershipWorkload(SoakConfig.Think), KnownLimits.MembershipFileName, Dimensions,
++        "membership-report.txt", ", with membership changes", Spares, () => new MembershipWorkload(SoakConfig.Think), KnownLimits.FileName, Dimensions,
+         (observations, h, log, schedule) => Effects(observations, h, log, schedule),
+         new Dictionary<string, string>(StringComparer.Ordinal)
+         {

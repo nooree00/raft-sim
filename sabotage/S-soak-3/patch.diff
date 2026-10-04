@@ -1,6 +1,6 @@
---- a/tests/Raft.Scale.Tests/SoakTests.cs
-+++ b/tests/Raft.Scale.Tests/SoakTests.cs
-@@ -333,7 +333,7 @@
+--- a/tests/Raft.Scale.Tests/Soak.cs
++++ b/tests/Raft.Scale.Tests/Soak.cs
+@@ -410,7 +410,7 @@
      {
          belowTheFloor ??= BelowTheSoakFloor;
          var failures = new List<string>();
@@ -8,4 +8,4 @@
 +        var floor = Coverage.Floor;
          foreach (var (d, n) in counts)
          {
-             var sampleRare = count < SoakExecutions && RareInSample.ContainsKey(d);
+             var sampleRare = count < SoakExecutions && (RareInSample.ContainsKey(d) || rareInSample?.ContainsKey(d) == true);

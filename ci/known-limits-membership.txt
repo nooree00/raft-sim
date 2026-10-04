@@ -1,0 +1,4 @@
+# Recorded known limits of the membership soak (P6-12): as ci/known-limits.txt, for the membership
+# soak's executions only. The two soaks run the same seeds on different workloads, so each is judged
+# only by its own file. Same format and rules (spec §6, `gates register`).
+# id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report

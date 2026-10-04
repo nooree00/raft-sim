@@ -206,60 +206,39 @@ public sealed class MembershipSimulationTests
         return hit;
     }
 
+    /// <summary>
+    /// The membership soak (P6-12): its own profile of the soak's run, beside the baseline soak, not
+    /// inside it. The suite runs this 300-execution sample; the `soak-membership` CI job runs 10,000
+    /// (RAFT_MEMBERSHIP_COUNT). Every invariant, linearizability with its own known limits
+    /// (ci/known-limits-membership.txt), the shared effects and history contents with their floors, and
+    /// the membership dimensions with theirs (completed changes among them). Sabotages S-soak-7, S-kl-4.
+    /// </summary>
+    internal static readonly SoakProfile Profile = new(
+        "membership-report.txt", ", with membership changes", Spares, () => new MembershipWorkload(SoakConfig.Think), KnownLimits.MembershipFileName, Dimensions,
+        (observations, h, log, schedule) => Effects(observations, h, log, schedule),
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            // P6-12, put to the reviewer in the phase-6 report: two log writes in flight on one node when
+            // it crashes, with a reordered loss keeping the later. 139 of 10,000 in the membership soak
+            // (1.39%, over the floor) and 2 of its 300-execution sample: the membership workload commits
+            // 101 entries per execution against the baseline's 164, so writes overlap less often. The
+            // crash-mode tests exercise it directly (EntryLogTests, TermVoteLogTests).
+            ["writes-completed-out-of-order-at-crash"] = "two writes in flight at a crash: 1.39% of the membership soak, 2 of its sample",
+        });
+
+    /// <summary>
+    /// P6-12: the membership soak is judged by its own known limits, named entry by entry, never by the
+    /// baseline soak's: the two soaks run the same seeds on different workloads, so a baseline entry
+    /// would match nothing here, or a membership execution with its seed. Sabotage S-kl-4.
+    /// </summary>
     [Fact]
-    public void TheMembershipSampleHoldsEveryInvariant()
-    {
-        var count = Env("RAFT_MEMBERSHIP_COUNT", 300);
-        var effects = Dimensions.ToDictionary(d => d, _ => 0, StringComparer.Ordinal);
-        var undecided = new List<string>();
-        int liveness = 0, commitChecked = 0, membership = 0;
-        for (var seed = 1; seed <= count; seed++)
-        {
-            var (sim, h, schedule) = Run(seed);
-            var observations = sim.Observations.ToList();
-            var stable = Stability.StableFrom(schedule, observations);
-            var results = Cluster.Check(h, stable, SoakConfig.Duration);
-            var log = new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes));
-            var commit = CommitLiveness.Clause(h, observations, log, stable, SoakConfig.Duration, Cluster.Window, 2 * Cluster.Window);
-            foreach (var r in results.Concat(LogAnalysis.Names.Select(log.Result)).Append(commit))
-            {
-                Assert.True(r.Holds, $"seed {seed}, {r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
-            }
+    public void TheMembershipSoakIsJudgedByItsOwnRecordedKnownLimits() =>
+        Assert.Equal(RecordedMembershipLimits, KnownLimits.RecordedIn(Profile.LimitsFile).Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
 
-            var client = ClientHistory.From(sim.ClientLog);
-            Assert.True(client.Unexplained.Count == 0, $"seed {seed}: {string.Join("; ", client.Unexplained.Take(3))}");
-            Assert.True(client.Accounted == sim.ClientLog.Count, $"seed {seed}: the adapter lost operations");
-            Assert.Empty(History.Problems(client.History));
-            var lin = WglChecker.Check(client.History, SoakConfig.CheckerBudget);
-            Assert.True(lin.Verdict != Verdict.NotLinearizable, $"seed {seed}, linearizability at key {lin.Key}: no linearization past\n  {string.Join("\n  ", lin.LongestPrefix.TakeLast(5))}");
-            if (lin.Verdict == Verdict.Undecided)
-            {
-                undecided.Add($"seed {seed} (key {lin.Key}, {lin.SubHistory.Count} operations)");
-            }
+    /// <summary>The reviewed set (ci/known-limits-membership.txt), approved by the phase-6 report.</summary>
+    private static readonly string[] RecordedMembershipLimits = [];
 
-            membership += client.Membership;
-            liveness += (int)results[3].Count("checked");
-            commitChecked += (int)commit.Count("checked");
-            foreach (var e in Effects(observations, h, log, schedule))
-            {
-                effects[e]++;
-            }
-        }
-
-        var floor = Coverage.FloorFor(count);
-        var report = new List<string>
-        {
-            $"{count} executions of {Universe} nodes ({Cluster.Nodes} configured, {Spares} spares), faults until {SoakConfig.FaultsUntil}, run to {SoakConfig.Duration}",
-            $"membership requests {membership}; liveness checked in {liveness}, the commit clause in {commitChecked}; undecided searches {undecided.Count}",
-            $"dimensions (floor {floor}):",
-        };
-        report.AddRange(effects.Select(kv => $"  {kv.Key,-42} {kv.Value,6} / {count}  ({Coverage.Rate(kv.Value, count)})"));
-        report.AddRange(undecided.Select(u => "  undecided: " + u));
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "membership-report.txt"), string.Join("\n", report) + "\n");
-
-        Assert.True(undecided.Count == 0, "undecided linearizability searches (P5 decision 3: never acceptance): " + string.Join("; ", undecided));
-        Assert.True(liveness >= count * 3 / 4, $"liveness checked in only {liveness} of {count} runs");
-        var below = effects.Where(kv => kv.Value < floor).Select(kv => $"{kv.Key}: {kv.Value} of {count}, below the floor of {floor}").ToList();
-        Assert.True(below.Count == 0, string.Join("\n", below));
-    }
+    [Fact]
+    public void TheMembershipSampleHoldsEveryInvariant() =>
+        Soak.Run(Profile, Env("RAFT_MEMBERSHIP_FIRST", 1), Env("RAFT_MEMBERSHIP_COUNT", 300));
 }

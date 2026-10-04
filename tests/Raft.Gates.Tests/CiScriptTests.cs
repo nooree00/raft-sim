@@ -46,4 +46,15 @@ public sealed class CiScriptTests
         Assert.True(text.Contains("RAFT_SOAK_COUNT=$executions", StringComparison.Ordinal) && text.Contains("^$executions executions ", StringComparison.Ordinal),
             "scripts/ci-soak.sh no longer passes the count to the test or checks that its report covers it");
     }
+
+    /// <summary>P6-12: the membership soak, a soak of its own, holds to the same: 10,000 executions, its report checked to cover them. Sabotage S-soak-9.</summary>
+    [Fact]
+    public void TheMembershipSoakRunsTenThousandExecutionsAndChecksItsReportCoversThem()
+    {
+        var text = File.ReadAllText(Repo.Locate(null).PathOf("scripts/ci-soak-membership.sh"));
+
+        Assert.True(text.Contains("executions=10000", StringComparison.Ordinal), "scripts/ci-soak-membership.sh no longer runs 10,000 executions");
+        Assert.True(text.Contains("RAFT_MEMBERSHIP_COUNT=$executions", StringComparison.Ordinal) && text.Contains("^$executions executions ", StringComparison.Ordinal),
+            "scripts/ci-soak-membership.sh no longer passes the count to the test or checks that its report covers it");
+    }
 }

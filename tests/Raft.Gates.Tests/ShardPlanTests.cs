@@ -97,36 +97,46 @@ public sealed class ShardPlanTests
 
     [Fact]
     public void BuildPassesWithCoreAndEveryShard() =>
-        Assert.Empty(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"))).Failures);
+        Assert.Empty(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures);
 
     [Fact]
     public void AShardWithNoJobFailsTheBuild() =>
-        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("soak", "success"))).Failures,
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures,
             m => m.Contains("sabotage 3/3: 0 jobs", StringComparison.Ordinal));
 
     [Fact]
     public void ARedShardFailsTheBuild() =>
-        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "failure"), ("sabotage 3/3", "success"), ("soak", "success"))).Failures,
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "failure"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures,
             m => m.Contains("sabotage 2/3: concluded failure", StringComparison.Ordinal));
 
     [Fact]
     public void AShardOutsideThePlanFailsTheBuild() =>
-        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("sabotage 1/2", "success"), ("soak", "success"))).Failures,
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("sabotage 1/2", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures,
             m => m.Contains("does not contain", StringComparison.Ordinal));
 
     [Fact]
     public void ARedBuildCoreFailsTheBuild() =>
-        Assert.Contains(Collect("failure", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"))).Failures,
+        Assert.Contains(Collect("failure", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures,
             m => m.Contains("build-core concluded 'failure'", StringComparison.Ordinal));
 
     /// <summary>P3-08: the soak is required; a run without it, or with it red, fails the build.</summary>
     [Fact]
     public void ASoakThatDidNotRunFailsTheBuild() =>
-        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"))).Failures,
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak-membership", "success"))).Failures,
             m => m.Contains("soak: 0 jobs", StringComparison.Ordinal));
 
     [Fact]
     public void ARedSoakFailsTheBuild() =>
-        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "failure"))).Failures,
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "failure"), ("soak-membership", "success"))).Failures,
             m => m.Contains("soak: concluded failure", StringComparison.Ordinal));
+
+    /// <summary>P6-12: the membership soak is a soak of its own, required like the baseline one. Sabotage S-soak-8.</summary>
+    [Fact]
+    public void AMembershipSoakThatDidNotRunOrWentRedFailsTheBuild()
+    {
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"))).Failures,
+            m => m.Contains("soak-membership: 0 jobs", StringComparison.Ordinal));
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "failure"))).Failures,
+            m => m.Contains("soak-membership: concluded failure", StringComparison.Ordinal));
+    }
 }
