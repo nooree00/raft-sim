@@ -1,7 +1,7 @@
-description: The CRDT project's npm-test shape, after P4-11's split: a moved test file (the durability tests) is dropped from its project's compilation and the baseline is edited to agree, so the count check alone passes; the written-versus-ran check must name the tests that no longer run
-mechanism: a moved test file excluded from its project, the count edited to match
+description: The CRDT project's npm-test shape, after P4-11's split: a test file is dropped from its project's compilation and the baseline is edited to agree, so the count check alone passes; the written-versus-ran check must name the tests that no longer run (narrowed at P6-13 from Raft.Scale.Tests, whose whole run was the entry's 281 s command baseline on GitHub, to Raft.Core.Tests, about 4 s; the mechanism needs a project and a file in it, not those)
+mechanism: a test file excluded from its project, the count edited to match
 kind: command
 build: yes
-command: scripts/ci-test.sh Raft.Scale.Tests
+command: scripts/ci-test.sh Raft.Core.Tests
 expect: caught
-message: Raft.Scale.Tests: Raft.Scale.Tests.DurabilityTests.CommittedEntriesSurviveEveryNodeOrAMajorityCrashingAtOnce is written in tests/Raft.Scale.Tests/DurabilityTests.cs but was not executed
+message: Raft.Core.Tests: Raft.Core.Tests.CommitLivenessTests.AResubmittedCommandThatNeverCommitsFailsAlthoughTheSameBytesCommittedBefore is written in tests/Raft.Core.Tests/CommitLivenessTests.cs but was not executed

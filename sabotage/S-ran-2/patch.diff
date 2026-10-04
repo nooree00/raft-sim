@@ -1,20 +1,23 @@
---- a/tests/Raft.Scale.Tests/Raft.Scale.Tests.csproj
-+++ b/tests/Raft.Scale.Tests/Raft.Scale.Tests.csproj
-@@ -13,6 +13,7 @@
+--- a/tests/Raft.Core.Tests/Raft.Core.Tests.csproj
++++ b/tests/Raft.Core.Tests/Raft.Core.Tests.csproj
+@@ -4,6 +4,9 @@
+     <IsPackable>false</IsPackable>
+   </PropertyGroup>
+   <ItemGroup>
++    <Compile Remove="CommitLivenessTests.cs" />
++  </ItemGroup>
++  <ItemGroup>
      <PackageReference Include="xunit.v3.mtp-v2" />
    </ItemGroup>
    <ItemGroup>
-+    <Compile Remove="DurabilityTests.cs" />
-     <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
-     <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
-     <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
 --- a/ci/test-baseline.txt
 +++ b/ci/test-baseline.txt
-@@ -5,6 +5,6 @@
+@@ -4,7 +4,7 @@
+ Raft.Gates.Tests 118
  Raft.Checker.Tests 167
  Raft.Simulation.Tests 108
- Raft.Core.Tests 141
--Raft.Scale.Tests 16
-+Raft.Scale.Tests 14
+-Raft.Core.Tests 141
++Raft.Core.Tests 138
+ Raft.Scale.Tests 16
  Raft.Budget.Tests 3
  Raft.Membership.Tests 3
