@@ -1,18 +1,20 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -364,12 +364,14 @@
+@@ -458,7 +458,7 @@
          }
  
          Save(effects);
 -        effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
 +        var persist = _log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) });
          _pending[_log.LastIndex] = c.RequestId;
-         foreach (var peer in _context.Peers)
-         {
+         var peers = Peers();
+         for (var k = 0; k < peers.Count; k++)
+@@ -466,6 +466,8 @@
+             var peer = peers[k];
              SendAppend(peer, effects);
          }
 +
 +        effects.Add(persist);
      }
  
-     /// <summary>Apply committed entries in order; the leader answers the client whose entry it applied.</summary>
+     /// <summary>

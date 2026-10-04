@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -133,7 +133,7 @@
+@@ -131,7 +131,7 @@
+     /// (P6-03's prediction: a value cached on append survived the truncation). The log keeps the
+     /// indices of its configuration entries (LogStore), so this costs no scan.
+     /// </summary>
+-    public Configuration Configuration => ConfigurationAt(_log.LastIndex);
++    public Configuration Configuration => ConfigurationAt(_commitIndex);
+ 
+     public IReadOnlyList<Effect> Handle(Input input)
      {
-         get
-         {
--            for (var i = _log.LastIndex; i >= 1; i--)
-+            for (var i = _commitIndex; i >= 1; i--)
-             {
-                 var command = _log.At(i).Command;
-                 if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)

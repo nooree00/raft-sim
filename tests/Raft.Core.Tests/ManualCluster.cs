@@ -17,8 +17,14 @@ namespace Raft.Core.Tests;
 /// </summary>
 internal sealed class ManualCluster
 {
-    public static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3);
+    public static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3), N4 = new(4), N5 = new(5);
     public static readonly NodeId[] All = [N1, N2, N3];
+
+    /// <summary>The servers of the initial configuration (P6-05: three by default, or five).</summary>
+    private readonly NodeId[] _members;
+
+    /// <summary>Every node this cluster runs: the members, then the spares, which start outside the configuration and never stand until one includes them.</summary>
+    public IReadOnlyList<NodeId> Nodes { get; }
 
     private readonly RaftOptions _options;
     private readonly Dictionary<NodeId, ulong> _timeoutOffset;
@@ -30,11 +36,13 @@ internal sealed class ManualCluster
     private readonly Dictionary<long, (long Time, byte[] Reply)> _replies = [];
     private long _time, _step, _id, _request;
 
-    public ManualCluster(RaftOptions options, ulong n1Offset = 0, ulong n2Offset = 149, ulong n3Offset = 0)
+    public ManualCluster(RaftOptions options, ulong n1Offset = 0, ulong n2Offset = 149, ulong n3Offset = 0, NodeId[]? members = null, NodeId[]? spares = null)
     {
         _options = options;
+        _members = members ?? All;
+        Nodes = [.. _members, .. spares ?? []];
         _timeoutOffset = new() { [N1] = n1Offset, [N2] = n2Offset, [N3] = n3Offset };
-        foreach (var n in All)
+        foreach (var n in Nodes)
         {
             _files[n] = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             Start(n);
@@ -44,6 +52,12 @@ internal sealed class ManualCluster
     public List<Observation> Observations { get; } = [];
 
     public Role RoleOf(NodeId n) => _nodes[n]?.Role ?? Role.Follower;
+
+    /// <summary>The node's configuration in effect, as the node holds it (for assertions; the checkers never read it).</summary>
+    public Configuration ConfigurationOf(NodeId n) => _nodes[n]!.Configuration;
+
+    /// <summary>The reply a client request received, or null while it has none.</summary>
+    public string? ReplyTo(long request) => _replies.TryGetValue(request, out var r) ? Encoding.ASCII.GetString(r.Reply) : null;
 
     /// <summary>The cluster's clock: one unit per input handled.</summary>
     public long Now => _time;
@@ -57,7 +71,7 @@ internal sealed class ManualCluster
     {
         _incarnation[n] = _incarnation.GetValueOrDefault(n) + 1;
         var files = _files[n].ToDictionary(kv => kv.Key, kv => (ReadOnlyMemory<byte>)kv.Value, StringComparer.Ordinal);
-        _nodes[n] = new RaftNode(new NodeContext(n, All.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset[n]), files), _options, new KvStateMachine());
+        _nodes[n] = new RaftNode(new NodeContext(n, _members.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset.GetValueOrDefault(n, (ulong)(n.Value * 37))), files), _options, new KvStateMachine());
         Observations.Add(new StartObservation(_time, n, _incarnation[n]));
     }
 
@@ -202,7 +216,7 @@ internal sealed class ManualCluster
 
     public (ElectionHistory Elections, LogHistory Log) Histories()
     {
-        var eh = new ElectionHistory(Observations, All.Length);
-        return (eh, LogHistory.FromObservations(Observations, eh, All.Length));
+        var eh = new ElectionHistory(Observations, _members.Length);
+        return (eh, LogHistory.FromObservations(Observations, eh, _members.Length));
     }
 }

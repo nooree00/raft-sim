@@ -1,0 +1,10 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -492,6 +492,7 @@
+ 
+         _membershipRequest = requestId;
+         AppendConfiguration(new Configuration(current.Old, target.Old), effects);
++        AppendConfiguration(target, effects);
+     }
+ 
+     private void AppendConfiguration(Configuration c, List<Effect> effects)

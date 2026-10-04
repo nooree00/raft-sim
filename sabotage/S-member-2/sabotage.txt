@@ -1,0 +1,6 @@
+description: During joint consensus a candidate wins with a majority of the old configuration alone
+mechanism: Won asks a quorum of C_old alone where C_old,new is in effect at the candidate
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.ACandidateDuringJointConsensusNeedsAMajorityOfBoth
+expect: caught

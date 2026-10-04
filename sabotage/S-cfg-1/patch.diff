@@ -5,32 +5,34 @@
      private long _lastApplied;
      private readonly Configuration _initial;
 +    private Configuration? _cached;
+     private long? _membershipRequest;
  
      public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
-     {
-@@ -133,16 +134,16 @@
-     {
-         get
-         {
--            for (var i = _log.LastIndex; i >= 1; i--)
+@@ -131,7 +132,22 @@
+     /// (P6-03's prediction: a value cached on append survived the truncation). The log keeps the
+     /// indices of its configuration entries (LogStore), so this costs no scan.
+     /// </summary>
+-    public Configuration Configuration => ConfigurationAt(_log.LastIndex);
++    public Configuration Configuration
++    {
++        get
++        {
 +            if (_cached is null)
-             {
--                var command = _log.At(i).Command;
--                if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)
++            {
 +                _cached = _initial;
 +                for (var i = 1L; i <= _log.LastIndex; i++)
-                 {
--                    return c;
++                {
 +                    _cached = Configuration.Decode(_log.At(i).Command) ?? _cached;
-                 }
-             }
- 
--            return _initial;
++                }
++            }
++
 +            return _cached;
-         }
-     }
++        }
++    }
  
-@@ -345,6 +346,11 @@
+     public IReadOnlyList<Effect> Handle(Input input)
+     {
+@@ -344,6 +360,11 @@
              }
  
              effects.Add(_log.Append(rest));

@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/EntryLog.cs
 +++ b/src/Raft.Core/EntryLog.cs
-@@ -199,7 +199,7 @@
+@@ -235,7 +235,7 @@
              return null;
          }
  
 -        _fileLength = index == 1 ? 0 : _entries[(int)index - 2].EndOffset;
 +        _fileLength = _entries[(int)index - 1].EndOffset - 32 - _entries[(int)index - 1].Command.Length;
          _entries.RemoveRange((int)index - 1, _entries.Count - (int)index + 1);
-         return new PersistTruncate(EntryLog.FileName, _fileLength);
-     }
+         while (_configurations.Count > 0 && _configurations[^1] >= index)
+         {

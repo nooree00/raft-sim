@@ -85,6 +85,7 @@ public sealed class RaftNode : INode
     private long _commitIndex;
     private long _lastApplied;
     private readonly Configuration _initial;
+    private long? _membershipRequest;
 
     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
     {
@@ -125,26 +126,12 @@ public sealed class RaftNode : INode
 
     /// <summary>
     /// The configuration in effect: the latest configuration entry in the log, else the initial one
-    /// (P6 decisions 1, 2). Read from the log every time, never cached: a truncation that removes a
+    /// (P6 decisions 1, 2). Read from the log, never cached beside it: a truncation that removes a
     /// configuration entry must take its effect with it, and the log is the one place that knows
-    /// (P6-03's prediction: a value cached on append survived the truncation).
+    /// (P6-03's prediction: a value cached on append survived the truncation). The log keeps the
+    /// indices of its configuration entries (LogStore), so this costs no scan.
     /// </summary>
-    public Configuration Configuration
-    {
-        get
-        {
-            for (var i = _log.LastIndex; i >= 1; i--)
-            {
-                var command = _log.At(i).Command;
-                if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)
-                {
-                    return c;
-                }
-            }
-
-            return _initial;
-        }
-    }
+    public Configuration Configuration => ConfigurationAt(_log.LastIndex);
 
     public IReadOnlyList<Effect> Handle(Input input)
     {
@@ -202,9 +189,19 @@ public sealed class RaftNode : INode
         }
     }
 
-    /// <summary>Become a candidate: a new term, a vote for itself persisted before the requests leave.</summary>
+    /// <summary>
+    /// Become a candidate: a new term, a vote for itself persisted before the requests leave. A node
+    /// outside its own configuration in effect never stands (P6-05): a new server before a
+    /// configuration includes it, and a removed one once it holds the configuration that removed it.
+    /// </summary>
     private void Stand(List<Effect> effects)
     {
+        if (!Contains(Configuration.Members, _context.Id))
+        {
+            ResetElectionTimer();
+            return;
+        }
+
         Role = Role.Candidate;
         SetTerm(_term.Next());
         _votedFor = _context.Id;
@@ -219,8 +216,10 @@ public sealed class RaftNode : INode
             return;
         }
 
-        foreach (var peer in _context.Peers)
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
         {
+            var peer = peers[k];
             effects.Add(new Send(peer, MessageCodec.Encode(new RequestVote(_term, _context.Id, _log.LastIndex, _log.LastTerm))));
         }
     }
@@ -395,16 +394,20 @@ public sealed class RaftNode : INode
                 break;
             }
 
-            var count = 1;
-            foreach (var peer in _context.Peers)
+            // A majority of every configuration in effect at index n (P6-05; the checker's rule, P6-04):
+            // the leader's own copy counts only where it is a member.
+            var holders = new List<NodeId> { _context.Id };
+            var peers = Peers();
+            for (var k = 0; k < peers.Count; k++)
             {
-                if (_matchIndex[peer] >= n)
+                var peer = peers[k];
+                if (_matchIndex.TryGetValue(peer, out var match) && match >= n)
                 {
-                    count++;
+                    holders.Add(peer);
                 }
             }
 
-            if (count >= Quorum())
+            if (ConfigurationAt(n).IsQuorum(holders))
             {
                 _commitIndex = n;
                 Apply(effects);
@@ -428,6 +431,12 @@ public sealed class RaftNode : INode
             return;
         }
 
+        if (ParseMembership(c.Payload.ToArray()) is { } members)
+        {
+            OnMembershipRequest(c.RequestId, members, effects);
+            return;
+        }
+
         if (c.Payload.Length > _options.MaxCommandBytes)
         {
             effects.Add(new ClientResponse(c.RequestId, Ascii("too-large|" + _options.MaxCommandBytes.ToString(CultureInfo.InvariantCulture))));
@@ -437,8 +446,50 @@ public sealed class RaftNode : INode
         Save(effects);
         effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
         _pending[_log.LastIndex] = c.RequestId;
-        foreach (var peer in _context.Peers)
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
         {
+            var peer = peers[k];
+            SendAppend(peer, effects);
+        }
+    }
+
+    /// <summary>
+    /// A membership request (P6 decisions 4, 6): `Member|1,2,4`. One change at a time: while a joint
+    /// configuration or an uncommitted configuration is in the log the answer is `busy|`, a definite
+    /// failure. Otherwise `C_old,new` is appended; the leader appends `C_new` once it commits, and
+    /// answers `ok` once that commits.
+    /// </summary>
+    private void OnMembershipRequest(long requestId, List<NodeId> members, List<Effect> effects)
+    {
+        var current = Configuration;
+        if (current.IsJoint || LatestConfigurationIndex() > _commitIndex || _membershipRequest is not null)
+        {
+            effects.Add(new ClientResponse(requestId, Ascii("busy|")));
+            return;
+        }
+
+        var target = new Configuration(members);
+        if (target == current)
+        {
+            effects.Add(new ClientResponse(requestId, Ascii("ok")));
+            return;
+        }
+
+        _membershipRequest = requestId;
+        AppendConfiguration(new Configuration(current.Old, target.Old), effects);
+    }
+
+    private void AppendConfiguration(Configuration c, List<Effect> effects)
+    {
+        Save(effects);
+        effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Encode()) }));
+        EnsurePeers();
+        effects.Add(Event("configuration", new Field("index", N(_log.LastIndex))));
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
+        {
+            var peer = peers[k];
             SendAppend(peer, effects);
         }
     }
@@ -456,12 +507,141 @@ public sealed class RaftNode : INode
             {
                 effects.Add(new ClientResponse(request, result));
             }
+
+            if (Role == Role.Leader && Configuration.IsInternal(entry.Command) && Configuration.Decode(entry.Command) is { } applied && _lastApplied == LatestConfigurationIndex())
+            {
+                OnConfigurationCommitted(applied, effects);
+            }
         }
     }
 
-    private bool Won() => _votes.Count >= Quorum();
+    /// <summary>
+    /// The latest configuration in the log has committed: `C_old,new` is followed by `C_new`; `C_new`
+    /// answers the request, and a leader outside it steps down (P6 decision 5).
+    /// </summary>
+    private void OnConfigurationCommitted(Configuration applied, List<Effect> effects)
+    {
+        if (applied.IsJoint)
+        {
+            AppendConfiguration(new Configuration(applied.New!), effects);
+            return;
+        }
 
-    private int Quorum() => ((_context.Peers.Count + 1) / 2) + 1;
+        if (_membershipRequest is { } request)
+        {
+            effects.Add(new ClientResponse(request, Ascii("ok")));
+            _membershipRequest = null;
+        }
+
+        if (!Contains(applied.Members, _context.Id))
+        {
+            effects.Add(Event("leader-steps-down-removed", new Field("term", N(_term.Value))));
+            Role = Role.Follower;
+            _leaderHint = null;
+        }
+    }
+
+    private bool Won() => Configuration.IsQuorum(_votes);
+
+    /// <summary>The servers this node sends to: every member of the configuration in effect but itself (P6-05).</summary>
+    private List<NodeId> Peers()
+    {
+        var peers = new List<NodeId>();
+        foreach (var m in Configuration.Members)
+        {
+            if (m != _context.Id)
+            {
+                peers.Add(m);
+            }
+        }
+
+        return peers;
+    }
+
+    /// <summary>A leader tracks every peer the configuration in effect adds: a new server needs everything after nothing.</summary>
+    private void EnsurePeers()
+    {
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
+        {
+            var peer = peers[k];
+            if (!_nextIndex.ContainsKey(peer))
+            {
+                _nextIndex[peer] = _log.LastIndex + 1;
+                _matchIndex[peer] = 0;
+            }
+        }
+    }
+
+    /// <summary>The configuration in effect at an index: the latest configuration entry at or below it, else the initial one.</summary>
+    private Configuration ConfigurationAt(long index)
+    {
+        var at = _log.ConfigurationIndexAtOrBelow(index);
+        return at == 0 ? _initial : Configuration.Decode(_log.At(at).Command)!;
+    }
+
+    /// <summary>The index of the latest configuration entry in the log, 0 when there is none.</summary>
+    private long LatestConfigurationIndex() => _log.ConfigurationIndexAtOrBelow(_log.LastIndex);
+
+    private static bool Contains(IReadOnlyList<NodeId> ids, NodeId id)
+    {
+        foreach (var x in ids)
+        {
+            if (x == id)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>`Member|1,2,4` as the servers it names, or null when the command is not a membership request.</summary>
+    private static List<NodeId>? ParseMembership(byte[] command)
+    {
+        const string Prefix = "Member|";
+        if (command.Length <= Prefix.Length)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < Prefix.Length; i++)
+        {
+            if (command[i] != Prefix[i])
+            {
+                return null;
+            }
+        }
+
+        var ids = new List<NodeId>();
+        var value = 0;
+        var digits = 0;
+        for (var i = Prefix.Length; i <= command.Length; i++)
+        {
+            if (i == command.Length || command[i] == (byte)',')
+            {
+                if (digits == 0)
+                {
+                    return null;
+                }
+
+                ids.Add(new NodeId(value));
+                value = 0;
+                digits = 0;
+            }
+            else if (command[i] >= (byte)'0' && command[i] <= (byte)'9' && digits < 9)
+            {
+                value = (value * 10) + (command[i] - (byte)'0');
+                digits++;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        return ids;
+    }
 
     /// <summary>
     /// Lead: every follower is assumed to match nothing and to need everything after the last entry.
@@ -475,17 +655,21 @@ public sealed class RaftNode : INode
         Role = Role.Leader;
         _leaderHint = _context.Id;
         effects.Add(Event("leader", new Field("term", N(_term.Value))));
-        foreach (var peer in _context.Peers)
-        {
-            _nextIndex[peer] = _log.LastIndex + 1;
-            _matchIndex[peer] = 0;
-        }
-
+        EnsurePeers();
         Heartbeats(effects);
         effects.Add(_log.Append(new List<LogEntry> { new(_term, []) }));
-        foreach (var peer in _context.Peers)
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
         {
+            var peer = peers[k];
             SendAppend(peer, effects);
+        }
+
+        // A joint configuration its predecessor committed but did not follow with `C_new` (it lost
+        // office in between) is finished by this leader, or the cluster stays joint for good.
+        if (Configuration is { IsJoint: true } joint && LatestConfigurationIndex() <= _commitIndex)
+        {
+            AppendConfiguration(new Configuration(joint.New!), effects);
         }
     }
 
@@ -493,8 +677,10 @@ public sealed class RaftNode : INode
     {
         _sinceHeartbeat = 0;
         Save(effects);
-        foreach (var peer in _context.Peers)
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
         {
+            var peer = peers[k];
             SendAppend(peer, effects);
         }
     }
@@ -532,6 +718,7 @@ public sealed class RaftNode : INode
         _nextIndex.Clear();
         _matchIndex.Clear();
         _pending.Clear();
+        _membershipRequest = null;
     }
 
     private void ResetElectionTimer()

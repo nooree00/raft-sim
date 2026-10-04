@@ -1,0 +1,6 @@
+description: The leader appends C_new at once after C_old,new, without waiting for C_old,new to commit
+mechanism: a membership request appends both configurations together, so C_new is in effect before the joint configuration is committed
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.ThreeServersAreReplacedAndNothingCommitsOnTheOldMajorityAlone
+expect: caught

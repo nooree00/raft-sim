@@ -1,0 +1,6 @@
+description: During joint consensus the leader commits with a majority of the new configuration alone
+mechanism: AdvanceCommit asks a quorum of C_new alone where C_old,new is in effect at the index
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.ThreeServersAreReplacedAndNothingCommitsOnTheOldMajorityAlone
+expect: caught

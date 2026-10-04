@@ -161,6 +161,7 @@ public static class EntryLog
 public sealed class LogStore
 {
     private readonly List<StoredEntry> _entries;
+    private readonly List<long> _configurations = [];
     private long _fileLength;
 
     public LogStore(EntryLogRecovery recovery)
@@ -173,6 +174,11 @@ public sealed class LogStore
 
         _entries = new List<StoredEntry>(recovery.Entries);
         _fileLength = recovery.ValidLength;
+        for (var i = 0; i < _entries.Count; i++)
+        {
+            Note(_entries[i]);
+        }
+
         if (recovery.Path == RecoveryPath.TruncatedTornTail)
         {
             CutTornTail = new PersistTruncate(EntryLog.FileName, recovery.ValidLength);
@@ -189,6 +195,25 @@ public sealed class LogStore
     public Term TermAt(long index) => index == 0 ? Term.Zero : _entries[(int)index - 1].Term;
 
     public StoredEntry At(long index) => _entries[(int)index - 1];
+
+    /// <summary>
+    /// The index of the latest configuration entry at or below <paramref name="index"/>, 0 when there
+    /// is none (P6-05). Kept with the log, dropped by a truncation and added by an append, so the
+    /// configuration in effect is the log's and costs no scan (a value cached outside the log
+    /// survived a truncation, P6-03).
+    /// </summary>
+    public long ConfigurationIndexAtOrBelow(long index)
+    {
+        for (var i = _configurations.Count - 1; i >= 0; i--)
+        {
+            if (_configurations[i] <= index)
+            {
+                return _configurations[i];
+            }
+        }
+
+        return 0;
+    }
 
     /// <summary>The entries from an index to the end, at most <paramref name="max"/> of them.</summary>
     public List<LogEntry> From(long index, int max)
@@ -212,6 +237,11 @@ public sealed class LogStore
 
         _fileLength = index == 1 ? 0 : _entries[(int)index - 2].EndOffset;
         _entries.RemoveRange((int)index - 1, _entries.Count - (int)index + 1);
+        while (_configurations.Count > 0 && _configurations[^1] >= index)
+        {
+            _configurations.RemoveAt(_configurations.Count - 1);
+        }
+
         return new PersistTruncate(EntryLog.FileName, _fileLength);
     }
 
@@ -226,8 +256,17 @@ public sealed class LogStore
             bytes.AddRange(record);
             _fileLength += record.Length;
             _entries.Add(new StoredEntry(LastIndex + 1, e.Term, e.Command, _fileLength));
+            Note(_entries[^1]);
         }
 
         return new PersistAppend(EntryLog.FileName, bytes.ToArray());
+    }
+
+    private void Note(StoredEntry e)
+    {
+        if (Configuration.IsInternal(e.Command) && Configuration.Decode(e.Command) is not null)
+        {
+            _configurations.Add(e.Index);
+        }
     }
 }

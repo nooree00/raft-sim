@@ -1,10 +1,10 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -366,6 +366,7 @@
+@@ -460,6 +460,7 @@
          Save(effects);
          effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
          _pending[_log.LastIndex] = c.RequestId;
 +        effects.Add(new ClientResponse(c.RequestId, ReadOnlyMemory<byte>.Empty));
-         foreach (var peer in _context.Peers)
+         var peers = Peers();
+         for (var k = 0; k < peers.Count; k++)
          {
-             SendAppend(peer, effects);
