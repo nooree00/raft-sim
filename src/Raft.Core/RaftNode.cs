@@ -86,6 +86,7 @@ public sealed class RaftNode : INode
     private long _lastApplied;
     private readonly Configuration _initial;
     private long? _membershipRequest;
+    private Configuration? _catchingUp;
 
     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
     {
@@ -369,6 +370,7 @@ public sealed class RaftNode : INode
             _matchIndex[from] = Math.Max(_matchIndex[from], r.MatchIndex);
             _nextIndex[from] = _matchIndex[from] + 1;
             AdvanceCommit(effects);
+            ProceedIfCaughtUp(effects);
             if (_nextIndex[from] <= _log.LastIndex)
             {
                 SendAppend(from, effects);
@@ -477,6 +479,61 @@ public sealed class RaftNode : INode
         }
 
         _membershipRequest = requestId;
+        if (NewServers(current, target).Count == 0)
+        {
+            AppendConfiguration(new Configuration(current.Old, target.Old), effects);
+            return;
+        }
+
+        // P6-06 (decision 3): the new servers first catch up as non-voting members; `C_old,new` is
+        // appended once each is within one batch of the log, so a joint configuration whose new
+        // majority needs them does not wait on a whole log's replication with commitment stalled.
+        _catchingUp = target;
+        EnsurePeers();
+        var added = NewServers(current, target);
+        for (var k = 0; k < added.Count; k++)
+        {
+            SendAppend(added[k], effects);
+        }
+
+        // A log shorter than one batch needs no catching up: the change proceeds at once.
+        ProceedIfCaughtUp(effects);
+    }
+
+    /// <summary>The servers <paramref name="target"/> adds to <paramref name="current"/>.</summary>
+    private static List<NodeId> NewServers(Configuration current, Configuration target)
+    {
+        var added = new List<NodeId>();
+        foreach (var m in target.Old)
+        {
+            if (!Contains(current.Members, m))
+            {
+                added.Add(m);
+            }
+        }
+
+        return added;
+    }
+
+    /// <summary>When every server being caught up is within one batch of the log, the change proceeds to `C_old,new`.</summary>
+    private void ProceedIfCaughtUp(List<Effect> effects)
+    {
+        if (_catchingUp is not { } target)
+        {
+            return;
+        }
+
+        var current = Configuration;
+        var added = NewServers(current, target);
+        for (var k = 0; k < added.Count; k++)
+        {
+            if (!_matchIndex.TryGetValue(added[k], out var match) || match < _log.LastIndex - _options.MaxEntriesPerAppend)
+            {
+                return;
+            }
+        }
+
+        _catchingUp = null;
         AppendConfiguration(new Configuration(current.Old, target.Old), effects);
     }
 
@@ -543,7 +600,7 @@ public sealed class RaftNode : INode
 
     private bool Won() => Configuration.IsQuorum(_votes);
 
-    /// <summary>The servers this node sends to: every member of the configuration in effect but itself (P6-05).</summary>
+    /// <summary>The servers this node sends to: every member of the configuration in effect but itself (P6-05), and any server being caught up (P6-06).</summary>
     private List<NodeId> Peers()
     {
         var peers = new List<NodeId>();
@@ -552,6 +609,18 @@ public sealed class RaftNode : INode
             if (m != _context.Id)
             {
                 peers.Add(m);
+            }
+        }
+
+        // Servers being caught up (P6-06) are sent to, and never counted: no configuration names them yet.
+        if (_catchingUp is { } target)
+        {
+            foreach (var m in target.Old)
+            {
+                if (m != _context.Id && !Contains(peers, m))
+                {
+                    peers.Add(m);
+                }
             }
         }
 
@@ -719,6 +788,7 @@ public sealed class RaftNode : INode
         _matchIndex.Clear();
         _pending.Clear();
         _membershipRequest = null;
+        _catchingUp = null;
     }
 
     private void ResetElectionTimer()

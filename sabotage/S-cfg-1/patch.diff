@@ -6,9 +6,9 @@
      private readonly Configuration _initial;
 +    private Configuration? _cached;
      private long? _membershipRequest;
+     private Configuration? _catchingUp;
  
-     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
-@@ -131,7 +132,22 @@
+@@ -132,7 +133,22 @@
      /// (P6-03's prediction: a value cached on append survived the truncation). The log keeps the
      /// indices of its configuration entries (LogStore), so this costs no scan.
      /// </summary>
@@ -32,7 +32,7 @@
  
      public IReadOnlyList<Effect> Handle(Input input)
      {
-@@ -344,6 +360,11 @@
+@@ -345,6 +361,11 @@
              }
  
              effects.Add(_log.Append(rest));

@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -479,7 +479,7 @@
+         }
+ 
+         _membershipRequest = requestId;
+-        if (NewServers(current, target).Count == 0)
++        if (NewServers(current, target).Count >= 0)
+         {
+             AppendConfiguration(new Configuration(current.Old, target.Old), effects);
+             return;

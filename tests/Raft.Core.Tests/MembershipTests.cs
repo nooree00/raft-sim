@@ -183,4 +183,50 @@ public sealed class MembershipTests
         Assert.Equal(Role.Follower, c.RoleOf(N3));
         Judged(c);
     }
+
+    /// <summary>
+    /// P6-06: two empty servers replace two members of a cluster with a long log, `{n1,n2,n3}` to
+    /// `{n1,n4,n5}`. They catch up as non-voting members first: until then the configuration stays
+    /// `C_old`, and a write commits on the old servers alone within one round; `C_old,new` is appended
+    /// only once both hold all but at most one batch of the log. Sabotage S-member-4 (`C_old,new`
+    /// appended at once, without waiting: the write during the change then needs n4 or n5).
+    /// </summary>
+    [Fact]
+    public void NewServersCatchUpBeforeTheyCount()
+    {
+        var c = Led(spares: [N4, N5]);
+        var all = c.Nodes.ToArray();
+        for (var i = 0; i < 100; i++)
+        {
+            c.Client(N1, "Put|k" + i + "|v");
+        }
+
+        Rounds(c, N1, 4, N1, N2, N3);
+        var length = c.EntriesOf(N1).Count;
+        Assert.True(length > 100, "a long log: " + length);
+
+        var change = c.Client(N1, "Member|1,4,5");
+        Assert.False(c.ConfigurationOf(N1).IsJoint);
+        var during = c.Client(N1, "Put|x|1");
+        Rounds(c, N1, 1, N1, N2, N3);
+        Assert.Equal("ok", c.ReplyTo(during));
+
+        Rounds(c, N1, 10, all);
+        Assert.Equal("ok", c.ReplyTo(change));
+        Assert.Equal(new Configuration([N1, N4, N5]), c.ConfigurationOf(N1));
+
+        // The leader waited: when it appended `C_old,new`, n4's disk already held the log but at most one batch.
+        var appended = c.Observations.FindIndex(o => o is Raft.Simulation.EmittedObservation { Event.Name: "configuration" } e && e.Node == N1);
+        var n4 = new LogHistory.FileView();
+        foreach (var o in c.Observations.Take(appended))
+        {
+            if (o is Raft.Simulation.DurableObservation { File: EntryLog.FileName, Completed: { } done } d && d.Node == N4)
+            {
+                n4.Apply(done);
+            }
+        }
+
+        Assert.True(n4.Count >= length - RaftOptions.Default.MaxEntriesPerAppend, $"n4 held {n4.Count} of {length} entries when C_old,new was appended");
+        Judged(c);
+    }
 }

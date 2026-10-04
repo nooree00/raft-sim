@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -555,7 +555,7 @@
+@@ -598,7 +598,7 @@
          }
      }
  
 -    private bool Won() => Configuration.IsQuorum(_votes);
 +    private bool Won() => new Configuration(Configuration.Old).IsQuorum(_votes);
  
-     /// <summary>The servers this node sends to: every member of the configuration in effect but itself (P6-05).</summary>
+     /// <summary>The servers this node sends to: every member of the configuration in effect but itself (P6-05), and any server being caught up (P6-06).</summary>
      private List<NodeId> Peers()

@@ -1,8 +1,8 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -492,6 +492,7 @@
+@@ -535,6 +535,7 @@
  
-         _membershipRequest = requestId;
+         _catchingUp = null;
          AppendConfiguration(new Configuration(current.Old, target.Old), effects);
 +        AppendConfiguration(target, effects);
      }

@@ -1,0 +1,6 @@
+description: A membership request appends C_old,new at once, without letting the new servers catch up first (P6 decision 3)
+mechanism: the catch-up branch is never taken, so C_old,new is appended while the new servers hold nothing
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.NewServersCatchUpBeforeTheyCount
+expect: caught
