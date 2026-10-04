@@ -31,6 +31,7 @@ public sealed class LayeringTests
         ["Raft.SimRun"] = ("tools/Raft.SimRun/Raft.SimRun.csproj", ["Raft.Core", "Raft.Kv", "Raft.Simulation"], None),
         ["Raft.Core.Tests"] = ("tests/Raft.Core.Tests/Raft.Core.Tests.csproj", ["Raft.Checker", "Raft.Core", "Raft.Kv", "Raft.Simulation", "Raft.SimRun"], ["xunit.v3.mtp-v2"]),
         ["Raft.Budget.Tests"] = ("tests/Raft.Budget.Tests/Raft.Budget.Tests.csproj", ["Raft.Checker", "Raft.Core", "Raft.Kv", "Raft.Simulation", "Raft.SimRun"], ["xunit.v3.mtp-v2"]),
+        ["Raft.Membership.Tests"] = ("tests/Raft.Membership.Tests/Raft.Membership.Tests.csproj", ["Raft.Checker", "Raft.Core", "Raft.Kv", "Raft.Simulation"], ["xunit.v3.mtp-v2"]),
         ["Raft.Scale.Tests"] = ("tests/Raft.Scale.Tests/Raft.Scale.Tests.csproj", ["Raft.Checker", "Raft.Core", "Raft.Kv", "Raft.Simulation", "Raft.SimRun"], ["xunit.v3.mtp-v2"]),
         ["Raft.Checker.Tests"] = ("tests/Raft.Checker.Tests/Raft.Checker.Tests.csproj", ["Raft.Checker"], ["xunit.v3.mtp-v2"]),
         ["Raft.Gates.Tests"] = ("tests/Raft.Gates.Tests/Raft.Gates.Tests.csproj", ["Raft.Gates"], ["xunit.v3.mtp-v2"]),

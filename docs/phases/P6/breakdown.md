@@ -143,7 +143,7 @@ as a register row: the phase cannot be complete with rows promised to it left op
 
 - **Task:** The simulator runs a universe of node ids larger than the initial configuration (up to five); the workload generates membership requests (decision 6) beside key-value operations; the configuration in effect at each node is an observation in the trace. New coverage dimensions, as functions of the trace (spec §7): a change completed during a partition, a change with the leader removed, a crash while a node is in joint configuration, a change that started and did not complete before the execution's end. Each with a floor, like P3's.
 - **Vacuity:** A generator that produces membership requests only in fault-free stretches never tests the phase's done criterion. Guarded: the dimension "change completed during a partition" has a floor, and a zero fails the build. Sabotages: S-cov-11, membership requests generated only after the last fault heals: the partition dimension falls to zero.
-- **Sabotage:** S-cov-11
+- **Sabotage:** S-cov-11, S-joint-4, S-adapt-4
 - **Verifiable here:** yes — the simulator runs locally
 - **Prediction:** "A change completed during a partition" will be the rarest dimension and below a 1% floor at first, because a change needs two commits in sequence and the generator's partitions usually isolate the leader's majority for part of that time. **Observable:** the dimension's count over the 300-execution sample on the first generator.
 - **Outcome:** pending

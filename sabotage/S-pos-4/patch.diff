@@ -1,9 +1,9 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -544,7 +544,7 @@
- 
-         // Invariant 6: every entry committed in fact stays durable on a quorum. Only indices at or
-         // above the change can have lost a copy.
+@@ -549,7 +549,7 @@
+         // (found by the membership sample, seed 152: the entry's own configuration was asked for
+         // after the cluster had moved on twice).
+         var current = _committed.Count > 0 ? _committed[^1].Config : _h.Initial;
 -        for (var i = from; i <= _committed.Count; i++)
 +        for (var i = from + 1; i <= _committed.Count; i++)
          {

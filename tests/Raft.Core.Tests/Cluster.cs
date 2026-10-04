@@ -19,9 +19,10 @@ internal static class Cluster
     /// <summary>K = 10 election timeouts (decision 5), measured against the longest timeout.</summary>
     public static readonly long Window = 10 * Options.ElectionTimeoutMax;
 
-    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null, int clients = 0, IClientWorkload? workload = null)
+    /// <param name="spares">Nodes beyond the initial three, outside the configuration until a membership change adds them (P6-08).</param>
+    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null, int clients = 0, IClientWorkload? workload = null, int spares = 0)
     {
-        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes, Clients = clients }, ctx => new RaftNode(ctx, Options, new KvStateMachine()), seed, schedule) { Observe = true, Workload = workload };
+        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes + spares, Members = Nodes, Clients = clients }, ctx => new RaftNode(ctx, Options, new KvStateMachine()), seed, schedule) { Observe = true, Workload = workload };
         sim.Run();
         return (sim, new ElectionHistory(sim.Observations, Nodes));
     }

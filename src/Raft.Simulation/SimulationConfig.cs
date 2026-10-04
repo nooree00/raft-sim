@@ -8,6 +8,12 @@ public sealed record SimulationConfig
 {
     public int Nodes { get; init; } = 3;
 
+    /// <summary>
+    /// The initial configuration: nodes 1 to this; 0 means every node (P6-08). The others start as
+    /// spares, outside the configuration, until a membership change adds them.
+    /// </summary>
+    public int Members { get; init; }
+
     public long Duration { get; init; } = 600_000;
 
     /// <summary>Units between ticks delivered to a node (before clock skew).</summary>

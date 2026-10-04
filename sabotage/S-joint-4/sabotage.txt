@@ -1,0 +1,6 @@
+description: Invariant 6 asks a committed entry to stay on a quorum of its own configuration forever, so a later configuration that removed servers turns it red
+mechanism: committed-durable counts holders against the configuration in effect at the entry's index instead of the latest committed one
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.ACommittedEntryNeedNotStayOnServersALaterConfigurationRemoved
+expect: caught

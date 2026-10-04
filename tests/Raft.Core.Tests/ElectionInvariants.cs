@@ -54,7 +54,11 @@ internal sealed class ElectionHistory
     /// the node issued, as the simulator observed them, never from the node's report. After a crash it
     /// is the durable log's, as the node's recovery will find it.
     /// </summary>
-    public List<(long Seq, NodeId Node, Configuration Config)> Configurations { get; } = [];
+    public List<(long Seq, long Time, NodeId Node, Configuration Config)> Configurations { get; } = [];
+
+    /// <summary>The latest configuration any node held at or before <paramref name="time"/>, else the initial one (invariant 11's majority, P6-08).</summary>
+    public Configuration ConfigurationAt(long time) =>
+        Configurations.Where(c => c.Time <= time).OrderBy(c => c.Seq).Select(c => c.Config).LastOrDefault() ?? Initial;
 
     public long Undecodable { get; private set; }
 
@@ -67,13 +71,13 @@ internal sealed class ElectionHistory
         var current = new Dictionary<NodeId, Configuration>();
         var restarting = new HashSet<NodeId>();
         LogHistory.FileView View(Dictionary<NodeId, LogHistory.FileView> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new LogHistory.FileView();
-        void Note(long at, NodeId n)
+        void Note(long at, long time, NodeId n)
         {
             var c = View(intendedLog, n).InEffect(Initial);
             if (!current.TryGetValue(n, out var was) || was != c)
             {
                 current[n] = c;
-                Configurations.Add((at, n, c));
+                Configurations.Add((at, time, n, c));
             }
         }
 
@@ -121,7 +125,7 @@ internal sealed class ElectionHistory
                 case IssuedObservation { Op: { File: EntryLog.FileName } op } i:
                     restarting.Remove(i.Node);
                     View(intendedLog, i.Node).Apply(op);
-                    Note(seq, i.Node);
+                    Note(seq, i.Time, i.Node);
                     break;
                 case DurableObservation { File: EntryLog.FileName } du:
                     if (du.Completed is { } done)
@@ -136,7 +140,7 @@ internal sealed class ElectionHistory
                     if (restarting.Contains(du.Node))
                     {
                         intendedLog[du.Node] = View(durableLog, du.Node).Copy();
-                        Note(seq, du.Node);
+                        Note(seq, du.Time, du.Node);
                     }
 
                     break;
@@ -148,7 +152,7 @@ internal sealed class ElectionHistory
                     CrashSeqs.Add((seq, c.Time, c.Node));
                     intendedLog[c.Node] = View(durableLog, c.Node).Copy();
                     restarting.Add(c.Node);
-                    Note(seq, c.Node);
+                    Note(seq, c.Time, c.Node);
                     break;
             }
         }
@@ -175,7 +179,7 @@ internal sealed class ElectionHistory
             .Concat(States.Select(s => (s.Seq, s.Time, Kind: 1, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
             .Concat(Intended.Select(s => (s.Seq, s.Time, Kind: 2, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
             .Concat(CrashSeqs.Select(c => (c.Seq, c.Time, Kind: 3, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
-            .Concat(Configurations.Select(c => (c.Seq, Time: 0L, Kind: 4, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
+            .Concat(Configurations.Select(c => (c.Seq, c.Time, Kind: 4, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
             .OrderBy(e => e.Seq).ThenByDescending(e => e.Kind == 4);
         var configs = Configurations.ToLookup(c => (c.Seq, c.Node), c => c.Config);
         var config = new Dictionary<NodeId, Configuration>();
@@ -393,9 +397,12 @@ internal static class ElectionInvariants
     public static InvariantResult Liveness(ElectionHistory h, long stableFrom, long end, long window, long minimumSuffix)
     {
         var counts = new Dictionary<string, long>(StringComparer.Ordinal);
-        var nodes = Enumerable.Range(1, h.ClusterSize).Select(i => new NodeId(i)).ToList();
+        // A majority of the configuration in effect when the suffix starts (P6-08): with membership
+        // changes, the cluster's size says nothing; without them it is the initial configuration.
+        var config = h.ConfigurationAt(stableFrom);
+        var nodes = config.Members;
         var checkpoints = h.Liveness.Select(l => l.Time).Where(t => t >= stableFrom && t <= end).Append(stableFrom).Distinct();
-        if (end - stableFrom < minimumSuffix || checkpoints.Any(t => nodes.Count(n => h.IsUp(n, t)) < h.Quorum))
+        if (end - stableFrom < minimumSuffix || checkpoints.Any(t => !config.IsQuorum(nodes.Where(n => h.IsUp(n, t)).ToList())))
         {
             counts["no-stable-suffix"] = 1;
             return new("liveness", [], counts);

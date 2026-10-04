@@ -15,3 +15,5 @@ Raft.Simulation.Tests.BrokenStoreTests.TheCorrectStoreIsAcceptedInEveryRun
 # One allowlist over every type Core references: any new reference, not only the ambient one.
 Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
 Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
+# P6-08: an aggregate over 300 generated executions with membership changes.
+Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant

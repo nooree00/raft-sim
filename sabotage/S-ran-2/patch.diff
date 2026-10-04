@@ -10,10 +10,11 @@
      <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
 --- a/ci/test-baseline.txt
 +++ b/ci/test-baseline.txt
-@@ -5,5 +5,5 @@
+@@ -5,6 +5,6 @@
  Raft.Checker.Tests 167
  Raft.Simulation.Tests 106
- Raft.Core.Tests 135
+ Raft.Core.Tests 137
 -Raft.Scale.Tests 16
 +Raft.Scale.Tests 14
  Raft.Budget.Tests 3
+ Raft.Membership.Tests 1

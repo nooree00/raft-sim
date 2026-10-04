@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Membership changes in generated executions (P6-07..P6-09), apart from Raft.Scale.Tests: a harness
+    entry runs its target's whole project, and this sample's 300 executions of five nodes would cost
+    every scale entry minutes. The soak's settings, the checkers and the stable suffix are compiled
+    in by link; the soak itself takes membership changes at P6-10.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
+    <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
+    <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
+    <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />
+    <Compile Include="../Raft.Core.Tests/LogInvariants.cs" Link="Checkers/LogInvariants.cs" />
+    <Compile Include="../Raft.Scale.Tests/SoakConfig.cs" Link="Soak/SoakConfig.cs" />
+    <Compile Include="../Raft.Scale.Tests/Stability.cs" Link="Soak/Stability.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+    <ProjectReference Include="../../src/Raft.Kv/Raft.Kv.csproj" />
+    <ProjectReference Include="../../src/Raft.Checker/Raft.Checker.csproj" />
+  </ItemGroup>
+</Project>

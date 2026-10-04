@@ -550,7 +550,8 @@ public sealed class Simulator
     private void Start(Host h, IReadOnlyList<NodeId> ids)
     {
         h.Incarnation++;
-        var peers = ids.Where(p => p != h.Id).ToList();
+        var members = _config.Members > 0 ? ids.Take(_config.Members) : ids;
+        var peers = members.Where(p => p != h.Id).ToList();
         var random = _streams.For(Purpose("node", h.Id, "incarnation", h.Incarnation));
         h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot()));
         h.LastTick = _now;

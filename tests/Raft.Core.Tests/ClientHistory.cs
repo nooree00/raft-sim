@@ -16,6 +16,10 @@ namespace Raft.Core.Tests;
 /// operations belong to a fresh logical client, because a simulated client moves on while its
 /// operation may still take effect, which a sequential client cannot express (Knossos, Jepsen). A
 /// retry is a new operation with the same bytes. Any other reply is unexplained and reported.
+/// P6-08: a membership request (`Member|…`) is no key-value operation; it is counted, never put in
+/// the history. Its `busy|` answer is a definite failure (P6 decision 4, with the reviewer's
+/// condition): counted, never indeterminate, and the client carries on as the same logical client.
+/// Sabotage S-adapt-4.
 /// Vacuity risk: an adapter that drops operations makes any history pass (a lost write whose
 /// operation is dropped leaves nothing to contradict). Guarded: every operation is accounted for,
 /// and the counts must sum to the log. Sabotages S-adapt-1..3.
@@ -25,9 +29,9 @@ public static class ClientHistory
     /// <summary>A logical client's id: the simulated client, plus 1,000 for each timeout it has had.</summary>
     public const int Generation = 1_000;
 
-    public sealed record Result(IReadOnlyList<Operation> History, int Completed, int Indeterminate, int Refused, IReadOnlyList<string> Unexplained)
+    public sealed record Result(IReadOnlyList<Operation> History, int Completed, int Indeterminate, int Refused, IReadOnlyList<string> Unexplained, int Membership = 0, int Busy = 0)
     {
-        public int Accounted => Completed + Indeterminate + Refused + Unexplained.Count;
+        public int Accounted => Completed + Indeterminate + Refused + Unexplained.Count + Membership;
     }
 
     /// <summary>
@@ -39,11 +43,26 @@ public static class ClientHistory
         var generation = new Dictionary<int, int>();
         var history = new List<Operation>();
         var unexplained = new List<string>();
-        int completed = 0, indeterminate = 0, refused = 0;
+        int completed = 0, indeterminate = 0, refused = 0, membership = 0, busy = 0;
         foreach (var o in log)
         {
             var client = (generation.GetValueOrDefault(o.Client) * Generation) + o.Client;
             var request = Encoding.ASCII.GetString(o.Request.Span);
+            if (request.StartsWith("Member|", StringComparison.Ordinal))
+            {
+                membership++;
+                if (o.Response is null && freshClientAfterTimeout)
+                {
+                    generation[o.Client] = generation.GetValueOrDefault(o.Client) + 1;
+                }
+                else if (o.Response is not null && Encoding.ASCII.GetString(o.Reply.Span).StartsWith("busy|", StringComparison.Ordinal))
+                {
+                    busy++;
+                }
+
+                continue;
+            }
+
             if (o.Response is null)
             {
                 history.Add(Decode(client, request, o.Invoke, null, null));
@@ -72,7 +91,7 @@ public static class ClientHistory
             }
         }
 
-        return new Result(history, completed, indeterminate, refused, unexplained);
+        return new Result(history, completed, indeterminate, refused, unexplained, membership, busy);
     }
 
     private static Operation Decode(int client, string request, long invoke, long? response, string? output)

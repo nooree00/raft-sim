@@ -340,4 +340,22 @@ public sealed class LogInvariantTests
         Assert.Equal(2, Committed(h));
         Holds(h, "committed-durable");
     }
+
+    /// <summary>
+    /// P6-08, found by the membership sample (seed 152): invariant 6 asks a quorum of the
+    /// configuration in effect at the latest committed index, the one any future leader is elected
+    /// by. An entry committed under `C_old,new`, after `C_new` has committed, need not stay on the old
+    /// servers `C_new` removed. Sabotage S-joint-4 (the entry's own configuration, as P6-04 had it).
+    /// </summary>
+    [Fact]
+    public void ACommittedEntryNeedNotStayOnServersALaterConfigurationRemoved()
+    {
+        var h = new Trace().Elect(N1, 1).Configure(N1, 1, Joint).Create(N1, 1).Durable(N1)
+            .Replicate(N1, N2, 1).Durable(N2).Replicate(N1, N4, 1).Durable(N4)
+            .Configure(N1, 1, NewOnly).Durable(N1).Replicate(N1, N4, 1, prev: 2).Durable(N4)
+            .Crash(N2, keep: 0).History();
+
+        Assert.Equal(3, Committed(h));
+        Holds(h);
+    }
 }

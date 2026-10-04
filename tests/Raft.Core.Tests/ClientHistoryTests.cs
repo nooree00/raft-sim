@@ -128,4 +128,28 @@ public sealed class ClientHistoryTests
         Assert.Equal(r.Completed + r.Indeterminate, r.History.Count);
         Assert.Equal("client 1 request 2 'Put|k|d': reply 'error'", Assert.Single(r.Unexplained));
     }
+
+    /// <summary>
+    /// P6-08: membership requests are counted apart from the key-value history, and `busy|` is a
+    /// definite failure (P6 decision 4, the reviewer's condition): counted, not indeterminate, and the
+    /// client's next operation stays on the same logical client. Sabotage S-adapt-4 (`busy|` taken as
+    /// an operation that timed out).
+    /// </summary>
+    [Fact]
+    public void AMembershipRequestIsCountedApartAndBusyIsADefiniteFailure()
+    {
+        var log = new[]
+        {
+            Op(0, 1, "Member|1,2,4", 0, 5, "ok"),
+            Op(0, 2, "Member|1,2,5", 10, 15, "busy|"),
+            Op(0, 3, "Put|k|a", 20, 25, "ok"),
+            Op(1, 1, "Get|k", 30, 35, "ok|a"),
+        };
+        var r = ClientHistory.From(log);
+
+        Assert.Equal((2, 2, 1, 0, 0), (r.Completed, r.Membership, r.Busy, r.Indeterminate, r.Refused));
+        Assert.Equal(log.Length, r.Accounted);
+        Assert.Equal([0, 1], r.History.Select(o => o.Client));
+        Assert.True(WglChecker.Check(r.History).IsLinearizable);
+    }
 }

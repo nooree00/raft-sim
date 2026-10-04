@@ -543,12 +543,17 @@ internal sealed class LogAnalysis
         Commit(held, from, d.Seq);
 
         // Invariant 6: every entry committed in fact stays durable on a quorum. Only indices at or
-        // above the change can have lost a copy.
+        // above the change can have lost a copy. The quorum is of the configuration in effect at the
+        // latest committed index, the one any future leader is elected by (P6-08): an entry committed
+        // under `C_old,new` need not stay on old servers that a committed `C_new` has since removed
+        // (found by the membership sample, seed 152: the entry's own configuration was asked for
+        // after the cluster had moved on twice).
+        var current = _committed.Count > 0 ? _committed[^1].Config : _h.Initial;
         for (var i = from; i <= _committed.Count; i++)
         {
             var c = _committed[(int)i - 1];
             var holders = _durable.Where(l => At(l.Value, i)?.Ghost == c.Ghost).Select(l => l.Key).ToList();
-            if (!c.Config.IsQuorum(holders) && _belowQuorum.Add(i))
+            if (!current.IsQuorum(holders) && _belowQuorum.Add(i))
             {
                 Fail("committed-durable", $"entry {N(i)}, committed in fact, is durable on only {N(holders.Count)} node(s) after {d.Node}'s disk changed");
             }

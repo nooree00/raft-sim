@@ -1,0 +1,6 @@
+description: The adapter takes a busy answer to a membership request as an operation that timed out (P6 decision 4's condition broken)
+mechanism: busy| is counted as indeterminate and starts a fresh logical client
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ClientHistoryTests.AMembershipRequestIsCountedApartAndBusyIsADefiniteFailure
+expect: caught

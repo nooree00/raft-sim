@@ -1,0 +1,11 @@
+--- a/tests/Raft.Membership.Tests/MembershipWorkload.cs
++++ b/tests/Raft.Membership.Tests/MembershipWorkload.cs
+@@ -21,7 +21,7 @@
+     public ClientCall? NextCall(int client, int sequence, IRandomSource random)
+     {
+         var node = new NodeId(1 + (int)random.NextLong(Universe));
+-        if (random.NextLong(oneIn) == 0)
++        if (random.NextLong(oneIn) == 0 && sequence * think >= 12_000)
+         {
+             return new ClientCall(node, Encoding.ASCII.GetBytes("Member|" + Three(random)), think);
+         }

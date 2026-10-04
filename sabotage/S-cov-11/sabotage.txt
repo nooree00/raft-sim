@@ -1,0 +1,7 @@
+description: Membership requests are sent only after the faults end, so no change completes under a partition and the distribution must name the dimension
+mechanism: no membership request is drawn before a client's sequence times its think time reaches the last generated fault (12,000); the client draws an ordinary operation instead, so the workload stays busy (a first version delayed the request itself, which starved the clients and failed liveness first: wrong reason)
+kind: test
+project: tests/Raft.Membership.Tests
+target: Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
+reason: change-completed-during-a-partition:
+expect: caught
