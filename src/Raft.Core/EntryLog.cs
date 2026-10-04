@@ -27,7 +27,10 @@ public sealed record EntryLogRecovery(RecoveryPath Path, IReadOnlyList<StoredEnt
 /// coexisted). Within one node's writes an (index, term) is always the same entry, which is what
 /// makes the chain sound, by the induction Log Matching rests on. A torn final record
 /// is truncated; a checksum failure in any earlier record, or a whole record too short to hold an
-/// index and a term, or an index below 1, is corruption and recovery refuses.
+/// index and a term, or an index below 1, is corruption and recovery refuses. One exception, by
+/// structure (P6-15, as for the term-vote file): a torn record followed, less than its length after
+/// its start, by a whole valid record is a torn write whose cut a crash lost while keeping a later
+/// write, and its bytes are skipped.
 /// </summary>
 public static class EntryLog
 {
@@ -71,6 +74,13 @@ public static class EntryLog
             var remaining = fileLength - at;
             var length = remaining >= Header ? (long)Get(file, at, 4) : -1;
             var size = Header + length + Trailer;
+            if ((length < 0 || remaining < size || Checksum(file, (int)at, (int)(Header + length)) != Get(file, at + Header + length, 4))
+                && TornBefore(file, fileLength, at, length >= Fixed && remaining >= size ? size : Header) is { } next)
+            {
+                at = next;
+                continue;
+            }
+
             if (length < 0 || remaining < size)
             {
                 return new(RecoveryPath.TruncatedTornTail, entries, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut", firstChanged);
@@ -126,6 +136,27 @@ public static class EntryLog
         {
             b.Add((byte)(v >> shift));
         }
+    }
+
+    /// <summary>
+    /// Where a whole valid record starts less than <paramref name="limit"/> bytes after
+    /// <paramref name="at"/>, if one does: the record at <paramref name="at"/> is then a torn write a
+    /// later one followed. The limit is the torn record's own length when its length field is whole
+    /// and plausible, else the length field itself (a torn write shorter than it leaves it garbage).
+    /// </summary>
+    private static long? TornBefore(byte[] file, long fileLength, long at, long limit)
+    {
+        for (var next = at + 1; next < at + limit && next + Header + Fixed + Trailer <= fileLength; next++)
+        {
+            var length = (long)Get(file, next, 4);
+            if (length >= Fixed && next + Header + length + Trailer <= fileLength && Get(file, next + Header, 8) >= 1
+                && Checksum(file, (int)next, (int)(Header + length)) == Get(file, next + Header + length, 4))
+            {
+                return next;
+            }
+        }
+
+        return null;
     }
 
     private static ulong Get(byte[] b, long at, int bytes)

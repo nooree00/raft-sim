@@ -35,7 +35,11 @@ public sealed record TermVoteRecovery(RecoveryPath Path, TermVoteState State, in
 /// 4-byte node id, 0 for none), and a 4-byte FNV-1a checksum over the length and payload.
 /// Recovery takes the last valid record. A torn **final** record, incomplete or failing its
 /// checksum, is truncated; a checksum failure in any earlier record, or a whole record whose
-/// length is not 12, is corruption and recovery refuses.
+/// length is not 12, is corruption and recovery refuses. One exception, by structure (P6-15): a
+/// torn record followed, less than a record's length after its start, by a whole valid record is
+/// a torn write the cut after it never reached (a crash may keep any subset of the writes in
+/// flight, docs/design/node-interface.md §4), and its bytes are skipped; a corrupted whole record
+/// has no such successor and is still refused.
 /// </summary>
 public static class TermVoteLog
 {
@@ -62,11 +66,19 @@ public static class TermVoteLog
         var state = TermVoteState.Initial;
         var at = 0;
         var records = 0;
+        var skipped = 0;
         while (at < file.Length)
         {
             var remaining = file.Length - at;
             var length = remaining >= 4 ? (int)Get(file, at, 4) : -1;
             var size = 4 + length + 4;
+            if ((length < 0 || remaining < size || Checksum(file, at, 4 + length) != Get(file, at + 4 + length, 4)) && TornBefore(file, at) is { } next)
+            {
+                skipped += next - at;
+                at = next;
+                continue;
+            }
+
             if (length < 0 || remaining < size)
             {
                 // Runs past the end: only the final record can, and only a torn write makes it.
@@ -98,7 +110,24 @@ public static class TermVoteLog
             records++;
         }
 
-        return new(RecoveryPath.Clean, state, at, N(records) + " record(s)");
+        return new(RecoveryPath.Clean, state, at, N(records) + " record(s)" + (skipped > 0 ? ", " + N(skipped) + " torn byte(s) skipped" : ""));
+    }
+
+    /// <summary>
+    /// Where a whole valid record starts less than a record's length after <paramref name="at"/>, if
+    /// one does: the record at <paramref name="at"/> is then a torn write that a later one followed.
+    /// </summary>
+    private static int? TornBefore(byte[] file, int at)
+    {
+        for (var next = at + 1; next < at + RecordLength && next + RecordLength <= file.Length; next++)
+        {
+            if (Get(file, next, 4) == PayloadLength && Checksum(file, next, 4 + PayloadLength) == Get(file, next + 4 + PayloadLength, 4))
+            {
+                return next;
+            }
+        }
+
+        return null;
     }
 
     private static string N(long v) => v.ToString(CultureInfo.InvariantCulture);

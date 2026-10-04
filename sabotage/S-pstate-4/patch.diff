@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/TermVoteLog.cs
++++ b/src/Raft.Core/TermVoteLog.cs
+@@ -119,7 +119,7 @@
+     /// </summary>
+     private static int? TornBefore(byte[] file, int at)
+     {
+-        for (var next = at + 1; next < at + RecordLength && next + RecordLength <= file.Length; next++)
++        for (var next = at + 1; next <= at + RecordLength && next + RecordLength <= file.Length; next++)
+         {
+             if (Get(file, next, 4) == PayloadLength && Checksum(file, next, 4 + PayloadLength) == Get(file, next + 4 + PayloadLength, 4))
+             {

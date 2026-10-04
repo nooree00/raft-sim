@@ -139,4 +139,43 @@ public sealed class TermVoteLogTests
         System.IO.File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "term-vote-recovery.txt"), string.Join("\n", counts.Select(kv => $"{kv.Key} {kv.Value}")) + "\n");
         Assert.True(counts.Keys.Any(k => k.EndsWith("/TruncatedTornTail", StringComparison.Ordinal)), "no crash tore a record: the truncation path was never exercised");
     }
+
+    /// <summary>
+    /// P6-15, found by the membership soak (seed 1462): a node recovers a torn final record, issues the
+    /// cut and then a record, and a crash with a reordered loss keeps the record and loses the cut (the
+    /// disk model lets any subset of writes in flight survive, and the node never learns what is
+    /// durable). The record now sits after the torn bytes. A torn write keeps less than a whole
+    /// record, so a valid record starts within one record's length of it, which corruption of a whole
+    /// record never gives; recovery skips the torn bytes and takes the record, at every torn length.
+    /// Below four bytes the torn record's length field is garbage, and reading it as a torn tail would
+    /// cut the later record away, losing a vote that may have been durable. Sabotage S-pstate-4.
+    /// </summary>
+    [Fact]
+    public void ATornRecordFollowedByARecordWhoseCutWasLostRecoversTheRecord()
+    {
+        var torn = R(2, N2);
+        for (var keep = 1; keep < torn.Length; keep++)
+        {
+            var disk = new SimDisk();
+            disk.Issue(new PersistAppend(TermVoteLog.FileName, R(1, null)), 0);
+            disk.CompleteNext();
+            disk.Issue(new PersistAppend(TermVoteLog.FileName, torn), 0);
+            disk.Crash(DiskLoss.Torn, () => (ulong)(keep - 1));
+            var first = TermVoteLog.Recover(disk.Snapshot()[TermVoteLog.FileName].ToArray());
+            Assert.Equal((RecoveryPath.TruncatedTornTail, 20), (first.Path, first.ValidLength));
+
+            // The restarted node's cut and its next record, both in flight; the crash keeps only the record.
+            disk.Issue(new PersistTruncate(TermVoteLog.FileName, first.ValidLength), 0);
+            disk.Issue(new PersistAppend(TermVoteLog.FileName, R(3, N3)), 0);
+            var draws = new Queue<ulong>([0, 1]);
+            disk.Crash(DiskLoss.Reordered, draws.Dequeue);
+            var file = disk.Snapshot()[TermVoteLog.FileName].ToArray();
+            Assert.Equal(File(R(1, null), torn[..keep], R(3, N3)), file);
+
+            var r = TermVoteLog.Recover(file);
+            Assert.True(r.Path != RecoveryPath.Refused, $"torn at {keep}: refused: {r.Detail}");
+            Assert.Equal(new TermVoteState(new Term(3), N3), r.State);
+            Assert.Equal(file.Length, r.ValidLength);
+        }
+    }
 }

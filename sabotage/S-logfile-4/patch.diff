@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -152,7 +152,7 @@
+             if (length >= Fixed && next + Header + length + Trailer <= fileLength && Get(file, next + Header, 8) >= 1
+                 && Checksum(file, (int)next, (int)(Header + length)) == Get(file, next + Header + length, 4))
+             {
+-                return next;
++                return null;
+             }
+         }
+ 

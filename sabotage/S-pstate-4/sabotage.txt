@@ -1,0 +1,6 @@
+description: Recovery skips a whole record's length of bad bytes, not only a torn write's, so a corrupted whole record followed by a valid one is accepted as torn (P6-15)
+mechanism: the search for a record after the bad one reaches a whole record's length
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.TermVoteLogTests.ACorruptRecordBeforeTheLastRefusesToStart
+expect: caught

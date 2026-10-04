@@ -269,4 +269,40 @@ public sealed class EntryLogTests
         copy.AddRange(file.Skip(at));
         return copy.ToArray();
     }
+
+    /// <summary>
+    /// P6-15: the entry log's form of the term-vote log's case. A node recovers a torn final entry,
+    /// issues the cut and then the entry that replaces it, and a reordered loss keeps the entry and
+    /// loses the cut: the entry sits after the torn bytes. Recovery skips them and takes the entry, at
+    /// every torn length. Sabotage S-logfile-4.
+    /// </summary>
+    [Fact]
+    public void ATornEntryFollowedByAnEntryWhoseCutWasLostRecoversTheEntry()
+    {
+        var size = EntryLog.Record(2, new Term(1), new Term(1), Encoding.ASCII.GetBytes("b")).Length;
+        for (var keep = 1; keep < size; keep++)
+        {
+            var disk = new SimDisk();
+            var store = new LogStore(EntryLog.Recover(null));
+            disk.Issue(store.Append([E(1, "a")]), 0);
+            disk.CompleteNext();
+            disk.Issue(store.Append([E(1, "b")]), 0);
+            disk.Crash(DiskLoss.Torn, () => (ulong)(keep - 1));
+            var torn = disk.Snapshot()[EntryLog.FileName].ToArray();
+            var restarted = new LogStore(EntryLog.Recover(torn));
+            Assert.Equal(1, restarted.LastIndex);
+            Assert.NotNull(restarted.CutTornTail);
+
+            disk.Issue(restarted.CutTornTail!, 0);
+            disk.Issue(restarted.Append([E(2, "c")]), 0);
+            var draws = new Queue<ulong>([0, 1]);
+            disk.Crash(DiskLoss.Reordered, draws.Dequeue);
+            var file = disk.Snapshot()[EntryLog.FileName].ToArray();
+            Assert.Equal(torn.Length + EntryLog.Record(2, new Term(2), new Term(1), Encoding.ASCII.GetBytes("c")).Length, file.Length);
+
+            var r = EntryLog.Recover(file);
+            Assert.True(r.Path != RecoveryPath.Refused, $"torn at {keep}: refused: {r.Detail}");
+            Assert.Equal("1:1:a 2:2:c", Show(r.Entries));
+        }
+    }
 }

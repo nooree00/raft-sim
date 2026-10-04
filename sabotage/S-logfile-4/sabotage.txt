@@ -1,0 +1,7 @@
+description: The entry log refuses a torn record followed by a later one, as before P6-15: a crash that kept an entry and lost the cut before it leaves a node that cannot start
+mechanism: the search for a record after a torn one never finds one
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.ATornEntryFollowedByAnEntryWhoseCutWasLostRecoversTheEntry
+reason: refused
+expect: caught
