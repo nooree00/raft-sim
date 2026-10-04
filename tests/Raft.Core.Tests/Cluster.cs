@@ -20,9 +20,10 @@ internal static class Cluster
     public static readonly long Window = 10 * Options.ElectionTimeoutMax;
 
     /// <param name="spares">Nodes beyond the initial three, outside the configuration until a membership change adds them (P6-08).</param>
-    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null, int clients = 0, IClientWorkload? workload = null, int spares = 0)
+    /// <param name="options">The nodes' options, <see cref="Options"/> by default (P6-07 turns the disruption rule off to measure what it prevents).</param>
+    public static (Simulator Sim, ElectionHistory History) Run(ulong seed, long duration, FaultSchedule? schedule = null, int clients = 0, IClientWorkload? workload = null, int spares = 0, RaftOptions? options = null)
     {
-        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes + spares, Members = Nodes, Clients = clients }, ctx => new RaftNode(ctx, Options, new KvStateMachine()), seed, schedule) { Observe = true, Workload = workload };
+        var sim = new Simulator(new SimulationConfig { Duration = duration, Nodes = Nodes + spares, Members = Nodes, Clients = clients }, ctx => new RaftNode(ctx, options ?? Options, new KvStateMachine()), seed, schedule) { Observe = true, Workload = workload };
         sim.Run();
         return (sim, new ElectionHistory(sim.Observations, Nodes));
     }

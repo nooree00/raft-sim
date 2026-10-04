@@ -7,4 +7,4 @@ Raft.Simulation.Tests 106
 Raft.Core.Tests 137
 Raft.Scale.Tests 16
 Raft.Budget.Tests 3
-Raft.Membership.Tests 1
+Raft.Membership.Tests 2

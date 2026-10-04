@@ -1,0 +1,7 @@
+description: The §6 disruption rule does not apply to vote requests from servers outside the configuration, so a removed server's requests are adopted by servers with a live leader (P6-07)
+mechanism: the rule's condition also requires the sender to be a member of the receiver's configuration
+kind: test
+project: tests/Raft.Membership.Tests
+target: Raft.Membership.Tests.MembershipSimulationTests.RemovedServersDoNotDisruptTheNewConfiguration
+reason: a removed server's term was adopted
+expect: caught

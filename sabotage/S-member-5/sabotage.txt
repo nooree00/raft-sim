@@ -1,0 +1,6 @@
+description: A leader that C_new leaves out keeps leading once C_new commits (P6-07)
+mechanism: the step-down on committing a configuration without the leader is never taken
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.FiveServersBecomeThreeAndTheLeaderIsRemoved
+expect: caught

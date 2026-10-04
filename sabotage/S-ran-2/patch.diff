@@ -17,4 +17,4 @@
 -Raft.Scale.Tests 16
 +Raft.Scale.Tests 14
  Raft.Budget.Tests 3
- Raft.Membership.Tests 1
+ Raft.Membership.Tests 2

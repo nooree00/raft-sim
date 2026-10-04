@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 9cebad9..1b8adc1 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -590,7 +590,7 @@ public sealed class RaftNode : INode
+             _membershipRequest = null;
+         }
+ 
+-        if (!Contains(applied.Members, _context.Id))
++        if (!Contains(applied.Members, _context.Id) && applied.Members.Count < 0)
+         {
+             effects.Add(Event("leader-steps-down-removed", new Field("term", N(_term.Value))));
+             Role = Role.Follower;

@@ -17,3 +17,5 @@ Raft.Architecture.Tests.AmbientDependencyTests.EveryReferencedTypeIsOnTheAllowli
 Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOnTheAllowlist
 # P6-08: an aggregate over 300 generated executions with membership changes.
 Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
+# P6-07: an aggregate over 200 generated executions with removals, each standing removed server's run repeated without the rule.
+Raft.Membership.Tests.MembershipSimulationTests.RemovedServersDoNotDisruptTheNewConfiguration
