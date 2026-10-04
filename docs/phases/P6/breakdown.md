@@ -18,7 +18,16 @@ configuration it uses cannot catch it using the wrong one, so the simulator reco
 reviewer's A3, holding for the third time). Decision 4 with a condition: `busy` is a definite
 failure that the adapter drops and counts, as P5 decision 1 treats refusals; an indeterminate
 `busy` would give every membership test P5's hard-history problem for a refusal that never took
-effect. P6-02 is promised to its own phase (11). **A constraint on predictions, from P5:** the same
+effect. P6-02 is promised to its own phase (11). **Accepted through P6-09** (reviewer, after P6-10's measurement), with three decisions that add
+P6-11 to P6-13. (1) The membership soak is a separate soak with its own floors, not an addition to
+today's: the measurement shows two workloads (178 operations per execution against 114, four
+effects in 95% or more), so one soak covering both measures neither. The baseline soak stays
+unchanged and KL-1 stays valid against it; the undecided searches the membership soak finds are
+recorded against it, with their curves, under the known-limit machinery. (2) The generator is
+adjusted, not the effects declared always-on: a rate at or near 100% says the generator cannot
+produce the other case (§13.30). Isolation at 12 of 10,000 first, since a node isolated during a
+change is where joint consensus earns its keep, and what fixing it does to the others reported.
+(3) S-ran-2 narrowed as P5-07 narrowed the rest. **A constraint on predictions, from P5:** the same
 soak took 924 s and 1,275 s on two GitHub runners, so no prediction in this phase is a duration
 compared across runs; P6-01 and P6-10 are restated in quantities measured within one run or
 deterministic ones.
@@ -40,7 +49,7 @@ P6-08 (the simulator: more node ids than the configuration, membership requests 
 coverage dimensions), P6-09 (the classic unsafe change, constructed: the positive control for this
 phase), P6-10 (the soak with membership changes, and its cost).
 
-**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10. P6-01 is blocking only
+**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10, P6-11, P6-12, P6-13. P6-01 is blocking only
 as a register row: the phase cannot be complete with rows promised to it left open (`gates register`).
 
 ## Decisions for review
@@ -161,16 +170,43 @@ as a register row: the phase cannot be complete with rows promised to it left op
 
 - **Task:** The 10,000-execution soak with membership requests in the workload: every invariant, linearizability over client histories, the new coverage dimensions above their floors, and the distribution reported. Its duration on GitHub against the phase-5 head's (run 37146478876 or its successor), and against the soak's place outside the local pre-push run (P5 acceptance).
 - **Vacuity:** A soak whose membership requests are mostly refused (decision 4) or never complete checks one configuration in most executions. Guarded: the report gives completed changes per execution, and a floor on executions with at least one completed change. Sabotages: S-soak-7, membership requests dropped from the soak's workload: the completed-change floor goes red.
-- **Sabotage:** S-soak-7
+- **Sabotage:** ; shared: S-soak-7
 - **Verifiable here:** partial — a local soak run; the CI job only in CI
 - **Prediction:** **Revised at approval, before the task starts:** no duration is predicted, because the same soak took 924 s and 1,275 s on two GitHub runners (P5): at a 38% spread a duration prediction cannot be wrong. Instead, deterministic quantities: membership changes raise the checker's total states explored over the soak, KL-1 excluded, by under 10%, because they are a few operations per execution and the checker ignores the reserved key; and at least one new undecided linearizability search appears, because a change lengthens the window in which writes are indeterminate (a leader stepping down at `C_new` leaves its in-flight writes unanswered). **Observable:** the soak's reported states explored against the phase-5 head's (same seeds, deterministic), and the undecided count with KL-1 excluded; the duration is reported, not predicted.
 - **Outcome:** partly (evidence) — measured; the task is not done, and stops here for the reviewer. Measured by running the 10,000-execution soak twice locally on the same seeds, today's workload and then P6-08's (five nodes, three configured, membership requests among the operations), with invariant failures collected rather than asserted (`p6-10-soak-measurement.md`, with the diff). **Safety:** no invariant violated in any of the 10,000 executions with membership changes (32,289 membership requests, 35,136 elections). **States explored, wrong:** KL-1 excluded, the decided searches explored 40,361,999 states in today's soak and 20,000,702 with membership requests, 50% fewer, not up to 10% more; with the three new undecided searches counted at their budget, the total is 116,001,256, 187% more. The histories are shorter (114 operations per execution against 178: with five nodes and changes in flight, 99 entries committed per execution against 164), which the prediction did not consider. **A new undecided search, right:** three (seed 2576 key k4, 39 operations; seed 2947 key k2, 26; seed 8741 key k5, 30), each exhausting 32,000,000 states. **KL-1 is stale:** seed 7723's history is a different one under the new workload (digest f8bb49f4513f, recorded 39ee32132eed). **The distribution fails on five effects** the five-node generator moves: four now in 95% or more of executions (split-vote, requestvote-ignored, delivered-after-later-send, delivered-later-than-normal-delay) and node-isolated-for-a-timeout in 12 (below the floor of 100). The membership dimensions were not wired into this measurement. Duration, reported and not predicted: 1,720 s against 1,323 s in the same container, one run after the other (checking 774 s against 568 s). So committing the soak with membership requests would turn the required soak job red on three counts, two of them known-limit decisions that are the reviewer's (spec §12; KL entries need a phase report that approves them), and the third a set of effect declarations. Nothing was committed to the soak, S-soak-7 is not built, and the soak in CI still runs today's workload, which stays green.
+
+### P6-11 — The five-node generator: isolation first, then the four effects at 95% or more
+
+- **Task:** Make the membership executions' distribution discriminating without touching the baseline soak's schedules (KL-1's history must not change). First the isolation dimension (12 of 10,000 in P6-10's measurement against 1,076 in the baseline), then the four effects in 95% or more of executions (split-vote, requestvote-ignored, delivered-after-later-send, delivered-later-than-normal-delay), each change measured on its own over a 1,000-execution sample of the membership workload and reported, then over the membership soak (P6-12).
+- **Vacuity:** A change that raises the isolation count by counting something that is not isolation passes its floor and tests nothing; guarded by the detector's existing constructions (`CoverageTests`) staying exact, plus a construction of a member isolated while a spare is idle. A generator change that also alters three-node schedules would invalidate KL-1 silently; guarded by KL-1's digest, checked by the baseline soak, and by the schedule tests' fixed seeds. Sabotages: S-cov-12, the isolation detector requiring every started node again; S-gen-1, the network-fault scaling removed.
+- **Sabotage:** S-cov-12, S-gen-1
+- **Verifiable here:** yes — the simulator and the samples run locally
+- **Prediction:** (i) The generator is not why isolation is rare: it isolates a node as often in five-node runs as in three-node ones (one chance in 100 per node per window). The detector is: it counts a node isolated only if its sends to every started node, and every started node's sends to it, were blocked, and a spare outside every configuration sends nothing and is sent nothing, so no isolation in a run with a spare up ever counts. With the detector asking that every send to or from the node was blocked, at least one each way, isolation rises to between 6% and 14% of membership executions (the baseline's 10.76%, give or take the spares' share of the isolations), and the baseline's rate rises by under 1 point. Fixing it changes none of the four high effects by more than 1 point. (ii) Two of the four come from the network's fault volume: the generator's network rates are per directed link, and five nodes have 20 links to three nodes' 6, so a five-node run sees about 3.3 times the drops, delays, reorders and partitions. Scaling the per-link rates between nodes by 6 / (n(n-1)), exact for three nodes, brings delivered-after-later-send and delivered-later-than-normal-delay under 90%. split-vote and requestvote-ignored stay at 95% or more, because they come from five servers' elections (more candidates, and removed servers standing against a live leader), not from the fault volume. **Observable:** each effect's count over the same 1,000 seeds before and after each change; the baseline soak's isolation count and KL-1's digest.
+- **Outcome:** pending
+
+### P6-12 — The membership soak: its own test, floors, CI job and known limits
+
+- **Task:** A second soak, 10,000 executions of the membership workload on the P6-11 generator: every invariant, linearizability with the known-limit machinery, the effects and history contents with their floors, the membership dimensions with theirs (completed changes per execution among them), and its own report; run by its own CI job, required by the build collect job and by `gates reports` like the baseline soak. The 300-execution sample of the same test runs in the suite. The baseline soak, its test and its known limits are unchanged. Its undecided searches are recorded as known limits of the membership soak, each with its states-and-memory curve measured locally (2 to 32 million states), approved by the phase-6 report.
+- **Vacuity:** A membership soak whose requests mostly fail or never complete checks one configuration; guarded by the completed-change floor. A known limit recorded against the wrong soak would match nothing and go unseen, or match a baseline execution with the same seed; guarded by keeping the two soaks' entries in two files, each judged only by its own soak, with the tests naming each set. Sabotages: S-soak-7, membership requests dropped from the membership soak's workload: the completed-change floor goes red; S-kl-4, the membership soak judged against the baseline's known limits.
+- **Sabotage:** S-soak-7, S-kl-4
+- **Verifiable here:** partial — the soak runs locally; the CI job and its gates only in CI
+- **Prediction:** None of P6-10's three undecided searches survives P6-11's generator change, since every membership schedule changes; the membership soak has between 1 and 5 undecided searches, none of which decides at any budget from 2 to 32 million states. No invariant is violated. In the first CI run, within that run, the membership soak job takes between 1.0 and 1.6 times the baseline soak job (1.30 locally in P6-10's measurement). **Observable:** the membership soak's report, the curves, and the two soak jobs' durations in one run.
+- **Outcome:** pending
+
+### P6-13 — S-ran-2 narrowed
+
+- **Task:** S-ran-2's mechanism is one test's message: a test file dropped from its project's compilation with the count edited to agree, named by the written-versus-ran check. Its command runs `ci-test.sh Raft.Scale.Tests`, whose baseline cost 281 s on GitHub (P6-01). Move it to the project whose whole run is cheapest and that has a test file to drop, as P5-07 narrowed the whole-suite entries.
+- **Vacuity:** A narrowed entry whose message comes from somewhere else would be caught for the wrong reason; guarded by the harness's message match, unchanged in kind (the written-but-not-executed line naming the dropped test).
+- **Sabotage:** ; shared: S-ran-2
+- **Verifiable here:** partial — the entry's cost locally; the shard's split on GitHub
+- **Prediction:** On `Raft.Core.Tests` (about 4 s per run) the entry costs under 30 s locally against 124-168 s, with the same message shape. In the next CI run, within that run, the shard holding S-ran-2 is no longer the slowest by more than 100 s, as shard 4 was (660 s against the next at 602 s, and 346 s ready against 192 at most elsewhere); its ready time is within 60 s of the median shard's. **Observable:** the entry's local time; the per-worker split lines in the next CI run.
+- **Outcome:** pending
 
 ## Sabotage ids
 
 New series: S-range (P6-00), S-cfg (P6-03), S-joint (P6-04), S-member (P6-05..07,
 P6-09). S-harness-3 follows S-harness-1..2, S-disrupt-4 follows S-disrupt-1..3, S-cov-11 follows
-S-cov-1..10, S-soak-7 follows S-soak-1..6. Each id's `sabotage/<id>/` entry lands in the same commit
+S-cov-1..10, S-soak-7 follows S-soak-1..6; S-cov-12 follows S-cov-11, S-kl-4 follows S-kl-1..3, and S-gen is a new series (P6-11). Each id's `sabotage/<id>/` entry lands in the same commit
 as the check it proves, and is run on that commit before it is pushed.
 
 ## Register rows opened here
