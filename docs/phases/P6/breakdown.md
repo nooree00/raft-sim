@@ -49,7 +49,7 @@ P6-08 (the simulator: more node ids than the configuration, membership requests 
 coverage dimensions), P6-09 (the classic unsafe change, constructed: the positive control for this
 phase), P6-10 (the soak with membership changes, and its cost).
 
-**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10, P6-11, P6-12, P6-13. P6-01 is blocking only
+**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10, P6-11, P6-12, P6-13, P6-14. P6-01 is blocking only
 as a register row: the phase cannot be complete with rows promised to it left open (`gates register`).
 
 ## Decisions for review
@@ -200,6 +200,15 @@ as a register row: the phase cannot be complete with rows promised to it left op
 - **Sabotage:** ; shared: S-ran-2
 - **Verifiable here:** partial — the entry's cost locally; the shard's split on GitHub
 - **Prediction:** On `Raft.Core.Tests` (about 4 s per run) the entry costs under 30 s locally against 124-168 s, with the same message shape. In the next CI run, within that run, the shard holding S-ran-2 is no longer the slowest by more than 100 s, as shard 4 was (660 s against the next at 602 s, and 346 s ready against 192 at most elsewhere); its ready time is within 60 s of the median shard's. **Observable:** the entry's local time; the per-worker split lines in the next CI run.
+- **Outcome:** pending
+
+### P6-14 — A spare's initial configuration (found in P6-11)
+
+- **Task:** Found while measuring P6-11: `RaftNode` takes its initial configuration to be itself plus `NodeContext.Peers`, so a spare, given the three members as its peers, believes it is a member of a four-server configuration, stands from the start and never stops (in every one of six inspected membership executions the spares n4 and n5 asked for votes from about 300 on). `ManualCluster` never ticks its spares, so no construction saw it. The node is given its initial configuration explicitly (`NodeContext.Members`, defaulting to itself plus its peers, which every existing caller means), and the simulator and `ManualCluster` pass it. Tests first: a construction ticking a spare past its timeout.
+- **Vacuity:** A construction that never ticks the spare past its timeout passes either way, which is how the bug hid; guarded by asserting the spare's election timer expired (ticked past the maximum timeout) before asserting it sent no vote request. Sabotage: S-member-7, the node ignores `NodeContext.Members`.
+- **Sabotage:** S-member-7
+- **Verifiable here:** yes — `ManualCluster` and the simulator run locally
+- **Prediction:** The construction fails against today's node by name: the spare asks for votes in term 2. With the fix, on P6-11's 1,000 seeds with its two changes, split-vote and requestvote-ignored both fall below 95% (they stand at 100% with the spares campaigning), and every assertion in `Raft.Membership.Tests` (P6-07, P6-08) still holds. What the bug did to the earlier measurements is reported, not predicted. **Observable:** the construction's failure against today's node; the two effects' counts on the same 1,000 seeds before and after.
 - **Outcome:** pending
 
 ## Sabotage ids
