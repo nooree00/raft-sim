@@ -703,3 +703,11 @@ finding: what happened, why no existing check caught it, what now catches it.
     the six rewritten commits. The range was checked for one property and not the others it feeds.
     Recovered with a ref at the old head and a re-run of the same event; the defect is in the
     register (a fallback that silently changes its meaning).
+- **A duration on GitHub's runners cannot falsify a prediction at the spread they show.** The same
+  soak, on identical code, took 1,275 s in one run (37090873754) and 924 s in another (37146478876),
+  38% apart. P5-05's prediction was wrong at either figure, but a prediction within that band could
+  have come true or false by the runner drawn, which makes it no prediction.
+  - *Constraint (reviewer, at phase 6's approval):* no prediction is a duration compared across
+    runs. State it within one run (a ratio, or one quantity against another measured beside it), or
+    in a deterministic quantity (states explored, executions, entries). Phase 6's P6-01 and P6-10
+    were restated before they started.

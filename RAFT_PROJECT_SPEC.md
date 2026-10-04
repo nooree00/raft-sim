@@ -489,6 +489,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 8 | Client sessions + read-only queries | A retried `Append` applies once; the checker accepts every history that includes reads |
 | 9 | Real sockets, multi-process | Three processes in Compose, a real client, a killed leader, and the checker green on the resulting history |
 | 10 | Measurement | Throughput and latency against a written target, with the build configuration recorded beside every number |
+| 11 | Linearizability-checking cost | A structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
@@ -500,7 +501,10 @@ nothing and has the sharpest vacuity risk; there is no reason for it to wait
 for Raft.
 
 (The table was renumbered by the phase-0 amendment: the checker split in two,
-membership and compaction split in two. Phase numbers elsewhere refer to it.)
+membership and compaction split in two. Phase numbers elsewhere refer to it.
+Phase 11 was added at phase 6's approval: a research question with a first-time
+candidate measure, kept out of the membership phase so that joint consensus has
+that phase's whole attention.)
 
 ## 12. Working agreement
 

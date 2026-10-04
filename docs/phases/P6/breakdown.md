@@ -9,15 +9,28 @@ carried forward:
 
 - the invariants are stated over "a quorum of the configuration in effect — both quorums during joint consensus" (spec §5, commitment in fact); every checker that counts a majority today counts a fixed `ClusterSize / 2 + 1`, and each becomes configuration-aware before any Raft code changes (tests first for `Raft.Core`, spec §12);
 - the accepting and rejecting halves of the linearizability check keep holding with membership changes in the workload (a reconfiguration must not lose or duplicate an acknowledged write);
-- the three register rows promised to phase 6 are closed or argued: `each-commit-list`'s silent fallback, the harness's fixed cost, and a structural measure of linearizability-checking cost.
+- the two register rows promised to phase 6 are closed or argued: `each-commit-list`'s silent fallback and the harness's fixed cost. The third, a structural measure of linearizability-checking cost, is promised to its own phase (phase 11, reviewer at approval).
+
+**Approved** (reviewer): P6-00 to P6-10, without P6-02. Decisions 1, 2, 3 and 5 as proposed
+(decision 1 is the paper's §6, and it is what makes the transition safe). Decision 6 is the
+ghost-id principle applied to membership: a checker that reads a node's claim about which
+configuration it uses cannot catch it using the wrong one, so the simulator records it (the
+reviewer's A3, holding for the third time). Decision 4 with a condition: `busy` is a definite
+failure that the adapter drops and counts, as P5 decision 1 treats refusals; an indeterminate
+`busy` would give every membership test P5's hard-history problem for a refusal that never took
+effect. P6-02 is promised to its own phase (11). **A constraint on predictions, from P5:** the same
+soak took 924 s and 1,275 s on two GitHub runners, so no prediction in this phase is a duration
+compared across runs; P6-01 and P6-10 are restated in quantities measured within one run or
+deterministic ones.
 
 ## Ordering
 
 Tooling first, by phase 4's tooling-order rule: P6-00 (`each-commit-list` fails rather than widens;
 the range question it answers wrong is the one every later push depends on) and P6-01 (the harness's
-remaining fixed cost, measured on GitHub before a design is chosen). P6-02 (the structural measure)
-is research with no code dependency on the rest; it runs beside the membership work, and decision 7
-asks whether it stays in this phase.
+remaining fixed cost, measured on GitHub before a design is chosen). The structural measure, drafted
+here as P6-02, is not part of this phase (reviewer: joint consensus is where a mistake corrupts the
+cluster, and it gets the phase's whole attention); it is phase 11, its prediction recorded in the
+register now.
 
 Then membership in the order the spec's tests-first rule forces: P6-03 (configuration as log
 entries, durable and recovered), P6-04 (the checkers made configuration-aware, against hand-built
@@ -27,8 +40,8 @@ P6-08 (the simulator: more node ids than the configuration, membership requests 
 coverage dimensions), P6-09 (the classic unsafe change, constructed: the positive control for this
 phase), P6-10 (the soak with membership changes, and its cost).
 
-**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10. P6-01 and P6-02 are blocking only
-as register rows: the phase cannot be complete with rows promised to it left open (`gates register`).
+**Blocking set:** P6-00, P6-03, P6-04, P6-05, P6-08, P6-09, P6-10. P6-01 is blocking only
+as a register row: the phase cannot be complete with rows promised to it left open (`gates register`).
 
 ## Decisions for review
 
@@ -49,7 +62,8 @@ as register rows: the phase cannot be complete with rows promised to it left ope
    as P6-06.
 4. **One membership change in flight at a time.** A leader refuses a membership request while a
    `C_old,new` or an uncommitted `C_new` is in its log (an answer `busy|…`, a definite failure,
-   left out of the checker's history like a refusal, P5 decision 1).
+   left out of the checker's history like a refusal, P5 decision 1). **Approved with the condition**
+   that the adapter drops `busy` and counts it, never treats it as indeterminate.
 5. **A leader not in `C_new` steps down once `C_new` is committed**, and manages the cluster until
    then without counting itself in `C_new`'s majority (the paper's §6). A removed server is not
    told it was removed; the §6 disruption rule (phase 3) is what keeps its elections from deposing
@@ -59,11 +73,6 @@ as register rows: the phase cannot be complete with rows promised to it left ope
    most a few per execution), and appear in the client history as operations on a reserved key
    that the KV model ignores; the simulator records the configuration in effect at each node as an
    observation, so the checkers do not read it from the node's own report.
-7. **The structural measure (P6-02) stays in this phase as a bounded measurement, or moves.** It has
-   no dependency on membership, and if no structural quantity separates decided from undecided keys,
-   the honest outcome is a spec statement of the limit without a measure. Recommended: keep it here,
-   bounded to one prediction and one measurement over the soak's keys; if it fails, the row is
-   re-promised with what was learned, by your decision, not mine.
 
 ## Tasks
 
@@ -82,16 +91,7 @@ as register rows: the phase cannot be complete with rows promised to it left ope
 - **Vacuity:** A fixed-cost change that removes a baseline check removes the proof that a target passes unpatched, so a red result says nothing about the patch. Guarded: `HarnessScopeTests` requires every baseline unit on exactly one worker, for any worker count (S-harness-2), and any change keeps every target's baseline. Sabotages: S-harness-3, the costliest unit assigned last again, measured: the slowest worker's ready time rises.
 - **Sabotage:** S-harness-3
 - **Verifiable here:** partial — the order and the split locally; the cost that matters on GitHub's runners only
-- **Prediction:** On GitHub the slowest worker's ready time is set by one baseline unit in every shard that holds a `Raft.Scale.Tests` target, and longest-first assignment lowers the slowest shard's harness clock by at least 60 s without changing any entry's cost. **Observable:** the per-worker split lines in the sabotage jobs of two CI runs, before and after.
-- **Outcome:** pending
-
-### P6-02 — A structural measure of linearizability-checking cost
-
-- **Task:** The register row (P6): over the soak's 60,000 keys, find a structural quantity of a key's sub-history that separates the searches the WGL checker decides within the budget from those it cannot, or show that none of the candidates does and state the limit without one. P5-05 measured that no per-key count separates them. Candidates, each a function of the history alone: the largest number of operations pending at one instant (the concurrency width), the number of indeterminate writes overlapping one another in real time, and the number of distinct values an observed read could have seen. KL-1 is the case it must explain. Bounded by decision 7.
-- **Vacuity:** A quantity that separates the five hardest keys by construction (chosen after looking at them) proves nothing about the next one. Guarded: the candidates are fixed in this breakdown, before the measurement; each is measured over all 60,000 keys, and a separation is claimed only as a threshold that holds on every decided and every undecided key. Sabotages: S-cost-1, the width computed over completed operations only, ignoring indeterminate ones: the measure stops separating KL-1.
-- **Sabotage:** S-cost-1
-- **Verifiable here:** yes — the soak's histories regenerate locally
-- **Prediction:** The concurrency width counted with indeterminate operations open to the end of the history separates them: every undecided key has a width at least 4 above the largest width of any key decided in under 1,000,000 states, because an operation that never responds stays concurrent with everything after it, and the search's frontier is exponential in the number of operations concurrent at once. **Observable:** the width distribution of decided and undecided keys over the soak, and KL-1's width against the decided maximum.
+- **Prediction:** **Revised at approval, before the task starts**, because the same soak varied 38% between two GitHub runners on identical code: a prediction about a duration compared across runs is unfalsifiable at that spread, so this one is stated within a run. On GitHub, in every shard holding a `Raft.Scale.Tests` target, the slowest worker's ready time exceeds its own baseline build plus the costliest single baseline unit by at least 20 s today (other units queued behind or ahead of it on the same worker), and longest-first assignment brings that excess under 10 s in every shard, without changing any entry's cost. **Observable:** the per-worker split lines in one CI run before and one after, each shard's excess computed within its own run.
 - **Outcome:** pending
 
 ### P6-03 — A configuration is a log entry, durable and recovered
@@ -163,12 +163,12 @@ as register rows: the phase cannot be complete with rows promised to it left ope
 - **Vacuity:** A soak whose membership requests are mostly refused (decision 4) or never complete checks one configuration in most executions. Guarded: the report gives completed changes per execution, and a floor on executions with at least one completed change. Sabotages: S-soak-7, membership requests dropped from the soak's workload: the completed-change floor goes red.
 - **Sabotage:** S-soak-7
 - **Verifiable here:** partial — a local soak run; the CI job only in CI
-- **Prediction:** Membership changes add under 10% to the soak's duration, because they are a few operations per execution and the checker ignores the reserved key; and at least one new undecided linearizability search appears, because a change lengthens the window in which writes are indeterminate (a leader stepping down at `C_new` leaves its in-flight writes unanswered). **Observable:** the soak job's duration on GitHub against the phase-5 head, and the undecided count with KL-1 excluded.
+- **Prediction:** **Revised at approval, before the task starts:** no duration is predicted, because the same soak took 924 s and 1,275 s on two GitHub runners (P5): at a 38% spread a duration prediction cannot be wrong. Instead, deterministic quantities: membership changes raise the checker's total states explored over the soak, KL-1 excluded, by under 10%, because they are a few operations per execution and the checker ignores the reserved key; and at least one new undecided linearizability search appears, because a change lengthens the window in which writes are indeterminate (a leader stepping down at `C_new` leaves its in-flight writes unanswered). **Observable:** the soak's reported states explored against the phase-5 head's (same seeds, deterministic), and the undecided count with KL-1 excluded; the duration is reported, not predicted.
 - **Outcome:** pending
 
 ## Sabotage ids
 
-New series: S-range (P6-00), S-cost (P6-02), S-cfg (P6-03), S-joint (P6-04), S-member (P6-05..07,
+New series: S-range (P6-00), S-cfg (P6-03), S-joint (P6-04), S-member (P6-05..07,
 P6-09). S-harness-3 follows S-harness-1..2, S-disrupt-4 follows S-disrupt-1..3, S-cov-11 follows
 S-cov-1..10, S-soak-7 follows S-soak-1..6. Each id's `sabotage/<id>/` entry lands in the same commit
 as the check it proves, and is run on that commit before it is pushed.
