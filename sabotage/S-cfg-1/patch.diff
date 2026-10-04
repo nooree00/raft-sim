@@ -1,0 +1,44 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -85,6 +85,7 @@
+     private long _commitIndex;
+     private long _lastApplied;
+     private readonly Configuration _initial;
++    private Configuration? _cached;
+ 
+     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
+     {
+@@ -133,16 +134,16 @@
+     {
+         get
+         {
+-            for (var i = _log.LastIndex; i >= 1; i--)
++            if (_cached is null)
+             {
+-                var command = _log.At(i).Command;
+-                if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)
++                _cached = _initial;
++                for (var i = 1L; i <= _log.LastIndex; i++)
+                 {
+-                    return c;
++                    _cached = Configuration.Decode(_log.At(i).Command) ?? _cached;
+                 }
+             }
+ 
+-            return _initial;
++            return _cached;
+         }
+     }
+ 
+@@ -345,6 +346,11 @@
+             }
+ 
+             effects.Add(_log.Append(rest));
++            foreach (var e in rest)
++            {
++                _cached = Configuration.Decode(e.Command) ?? Configuration;
++            }
++
+             break;
+         }
+ 

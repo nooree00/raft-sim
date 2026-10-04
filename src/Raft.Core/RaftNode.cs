@@ -84,6 +84,7 @@ public sealed class RaftNode : INode
     private long _sinceLeader;
     private long _commitIndex;
     private long _lastApplied;
+    private readonly Configuration _initial;
 
     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
     {
@@ -115,9 +116,35 @@ public sealed class RaftNode : INode
         _term = recovery.State.Term;
         _votedFor = recovery.State.VotedFor;
         _timeout = NextTimeout();
+        var members = new List<NodeId> { context.Id };
+        members.AddRange(context.Peers);
+        _initial = new Configuration(members);
     }
 
     public Role Role { get; private set; }
+
+    /// <summary>
+    /// The configuration in effect: the latest configuration entry in the log, else the initial one
+    /// (P6 decisions 1, 2). Read from the log every time, never cached: a truncation that removes a
+    /// configuration entry must take its effect with it, and the log is the one place that knows
+    /// (P6-03's prediction: a value cached on append survived the truncation).
+    /// </summary>
+    public Configuration Configuration
+    {
+        get
+        {
+            for (var i = _log.LastIndex; i >= 1; i--)
+            {
+                var command = _log.At(i).Command;
+                if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)
+                {
+                    return c;
+                }
+            }
+
+            return _initial;
+        }
+    }
 
     public IReadOnlyList<Effect> Handle(Input input)
     {
@@ -395,6 +422,12 @@ public sealed class RaftNode : INode
             return;
         }
 
+        if (Configuration.IsInternal(c.Payload.ToArray()))
+        {
+            effects.Add(new ClientResponse(c.RequestId, Ascii("reserved|")));
+            return;
+        }
+
         if (c.Payload.Length > _options.MaxCommandBytes)
         {
             effects.Add(new ClientResponse(c.RequestId, Ascii("too-large|" + _options.MaxCommandBytes.ToString(CultureInfo.InvariantCulture))));
@@ -417,7 +450,7 @@ public sealed class RaftNode : INode
         {
             _lastApplied++;
             var entry = _log.At(_lastApplied);
-            var result = entry.Command.Length == 0 ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(entry.Command);
+            var result = entry.Command.Length == 0 || Configuration.IsInternal(entry.Command) ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(entry.Command);
             effects.Add(Event("apply", new Field("index", N(_lastApplied))));
             if (Role == Role.Leader && _pending.Remove(_lastApplied, out var request))
             {

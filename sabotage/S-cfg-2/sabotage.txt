@@ -1,0 +1,6 @@
+description: The configuration in effect is taken from the latest committed configuration entry, not the latest appended (P6 decision 1)
+mechanism: the scan for the configuration in effect starts at the commit index instead of the last index
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ConfigurationTests.AnAppendedConfigurationIsInEffectBeforeItCommits
+expect: caught

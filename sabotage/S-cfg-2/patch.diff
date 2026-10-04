@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -133,7 +133,7 @@
+     {
+         get
+         {
+-            for (var i = _log.LastIndex; i >= 1; i--)
++            for (var i = _commitIndex; i >= 1; i--)
+             {
+                 var command = _log.At(i).Command;
+                 if (Configuration.IsInternal(command) && Configuration.Decode(command) is { } c)

@@ -1,0 +1,6 @@
+description: The configuration in effect is cached when entries are appended and never reverted when a truncation removes the entry that set it
+mechanism: a configuration cached on append survives the truncation of its entry
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ConfigurationTests.ATruncatedConfigurationEntryRevertsTheConfiguration
+expect: caught
