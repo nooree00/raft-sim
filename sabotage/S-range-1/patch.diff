@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -148,8 +148,6 @@
+                 return repo.Git("rev-parse", since).StdOut.Trim();
+             }
+ 
+-            f.Fail($"'{since}' (the previous push's head) is not in the history and could not be fetched from origin by SHA ({fetch.StdErr.Trim()}): the commits since the previous push cannot be determined. Not widened to the merge-base with {baseRef}, which checks a different set of commits (register: each-commit-list's silent fallback)");
+-            return null;
+         }
+ 
+         var mb = repo.Git("merge-base", "HEAD", baseRef);

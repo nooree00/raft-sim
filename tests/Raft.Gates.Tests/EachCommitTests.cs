@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Raft.Gates;
 using Xunit;
@@ -54,17 +55,87 @@ public sealed class EachCommitTests
         }
     }
 
-    [Theory]
-    [InlineData("0000000000000000000000000000000000000000")]
-    [InlineData("1234567890abcdef1234567890abcdef12345678")]
-    public void AnAllZeroOrUnknownStartFallsBackToTheMergeBase(string since)
+    [Fact]
+    public void AnAllZeroStartIsANewBranchAndFallsBackToTheMergeBase()
     {
-        var (g, b) = History(middleGreen: false);
+        var (g, _) = History(middleGreen: false);
         using (g)
         {
-            var f = EachCommit.Run(g.Repo, ["--since", since, "--base", "main-copy", "--check", Check]);
+            var f = EachCommit.Run(g.Repo, ["--since", "0000000000000000000000000000000000000000", "--base", "main-copy", "--check", Check]);
 
             Assert.Contains(f.Failures, m => m.Contains("red  middle", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// P6-00: an unknown previous head that cannot be fetched fails, naming what it could not
+    /// determine; widening to the merge-base answered a different question (run 37146478876:
+    /// 143 commits back to phase 0, none of the rewritten ones checked). Sabotage S-range-1.
+    /// </summary>
+    [Fact]
+    public void AnUnknownStartThatCannotBeFetchedFailsRatherThanWidening()
+    {
+        var (g, _) = History(middleGreen: true);
+        using (g)
+        {
+            var f = EachCommit.Run(g.Repo, ["--since", "1234567890abcdef1234567890abcdef12345678", "--base", "main-copy", "--check", Check]);
+
+            Assert.Contains(f.Failures, m => m.Contains("could not be fetched from origin by SHA", StringComparison.Ordinal));
+            Assert.DoesNotContain(f.Notes, n => n.Contains(" ok ", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// A force-push as CI sees it: a fresh clone of a remote whose history was rewritten, the old
+    /// head on no ref and so not in the clone. Fetched by SHA, the range is exactly the rewritten
+    /// commits; once the remote has collected the old head, the command fails. Sabotage S-range-2 (no fetch: the rewrite fails like an unknown start).
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AForcePushesOldHeadIsFetchedBySha(bool oldHeadStillAtTheRemote)
+    {
+        using var origin = new GitFixture();
+        origin.Write("Raft.slnx", "<Solution />").Write("ok", "").Commit("base");
+        var kept = origin.Write("a", "1").Commit("kept");
+        var oldHead = origin.Write("b", "1").Commit("old head");
+        origin.Git("reset", "-q", "--hard", kept);
+        origin.Git("reflog", "expire", "--expire=now", "--all");
+        var rewritten = origin.Write("b", "2").Commit("rewritten");
+        var newHead = origin.Write("c", "1").Commit("new head");
+        if (!oldHeadStillAtTheRemote)
+        {
+            origin.Git("gc", "-q", "--prune=now");
+        }
+
+        var clone = Path.Combine(Path.GetTempPath(), "gates-clone-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Assert.True(Proc.Run("git", Path.GetTempPath(), "clone", "-q", "file://" + origin.Root, clone).Ok);
+            Assert.False(Proc.Run("git", clone, "cat-file", "-e", oldHead + "^{commit}").Ok);
+
+            var f = EachCommit.Run(Repo.Locate(clone), ["--since", oldHead, "--base", "origin/main", "--check", Check]);
+
+            if (oldHeadStillAtTheRemote)
+            {
+                Assert.Empty(f.Failures);
+                Assert.Contains(f.Notes, n => n.StartsWith($"range {oldHead[..7]}..{newHead[..7]}: 2 commit(s)", StringComparison.Ordinal));
+                Assert.Contains(f.Notes, n => n.StartsWith(rewritten[..7] + " ok", StringComparison.Ordinal));
+            }
+            else
+            {
+                Assert.Contains(f.Failures, m => m.Contains("could not be fetched from origin by SHA", StringComparison.Ordinal));
+            }
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(clone, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
         }
     }
 

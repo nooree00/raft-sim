@@ -8,9 +8,12 @@ namespace Raft.Gates;
 /// <summary>
 /// Spec §12, "every commit green", run locally: GitHub Actions runs only a push's head, so this runs
 /// the checks of every other commit in the pushed range, each with that commit's own scripts, in a
-/// worktree, one after another. CI runs the same checks as a matrix (EachCommitMatrix). `--since` is the push's `before` SHA. When that is all zeros (a new branch) or
-/// not in the fetched history (after a force-push), the range falls back to the merge-base with
-/// origin/main.
+/// worktree, one after another. CI runs the same checks as a matrix (EachCommitMatrix). `--since` is the push's `before` SHA. When that is all zeros (a new branch),
+/// the range is the commits since the merge-base with origin/main. When it is not in the fetched
+/// history (after a force-push), it is fetched from origin by SHA, and `before..head` is then the
+/// commits since the previous push (for a rewrite, since the point it forked); if it cannot be
+/// fetched the command fails, naming what it could not determine, rather than widening to the
+/// merge-base, which answers a different question (P6-00; register: the silent fallback).
 /// Vacuity risk: an empty range checks nothing — so a range that should hold commits but resolves
 /// to none fails, and the command reports exactly which commits it checked.
 /// </summary>
@@ -127,10 +130,26 @@ internal static class EachCommit
 
     internal static string? ResolveStart(Repo repo, string since, string baseRef, Findings f)
     {
-        var known = since.Length > 0 && since.Trim('0').Length > 0 && repo.Git("cat-file", "-e", since + "^{commit}").Ok;
-        if (known)
+        bool Known() => repo.Git("cat-file", "-e", since + "^{commit}").Ok;
+        var newBranch = since.Trim('0').Length == 0;
+        if (!newBranch && Known())
         {
             return repo.Git("rev-parse", since).StdOut.Trim();
+        }
+
+        if (!newBranch)
+        {
+            // A force-push: the previous head is on no ref, so no fetch brought it. GitHub (and a
+            // remote allowing any SHA in a want) still serves it by SHA.
+            var fetch = repo.Git("fetch", "-q", "--no-tags", "origin", since);
+            if (fetch.Ok && Known())
+            {
+                f.Note($"'{since[..Math.Min(7, since.Length)]}' (the previous push's head) fetched from origin by SHA: the range is the commits since it, for a rewrite those since the point it forked");
+                return repo.Git("rev-parse", since).StdOut.Trim();
+            }
+
+            f.Fail($"'{since}' (the previous push's head) is not in the history and could not be fetched from origin by SHA ({fetch.StdErr.Trim()}): the commits since the previous push cannot be determined. Not widened to the merge-base with {baseRef}, which checks a different set of commits (register: each-commit-list's silent fallback)");
+            return null;
         }
 
         var mb = repo.Git("merge-base", "HEAD", baseRef);
@@ -140,7 +159,7 @@ internal static class EachCommit
             return null;
         }
 
-        f.Note($"'{(since.Length == 0 ? "(none)" : since[..Math.Min(7, since.Length)])}' is not in the history; using the merge-base with {baseRef}");
+        f.Note($"'{(since.Length == 0 ? "(none)" : since[..Math.Min(7, since.Length)])}': a new branch; the range is the commits since the merge-base with {baseRef}");
         return mb.StdOut.Trim();
     }
 }

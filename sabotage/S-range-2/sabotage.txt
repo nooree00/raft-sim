@@ -1,0 +1,6 @@
+description: each-commit-list never fetches a force-pushed previous head by SHA, so every history rewrite fails as unknown
+mechanism: the fetch by SHA asks for a commit that does not exist instead of the previous head
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AForcePushesOldHeadIsFetchedBySha(oldHeadStillAtTheRemote: True)
+expect: caught

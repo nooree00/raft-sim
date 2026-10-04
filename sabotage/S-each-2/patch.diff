@@ -1,11 +1,9 @@
-diff --git a/tools/Raft.Gates/EachCommit.cs b/tools/Raft.Gates/EachCommit.cs
-index 593310f..ffd4270 100644
 --- a/tools/Raft.Gates/EachCommit.cs
 +++ b/tools/Raft.Gates/EachCommit.cs
-@@ -100,6 +100,6 @@ internal static class EachCommit
+@@ -160,6 +160,6 @@
          }
  
-         f.Note($"'{(since.Length == 0 ? "(none)" : since[..Math.Min(7, since.Length)])}' is not in the history; using the merge-base with {baseRef}");
+         f.Note($"'{(since.Length == 0 ? "(none)" : since[..Math.Min(7, since.Length)])}': a new branch; the range is the commits since the merge-base with {baseRef}");
 -        return mb.StdOut.Trim();
 +        return repo.Git("rev-parse", "HEAD").StdOut.Trim();
      }

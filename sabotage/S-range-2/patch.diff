@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -141,7 +141,7 @@
+         {
+             // A force-push: the previous head is on no ref, so no fetch brought it. GitHub (and a
+             // remote allowing any SHA in a want) still serves it by SHA.
+-            var fetch = repo.Git("fetch", "-q", "--no-tags", "origin", since);
++            var fetch = repo.Git("fetch", "-q", "--no-tags", "origin", "0000000000000000000000000000000000000000");
+             if (fetch.Ok && Known())
+             {
+                 f.Note($"'{since[..Math.Min(7, since.Length)]}' (the previous push's head) fetched from origin by SHA: the range is the commits since it, for a rewrite those since the point it forked");

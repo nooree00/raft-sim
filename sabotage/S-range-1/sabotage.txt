@@ -1,0 +1,6 @@
+description: each-commit-list widens to the merge-base with origin/main again when the previous push's head cannot be found
+mechanism: an unresolvable previous head falls through to the merge-base fallback instead of failing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AnUnknownStartThatCannotBeFetchedFailsRatherThanWidening
+expect: caught
