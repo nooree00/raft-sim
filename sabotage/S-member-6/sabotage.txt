@@ -1,0 +1,7 @@
+description: A membership change appends C_new directly, without C_old,new: the paper's Figure 10, this phase's positive control (P6-09)
+mechanism: both places that append C_old,new append the target configuration instead
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.ADirectChangeWouldElectTwoLeadersAndTheJointConfigurationElectsOne
+reason: term 2: elected n3
+expect: caught

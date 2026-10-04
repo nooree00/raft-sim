@@ -1,0 +1,22 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+index 9cebad9..a2321d2 100644
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -481,7 +481,7 @@ public sealed class RaftNode : INode
+         _membershipRequest = requestId;
+         if (NewServers(current, target).Count == 0)
+         {
+-            AppendConfiguration(new Configuration(current.Old, target.Old), effects);
++            AppendConfiguration(target, effects);
+             return;
+         }
+ 
+@@ -534,7 +534,7 @@ public sealed class RaftNode : INode
+         }
+ 
+         _catchingUp = null;
+-        AppendConfiguration(new Configuration(current.Old, target.Old), effects);
++        AppendConfiguration(target, effects);
+     }
+ 
+     private void AppendConfiguration(Configuration c, List<Effect> effects)

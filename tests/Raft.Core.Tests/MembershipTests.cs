@@ -229,4 +229,50 @@ public sealed class MembershipTests
         Assert.True(n4.Count >= length - RaftOptions.Default.MaxEntriesPerAppend, $"n4 held {n4.Count} of {length} entries when C_old,new was appended");
         Judged(c);
     }
+
+    /// <summary>
+    /// P6-09, the positive control: the paper's Figure 10. Three servers become five while a partition
+    /// separates a majority of `C_old` (n2, n3) from a majority of `C_new` (n1, n4, n5), with the
+    /// change on the new side only. Each side elects in term 2. A node that switched directly to
+    /// `C_new` would hold two leaders in that term; with `C_old,new` in between, n4's candidacy also
+    /// needs a majority of `C_old`, which its side lacks, and only n3 is elected. The construction
+    /// asserts that both majorities did grant in term 2 before it asserts the verdict, so a partition
+    /// that failed to separate them cannot pass for safety. Sabotage S-member-6 (the change appends
+    /// `C_new` directly).
+    /// </summary>
+    [Fact]
+    public void ADirectChangeWouldElectTwoLeadersAndTheJointConfigurationElectsOne()
+    {
+        var c = Led(spares: [N4, N5]);
+        c.Client(N1, "Member|1,2,3,4,5");
+        Rounds(c, N1, 4, N1, N4, N5);
+        Assert.Equal(new[] { N1, N2, N3, N4, N5 }, c.ConfigurationOf(N4).Members.OrderBy(m => m.Value).ToArray());
+        Assert.Equal(new Configuration([N1, N2, N3]), c.ConfigurationOf(N2));
+
+        // The partition: n1's messages to n2 and n3 are lost with it. n1 and n5 restart, so neither
+        // still believes in n1's leadership (the disruption rule would have them ignore n4 within the
+        // minimum election timeout, and a timeout of exactly that length leaves no tick in between).
+        c.Crash(N1);
+        c.Crash(N5);
+        c.Restart(N1);
+        c.Restart(N5);
+
+        // The old side: n2 waits out the rule's window below its own timeout, and n3 stands.
+        c.Tick(N2, 160);
+        c.Stand(N3, above: 1);
+        c.Settle(N2, N3);
+
+        // The new side: n4 stands in the same term.
+        Assert.Equal(2, c.Stand(N4, above: 1));
+        c.Settle(N1, N4, N5);
+
+        var (elections, _) = c.Histories();
+        bool Granted(NodeId from, NodeId to) => elections.Deliveries.Any(d => d.From == from && d.To == to && d.Message is RequestVoteResponse { VoteGranted: true } r && r.Term == new Term(2));
+        Assert.True(Granted(N2, N3), "the old majority did not grant n3 in term 2: the construction does not separate the majorities");
+        Assert.True(Granted(N1, N4) && Granted(N5, N4), "the new majority did not grant n4 in term 2: the construction does not separate the majorities");
+
+        Judged(c);
+        Assert.Equal(Role.Leader, c.RoleOf(N3));
+        Assert.NotEqual(Role.Leader, c.RoleOf(N4));
+    }
 }
