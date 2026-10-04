@@ -46,11 +46,37 @@ internal sealed class ElectionHistory
 
     public int Quorum => (ClusterSize / 2) + 1;
 
+    /// <summary>The configuration before any configuration entry: servers 1 to <see cref="ClusterSize"/>.</summary>
+    public Configuration Initial { get; }
+
+    /// <summary>
+    /// Each node's configuration in effect when it changed (P6-04, decision 6): read from the log writes
+    /// the node issued, as the simulator observed them, never from the node's report. After a crash it
+    /// is the durable log's, as the node's recovery will find it.
+    /// </summary>
+    public List<(long Seq, NodeId Node, Configuration Config)> Configurations { get; } = [];
+
     public long Undecodable { get; private set; }
 
     public ElectionHistory(IEnumerable<Observation> observations, int clusterSize)
     {
         ClusterSize = clusterSize;
+        Initial = new Configuration(Enumerable.Range(1, clusterSize).Select(i => new NodeId(i)));
+        var intendedLog = new Dictionary<NodeId, LogHistory.FileView>();
+        var durableLog = new Dictionary<NodeId, LogHistory.FileView>();
+        var current = new Dictionary<NodeId, Configuration>();
+        var restarting = new HashSet<NodeId>();
+        LogHistory.FileView View(Dictionary<NodeId, LogHistory.FileView> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new LogHistory.FileView();
+        void Note(long at, NodeId n)
+        {
+            var c = View(intendedLog, n).InEffect(Initial);
+            if (!current.TryGetValue(n, out var was) || was != c)
+            {
+                current[n] = c;
+                Configurations.Add((at, n, c));
+            }
+        }
+
         var byId = new Dictionary<long, Message>();
         var termVote = new Dictionary<NodeId, List<byte>>();
         long seq = 0;
@@ -92,12 +118,37 @@ internal sealed class ElectionHistory
                     var rec = TermVoteLog.Recover(a.Data.ToArray());
                     Intended.Add(new Durable(seq, i.Time, i.Node, rec.State, rec.Path));
                     break;
+                case IssuedObservation { Op: { File: EntryLog.FileName } op } i:
+                    restarting.Remove(i.Node);
+                    View(intendedLog, i.Node).Apply(op);
+                    Note(seq, i.Node);
+                    break;
+                case DurableObservation { File: EntryLog.FileName } du:
+                    if (du.Completed is { } done)
+                    {
+                        View(durableLog, du.Node).Apply(done);
+                    }
+                    else
+                    {
+                        View(durableLog, du.Node).Replace(du.Content?.ToArray() ?? []);
+                    }
+
+                    if (restarting.Contains(du.Node))
+                    {
+                        intendedLog[du.Node] = View(durableLog, du.Node).Copy();
+                        Note(seq, du.Node);
+                    }
+
+                    break;
                 case StartObservation st:
                     Liveness.Add((st.Time, st.Node, true));
                     break;
                 case CrashObservation c:
                     Liveness.Add((c.Time, c.Node, false));
                     CrashSeqs.Add((seq, c.Time, c.Node));
+                    intendedLog[c.Node] = View(durableLog, c.Node).Copy();
+                    restarting.Add(c.Node);
+                    Note(seq, c.Node);
                     break;
             }
         }
@@ -124,9 +175,18 @@ internal sealed class ElectionHistory
             .Concat(States.Select(s => (s.Seq, s.Time, Kind: 1, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
             .Concat(Intended.Select(s => (s.Seq, s.Time, Kind: 2, s.Node, s.State.Term, Voter: s.Node, State: (TermVoteState?)s.State)))
             .Concat(CrashSeqs.Select(c => (c.Seq, c.Time, Kind: 3, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
-            .OrderBy(e => e.Seq);
+            .Concat(Configurations.Select(c => (c.Seq, Time: 0L, Kind: 4, c.Node, Term.Zero, Voter: c.Node, State: (TermVoteState?)null)))
+            .OrderBy(e => e.Seq).ThenByDescending(e => e.Kind == 4);
+        var configs = Configurations.ToLookup(c => (c.Seq, c.Node), c => c.Config);
+        var config = new Dictionary<NodeId, Configuration>();
         foreach (var (seq, time, kind, node, term, voter, state) in events)
         {
+            if (kind == 4)
+            {
+                config[node] = configs[(seq, node)].Last();
+                continue;
+            }
+
             if (kind == 3)
             {
                 issuedSinceCrash.Remove(node);
@@ -166,7 +226,9 @@ internal sealed class ElectionHistory
                 voters[key] = set = [];
             }
 
-            if (set.Add(voter) && set.Count >= Quorum && !elected.ContainsKey(key))
+            // A majority of every configuration in effect at the candidate (P6-04): during joint
+            // consensus both, and a server outside them counts for nothing.
+            if (set.Add(voter) && config.GetValueOrDefault(node, Initial).IsQuorum(set.ToList()) && !elected.ContainsKey(key))
             {
                 elected[key] = time;
                 if (bySeq is not null)

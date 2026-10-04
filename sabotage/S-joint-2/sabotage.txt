@@ -1,0 +1,6 @@
+description: During joint consensus an election counts only the old configuration's majority
+mechanism: the election checker asks a quorum of C_old alone where C_old,new is in effect at the candidate
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ElectionInvariantTests.DuringJointConsensusAnElectionNeedsAMajorityOfBothConfigurations
+expect: caught

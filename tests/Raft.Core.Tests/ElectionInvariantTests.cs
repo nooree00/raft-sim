@@ -80,6 +80,13 @@ public sealed class ElectionInvariantTests
             return this;
         }
 
+        /// <summary>The node issues a log write holding one configuration entry (P6-04): its configuration in effect from then on.</summary>
+        public Trace Configure(long t, NodeId node, Configuration c)
+        {
+            _o.Add(new IssuedObservation(t, node, new LogStore(EntryLog.Recover(null)).Append([new LogEntry(new Term(1), c.Encode())])));
+            return this;
+        }
+
         public Trace Start(long t, NodeId node)
         {
             _o.Add(new StartObservation(t, node, 2));
@@ -274,5 +281,45 @@ public sealed class ElectionInvariantTests
 
         Assert.Equal(0, ElectionInvariants.ElectionSafety(inFlight, ActWithin).Count("elections"));
         Assert.Equal(1, ElectionInvariants.ElectionSafety(lostThenGranted, ActWithin).Count("elections"));
+    }
+
+    private static readonly NodeId N4 = new(4), N5 = new(5);
+
+    /// <summary>
+    /// P6-04 trace (a): during joint consensus a candidate needs a majority of both configurations.
+    /// n1 holds `{n1,n2,n3}->{n1,n4,n5}`: its vote and n2's are a majority of the old configuration
+    /// only. The twin without the configuration entry is elected, and so is n1 once n4 grants too.
+    /// Sabotage S-joint-2 (the old configuration only).
+    /// </summary>
+    [Fact]
+    public void DuringJointConsensusAnElectionNeedsAMajorityOfBothConfigurations()
+    {
+        var joint = new Configuration([N1, N2, N3], [N1, N4, N5]);
+        Trace Win(bool configured, bool n4Grants)
+        {
+            var t = new Trace();
+            if (configured)
+            {
+                t.Configure(5, N1, joint);
+            }
+
+            t.Persist(10, N1, 2, N1).Persist(13, N2, 2, N1).Grant(14, N2, N1, 2);
+            return n4Grants ? t.Grant(15, N4, N1, 2) : t;
+        }
+
+        Assert.DoesNotContain((new Term(2), N1), Win(configured: true, n4Grants: false).History().Elections().Keys);
+        Assert.Contains((new Term(2), N1), Win(configured: false, n4Grants: false).History().Elections().Keys);
+        Assert.Contains((new Term(2), N1), Win(configured: true, n4Grants: true).History().Elections().Keys);
+    }
+
+    /// <summary>P6-04 trace (d): a server outside the candidate's configuration in effect counts for nothing.</summary>
+    [Fact]
+    public void AVoteFromAServerOutsideTheConfigurationCountsForNothing()
+    {
+        var replaced = new Configuration([N1, N2, N4]);
+        ElectionHistory Win(NodeId voter) => new Trace().Configure(5, N1, replaced).Persist(10, N1, 2, N1).Persist(13, voter, 2, N1).Grant(14, voter, N1, 2).History();
+
+        Assert.DoesNotContain((new Term(2), N1), Win(N3).Elections().Keys);
+        Assert.Contains((new Term(2), N1), Win(N2).Elections().Keys);
     }
 }

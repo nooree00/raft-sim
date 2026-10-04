@@ -1,0 +1,6 @@
+description: During joint consensus commitment in fact counts only the new configuration's majority
+mechanism: commitment in fact asks a quorum of C_new alone where C_old,new is in effect
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.DuringJointConsensusACommitNeedsAMajorityOfBothConfigurations
+expect: caught

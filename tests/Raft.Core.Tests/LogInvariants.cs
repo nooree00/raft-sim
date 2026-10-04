@@ -57,7 +57,8 @@ internal sealed class LogHistory
 
     public int ClusterSize { get; }
 
-    public int Quorum => (ClusterSize / 2) + 1;
+    /// <summary>The configuration before any configuration entry: servers 1 to <see cref="ClusterSize"/>.</summary>
+    public Configuration Initial => new(Enumerable.Range(1, ClusterSize).Select(i => new NodeId(i)));
 
     public IReadOnlyList<Event> Events { get; }
 
@@ -145,6 +146,9 @@ internal sealed class LogHistory
 
         public int Count => _entries.Count;
 
+        /// <summary>The configuration this log puts in effect (P6 decisions 1, 2): its latest configuration entry, else <paramref name="initial"/>.</summary>
+        public Configuration InEffect(Configuration initial) => Configuration.InEffect(initial, _entries.Select(e => e.Command));
+
         public FileView Copy() => new() { _bytes = (byte[])_bytes.Clone(), _length = _length, _entries = [.. _entries], _valid = _valid };
 
         public (long TruncateFrom, List<LogEntryAt> Append) Apply(Persist op)
@@ -223,7 +227,13 @@ internal sealed class LogHistory
 internal sealed class LogAnalysis
 {
     /// <summary>An entry as a node holds it: the ghost id, and the term of the leader whose write put this copy there.</summary>
-    private sealed record Held(long Index, Term Term, string Ghost, Term CopyTerm);
+    /// <summary>
+    /// <see cref="Config"/> is the configuration in effect at this index in the log holding it: the
+    /// latest configuration entry at or below it (P6-04). By Log Matching every log holding this
+    /// entry has the same prefix, so it is the configuration of the leader that created the entry
+    /// at the time it did, whatever a log holds above it.
+    /// </summary>
+    private sealed record Held(long Index, Term Term, string Ghost, Term CopyTerm, Configuration Config);
 
     public static readonly string[] Names = ["leader-append-only", "log-matching", "leader-completeness", "state-machine-safety", "committed-durable", "no-spurious-commit", "entry-uniqueness"];
 
@@ -237,7 +247,7 @@ internal sealed class LogAnalysis
     private readonly Dictionary<(Term, long), int> _creations = [];
     private readonly Dictionary<string, byte[]> _commands = [];
     private readonly Dictionary<(NodeId, long, Term), (string Ghost, Term CopyTerm)> _lastIssued = [];
-    private readonly List<(string Ghost, Term Term)> _committed = [];
+    private readonly List<(string Ghost, Term Term, Configuration Config)> _committed = [];
     private readonly List<CommitInFact> _commits = [];
     private readonly Dictionary<NodeId, List<(long Step, Held Entry)>> _removed = [];
     private readonly Dictionary<string, long> _createdAt = new(StringComparer.Ordinal);
@@ -490,7 +500,7 @@ internal sealed class LogAnalysis
                 Lower(i.Node, e.Index - 1);
             }
 
-            log.Add(new Held(e.Index, e.Term, ghost, copyTerm));
+            log.Add(new Held(e.Index, e.Term, ghost, copyTerm, ConfigAfter(log, e.Command)));
             _lastIssued[(i.Node, e.Index, e.Term)] = (ghost, copyTerm);
         }
     }
@@ -519,7 +529,7 @@ internal sealed class LogAnalysis
             }
 
             from = Math.Min(from, e.Index);
-            held.Add(new Held(e.Index, e.Term, x.Ghost, x.CopyTerm));
+            held.Add(new Held(e.Index, e.Term, x.Ghost, x.CopyTerm, ConfigAfter(held, e.Command)));
         }
 
         if (_restarting.Contains(d.Node))
@@ -537,10 +547,10 @@ internal sealed class LogAnalysis
         for (var i = from; i <= _committed.Count; i++)
         {
             var c = _committed[(int)i - 1];
-            var holders = _durable.Values.Count(l => At(l, i)?.Ghost == c.Ghost);
-            if (holders < _h.Quorum && _belowQuorum.Add(i))
+            var holders = _durable.Where(l => At(l.Value, i)?.Ghost == c.Ghost).Select(l => l.Key).ToList();
+            if (!c.Config.IsQuorum(holders) && _belowQuorum.Add(i))
             {
-                Fail("committed-durable", $"entry {N(i)}, committed in fact, is durable on only {N(holders)} node(s) after {d.Node}'s disk changed");
+                Fail("committed-durable", $"entry {N(i)}, committed in fact, is durable on only {N(holders.Count)} node(s) after {d.Node}'s disk changed");
             }
         }
     }
@@ -591,8 +601,10 @@ internal sealed class LogAnalysis
                 continue;
             }
 
-            var copies = _durable.Values.Count(l => At(l, j) is { } x && x.Ghost == e.Ghost && x.CopyTerm == e.Term);
-            if (copies < _h.Quorum)
+            // A quorum of the configuration in effect at this index (P6-04): during joint consensus a
+            // majority of both, a removed server's copy counting for nothing.
+            var copies = _durable.Where(l => At(l.Value, j) is { } x && x.Ghost == e.Ghost && x.CopyTerm == e.Term).Select(l => l.Key).ToList();
+            if (!e.Config.IsQuorum(copies))
             {
                 continue;
             }
@@ -610,7 +622,7 @@ internal sealed class LogAnalysis
                     continue;
                 }
 
-                _committed.Add((ghost, e.Term));
+                _committed.Add((ghost, e.Term, held[(int)p - 1].Config));
                 if (held[(int)p - 1].Term < e.Term)
                 {
                     Counts["committed-in-a-later-term"]++;
@@ -626,6 +638,10 @@ internal sealed class LogAnalysis
             return;
         }
     }
+
+    /// <summary>The configuration in effect after appending an entry with <paramref name="command"/> to <paramref name="log"/>.</summary>
+    private Configuration ConfigAfter(List<Held> log, byte[] command) =>
+        Configuration.IsInternal(command) && Configuration.Decode(command) is { } c ? c : log.Count > 0 ? log[^1].Config : _h.Initial;
 
     /// <summary>Invariant 4: a leader of a higher term holds every entry committed in fact.</summary>
     private void RequireHeld(NodeId leader, Term term, long index, string ghost, string when)

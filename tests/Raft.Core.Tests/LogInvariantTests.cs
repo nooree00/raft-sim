@@ -15,7 +15,7 @@ namespace Raft.Core.Tests;
 /// </summary>
 public sealed class LogInvariantTests
 {
-    private static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3);
+    private static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3), N4 = new(4), N5 = new(5);
 
     /// <summary>
     /// A hand-built execution of three nodes. It records raw events only, as the observation adapter
@@ -25,8 +25,8 @@ public sealed class LogInvariantTests
     private sealed class Trace
     {
         private readonly List<LogHistory.Event> _e = [];
-        private readonly Dictionary<NodeId, List<LogEntryAt>> _logs = new() { [N1] = [], [N2] = [], [N3] = [] };
-        private readonly Dictionary<NodeId, List<LogEntryAt>> _disks = new() { [N1] = [], [N2] = [], [N3] = [] };
+        private readonly Dictionary<NodeId, List<LogEntryAt>> _logs = new() { [N1] = [], [N2] = [], [N3] = [], [N4] = [], [N5] = [] };
+        private readonly Dictionary<NodeId, List<LogEntryAt>> _disks = new() { [N1] = [], [N2] = [], [N3] = [], [N4] = [], [N5] = [] };
         private long _seq, _step, _id;
 
         private long Seq => ++_seq;
@@ -44,11 +44,16 @@ public sealed class LogInvariantTests
         }
 
         /// <summary>The node appends a new entry at the end of its log, in a step of its own (a creation).</summary>
-        public Trace Create(NodeId n, long term, string command = "put x 1", long? at = null)
+        public Trace Create(NodeId n, long term, string command = "put x 1", long? at = null) => Create(n, term, System.Text.Encoding.ASCII.GetBytes(command), at);
+
+        /// <summary>The node appends a configuration entry (P6-04).</summary>
+        public Trace Configure(NodeId n, long term, Configuration c) => Create(n, term, c.Encode(), null);
+
+        private Trace Create(NodeId n, long term, byte[] command, long? at)
         {
             var log = _logs[n];
             var index = at ?? (log.Count + 1);
-            var e = new LogEntryAt(index, new Term(term), System.Text.Encoding.ASCII.GetBytes(command));
+            var e = new LogEntryAt(index, new Term(term), command);
             log.RemoveAll(x => x.Index >= index);
             log.Add(e);
             _e.Add(new LogHistory.Issued(Seq, n, ++_step, 0, [e]));
@@ -261,5 +266,78 @@ public sealed class LogInvariantTests
         Rejects(new Trace().Elect(N1, 1).Create(N1, 1).Create(N1, 1, "put x 2", at: 1).History(), "entry-uniqueness", "(1, 1) was created 2 times");
         Rejects(new Trace().Create(N2, 1).History(), "entry-uniqueness", "n2 created an entry of term 1 at 1 without being that term's leader");
         Holds(new Trace().Elect(N1, 1).Create(N1, 1).Create(N1, 1, "put x 2").History(), "entry-uniqueness");
+    }
+
+    private static readonly Configuration Joint = new([N1, N2, N3], [N1, N4, N5]);
+    private static readonly Configuration NewOnly = new([N1, N4, N5]);
+
+    private static long Committed(LogHistory h) => LogInvariants.Check(h, "no-spurious-commit").Count("entries-committed");
+
+    /// <summary>
+    /// P6-04 trace (b): during joint consensus an entry on a majority of the new configuration but
+    /// not the old is not committed in fact, and stays uncommitted when `C_new` sits above it on the
+    /// disk being examined: the configuration that counts is the one in effect at the entry's index,
+    /// not the latest on a disk (the prediction). The twin, one more copy in the old configuration, commits both.
+    /// Sabotage S-joint-1 (the new configuration only).
+    /// </summary>
+    [Fact]
+    public void DuringJointConsensusACommitNeedsAMajorityOfBothConfigurations()
+    {
+        Trace Joined() => new Trace().Elect(N1, 1).Configure(N1, 1, Joint).Create(N1, 1).Durable(N1)
+            .Replicate(N1, N4, 1).Durable(N4).Replicate(N1, N5, 1).Durable(N5);
+
+        var newOnly = Joined().Configure(N1, 1, NewOnly).Durable(N1).History();
+        Assert.Equal(0, Committed(Joined().History()));
+        Assert.Equal(0, Committed(newOnly));
+        Holds(newOnly);
+        Assert.Equal(2, Committed(Joined().Replicate(N1, N2, 1).Durable(N2).History()));
+
+        // The case that separates the configuration at an index from the latest on a disk: n4 receives
+        // `[C_old,new, put, C_new]` in one write, before `C_new` is durable anywhere else. The put is on
+        // n1, n4 and n5, a majority of `C_new` (the latest configuration on n4's disk) and not of
+        // `C_old,new`, the configuration in effect at its index.
+        var aboveIt = new Trace().Elect(N1, 1).Configure(N1, 1, Joint).Create(N1, 1).Durable(N1).Replicate(N1, N5, 1).Durable(N5)
+            .Configure(N1, 1, NewOnly).Replicate(N1, N4, 1).Durable(N4).History();
+        Assert.Equal(0, Committed(aboveIt));
+    }
+
+    /// <summary>P6-04 trace (c): once `C_new` is in effect, a majority of it suffices; the twin still in joint consensus does not commit.</summary>
+    [Fact]
+    public void AfterTheNewConfigurationAMajorityOfItSuffices()
+    {
+        Trace Joined() => new Trace().Elect(N1, 1).Configure(N1, 1, Joint).Durable(N1)
+            .Replicate(N1, N2, 1).Durable(N2).Replicate(N1, N4, 1).Durable(N4);
+
+        var after = Joined().Configure(N1, 1, NewOnly).Create(N1, 1).Durable(N1).Replicate(N1, N4, 1, prev: 1).Durable(N4).History();
+        Assert.Equal(1, Committed(Joined().History()));
+        Assert.Equal(3, Committed(after));
+        Holds(after);
+        Assert.Equal(1, Committed(Joined().Create(N1, 1).Durable(N1).Replicate(N1, N4, 1, prev: 1).Durable(N4).History()));
+    }
+
+    /// <summary>
+    /// Invariant 6 under a new configuration: an entry committed under `C_new`, left on one member
+    /// and a removed server, fails, though two copies are a majority of the cluster's size (its twin
+    /// below, durable on a majority of `C_new` that no old member holds, holds). Sabotage S-joint-3
+    /// (invariant 6 counts holders against the cluster's size).
+    /// </summary>
+    [Fact]
+    public void ACommittedEntryLeftOnlyOnOneMemberAndARemovedServerIsRejected()
+    {
+        var h = new Trace().Elect(N1, 1).Configure(N1, 1, NewOnly).Create(N1, 1).Durable(N1)
+            .Replicate(N1, N4, 1).Durable(N4).Replicate(N1, N2, 1).Durable(N2).Crash(N4, keep: 0).History();
+
+        Assert.Equal(2, Committed(h));
+        Rejects(h, "committed-durable", "entry 1, committed in fact, is durable on only 2 node(s)");
+    }
+
+    [Fact]
+    public void ACommittedEntryDurableOnAMajorityOfTheNewConfigurationHolds()
+    {
+        var h = new Trace().Elect(N1, 1).Configure(N1, 1, NewOnly).Create(N1, 1).Durable(N1)
+            .Replicate(N1, N4, 1).Durable(N4).Replicate(N1, N5, 1).Durable(N5).History();
+
+        Assert.Equal(2, Committed(h));
+        Holds(h, "committed-durable");
     }
 }

@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/ElectionInvariants.cs
++++ b/tests/Raft.Core.Tests/ElectionInvariants.cs
+@@ -228,7 +228,7 @@
+ 
+             // A majority of every configuration in effect at the candidate (P6-04): during joint
+             // consensus both, and a server outside them counts for nothing.
+-            if (set.Add(voter) && config.GetValueOrDefault(node, Initial).IsQuorum(set.ToList()) && !elected.ContainsKey(key))
++            if (set.Add(voter) && new Configuration(config.GetValueOrDefault(node, Initial).Old).IsQuorum(set.ToList()) && !elected.ContainsKey(key))
+             {
+                 elected[key] = time;
+                 if (bySeq is not null)

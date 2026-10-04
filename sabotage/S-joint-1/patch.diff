@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -604,7 +604,7 @@
+             // A quorum of the configuration in effect at this index (P6-04): during joint consensus a
+             // majority of both, a removed server's copy counting for nothing.
+             var copies = _durable.Where(l => At(l.Value, j) is { } x && x.Ghost == e.Ghost && x.CopyTerm == e.Term).Select(l => l.Key).ToList();
+-            if (!e.Config.IsQuorum(copies))
++            if (!new Configuration(e.Config.New ?? e.Config.Old).IsQuorum(copies))
+             {
+                 continue;
+             }

@@ -1,6 +1,6 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -534,7 +534,7 @@
+@@ -544,7 +544,7 @@
  
          // Invariant 6: every entry committed in fact stays durable on a quorum. Only indices at or
          // above the change can have lost a copy.
@@ -8,4 +8,4 @@
 +        for (var i = from + 1; i <= _committed.Count; i++)
          {
              var c = _committed[(int)i - 1];
-             var holders = _durable.Values.Count(l => At(l, i)?.Ghost == c.Ghost);
+             var holders = _durable.Where(l => At(l.Value, i)?.Ghost == c.Ghost).Select(l => l.Key).ToList();

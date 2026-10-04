@@ -5,7 +5,7 @@
              var c = _committed[(int)i - 1];
              var holders = _durable.Where(l => At(l.Value, i)?.Ghost == c.Ghost).Select(l => l.Key).ToList();
 -            if (!c.Config.IsQuorum(holders) && _belowQuorum.Add(i))
-+            if (!c.Config.IsQuorum(holders.Concat(c.Config.Members.Except(holders).Take(1)).ToList()) && _belowQuorum.Add(i))
++            if (holders.Count < (_h.ClusterSize / 2) + 1 && _belowQuorum.Add(i))
              {
                  Fail("committed-durable", $"entry {N(i)}, committed in fact, is durable on only {N(holders.Count)} node(s) after {d.Node}'s disk changed");
              }

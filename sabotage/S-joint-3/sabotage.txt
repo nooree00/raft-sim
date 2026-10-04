@@ -1,0 +1,6 @@
+description: Invariant 6 counts the holders of a committed entry against the cluster's size, so a removed server's copy keeps it durable
+mechanism: committed-durable compares the number of holders with a majority of the cluster size instead of asking the configuration in effect
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.ACommittedEntryLeftOnlyOnOneMemberAndARemovedServerIsRejected
+expect: caught
