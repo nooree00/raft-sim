@@ -1,0 +1,6 @@
+description: A spare takes its peers plus itself for its initial configuration, ignoring the one it is given, and stands from the start (P6-14)
+mechanism: the node never reads NodeContext.Members
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.MembershipTests.ASpareNeverStandsBeforeAConfigurationIncludesIt
+expect: caught

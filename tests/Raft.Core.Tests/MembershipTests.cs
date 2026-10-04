@@ -275,4 +275,24 @@ public sealed class MembershipTests
         Assert.Equal(Role.Leader, c.RoleOf(N3));
         Assert.NotEqual(Role.Leader, c.RoleOf(N4));
     }
+
+    /// <summary>
+    /// P6-14: a spare is outside the initial configuration and never stands, however long it waits.
+    /// It is ticked well past the maximum election timeout (twice it), so its timer has expired
+    /// whatever its draw; it must send nothing and stay a follower. Until P6-14 a spare took its
+    /// peers (the members) plus itself for its configuration, and stood from the start of every
+    /// generated execution. Sabotage S-member-7.
+    /// </summary>
+    [Fact]
+    public void ASpareNeverStandsBeforeAConfigurationIncludesIt()
+    {
+        var c = new ManualCluster(RaftOptions.Default, spares: [N4, N5]);
+        c.Tick(N4, 2 * RaftOptions.Default.ElectionTimeoutMax);
+        c.Tick(N5, 2 * RaftOptions.Default.ElectionTimeoutMax);
+
+        Assert.Equal(0, c.InFlightFrom(N4));
+        Assert.Equal(0, c.InFlightFrom(N5));
+        Assert.Equal(Role.Follower, c.RoleOf(N4));
+        Assert.Equal(new Configuration([N1, N2, N3]), c.ConfigurationOf(N4));
+    }
 }

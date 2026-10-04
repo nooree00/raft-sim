@@ -21,12 +21,16 @@ public interface IRandomSource
 /// <summary>
 /// Everything a node is built from. <see cref="Files"/> holds its durable files as the disk kept
 /// them after recovery; there is no other way in, so volatile state cannot survive a restart.
+/// <see cref="Members"/> is the initial configuration; null means the node and its peers. A server
+/// started outside it (a spare, P6-14) is given it explicitly, since its peers plus itself would name
+/// a configuration that does not exist.
 /// </summary>
 public sealed record NodeContext(
     NodeId Id,
     IReadOnlyList<NodeId> Peers,
     IRandomSource Random,
-    IReadOnlyDictionary<string, ReadOnlyMemory<byte>> Files);
+    IReadOnlyDictionary<string, ReadOnlyMemory<byte>> Files,
+    IReadOnlyList<NodeId>? Members = null);
 
 /// <summary>Builds a node from its context — at first start and after every crash.</summary>
 public delegate INode NodeFactory(NodeContext context);

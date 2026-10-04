@@ -1,10 +1,8 @@
-diff --git a/src/Raft.Simulation/Simulator.cs b/src/Raft.Simulation/Simulator.cs
-index 63905da..977c1b6 100644
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -509,7 +509,7 @@ public sealed class Simulator
+@@ -555,7 +555,7 @@
          var random = _streams.For(Purpose("node", h.Id, "incarnation", h.Incarnation));
-         h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot()));
+         h.Node = _factory(new NodeContext(h.Id, peers, random, h.Disk.Snapshot(), members));
          h.LastTick = _now;
 -        Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation));
 +        Trace.Add(_now, h.Id.ToString(), "START", ("incarnation", h.Incarnation), ("wall", System.Environment.TickCount64 / 1_000_000));

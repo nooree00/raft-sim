@@ -53,6 +53,9 @@ internal sealed class ManualCluster
 
     public Role RoleOf(NodeId n) => _nodes[n]?.Role ?? Role.Follower;
 
+    /// <summary>The messages <paramref name="n"/> has sent that are still in flight.</summary>
+    public int InFlightFrom(NodeId n) => _inFlight.Count(m => m.From == n);
+
     /// <summary>The node's configuration in effect, as the node holds it (for assertions; the checkers never read it).</summary>
     public Configuration ConfigurationOf(NodeId n) => _nodes[n]!.Configuration;
 
@@ -71,7 +74,7 @@ internal sealed class ManualCluster
     {
         _incarnation[n] = _incarnation.GetValueOrDefault(n) + 1;
         var files = _files[n].ToDictionary(kv => kv.Key, kv => (ReadOnlyMemory<byte>)kv.Value, StringComparer.Ordinal);
-        _nodes[n] = new RaftNode(new NodeContext(n, _members.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset.GetValueOrDefault(n, (ulong)(n.Value * 37))), files), _options, new KvStateMachine());
+        _nodes[n] = new RaftNode(new NodeContext(n, _members.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset.GetValueOrDefault(n, (ulong)(n.Value * 37))), files, _members), _options, new KvStateMachine());
         Observations.Add(new StartObservation(_time, n, _incarnation[n]));
     }
 

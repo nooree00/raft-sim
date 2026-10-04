@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -119,7 +119,7 @@
+         _votedFor = recovery.State.VotedFor;
+         _timeout = NextTimeout();
+         var members = new List<NodeId>();
+-        if (context.Members is { } initial)
++        if (context.Members is { } initial && initial.Count < 0)
+         {
+             members.AddRange(initial);
+         }

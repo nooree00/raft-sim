@@ -77,7 +77,12 @@ public sealed class MembershipSimulationTests
     /// ignores the request and adopts nothing.
     /// Returns the candidacies (requests sent in a removal window) and the adoptions.
     /// </summary>
-    internal static (int Candidacies, int Adoptions) Disruption(ElectionHistory h, List<(NodeId Server, long From, long Until)> removals)
+    /// <remarks>
+    /// The minimum election timeout is the receiver's: a node with a skewed clock (P4-07) measures it on
+    /// its own clock, so a clock 20% fast waits 150 of its units, 125 of the simulation's (P6-14 found the
+    /// measure using the simulation's time, which counted that node's correct adoption as a disruption).
+    /// </remarks>
+    internal static (int Candidacies, int Adoptions) Disruption(ElectionHistory h, List<(NodeId Server, long From, long Until)> removals, FaultSchedule schedule)
     {
         bool Removed(NodeId n, long t) => removals.Any(r => r.Server == n && r.From <= t && t < r.Until);
         var candidacies = h.Sends.Count(s => s.Message is RequestVote && Removed(s.From, s.Time));
@@ -87,15 +92,16 @@ public sealed class MembershipSimulationTests
             var next = h.Intended.Where(i => i.Node == d.To && i.Seq > d.Seq).OrderBy(i => i.Seq).FirstOrDefault();
             var before = h.Intended.Where(i => i.Node == d.To && i.Seq < d.Seq).OrderBy(i => i.Seq).LastOrDefault();
             var term = before?.State.Term ?? new Term(0);
-            var minimum = Cluster.Options.ElectionTimeoutMin;
+            var skew = schedule.Faults.OfType<Skew>().LastOrDefault(k => k.Node == d.To && k.At <= d.Time);
+            bool Within(long since) => (d.Time - since) * (skew?.Numerator ?? 1) < Cluster.Options.ElectionTimeoutMin * (skew?.Denominator ?? 1);
 
             // A disruption is an adoption by a server with a live leader: it led in its term, or heard
             // that term's leader, within the minimum election timeout. Without one, adopting a higher
             // term is how the cluster recovers, and the rule allows it.
             // A crash between the two forgets the leader: the restarted server has heard no one.
             var restarted = h.CrashSeqs.Where(c => c.Node == d.To && c.Seq < d.Seq).Select(c => c.Seq).DefaultIfEmpty(0).Max();
-            var live = h.Sends.Any(s => s.From == d.To && s.Message is AppendEntries && s.Message.Term == term && d.Time - s.Time < minimum && s.Seq > restarted && s.Seq < d.Seq)
-                || h.Deliveries.Any(x => x.To == d.To && x.Message is AppendEntries && x.Message.Term == term && d.Time - x.Time < minimum && x.Seq > restarted && x.Seq < d.Seq);
+            var live = h.Sends.Any(s => s.From == d.To && s.Message is AppendEntries && s.Message.Term == term && Within(s.Time) && s.Seq > restarted && s.Seq < d.Seq)
+                || h.Deliveries.Any(x => x.To == d.To && x.Message is AppendEntries && x.Message.Term == term && Within(x.Time) && x.Seq > restarted && x.Seq < d.Seq);
             // The record must follow from this delivery: a later delivery of a retried request, once the
             // leader is no longer live, is that delivery's adoption, judged on its own.
             var caused = next is not null && !h.Deliveries.Any(x => x.To == d.To && x.Seq > d.Seq && x.Seq < next.Seq);
@@ -146,10 +152,10 @@ public sealed class MembershipSimulationTests
 
     private static (int Candidacies, int Adoptions) Measure(int seed, RaftOptions? options)
     {
-        var (sim, h, _) = Run(seed, options);
+        var (sim, h, schedule) = Run(seed, options);
         var observations = sim.Observations.ToList();
         var log = new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes));
-        return Disruption(h, Removals(observations, h, log));
+        return Disruption(h, Removals(observations, h, log), schedule);
     }
 
     /// <summary>Whether a partition or an isolation was in force at <paramref name="time"/>.</summary>

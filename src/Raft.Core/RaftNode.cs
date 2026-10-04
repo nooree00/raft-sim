@@ -118,8 +118,17 @@ public sealed class RaftNode : INode
         _term = recovery.State.Term;
         _votedFor = recovery.State.VotedFor;
         _timeout = NextTimeout();
-        var members = new List<NodeId> { context.Id };
-        members.AddRange(context.Peers);
+        var members = new List<NodeId>();
+        if (context.Members is { } initial)
+        {
+            members.AddRange(initial);
+        }
+        else
+        {
+            members.Add(context.Id);
+            members.AddRange(context.Peers);
+        }
+
         _initial = new Configuration(members);
     }
 
