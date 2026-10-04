@@ -1,0 +1,7 @@
+description: Network fault rates are per directed link without scaling, so five nodes see about 3.3 times a three-node cluster's network faults (P6-11)
+mechanism: the per-link rate between nodes is not scaled by 6 / (n(n-1))
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.ScheduleTests.AClusterOfAnySizeSeesTheNetworkFaultsThreeNodesDo
+reason: five nodes see
+expect: caught

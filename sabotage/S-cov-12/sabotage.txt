@@ -1,0 +1,6 @@
+description: The isolation detector again requires every started node to have sent to the isolated node and been sent to, which only a leader's isolation produces and a spare or a down peer never does (P6-11)
+mechanism: the isolation check asks for blocked traffic with every other started node
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.CoverageTests.IsolationCountsWhatTheNodeSawNotWhoTriedToReachIt
+expect: caught

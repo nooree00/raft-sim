@@ -97,22 +97,25 @@ public static class Coverage
         var contact = new Dictionary<string, long>(StringComparer.Ordinal);
         var blockedOut = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         var blockedIn = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        var sentTo = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
         void Touch(string n, long t)
         {
             contact[n] = t;
+            sentTo[n] = new HashSet<string>(StringComparer.Ordinal);
             blockedOut[n] = new HashSet<string>(StringComparer.Ordinal);
             blockedIn[n] = new HashSet<string>(StringComparer.Ordinal);
         }
 
-        // Isolated: up throughout, no delivery to or from it for a timeout, and in that time its
-        // sends to every peer and every peer's sends to it were blocked.
+        // Isolated: up throughout, no delivery to or from it for a timeout, and in that time every
+        // send it made was blocked, and at least one send to it was (P6-11). Until P6-11 every peer
+        // had to have sent to it, which only a leader's isolation produces (its followers stand and
+        // ask it for votes), and a server outside every configuration sends to no one.
         void CheckIsolation(string n, long t)
         {
             if (!down.Contains(n) && contact.TryGetValue(n, out var since) && t - since >= limits.Timeout)
             {
-                var peers = nodes.Where(p => p != n).ToList();
-                if (peers.Count > 0 && peers.All(blockedOut[n].Contains) && peers.All(blockedIn[n].Contains))
+                if (sentTo[n].Count > 0 && sentTo[n].All(blockedOut[n].Contains) && blockedIn[n].Count > 0)
                 {
                     hit.Add("node-isolated-for-a-timeout");
                 }
@@ -171,6 +174,11 @@ public static class Coverage
                     CrashEffects(f, hit);
                     break;
                 case "SEND":
+                    if (sentTo.TryGetValue(node, out var addressed))
+                    {
+                        addressed.Add(f["to"]);
+                    }
+
                     linkOf[f["id"]] = (node, f["to"]);
                     sentAt[f["id"]] = now;
                     Add(sendOrder, node + "->" + f["to"], f["id"]);

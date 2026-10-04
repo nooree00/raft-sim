@@ -5,7 +5,7 @@
              if (!down.Contains(n) && contact.TryGetValue(n, out var since) && t - since >= limits.Timeout)
              {
 -                if (sentTo[n].Count > 0 && sentTo[n].All(blockedOut[n].Contains) && blockedIn[n].Count > 0)
-+                if (sentTo[n].Count < 0 && sentTo[n].All(blockedOut[n].Contains) && blockedIn[n].Count > 0)
++                if (nodes.Count > 1 && nodes.Where(p => p != n).All(blockedOut[n].Contains) && nodes.Where(p => p != n).All(blockedIn[n].Contains))
                  {
                      hit.Add("node-isolated-for-a-timeout");
                  }

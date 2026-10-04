@@ -21,7 +21,7 @@ namespace Raft.Simulation.Tests;
 public sealed partial class CoverageTests
 {
     private const int Executions = 200;
-    private static readonly NodeId N1 = new(1), N2 = new(2);
+    private static readonly NodeId N1 = new(1), N2 = new(2), N3 = new(3);
 
     /// <summary>Dimensions at or above 95%, each with the reason the other case is rare.</summary>
     /// <summary>
@@ -179,6 +179,19 @@ public sealed partial class CoverageTests
         Assert.False(
             Hits(out _, new Crash(5_000, N1, DiskLoss.Pending), new Skew(5_000, N1, 11, 10), new Restart(19_950, N1)).Contains("clock-rate-diverged"),
             "skewed while down, and up under the skew for less than a timeout: its perceived time never diverged");
+    }
+
+    /// <summary>
+    /// P6-11: isolation is what the node sees, whoever else had cause to send. A node isolated while
+    /// a peer is down counts (until P6-11 every peer had to have sent to it, so this did not, and
+    /// neither did an isolated follower nobody asked for votes); a node cut off from one peer while it
+    /// still hears the other does not. Sabotage S-cov-12.
+    /// </summary>
+    [Fact]
+    public void IsolationCountsWhatTheNodeSawNotWhoTriedToReachIt()
+    {
+        Assert.Contains("node-isolated-for-a-timeout", Hits(out _, new Crash(4_000, N3, DiskLoss.Pending), new Isolate(5_000, N1, 8_000), new Restart(9_000, N3)));
+        Assert.DoesNotContain("node-isolated-for-a-timeout", Hits(out _, new Partition(5_000, N1, N2), new Partition(5_000, N2, N1), new Heal(8_000, N1, N2), new Heal(8_000, N2, N1)));
     }
 
     [Fact]

@@ -1,0 +1,11 @@
+--- a/src/Raft.Simulation/FaultGenerator.cs
++++ b/src/Raft.Simulation/FaultGenerator.cs
+@@ -92,7 +92,7 @@
+         // sees the network faults per execution a three-node cluster does (P6-11); exact for three
+         // nodes, whose schedules are unchanged. Client links keep their rate.
+         int nodeLinks = config.Nodes * (config.Nodes - 1);
+-        int Rate(int per10k, NodeId a, NodeId b) => nodes.Contains(a) && nodes.Contains(b) && nodeLinks > 0 ? per10k * 6 / nodeLinks : per10k;
++        int Rate(int per10k, NodeId a, NodeId b) => nodes.Contains(a) && nodes.Contains(b) && nodeLinks > 0 ? per10k : per10k;
+         long Within(IRandomSource r, long lo, long hi) => lo + r.NextLong(hi - lo + 1);
+ 
+         if (Chance(R("fifo"), config.Fifo))

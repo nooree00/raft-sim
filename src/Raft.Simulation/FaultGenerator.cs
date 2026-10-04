@@ -86,6 +86,13 @@ public static class FaultGenerator
         var (drop, dup, delay, reorder, part, crash, pause, slow, skew) =
             (R("drop"), R("dup"), R("delay"), R("reorder"), R("partition"), R("crash"), R("pause"), R("slow"), R("skew"));
         bool Chance(IRandomSource r, int per10k) => r.NextLong(10_000) < per10k;
+
+        // Network rates are per directed link, and a cluster's links grow as n(n-1): five nodes have 20
+        // to three nodes' 6. Between nodes the rate is scaled by 6 / (n(n-1)), so a cluster of any size
+        // sees the network faults per execution a three-node cluster does (P6-11); exact for three
+        // nodes, whose schedules are unchanged. Client links keep their rate.
+        int nodeLinks = config.Nodes * (config.Nodes - 1);
+        int Rate(int per10k, NodeId a, NodeId b) => nodes.Contains(a) && nodes.Contains(b) && nodeLinks > 0 ? per10k * 6 / nodeLinks : per10k;
         long Within(IRandomSource r, long lo, long hi) => lo + r.NextLong(hi - lo + 1);
 
         if (Chance(R("fifo"), config.Fifo))
@@ -112,27 +119,27 @@ public static class FaultGenerator
         {
             foreach (var (a, b) in links)
             {
-                if (Chance(drop, config.Drop))
+                if (Chance(drop, Rate(config.Drop, a, b)))
                 {
                     faults.Add(new Drop(w + drop.NextLong(config.Window), a, b));
                 }
 
-                if (Chance(dup, config.Duplicate))
+                if (Chance(dup, Rate(config.Duplicate, a, b)))
                 {
                     faults.Add(new Duplicate(w + dup.NextLong(config.Window), a, b));
                 }
 
-                if (Chance(delay, config.Delay))
+                if (Chance(delay, Rate(config.Delay, a, b)))
                 {
                     faults.Add(new Delay(w + delay.NextLong(config.Window), a, b, Within(delay, 20, 200)));
                 }
 
-                if (Chance(reorder, config.Reorder))
+                if (Chance(reorder, Rate(config.Reorder, a, b)))
                 {
                     faults.Add(new Reorder(w + reorder.NextLong(config.Window), a, b));
                 }
 
-                if (Chance(part, config.Partition))
+                if (Chance(part, Rate(config.Partition, a, b)))
                 {
                     var at = w + part.NextLong(config.Window);
                     faults.Add(new Partition(at, a, b));

@@ -53,6 +53,25 @@ public sealed class ScheduleTests
         Assert.Equal(Run(original, 7, 20_000), Run(parsed, 7, 20_000));
     }
 
+    /// <summary>
+    /// P6-11: network rates are per directed link and scaled by 6 / (n(n-1)) between nodes, so a
+    /// five-node run sees about the network faults per execution a three-node run does (before, 20
+    /// links to 6: about 3.3 times as many), and three-node schedules are exactly what they were
+    /// (the digest of 50 schedules, taken before the change; KL-1's history depends on them).
+    /// Sabotage S-gen-1.
+    /// </summary>
+    [Fact]
+    public void AClusterOfAnySizeSeesTheNetworkFaultsThreeNodesDo()
+    {
+        var text = string.Join("\n", Enumerable.Range(1, 50).Select(s => ScheduleText.Write(new ScheduleText.Header((ulong)s, 12_000, 3, "-", "-"), FaultGenerator.Generate((ulong)s, new GeneratorConfig { Duration = 12_000 }))));
+        Assert.Equal("83a82484155fc52da0bb9fbdea80cebc69ffa7f0ecd5290f75405befeac0ef68", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant());
+
+        static double Network(int nodes) => Enumerable.Range(1, 200)
+            .Sum(s => FaultGenerator.Generate((ulong)s, new GeneratorConfig { Duration = 12_000, Nodes = nodes }).Faults.Count(f => f is Drop or Duplicate or Delay or Reorder or Partition));
+        var ratio = Network(5) / Network(3);
+        Assert.True(ratio is > 0.8 and < 1.25, $"five nodes see {ratio:F2} times the network faults of three");
+    }
+
     [Fact]
     public void TheGeneratorIsDeterministicAndSensitiveToSeedAndConfig()
     {
