@@ -711,3 +711,27 @@ finding: what happened, why no existing check caught it, what now catches it.
     runs. State it within one run (a ratio, or one quantity against another measured beside it), or
     in a deterministic quantity (states explored, executions, entries). Phase 6's P6-01 and P6-10
     were restated before they started.
+
+## Phase 6
+
+- **The first generated sample with membership changes found the checker wrong, not the node.**
+  Invariant 6 (P6-04) asked a committed entry to stay durable on a quorum of the configuration at
+  its index, forever. Seed 152 of P6-08's sample committed an entry under `{n1,n2,n3}`, then moved to
+  a configuration that dropped two of them; the entry was left on the servers the newer
+  configuration kept, which is correct. Every construction in P6-04 had stayed within one
+  configuration change, so none reached it. Invariant 6 now asks a quorum of the latest committed
+  configuration; S-joint-4 is the old rule.
+- **A sabotage that removes a dimension can fail an invariant first.** S-cov-11 (membership requests
+  only after the faults) was built by delaying each request 12,000 units, which silenced its client
+  for that long; at seed 38 no client command was created in the stable suffix and liveness failed
+  before the coverage check ran. The harness reported it as wrong-reason, on a commit not yet pushed;
+  the rebuilt sabotage draws an ordinary operation instead. My working notes already listed it as
+  caught on that commit before the harness had run it there; the run said otherwise.
+- **A measure that goes red on correct code is a measure to read, case by case.** P6-07's disruption
+  measure reported 120, then 21 adoptions with the rule on, against a node whose rule is one line.
+  Neither was a disruption: the first counted servers with no live leader (the rule allows those
+  adoptions), the second attributed a later term record to an earlier delivery of a retried request.
+  Each was found by printing the flagged cases (seed, sequence, sender, receiver, terms) and reading
+  them, not by changing the measure until it passed; the sabotaged node still shows 864 adoptions.
+  The third error was in the control: runs without the rule were described as the same executions
+  replayed, and they are other executions, since the rule changes who leads.
