@@ -131,7 +131,7 @@ whenever a phase grows the harness.
 - **Sabotage:** S-wgl-13
 - **Verifiable here:** yes — hand-built histories and the oracle
 - **Prediction:** All three are rejected by today's checker unchanged, and the oracle agrees, because a stale read is a stale read whatever path served it; the task produces no checker change, only the evidence that none is needed. **Observable:** the three verdicts before any change.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — all three stale reads were rejected by today's checker unchanged: a deposed leader's read, a new leader's read before its term's entry, and a read answered by a quorum of the old configuration while joint. The brute-force oracle agreed on all six verdicts, rejecting the three and accepting their correct counterparts. The task produced no checker change, only the evidence that none is needed. S-wgl-13, a checker that lets a read ignore real-time order, accepts all three.
 
 ### P8-05 — ReadIndex in `RaftNode`
 

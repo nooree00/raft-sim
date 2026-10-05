@@ -1,0 +1,7 @@
+description: The checker lets a read go before operations that completed before it was invoked: a read is unconstrained by real time, and every stale read is accepted (P8-04)
+mechanism: real-time order not applied to reads
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.ReadIndexHistoryTests.AStaleReadIsRejectedAndTheCorrectReadAccepted
+reason: the checker accepted the stale read
+expect: caught

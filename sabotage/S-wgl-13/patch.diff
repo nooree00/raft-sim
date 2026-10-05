@@ -1,0 +1,11 @@
+--- a/src/Raft.Checker/WglChecker.cs
++++ b/src/Raft.Checker/WglChecker.cs
+@@ -149,7 +149,7 @@
+             for (var i = 0; i < ops.Count && !_outOfBudget; i++)
+             {
+                 var op = ops[i];
+-                if (done[i] || op.Invoke > horizon)
++                if (done[i] || (op.Invoke > horizon && op.Kind != OpKind.Get))
+                 {
+                     continue;
+                 }
