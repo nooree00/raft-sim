@@ -152,4 +152,55 @@ public sealed class ClientHistoryTests
         Assert.Equal([0, 1], r.History.Select(o => o.Client));
         Assert.True(WglChecker.Check(r.History).IsLinearizable);
     }
+
+    /// <summary>
+    /// P8-00, the known-bad history phase 8 must reject: a retried `Append` applied twice. The first
+    /// attempt times out, the retry is answered, and a later read sees the value twice. One operation
+    /// with two effects: no ordering explains it. The same log with the retry under a new sequence
+    /// number (two operations, the client's mistake) is accepted, which is why the merge is needed.
+    /// Sabotage S-adapt-5.
+    /// </summary>
+    [Fact]
+    public void ARetriedAppendAppliedTwiceIsRejected()
+    {
+        ClientOp[] Log(long retrySequence) =>
+        [
+            Op(0, 1, "Register|", 0, 5, "ok|7"),
+            Op(0, 2, "Session|7|1|Append|x|v", 10, null),
+            Op(0, 3, $"Session|7|{retrySequence}|Append|x|v", 20, 30, "ok"),
+            Op(1, 4, "Get|x", 40, 50, "ok|vv"),
+        ];
+
+        var merged = ClientHistory.From(Log(1));
+        Assert.Equal((2, 0, 1, 1), (merged.Completed, merged.Indeterminate, merged.Registrations, merged.Retries));
+        Assert.Equal(merged.Accounted, Log(1).Length);
+        var append = merged.History.Single(o => o.Kind == OpKind.Append);
+        Assert.Equal((10L, (long?)30), (append.Invoke, append.Response));
+        Assert.False(WglChecker.Check(merged.History).IsLinearizable, "a retry applied twice was accepted");
+
+        var separate = ClientHistory.From(Log(2));
+        Assert.Equal((2, 1), (separate.Completed, separate.Indeterminate));
+        Assert.True(WglChecker.Check(separate.History).IsLinearizable);
+    }
+
+    /// <summary>
+    /// The vacuity guard: two distinct operations with the same command in different sessions are two
+    /// operations, each with its own effect, never merged. A merge keyed on the command would make this
+    /// correct history unexplainable.
+    /// </summary>
+    [Fact]
+    public void TheSameCommandInTwoSessionsIsTwoOperations()
+    {
+        var log = new[]
+        {
+            Op(0, 1, "Session|7|1|Append|x|v", 10, 20, "ok"),
+            Op(1, 2, "Session|8|1|Append|x|v", 12, 22, "ok"),
+            Op(2, 3, "Get|x", 40, 50, "ok|vv"),
+        };
+        var r = ClientHistory.From(log);
+
+        Assert.Equal(2, r.History.Count(o => o.Kind == OpKind.Append));
+        Assert.True(WglChecker.Check(r.History).IsLinearizable);
+    }
 }
+

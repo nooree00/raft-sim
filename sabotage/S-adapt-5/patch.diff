@@ -1,0 +1,20 @@
+--- a/tests/Raft.Core.Tests/ClientHistory.cs
++++ b/tests/Raft.Core.Tests/ClientHistory.cs
+@@ -68,7 +68,7 @@
+         {
+             if (InSession(Encoding.ASCII.GetString(o.Request.Span)) is { } k)
+             {
+-                (attempts.TryGetValue((k.Session, k.Sequence), out var l) ? l : attempts[(k.Session, k.Sequence)] = []).Add(o);
++                (attempts.TryGetValue((k.Session, o.RequestId), out var l) ? l : attempts[(k.Session, o.RequestId)] = []).Add(o);
+             }
+         }
+ 
+@@ -89,7 +89,7 @@
+ 
+             if (InSession(request) is { } session)
+             {
+-                var all = attempts[(session.Session, session.Sequence)];
++                var all = attempts[(session.Session, o.RequestId)];
+                 if (!ReferenceEquals(all[0], o))
+                 {
+                     retries++;

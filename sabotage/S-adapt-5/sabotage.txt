@@ -1,0 +1,6 @@
+description: A retry recorded as a new operation, keyed by its request, not by its session and sequence number: a retried Append applied twice becomes two operations, each with one effect, and is accepted (P8-00)
+mechanism: the history's operations keyed by attempt
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ClientHistoryTests.ARetriedAppendAppliedTwiceIsRejected
+expect: caught

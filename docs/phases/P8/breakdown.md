@@ -95,7 +95,7 @@ whenever a phase grows the harness.
 - **Sabotage:** S-adapt-5
 - **Verifiable here:** yes — hand-built histories
 - **Prediction:** The double-application history is rejected by the checker with no change to the WGL search, because two appends of one value are already unexplainable when they are one operation; the adapter is the whole change. The first adapter written fails the identical-bytes history, because I will key the merge on what the client log makes easy to see, the bytes. **Observable:** which of the two hand-built histories fails first against the first adapter.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the double-application history was rejected with no change to the WGL search, and its twin with the retry under a new sequence number accepted, as predicted: the adapter is the whole change. But the first adapter did not fail the identical-command history. I keyed the merge on the session and sequence number parsed from the envelope, which is what decision 1 names, not on the bytes; and the session id is in the bytes anyway, so a merge on the whole request could not have merged two sessions either. The risk the vacuity line named is a merge on the command inside the envelope, which nothing tempted.
 
 ### P8-01 — The session table in the state machine
 

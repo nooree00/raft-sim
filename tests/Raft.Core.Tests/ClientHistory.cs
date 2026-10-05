@@ -20,6 +20,12 @@ namespace Raft.Core.Tests;
 /// the history. Its `busy|` answer is a definite failure (P6 decision 4, with the reviewer's
 /// condition): counted, never indeterminate, and the client carries on as the same logical client.
 /// Sabotage S-adapt-4.
+/// P8-00 (phase 8 decision 1): a command in a session (`Session|id|seq|command`) is one operation per
+/// (session, sequence number), however many times it was sent: invoked at its first attempt and
+/// answered by the first attempt that was answered, indeterminate if none was. A retry is the same
+/// operation, so a command applied twice is two effects of one operation, which no ordering
+/// explains. A refused attempt is left out as before. `Register|` is no key-value operation: counted,
+/// never put in the history. Sabotage S-adapt-5.
 /// Vacuity risk: an adapter that drops operations makes any history pass (a lost write whose
 /// operation is dropped leaves nothing to contradict). Guarded: every operation is accounted for,
 /// and the counts must sum to the log. Sabotages S-adapt-1..3.
@@ -29,9 +35,20 @@ public static class ClientHistory
     /// <summary>A logical client's id: the simulated client, plus 1,000 for each timeout it has had.</summary>
     public const int Generation = 1_000;
 
-    public sealed record Result(IReadOnlyList<Operation> History, int Completed, int Indeterminate, int Refused, IReadOnlyList<string> Unexplained, int Membership = 0, int Busy = 0)
+    public sealed record Result(IReadOnlyList<Operation> History, int Completed, int Indeterminate, int Refused, IReadOnlyList<string> Unexplained, int Membership = 0, int Busy = 0, int Registrations = 0, int Retries = 0)
     {
-        public int Accounted => Completed + Indeterminate + Refused + Unexplained.Count + Membership;
+        /// <summary>Every client request is one of these: a session command's later attempts are counted as retries of its operation.</summary>
+        public int Accounted => Completed + Indeterminate + Refused + Unexplained.Count + Membership + Registrations + Retries;
+    }
+
+    /// <summary>A command's session and sequence number, and the command inside, if it is in a session.</summary>
+    public static (long Session, long Sequence, string Command)? InSession(string request)
+    {
+        var p = request.Split('|', 4);
+        return p.Length == 4 && p[0] == "Session" && long.TryParse(p[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id)
+            && long.TryParse(p[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var seq)
+            ? (id, seq, p[3])
+            : null;
     }
 
     /// <summary>
@@ -43,11 +60,69 @@ public static class ClientHistory
         var generation = new Dictionary<int, int>();
         var history = new List<Operation>();
         var unexplained = new List<string>();
-        int completed = 0, indeterminate = 0, refused = 0, membership = 0, busy = 0;
+        int completed = 0, indeterminate = 0, refused = 0, membership = 0, busy = 0, registrations = 0, retries = 0;
+
+        // P8-00: the attempts of each session command, in log order, so that each becomes one operation.
+        var attempts = new Dictionary<(long, long), List<ClientOp>>();
+        foreach (var o in log)
+        {
+            if (InSession(Encoding.ASCII.GetString(o.Request.Span)) is { } k)
+            {
+                (attempts.TryGetValue((k.Session, k.Sequence), out var l) ? l : attempts[(k.Session, k.Sequence)] = []).Add(o);
+            }
+        }
+
         foreach (var o in log)
         {
             var client = (generation.GetValueOrDefault(o.Client) * Generation) + o.Client;
             var request = Encoding.ASCII.GetString(o.Request.Span);
+            if (request.StartsWith("Register|", StringComparison.Ordinal))
+            {
+                registrations++;
+                if (o.Response is null && freshClientAfterTimeout)
+                {
+                    generation[o.Client] = generation.GetValueOrDefault(o.Client) + 1;
+                }
+
+                continue;
+            }
+
+            if (InSession(request) is { } session)
+            {
+                var all = attempts[(session.Session, session.Sequence)];
+                if (!ReferenceEquals(all[0], o))
+                {
+                    retries++;
+                    continue;
+                }
+
+                var answered = all.FirstOrDefault(a => a.Response is not null && Answer(Encoding.ASCII.GetString(a.Reply.Span)));
+                request = session.Command;
+                if (answered is null)
+                {
+                    if (all.Any(a => a.Response is null))
+                    {
+                        history.Add(Decode(client, request, o.Invoke, null, null));
+                        indeterminate++;
+                        if (freshClientAfterTimeout)
+                        {
+                            generation[o.Client] = generation.GetValueOrDefault(o.Client) + 1;
+                        }
+                    }
+                    else
+                    {
+                        refused++;
+                    }
+
+                    continue;
+                }
+
+                var text = Encoding.ASCII.GetString(answered.Reply.Span);
+                history.Add(Decode(client, request, o.Invoke, answered.Response, text.Length > 3 ? text[3..] : null));
+                completed++;
+                continue;
+            }
+
             if (request.StartsWith("Member|", StringComparison.Ordinal))
             {
                 membership++;
@@ -91,8 +166,10 @@ public static class ClientHistory
             }
         }
 
-        return new Result(history, completed, indeterminate, refused, unexplained, membership, busy);
+        return new Result(history, completed, indeterminate, refused, unexplained, membership, busy, registrations, retries);
     }
+
+    private static bool Answer(string reply) => reply == "ok" || reply.StartsWith("ok|", StringComparison.Ordinal);
 
     private static Operation Decode(int client, string request, long invoke, long? response, string? output)
     {
