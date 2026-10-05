@@ -131,4 +131,21 @@ public sealed class SessionTests
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "session-limit.txt"), FormattableString.Invariant(
             $"{KvStateMachine.MaxSessions} sessions, each holding a Cas reply (\"ok|true\" or \"ok|false\"): snapshot {snapshot.Length} bytes ({empty} with none), {(snapshot.Length - empty) / (double)KvStateMachine.MaxSessions:F1} bytes per session; {watch.Elapsed.TotalSeconds:F1} s\n"));
     }
+
+    /// <summary>A restore replaces the session table, as it replaces the keys: a session the snapshot does not hold is gone after it. Sabotage S-sess-4.</summary>
+    [Fact]
+    public void ARestoreReplacesTheSessionTable()
+    {
+        var source = new KvStateMachine();
+        Apply(source, 2, "Register|");
+        var kv = new KvStateMachine();
+        Apply(kv, 7, "Register|");
+        Apply(kv, 8, "Session|7|1|Append|x|a");
+        kv.Restore(source.Snapshot());
+
+        Assert.Equal(1, kv.Sessions);
+        Assert.Equal("unknown-session|", Apply(kv, 9, "Session|7|2|Append|x|b"));
+        Assert.Equal(source.Snapshot().ToArray(), kv.Snapshot().ToArray());
+    }
 }
+

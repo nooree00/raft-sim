@@ -122,7 +122,7 @@ whenever a phase grows the harness.
 - **Sabotage:** S-sess-4; shared: S-sess-1
 - **Verifiable here:** yes — constructions
 - **Prediction:** The construction passes once P8-01 is in, and the replay agrees with the node at every restore, because the replay and the node run the same state machine: this is the case the replay cannot judge (the carried-forward note), and only the client history (P8-00) catches S-sess-1 in generated executions. **Observable:** S-sess-1 against the agreement check alone: it survives.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — the constructions pass with P8-01 in, after a mistake of mine: the first versions retried sequence 1 after the same session had applied 2 to 5, and `stale|` was the right answer (one outstanding command per session: only the latest can be retried). But S-sess-1 does not survive the agreement check. Run against it alone on the install construction, the check reports n3's state at index 10 differing from the replay. With the table lost, n3 refused ("unknown-session") the commands that came after its install from sessions registered before the snapshot, which the replay applied. The replay shares the node's `Apply`, so a deduplication bug in `Apply` is invisible to it. It never snapshots, though, so a snapshot defect is outside what the two share. The carried-forward note in this breakdown overstated the replay's blindness: it is blind to the code the two run alike, not to everything in the state machine. S-sess-4 (a restore that merges tables) is equivalent in a cluster, because a node's applied sessions are always inside any snapshot it installs, so its target is the unit test of restore's contract.
 
 ### P8-04 — Stale reads served the new way, rejected by the checker
 

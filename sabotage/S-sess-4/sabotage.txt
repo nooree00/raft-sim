@@ -1,0 +1,6 @@
+description: A restore merges the snapshot's session table into the one the machine held instead of replacing it: a session the snapshot does not hold survives the restore (P8-03)
+mechanism: the session table not cleared before a restore
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SessionTests.ARestoreReplacesTheSessionTable
+expect: caught
