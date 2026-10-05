@@ -5,13 +5,13 @@
          Save(effects);
          effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
 -        _pending[_log.LastIndex] = c.RequestId;
-+        if (c.Payload.Span[0] == (byte)'S' && c.Payload.Span.IndexOf("|Cas|"u8) < 0)
++        if (c.Payload.Span[0] is (byte)'G' or (byte)'C')
 +        {
-+            effects.Add(new ClientResponse(c.RequestId, Ascii("ok")));
++            _pending[_log.LastIndex] = c.RequestId;
 +        }
 +        else
 +        {
-+            _pending[_log.LastIndex] = c.RequestId;
++            effects.Add(new ClientResponse(c.RequestId, Ascii("ok")));
 +        }
          var peers = Peers();
          for (var k = 0; k < peers.Count; k++)

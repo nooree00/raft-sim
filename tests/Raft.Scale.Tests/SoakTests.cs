@@ -39,7 +39,7 @@ public sealed class SoakTests
     public const int Clients = SoakConfig.Clients;
 
     /// <summary>The baseline soak (P3-08 to P5-05): three nodes, no spares, the key-value workload retrying on timeout, KL-1.</summary>
-    internal static readonly SoakProfile Baseline = new("soak-report.txt", " (membership aside)", 0, () => new RaftWorkload(int.MaxValue, retry: true, think: Think), KnownLimits.FileName, []);
+    internal static readonly SoakProfile Baseline = new("soak-report.txt", " (membership aside)", 0, () => new SessionWorkload(new RaftWorkload(int.MaxValue, retry: true, think: Think), Cluster.Nodes), KnownLimits.FileName, []);
 
     /// <summary>When the last fault's effect ends (<see cref="Stability.StableFrom"/>, shared with the membership sample, P6-08).</summary>
     internal static long StableFrom(FaultSchedule schedule, IEnumerable<Observation> observations) => Stability.StableFrom(schedule, observations);

@@ -18,6 +18,11 @@ public interface IClientWorkload
     /// The retry is a new operation to the simulator, which never learns that the bytes repeat.
     /// </summary>
     ClientCall? Retry(int client, ClientCall timedOut, IRandomSource random) => null;
+
+    /// <summary>A reply reached the client, for <paramref name="request"/> (P8-02: a workload that registers a session learns its id here). Nothing by default.</summary>
+    void Replied(int client, ReadOnlyMemory<byte> request, ReadOnlyMemory<byte> reply)
+    {
+    }
 }
 
 /// <summary>An operation to send: to <c>Node</c>, <c>After</c> units from now (a client's think time, P4-07).</summary>

@@ -33,7 +33,7 @@ public sealed class AgreementSimulationTests
         {
             var probe = new AgreementProbe();
             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakConfig.FaultsUntil });
-            var (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think),
+            var (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new SessionWorkload(new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think), Cluster.Nodes),
                 node: ctx => new RaftNode(ctx, ctx.Id.Value == 1 ? AgreementProbe.Uncompacted : Compacting, probe.For(ctx.Id)));
             var observations = sim.Observations.ToList();
             var log = new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes));

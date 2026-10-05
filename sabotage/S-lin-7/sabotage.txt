@@ -1,0 +1,7 @@
+description: Every command but a Get or a Cas answered at append, registrations among them: no client learns a session, no write is sent, and the histories checked hold reads alone (P8-02: what S-lin-4's patch had become)
+mechanism: registrations answered without the session they name
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.LinearizabilityTests.TheFirstSoakHistoriesAreLinearizable
+reason: writes completed in 40 executions
+expect: caught

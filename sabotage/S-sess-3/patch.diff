@@ -1,0 +1,13 @@
+--- a/tests/Raft.Core.Tests/SessionWorkload.cs
++++ b/tests/Raft.Core.Tests/SessionWorkload.cs
+@@ -59,7 +59,9 @@
+ 
+         _retried[client] = _retried.GetValueOrDefault(client) + 1;
+         var node = inner.Retry(client, timedOut, random)?.Node ?? new NodeId(1 + (int)random.NextLong(universe));
+-        return new ClientCall(node, timedOut.Request);
++        var parts = Encoding.ASCII.GetString(timedOut.Request.Span).Split('|', 4);
++        var next = _sequence[client] = _sequence.GetValueOrDefault(client) + 1;
++        return new ClientCall(node, Encoding.ASCII.GetBytes(FormattableString.Invariant($"Session|{parts[1]}|{next}|{parts[3]}")));
+     }
+ 
+     public void Replied(int client, ReadOnlyMemory<byte> request, ReadOnlyMemory<byte> reply)

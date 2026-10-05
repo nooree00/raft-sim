@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
+    <Compile Include="../Raft.Core.Tests/SessionWorkload.cs" Link="Checkers/SessionWorkload.cs" />
     <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
     <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
     <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />

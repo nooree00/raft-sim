@@ -40,7 +40,7 @@ public sealed class MembershipSimulationTests
     internal static (Simulator Sim, ElectionHistory History, FaultSchedule Schedule) Run(int seed, RaftOptions? options = null)
     {
         var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakConfig.FaultsUntil, Nodes = Universe });
-        var (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new MembershipWorkload(SoakConfig.Think), Spares, options);
+        var (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new SessionWorkload(new MembershipWorkload(SoakConfig.Think), Universe), Spares, options);
         return (sim, h, schedule);
     }
 
@@ -214,7 +214,7 @@ public sealed class MembershipSimulationTests
     /// the membership dimensions with theirs (completed changes among them). Sabotages S-soak-7, S-kl-4.
     /// </summary>
     internal static readonly SoakProfile Profile = new(
-        "membership-report.txt", ", with membership changes", Spares, () => new MembershipWorkload(SoakConfig.Think), KnownLimits.MembershipFileName, Dimensions,
+        "membership-report.txt", ", with membership changes", Spares, () => new SessionWorkload(new MembershipWorkload(SoakConfig.Think), Universe), KnownLimits.MembershipFileName, Dimensions,
         (observations, h, log, schedule) => Effects(observations, h, log, schedule),
         new Dictionary<string, string>(StringComparer.Ordinal)
         {

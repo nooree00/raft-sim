@@ -227,6 +227,7 @@ public sealed class Simulator
             {
                 _clientLog[index] = _clientLog[index] with { Response = _now, Reply = payload };
                 Trace.Add(_now, to.ToString(), "REPLY", ("request", op.RequestId), ("id", msg), ("len", payload.Length));
+                Workload?.Replied(op.Client, op.Request, payload);
                 // One unit later: real-time order is strict, so an operation invoked at the instant
                 // the previous one responded would count as concurrent with it.
                 At(_now + 1, () => IssueNext(op.Client));

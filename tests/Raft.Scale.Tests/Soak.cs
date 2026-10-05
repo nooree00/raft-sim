@@ -59,11 +59,12 @@ internal static class Soak
     public static readonly string[] HistoryContents =
     [
         "history-indeterminate", "history-concurrent-on-a-key", "history-read-completed", "history-put-completed",
-        "history-append-completed", "history-delete-completed", "history-cas-true", "history-cas-false", "history-write-retried",
+        "history-append-completed", "history-delete-completed", "history-cas-true", "history-cas-false", "history-command-retried",
     ];
 
     /// <summary>The <see cref="HistoryContents"/> one history holds.</summary>
-    internal static HashSet<string> Contents(IReadOnlyList<Operation> history)
+    /// <param name="retries">Attempts that were retries of an operation already in the history (P8-00: a retry is the same operation, so the history itself no longer shows it).</param>
+    internal static HashSet<string> Contents(IReadOnlyList<Operation> history, int retries = 0)
     {
         var hit = new HashSet<string>(StringComparer.Ordinal);
         void If(bool condition, string name)
@@ -83,7 +84,7 @@ internal static class Soak
         If(done.Any(o => o.Kind == OpKind.Delete), "history-delete-completed");
         If(done.Any(o => o.Kind == OpKind.CompareAndSwap && o.Output == "true"), "history-cas-true");
         If(done.Any(o => o.Kind == OpKind.CompareAndSwap && o.Output == "false"), "history-cas-false");
-        If(history.Where(o => o.Value is not null).GroupBy(o => (o.Kind, o.Key, o.Value)).Any(g => g.Count() > 1), "history-write-retried");
+        If(retries > 0, "history-command-retried");
         return hit;
     }
 
@@ -196,7 +197,7 @@ internal static class Soak
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var c in log.Commits.Where(c => c.Command))
         {
-            if (log.CommandOf(c.Ghost) is { } bytes && bytes is not ([(byte)'G', (byte)'e', (byte)'t', ..] or [(byte)'D', (byte)'e', (byte)'l', ..]) && !seen.Add(Convert.ToHexString(bytes)))
+            if (log.CommandOf(c.Ghost) is { } bytes && bytes is not ([(byte)'G', (byte)'e', (byte)'t', ..] or [(byte)'D', (byte)'e', (byte)'l', ..] or [(byte)'R', (byte)'e', (byte)'g', ..]) && !seen.Add(Convert.ToHexString(bytes)))
             {
                 hit.Add("command-retried-and-duplicated");
                 break;
@@ -268,6 +269,11 @@ internal static class Soak
             compared += n;
 
             var client = ClientHistory.From(sim.ClientLog);
+
+            // P8-02's guard: every write is sent in a session, or deduplication is never exercised on it.
+            var sessionless = sim.ClientLog.Count(o => System.Text.Encoding.ASCII.GetString(o.Request.Span) is var r
+                && (r.StartsWith("Put|", StringComparison.Ordinal) || r.StartsWith("Append|", StringComparison.Ordinal) || r.StartsWith("Delete|", StringComparison.Ordinal) || r.StartsWith("Cas|", StringComparison.Ordinal)));
+            Assert.True(sessionless == 0, $"seed {seed}: {sessionless} writes sent without a session");
             Assert.True(client.Unexplained.Count == 0, $"seed {seed}: {string.Join("; ", client.Unexplained.Take(3))}");
             Assert.True(client.Accounted == sim.ClientLog.Count && client.History.Count == client.Completed + client.Indeterminate, $"seed {seed}: the adapter lost operations");
             var problems = History.Problems(client.History);
@@ -299,7 +305,7 @@ internal static class Soak
             refused += client.Refused;
             maxStates = Math.Max(maxStates, lin.StatesExplored);
             maxPerKey = Math.Max(maxPerKey, client.History.GroupBy(o => o.Key).Select(g => g.Count()).DefaultIfEmpty(0).Max());
-            foreach (var c in Contents(client.History))
+            foreach (var c in Contents(client.History, client.Retries))
             {
                 contents[c]++;
             }
@@ -457,7 +463,13 @@ internal static class Soak
     /// Effects allowed below the floor in the 300-execution sample only, each with its reason; the soak
     /// (10,000) must still clear the floor for them.
     /// </summary>
-    internal static readonly Dictionary<string, string> RareInSample = new(StringComparer.Ordinal);
+    internal static readonly Dictionary<string, string> RareInSample = new(StringComparer.Ordinal)
+    {
+        // P8-02: 2 of the baseline sample's 300 once sessions changed every execution (3 at phase 7);
+        // declared below the soak floor already (63 of 10,000 at P7-11), and rare in the membership
+        // sample since phase 7. The 10,000 must still clear the absolute minimum.
+        ["install-discarded-the-suffix"] = "an install over a conflicting suffix: 2 of the baseline sample with sessions",
+    };
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>
     internal static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal)

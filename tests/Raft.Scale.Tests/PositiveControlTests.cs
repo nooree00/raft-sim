@@ -139,7 +139,7 @@ public sealed class PositiveControlTests
             ElectionHistory h;
             try
             {
-                (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think),
+                (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new SessionWorkload(new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think), Cluster.Nodes),
                     node: ctx => new RaftNode(ctx, SoakConfig.Options with { CompactPastCommit = true }, probe.For(ctx.Id)));
             }
             catch (ArgumentOutOfRangeException)

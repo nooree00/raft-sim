@@ -1,0 +1,7 @@
+description: A client retries a timed-out command under a new sequence number: every retry is a new operation, deduplication is never exercised, and nothing a client sends is ever retried (P8-02)
+mechanism: the retry sent with the next sequence number, not its own
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+reason: history-command-retried: in 0 of 300
+expect: caught
