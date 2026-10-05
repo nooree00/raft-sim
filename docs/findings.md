@@ -1,5 +1,19 @@
 # Findings log
 
+## Patterns
+
+Numbered when a lesson has recurred often enough to be named (reviewer, at phase 8's approval).
+
+1. **The oracle stands outside the thing it tests.** A check whose answer comes from the system
+   under test reproduces that system's bugs exactly. Each time this project needed a new oracle, it
+   had to be placed where the system could not influence it: the simulator's ghost entry ids, not
+   the node's command bytes (spec §5); commitment in fact, computed from the copies the simulator
+   saw, not the leader's commit index (P4); the configuration the simulator records, not the one
+   the node reports (phase 6, decision 6); the entries a snapshot covers, recorded at compaction,
+   not read from the node (phase 7, decision 5); and a client retry recorded as the operation it
+   is, so that "applies once" is judged by the client history, not by a replay that runs the same
+   state machine whose deduplication it checks (phase 8, decision 1).
+
 Spec §12: the bugs are less valuable than the reasons the tests did not catch them. One entry per
 finding: what happened, why no existing check caught it, what now catches it.
 
@@ -844,3 +858,10 @@ finding: what happened, why no existing check caught it, what now catches it.
   (reviewer, at acceptance): a margin under 5% on a deterministic ceiling is a failure on a slower
   runner, so a local number means nothing until the runner's ratio is applied to it; and a test that
   only needs a floor stops at the floor. The harness shards have since moved to CI only.
+- **The local run was not one indivisible cost.** At phase 7's acceptance the local run before a
+  push was 90 to 105 minutes, and the reviewer was reluctant to weaken the rule that runs it.
+  Moving the ten harness shards to CI took it to 17 minutes (1,036 s): the shards were not a share
+  of the cost, they were nearly all of it, and the stages kept local are the ones that catch the
+  mistakes that break a push. *Rule* (reviewer): before deciding whether a rule is too expensive to
+  keep, measure which part of it is expensive; the rule may be cheap once that part moves.
+

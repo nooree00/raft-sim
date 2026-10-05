@@ -23,7 +23,15 @@ that includes reads. In addition, carried forward:
   is a failure on a slower runner. The harness shards run in CI only now; any new sample test that
   measures a rate stops at its floor unless the rate itself is the assertion.
 
-**Approved:** pending.
+**Approved** (reviewer): P8-00 to P8-10, all five decisions; stop and report after P8-10. Decision
+1 is the phase's content: the replay runs the same state machine, so it would reproduce a
+deduplication bug exactly, and recording a retry once puts the oracle outside the thing tested, the
+only position from which it can see this (findings, pattern 1, its fifth instance). Decision 2: a
+client-chosen id is a claim, an index is a fact. Decision 4: stale reads shown rejected before
+ReadIndex exists, the P6-04 pattern. **One addition to decision 3:** an unbounded session table is
+state that grows without limit and is snapshotted, so it has a size relationship with phase 7's
+compaction. A limit test at the largest legitimate session count, with what that count does to the
+snapshot's size measured and reported, so that phase 9 inherits a measurement, not a guess (P8-01).
 
 ## Ordering
 
@@ -91,7 +99,7 @@ whenever a phase grows the harness.
 
 ### P8-01 — The session table in the state machine
 
-- **Task:** Decision 3. `KvStateMachine` holds a session table: per session, the latest sequence number applied and its response. A session command at the latest number returns the cached response without applying; below it returns `stale|`; above it applies and records. The table is part of the canonical snapshot (spec §5 item 6), sorted by session id, and `Restore` replaces it. Unit tests: duplicate, stale, interleaved sessions, snapshot round trip with sessions, canonical bytes.
+- **Task:** Decision 3. `KvStateMachine` holds a session table: per session, the latest sequence number applied and its response. A session command at the latest number returns the cached response without applying; below it returns `stale|`; above it applies and records. The table is part of the canonical snapshot (spec §5 item 6), sorted by session id, and `Restore` replaces it. Unit tests: duplicate, stale, interleaved sessions, snapshot round trip with sessions, canonical bytes. The reviewer's addition: the session count is bounded (`KvStateMachine.MaxSessions`, a `Register` past it refused with `sessions-full|`, a definite failure), and a limit test (§10) registers exactly that many, snapshots and restores, and records the snapshot's size per session and at the bound, for phase 9.
 - **Vacuity:** A table that is never consulted for `Put` passes every `Put` test, because a duplicated `Put` is invisible (spec §6); guarded by testing with `Append` and `Cas` first. Sabotages: S-sess-1, the table left out of the snapshot (a retry after a restore applies again); S-sess-2, a duplicate applied when its number equals the latest (an off-by-one in the comparison).
 - **Sabotage:** S-sess-1, S-sess-2
 - **Verifiable here:** yes — unit tests
