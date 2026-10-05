@@ -204,7 +204,7 @@ nothing.
 
 - **Task:** Decision 6. Compaction on in both soaks, at a threshold that compacts in most executions; every invariant, linearizability, the effects and the P7-09 dimensions with their floors. KL-1 and KL-2 re-measured: each soak's undecided searches recorded with their local curves, approved by the phase-7 report, the old entries removed.
 - **Vacuity:** A soak whose threshold is never reached checks no compaction; guarded by a floor on executions with at least one compaction, and one with an install. Sabotage: S-soak-10, compaction off in the membership soak: the compaction floor goes red.
-- **Sabotage:** S-soak-10
+- **Sabotage:** S-soak-10, S-compact-6
 - **Verifiable here:** partial — the soaks run locally; the CI jobs only in CI
 - **Prediction:** Deterministic quantities only (P5's constraint): with compaction, both soaks' undecided searches change identity (no seed of KL-1 or KL-2 stays undecided with the same history) but not number (one each, give or take one), because compaction changes timing, not the workload's shape; and no invariant is violated in either. **Observable:** each soak's undecided list and verdict, against phase 6's.
 - **Outcome:** pending

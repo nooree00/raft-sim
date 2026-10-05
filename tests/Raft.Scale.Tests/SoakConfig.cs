@@ -32,4 +32,13 @@ internal static class SoakConfig
     /// decide fails the soak unless it is a recorded known limit (ci/known-limits.txt).
     /// </summary>
     public const long CheckerBudget = 32_000_000;
+
+    /// <summary>
+    /// Phase 7 decision 6: the soaks run the system as it runs, compaction on. Every 20 applied
+    /// entries, so that most executions compact (an execution commits about 150, the membership
+    /// workload about 100) and followers left behind by a partition or a crash install snapshots.
+    /// </summary>
+    public const int SnapshotThreshold = 20;
+
+    public static Raft.Core.RaftOptions Options => Raft.Core.Tests.Cluster.Options with { SnapshotThreshold = SnapshotThreshold };
 }

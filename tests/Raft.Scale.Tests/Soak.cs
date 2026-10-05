@@ -230,7 +230,8 @@ internal static class Soak
     /// <summary>Runs <paramref name="count"/> executions from seed <paramref name="first"/> of <paramref name="profile"/>, asserting each, and writes its report.</summary>
     public static void Run(SoakProfile profile, int first, int count)
     {
-        var effects = ElectionEffects.Concat(ReplicationEffects).Concat(Coverage.Dimensions).Concat(profile.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
+        var effects = ElectionEffects.Concat(ReplicationEffects).Concat(Coverage.Dimensions).Concat(CompactionCoverage.Dimensions).Concat(profile.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
+        var compared = 0;
         var timeToLeader = new List<long>();
         var unknown = new SortedSet<string>(StringComparer.Ordinal);
         int liveness = 0, noSuffix = 0, commitChecked = 0;
@@ -249,7 +250,8 @@ internal static class Soak
         for (var seed = first; seed < first + count; seed++)
         {
             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = FaultsUntil, Nodes = Cluster.Nodes + profile.Spares });
-            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule, Clients, profile.Workload(), profile.Spares);
+            var probe = new AgreementProbe();
+            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule, Clients, profile.Workload(), profile.Spares, node: ctx => new RaftNode(ctx, SoakConfig.Options, probe.For(ctx.Id)));
             var observations = sim.Observations.ToList();
             var stable = Stability.StableFrom(schedule, observations);
             var results = Cluster.Check(h, stable, Duration);
@@ -259,6 +261,11 @@ internal static class Soak
             {
                 Assert.True(r.Holds, $"seed {seed}, {r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
             }
+
+            // P7-08's done criterion in every execution: each node's state against the committed entries replayed.
+            var (disagreements, n) = probe.Check(observations, log);
+            Assert.True(disagreements.Count == 0, $"seed {seed}: {string.Join("; ", disagreements.Take(3))}");
+            compared += n;
 
             var client = ClientHistory.From(sim.ClientLog);
             Assert.True(client.Unexplained.Count == 0, $"seed {seed}: {string.Join("; ", client.Unexplained.Take(3))}");
@@ -316,7 +323,7 @@ internal static class Soak
                 timeToLeader.Add(t);
             }
 
-            var hits = Effects(h, sim.Trace.Lines, schedule).Concat(Replication(observations, h, log)).Concat(Coverage.Of(sim.Trace.Lines));
+            var hits = Effects(h, sim.Trace.Lines, schedule).Concat(Replication(observations, h, log)).Concat(Coverage.Of(sim.Trace.Lines)).Concat(CompactionCoverage.Of(observations));
             foreach (var e in profile.Extra is null ? hits : hits.Concat(profile.Extra(observations, h, log, schedule)))
             {
                 if (effects.TryGetValue(e, out var set))
@@ -351,7 +358,8 @@ internal static class Soak
         var report = new List<string>
         {
             $"{count} executions (seeds {first}..{first + count - 1}), faults generated until {FaultsUntil}, run to {Duration}{(profile.Spares > 0 ? $", {Cluster.Nodes + profile.Spares} nodes ({Cluster.Nodes} configured, {profile.Spares} spares)" : "")}",
-            $"invariants 1-11{profile.Invariants}: no violation; elections {elections}; {Clients} clients, retrying on timeout",
+            $"invariants 1-11{profile.Invariants}: no violation; elections {elections}; {Clients} clients, retrying on timeout; compaction every {SoakConfig.SnapshotThreshold} applied entries",
+            $"agreement (P7-08): {compared} node states compared with the committed entries replayed, no disagreement",
             $"liveness checked in {liveness}, no stable suffix in {noSuffix}; the commit clause checked in {commitChecked}",
             $"entries committed in fact: {committed} ({committed / count} per execution, fewest {minCommitted})",
             timeToCommit.Count == 0 ? "time to commit: none measured" : $"time to a command committed after the stable suffix: max {timeToCommit.Max()}, mean {timeToCommit.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
@@ -435,7 +443,15 @@ internal static class Soak
     /// Empty since P4-07: writes completed out of order at a crash, declared then (8 of 10,000),
     /// reached 165 of 10,000 once logs were written on every replicated batch.
     /// </summary>
-    internal static readonly Dictionary<string, string> BelowTheSoakFloor = new(StringComparer.Ordinal);
+    internal static readonly Dictionary<string, string> BelowTheSoakFloor = new(StringComparer.Ordinal)
+    {
+        // P7-11, put to the reviewer in the phase-7 report: 63 of 10,000 in the baseline soak (0.63%).
+        // A follower must hold entries past the snapshot's index that conflict with it: diverged under
+        // one leader, then sent the snapshot of another, which most followers that fall behind never
+        // are (their logs simply end before the snapshot). Exercised directly by
+        // InstallSnapshotTests.AFollowerWhoseLogDisagreesWithTheSnapshotDiscardsIt.
+        ["install-discarded-the-suffix"] = "a follower holding a conflicting suffix past the snapshot: 0.63% of the baseline soak",
+    };
 
     /// <summary>
     /// Effects allowed below the floor in the 300-execution sample only, each with its reason; the soak
@@ -444,5 +460,16 @@ internal static class Soak
     internal static readonly Dictionary<string, string> RareInSample = new(StringComparer.Ordinal);
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>
-    internal static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal);
+    internal static readonly Dictionary<string, string> AlwaysOn = new(StringComparer.Ordinal)
+    {
+        // P7-11: the soaks compact every 20 applied entries and an execution commits about 150 (100 with
+        // membership changes), so an execution without a compaction is one that committed fewer than 20.
+        ["log-compacted"] = "compaction every 20 applied entries against about 150 committed per execution",
+
+        // P7-11: 286 of the baseline sample's 300 (95.3%), 9,431 of its 10,000 soak (94.3%): nearly every
+        // execution crashes or partitions some node for longer than 20 committed entries take, and it
+        // catches up by installing a snapshot. The rare case is an execution whose faults all fall on
+        // the leader or end before 20 entries pass.
+        ["snapshot-installed-by-a-follower"] = "a node left behind by more than 20 entries in nearly every execution",
+    };
 }

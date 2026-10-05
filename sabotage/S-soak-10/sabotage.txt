@@ -1,0 +1,7 @@
+description: Compaction off in the membership soak: it runs a system that never compacts, and its compaction dimensions must go below their floors (P7-11)
+mechanism: the membership soak's nodes keep the default threshold, never reached
+kind: test
+project: tests/Raft.Membership.Tests
+target: Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
+reason: log-compacted: 0 of 300
+expect: caught

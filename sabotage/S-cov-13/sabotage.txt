@@ -1,0 +1,6 @@
+description: Installs counted when the leader sends a snapshot's last chunk, not when the follower's disk takes it: a follower cut off during every install still counts as installing (P7-09, phase 6's isolation detector)
+mechanism: the install dimension read from the sender
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CompactionCoverageTests.AnInstallIsCountedFromTheFollowersDiskNotFromTheLeadersSends
+expect: caught

@@ -1,8 +1,11 @@
 --- a/tests/Raft.Scale.Tests/SoakConfig.cs
 +++ b/tests/Raft.Scale.Tests/SoakConfig.cs
-@@ -32,4 +32,4 @@
+@@ -31,7 +31,7 @@
+     /// indeterminate operations predicts the cost (60,000 keys measured): a history the budget cannot
      /// decide fails the soak unless it is a recorded known limit (ci/known-limits.txt).
      /// </summary>
 -    public const long CheckerBudget = 32_000_000;
 +    public const long CheckerBudget = 2_000_000;
- }
+ 
+     /// <summary>
+     /// Phase 7 decision 6: the soaks run the system as it runs, compaction on. Every 20 applied

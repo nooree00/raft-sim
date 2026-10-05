@@ -1,0 +1,11 @@
+--- a/tests/Raft.Scale.Tests/Soak.cs
++++ b/tests/Raft.Scale.Tests/Soak.cs
+@@ -251,7 +251,7 @@
+         {
+             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = FaultsUntil, Nodes = Cluster.Nodes + profile.Spares });
+             var probe = new AgreementProbe();
+-            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule, Clients, profile.Workload(), profile.Spares, node: ctx => new RaftNode(ctx, SoakConfig.Options, probe.For(ctx.Id)));
++            var (sim, h) = Cluster.Run((ulong)seed, Duration, schedule, Clients, profile.Workload(), profile.Spares, node: ctx => new RaftNode(ctx, profile.Spares > 0 ? Cluster.Options : SoakConfig.Options, probe.For(ctx.Id)));
+             var observations = sim.Observations.ToList();
+             var stable = Stability.StableFrom(schedule, observations);
+             var results = Cluster.Check(h, stable, Duration);

@@ -173,6 +173,12 @@ internal sealed class ElectionHistory
                     else
                     {
                         Files(durableFiles, dfile.Node).Set(dfile.File, dfile.Content?.ToArray());
+
+                        // What a crash left (the files follow the crash): the node restarts with them.
+                        if (restarting.Contains(dfile.Node))
+                        {
+                            Files(intendedFiles, dfile.Node).Set(dfile.File, dfile.Content?.ToArray());
+                        }
                     }
 
                     break;

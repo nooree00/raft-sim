@@ -1,0 +1,12 @@
+--- a/tests/Raft.Core.Tests/CompactionCoverage.cs
++++ b/tests/Raft.Core.Tests/CompactionCoverage.cs
+@@ -95,6 +95,9 @@
+                     }
+ 
+                     break;
++                case SentObservation sent when MessageCodec.Decode(sent.Payload.ToArray()) is InstallSnapshot { Done: true }:
++                    hit.Add("snapshot-installed-by-a-follower");
++                    break;
+                 case CrashObservation c:
+                     if (Pending(c.Node).Count > 0)
+                     {

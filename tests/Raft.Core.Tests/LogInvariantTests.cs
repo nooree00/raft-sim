@@ -508,4 +508,38 @@ public sealed class LogInvariantTests
         Assert.Equal(new LogHistory.SnapshotAt(2, new Term(1)), durable.Snapshot);
         Assert.Equal([3L], durable.Append.Select(x => x.Index));
     }
+
+    /// <summary>
+    /// The membership soak's seed 434 (P7-11): a crash keeps an install's rename, so the file the
+    /// chunks were written to is gone when the node restarts, and the node's next compaction may take
+    /// the same name. The checker must read that compaction's file as the node wrote it, not after the
+    /// bytes of the file the crash removed. Sabotage S-compact-6.
+    /// </summary>
+    [Fact]
+    public void AFileACrashRemovedIsGoneWhenTheNodeReusesItsName()
+    {
+        var e = new[] { EntryLog.Record(1, new Term(1), Term.Zero, [1]), EntryLog.Record(2, new Term(1), new Term(1), [2]), EntryLog.Record(3, new Term(1), new Term(1), [3]) };
+        var write = new PersistAppend(EntryLog.FileName, e.SelectMany(x => x).ToArray());
+        var installed = EntryLog.SnapshotRecord(2, new Term(1), null, [8]);
+        var chunk = new PersistWriteAt("entries.0", 0, installed);
+        var rename = new PersistRename("entries.0", EntryLog.FileName);
+        var compacted = new PersistAppend("entries.0", EntryLog.SnapshotRecord(3, new Term(1), null, [9]));
+        var observations = new List<Raft.Simulation.Observation>
+        {
+            new Raft.Simulation.StartObservation(0, N1, 1),
+            new Raft.Simulation.IssuedObservation(1, N1, write, 1), new Raft.Simulation.DurableObservation(2, N1, EntryLog.FileName, null, write),
+            new Raft.Simulation.IssuedObservation(3, N1, chunk, 2), new Raft.Simulation.IssuedObservation(3, N1, rename, 2),
+            new Raft.Simulation.DurableObservation(4, N1, chunk.File, null, chunk),
+            new Raft.Simulation.CrashObservation(5, N1),
+            new Raft.Simulation.DurableObservation(5, N1, EntryLog.FileName, installed),
+            new Raft.Simulation.DurableObservation(5, N1, "entries.0", null),
+            new Raft.Simulation.StartObservation(6, N1, 2),
+            new Raft.Simulation.IssuedObservation(7, N1, compacted, 3), new Raft.Simulation.IssuedObservation(7, N1, rename, 3),
+        };
+
+        var h = LogHistory.FromObservations(observations, new ElectionHistory(observations, 3), 3);
+
+        Assert.Equal(new LogHistory.SnapshotAt(3, new Term(1)), h.Events.OfType<LogHistory.Issued>().Last().Snapshot);
+    }
 }
+

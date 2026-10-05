@@ -30,7 +30,7 @@ public sealed class MembershipSimulationTests
     public static readonly string[] Dimensions =
     [
         "membership-change-completed", "change-completed-during-a-partition", "change-removed-the-leader",
-        "crash-in-a-joint-configuration", "change-still-joint-at-the-end",
+        "crash-in-a-joint-configuration", "change-still-joint-at-the-end", CompactionCoverage.Joint,
     ];
 
     private static int Env(string name, int fallback) =>
@@ -224,6 +224,10 @@ public sealed class MembershipSimulationTests
             // 101 entries per execution against the baseline's 164, so writes overlap less often. The
             // crash-mode tests exercise it directly (EntryLogTests, TermVoteLogTests).
             ["writes-completed-out-of-order-at-crash"] = "two writes in flight at a crash: 1.39% of the membership soak, 2 of its sample",
+
+            // P7-11: 0 of the membership sample's 300, 3 of the baseline's: the membership workload commits
+            // about 100 entries per execution against 164, so fewer followers diverge past a snapshot.
+            ["install-discarded-the-suffix"] = "a follower holding a conflicting suffix past the snapshot: 0 of the membership sample",
         });
 
     /// <summary>
@@ -232,11 +236,16 @@ public sealed class MembershipSimulationTests
     /// would match nothing here, or a membership execution with its seed. Sabotage S-kl-4.
     /// </summary>
     [Fact]
-    public void TheMembershipSoakIsJudgedByItsOwnRecordedKnownLimits() =>
+    public void TheMembershipSoakIsJudgedByItsOwnRecordedKnownLimits()
+    {
+        // The file itself, not only its entries: at P7-11 both soaks' files were empty for a commit,
+        // and entries alone could not tell them apart (S-kl-4 survived).
+        Assert.Equal(KnownLimits.MembershipFileName, Profile.LimitsFile);
         Assert.Equal(RecordedMembershipLimits, KnownLimits.RecordedIn(Profile.LimitsFile).Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
+    }
 
-    /// <summary>The reviewed set (ci/known-limits-membership.txt), approved by the phase-6 report.</summary>
-    private static readonly string[] RecordedMembershipLimits = ["KL-2 8741 k5 081204a0f61123069be79e2b92c98900a03d92f0b8183d60404b81cc5d04087f"];
+    /// <summary>The reviewed set (ci/known-limits-membership.txt). KL-2 removed at P7-11: its history no longer occurs.</summary>
+    private static readonly string[] RecordedMembershipLimits = [];
 
     [Fact]
     public void TheMembershipSampleHoldsEveryInvariant() =>

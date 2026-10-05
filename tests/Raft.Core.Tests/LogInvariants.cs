@@ -166,6 +166,15 @@ internal sealed class LogHistory
                     else
                     {
                         Files(durableFiles, du.Node).Set(du.File, du.Content?.ToArray());
+
+                        // What a crash left, reported after the crash itself (P7-11, the membership soak,
+                        // seed 434): the node restarts with these files. Copied into the intended files
+                        // only at the crash, a file the crash removed stayed there, and a later file of the
+                        // same name was read as the stale bytes with the new ones after them.
+                        if (restarting.Contains(du.Node))
+                        {
+                            Files(intendedFiles, du.Node).Set(du.File, du.Content?.ToArray());
+                        }
                     }
 
                     break;

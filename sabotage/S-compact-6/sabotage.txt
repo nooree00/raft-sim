@@ -1,0 +1,6 @@
+description: The checker takes a crashed node's other files from before the crash's report of what the disk kept: a file the crash removed stays, and a later file of the same name is read after its stale bytes (P7-11, the membership soak's seed 434)
+mechanism: what a crash left is not copied into the restarting node's intended files
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.AFileACrashRemovedIsGoneWhenTheNodeReusesItsName
+expect: caught

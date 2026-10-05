@@ -4,4 +4,5 @@
 # phase report that approved it (`gates register`), and is named in KnownLimitTests. Any other
 # undecided search fails the soak.
 # id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report
-KL-1 | 7723 | k3 | 39ee32132eedf0e44199123a62a7462a13fb95f847fa5e67deceee8ccacb97cf | register: A structural measure of linearizability-checking cost | report: docs/phases/P5/report.md
+# KL-1 (seed 7723, key k3) removed at P7-11: with compaction on, seed 7723's history changed and is
+# decided in 168 states, and no execution of the 10,000 is undecided.
