@@ -1,0 +1,6 @@
+description: Recovery takes a record whose previous-entry term does not match the entry before it, the chain property compaction's boundary depends on (P7-02)
+mechanism: the chain check reads the index only
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogPropertyTests.AnUnchainedRecordIsDropped
+expect: caught

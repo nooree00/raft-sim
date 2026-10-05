@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -110,7 +110,7 @@
+             var command = new byte[length - Fixed];
+             Array.Copy(file, at + Header + Fixed, command, 0, command.Length);
+             var end = at + size;
+-            if (index > entries.Count + 1 || (index == 1 ? 0 : entries[(int)index - 2].Term.Value) != previous)
++            if (index > entries.Count + 1)
+             {
+                 unchained++;
+             }

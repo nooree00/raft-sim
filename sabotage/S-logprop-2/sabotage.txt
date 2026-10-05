@@ -1,0 +1,6 @@
+description: The configuration lookup returns the latest configuration entry whatever the index asked about (P7-02)
+mechanism: the lookup's at-or-below condition always holds
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogPropertyTests.TheConfigurationAtAnIndexIsTheLatestAtOrBelowIt(i: 0)
+expect: caught

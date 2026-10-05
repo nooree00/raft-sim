@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -237,7 +237,7 @@
+     {
+         for (var i = _configurations.Count - 1; i >= 0; i--)
+         {
+-            if (_configurations[i] <= index)
++            if (_configurations[i] <= index || index >= 0)
+             {
+                 return _configurations[i];
+             }
