@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -481,7 +481,7 @@
+     /// <summary>The shard's baseline checks: one unit per target project (test entries), one per baseline command (command entries).</summary>
+     internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>
+         specs.GroupBy(s => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command")), StringComparer.Ordinal)
+-            .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.ToList(), StringComparer.Ordinal);
++            .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.Skip(g.Count() > 1 ? 1 : 0).ToList(), StringComparer.Ordinal);
+ 
+     /// <summary>The entries no baseline unit holds (P7-12): each target must be shown to pass unpatched by some unit.</summary>
+     internal static List<string> Uncovered(IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, IReadOnlyList<SabotageSpec>> units)

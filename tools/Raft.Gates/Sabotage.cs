@@ -44,6 +44,7 @@ internal static class Sabotage
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
         var workersOption = Options.Take(rest, "--workers");
         var shardOption = Options.Take(rest, "--shard");
+        var baselineFirst = rest.Remove("--baseline-first");
         var f = new Findings();
         var clock = Stopwatch.StartNew();
 
@@ -93,6 +94,13 @@ internal static class Sabotage
         // Baseline checks once per shard (P4-12): each target project, and each command group, is
         // checked by one worker, against all of the shard's targets in it.
         var units = BaselineUnits(specs);
+        var uncovered = Uncovered(specs, units);
+        if (uncovered.Count > 0)
+        {
+            f.Fail($"no baseline check covers {string.Join(", ", uncovered)}: their targets would never be shown to pass unpatched");
+            return f;
+        }
+
         var baselineShares = AssignBaselines(units.Select(u => u.Key).ToList(), workers);
         var trees = Enumerable.Range(0, workers).Select(k => Path.Combine(Path.GetTempPath(), $"raft-sabotage-worktree-{k}")).ToList();
         foreach (var wt in trees)
@@ -118,13 +126,17 @@ internal static class Sabotage
         var worktrees = clock.Elapsed;
         var results = new Findings[workers];
         var ready = new TimeSpan[workers];
+
+        // P7-12's measurement: with --baseline-first no worker starts an entry until every worker's
+        // baseline checks are done, so no baseline check runs beside other workers' entries.
+        using var barrier = baselineFirst ? new System.Threading.Barrier(workers) : null;
         try
         {
             System.Threading.Tasks.Parallel.For(0, workers, k =>
             {
                 results[k] = new Findings();
                 var mineUnits = baselineShares[k].Select(key => units[key]).ToList();
-                ready[k] = RunAll(trees[k], shares[k], mineUnits, results[k], clock);
+                ready[k] = RunAll(trees[k], shares[k], mineUnits, results[k], clock, barrier);
             });
         }
         finally
@@ -162,7 +174,7 @@ internal static class Sabotage
     }
 
     /// <summary>Runs one worker's share; returns the harness clock when the worker was ready for its first entry.</summary>
-    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyList<IReadOnlyList<SabotageSpec>> baselineUnits, Findings f, Stopwatch clock)
+    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyList<IReadOnlyList<SabotageSpec>> baselineUnits, Findings f, Stopwatch clock, System.Threading.Barrier? barrier)
     {
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
@@ -173,6 +185,7 @@ internal static class Sabotage
         if (!build.Ok)
         {
             f.Fail($"baseline build failed in {wt}:\n{Tail(build)}");
+            barrier?.RemoveParticipant();
             return clock.Elapsed;
         }
 
@@ -192,7 +205,14 @@ internal static class Sabotage
         f.Note($"fixed cost split, {Path.GetFileName(wt)}: ready at {ready.TotalSeconds:F0}s; baseline build {(built - started).TotalSeconds:F0}s; baseline checks {(ready - built).TotalSeconds:F0}s ({(timings.Count == 0 ? "none" : string.Join("; ", timings))})");
         if (baselineFailures.Count > 0)
         {
+            barrier?.RemoveParticipant();
             return ready;
+        }
+
+        if (barrier is not null)
+        {
+            barrier.SignalAndWait();
+            f.Note($"fixed cost split, {Path.GetFileName(wt)}: entries start at {clock.Elapsed.TotalSeconds:F0}s, after every worker's baseline checks");
         }
 
         foreach (var spec in specs)
@@ -462,6 +482,13 @@ internal static class Sabotage
     internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>
         specs.GroupBy(s => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command")), StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.ToList(), StringComparer.Ordinal);
+
+    /// <summary>The entries no baseline unit holds (P7-12): each target must be shown to pass unpatched by some unit.</summary>
+    internal static List<string> Uncovered(IReadOnlyList<SabotageSpec> specs, IReadOnlyDictionary<string, IReadOnlyList<SabotageSpec>> units)
+    {
+        var covered = units.Values.SelectMany(u => u).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+        return specs.Select(s => s.Id).Where(id => !covered.Contains(id)).ToList();
+    }
 
     /// <summary>Every baseline unit to exactly one worker, round-robin in ordinal order: deterministic.</summary>
     internal static List<List<string>> AssignBaselines(IReadOnlyList<string> units, int workers)

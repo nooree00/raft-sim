@@ -49,6 +49,29 @@ public sealed class HarnessScopeTests
         }
     }
 
+    /// <summary>
+    /// P7-12: every entry is in a baseline unit, and in one only, whatever the shard holds; an entry
+    /// left out would have its target never shown to pass unpatched. Sabotage S-harness-4.
+    /// </summary>
+    [Fact]
+    public void EveryEntryIsInExactlyOneBaselineUnit()
+    {
+        var specs = new[]
+        {
+            Spec("S-b-1", ("kind", "test"), ("project", "tests/A")),
+            Spec("S-b-2", ("kind", "test"), ("project", "tests/A")),
+            Spec("S-b-3", ("kind", "test"), ("project", "tests/A")),
+            Spec("S-b-4", ("kind", "test"), ("project", "tests/B")),
+            Spec("S-b-5", ("kind", "command"), ("command", "x")),
+            Spec("S-b-6", ("kind", "command"), ("command", "y"), ("baseline", "x")),
+        };
+        var units = Sabotage.BaselineUnits(specs);
+        var ids = units.Values.SelectMany(u => u).Select(s => s.Id).ToList();
+        Assert.Equal(specs.Select(s => s.Id).Order(StringComparer.Ordinal), ids.Order(StringComparer.Ordinal));
+        Assert.Empty(Sabotage.Uncovered(specs, units));
+        Assert.Equal(["S-b-4"], Sabotage.Uncovered(specs, units.Where(u => u.Key != "test:tests/B").ToDictionary(u => u.Key, u => u.Value, StringComparer.Ordinal)));
+    }
+
     [Fact]
     public void ATheoryTargetsBaselineFilterNamesItsMethod() =>
         Assert.Equal("A.B.C", Sabotage.TargetMethod("A.B.C(limit: \"heartbeat\")"));

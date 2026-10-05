@@ -1,0 +1,6 @@
+description: A shard's baseline units leave out one entry of every project holding several: that entry's target is never shown to pass unpatched, so a target already red would be reported caught (P7-12)
+mechanism: an entry left out of the shared baseline
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.HarnessScopeTests.EveryEntryIsInExactlyOneBaselineUnit
+expect: caught
