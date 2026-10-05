@@ -117,9 +117,11 @@ public sealed class PositiveControlTests
     /// <summary>
     /// P7-10: the positive control over the soak's generated executions. Nodes that compact past
     /// their commit index (<see cref="RaftOptions.CompactPastCommit"/>), the soak's faults, clients and
-    /// threshold: the log invariants and the agreement check must catch them in a share of the
-    /// executions, and the real node, the soak's own sample, in none. The count is written beside the
-    /// assembly; the assertion is the floor's (3 of 300), the prediction's 3% is the report's.
+    /// threshold: the log invariants and the agreement check must catch them, and the real node, the
+    /// soak's own sample, in none. The test stops once the control is caught 3 times (the floor), in at
+    /// most 300 executions; P7-10's full measurement over all 300 (120 caught) is in the breakdown. Run
+    /// to the end, it took 10 minutes under S-dur-2 in every Scale harness entry's neighbours, and put
+    /// its shard over the ceiling on GitHub (run 37278405824).
     /// </summary>
     [Fact]
     public void ACompactionPastTheCommitIndexIsCaughtInTheGeneratedSample()
@@ -127,8 +129,10 @@ public sealed class PositiveControlTests
         int red = 0, agreementRed = 0, threw = 0;
         var byInvariant = new Dictionary<string, int>(StringComparer.Ordinal);
         const int Executions = 300;
-        for (var seed = 1; seed <= Executions; seed++)
+        var run = 0;
+        for (var seed = 1; seed <= Executions && red < 3; seed++)
         {
+            run++;
             var probe = new AgreementProbe();
             var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakConfig.FaultsUntil });
             Simulator sim;
@@ -159,9 +163,9 @@ public sealed class PositiveControlTests
         }
 
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "compaction-control.txt"), string.Join("\n",
-            $"{Executions} executions, every node compacting past its commit index every {SoakConfig.SnapshotThreshold} applied entries",
-            $"caught: {red} ({100.0 * red / Executions:F1}%); by invariant: {string.Join(", ", byInvariant.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => $"{k.Key} {k.Value}"))}; by agreement {agreementRed}; a node threw {threw}") + "\n");
-        Assert.True(red >= 3, $"the control was caught in only {red} of {Executions} executions");
+            $"{run} executions (stopping at 3 caught, at most {Executions}), every node compacting past its commit index every {SoakConfig.SnapshotThreshold} applied entries",
+            $"caught: {red} of {run}; by invariant: {string.Join(", ", byInvariant.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => $"{k.Key} {k.Value}"))}; by agreement {agreementRed}; a node threw {threw}") + "\n");
+        Assert.True(red >= 3, $"the control was caught in only {red} of {run} executions");
     }
 }
 
