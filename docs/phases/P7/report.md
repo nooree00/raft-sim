@@ -184,8 +184,24 @@ Checker 167 (167), Simulation 110 (108), Core 815 (141), Scale 18 (16), Budget 3
   saves, so the harness is unchanged. What is left of the fixed cost is the price of running a
   target's own project once before its entries, beside the other workers. I argue the row again,
   re-promised to phase 8, for you to keep or drop.
-- **The full local run without the soaks** passed on this commit before the push; its stage times
-  go to the reviewer with the push. The per-commit matrix and both soaks run in CI only.
+- **The first push of this phase was red** (run 37278405824, on `96d2fe1`): both soaks green, every
+  other job green, and harness shard 10 over its 15-minute ceiling, about 1,000 s, at the head and at
+  the two commits before it. Both causes were mine. P7-10's control sample ran all 300 executions to
+  count catches; under S-dur-2, whose patch also cuts compacted files, those executions slowed until
+  the test took 10 minutes, and S-dur-2's entry, which runs the Scale project's tests as its
+  neighbours, took 713 s (122 s at P7-04). The sample now stops once the control is caught three
+  times (2 s); the 300-execution measurement stays in the breakdown. And P7-11 re-picked the budget
+  tests' seeds with the second-hardest decided history (7248, 7,607,718 states), which made the
+  budget project's baseline check 174 s locally; it is left out with 3044, for the same reason, and
+  9886 takes its place. My full local run had shown shard 10 at 879 s of 900, and I pushed on it.
+  The fixes are two commits before this revision of the report. The red run stays in the branch's
+  history: those commits are pushed, and I have not rewritten them.
+- **The full local run without the soaks took 105 minutes** (6,317 s on the first push's head), past
+  the 90 minutes at which AGENTS.md says it comes back to you. Ten harness shards (nine at phase 6)
+  and the per-shard baseline checks of `Raft.Scale.Tests` and `Raft.Budget.Tests` are most of it.
+  That decision is yours: a shorter local run, or the run as it is.
+- **The full local run without the soaks** passed on this commit before the push. The per-commit
+  matrix and both soaks run in CI only.
 
 ## Findings added this phase
 

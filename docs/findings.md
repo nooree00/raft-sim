@@ -833,3 +833,13 @@ finding: what happened, why no existing check caught it, what now catches it.
   showed this. The same check found a second flaw nobody predicted (a repeated first chunk restarted
   the transfer). *Rule:* run a new construction against the wrong implementation first. A red there
   is what makes its green worth anything, the same reasoning as a sabotage, applied before the fix.
+- **A local clock at 98% of the ceiling is a red on the slower runner.** The full local run before
+  phase 7's first push showed harness shard 10 at 879 s of its 900 s ceiling. I read that as green
+  and pushed; on GitHub the shard took about 1,000 s and failed. Most of it was one entry, S-dur-2,
+  at 713 s (122 s a few commits earlier): a sample test added that phase ran all 300 executions to
+  count catches, and under that sabotage its executions slowed until it took 10 minutes, in the
+  neighbours of every Scale entry. A test that measures a rate by running to the end costs its run
+  time in every harness entry beside it, at the sabotaged system's speed, not the real one's. The
+  local run is the check of record before a push, but its numbers are a local machine's. *Rule:* a
+  local measurement within a tenth of a ceiling the CI runner enforces is a finding before the push,
+  not a pass; and a test that only needs a floor stops at the floor.
