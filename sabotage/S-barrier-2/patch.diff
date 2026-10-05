@@ -8,4 +8,4 @@
 +                    h.Held.Enqueue(new HeldEffect(r, long.MaxValue, Steps));
                      h.HeldPersists++;
                      h.RenameAt = h.Disk.IssuedCount + h.HeldPersists;
-                     break;
+                     ObserveIssued(h, r, Steps);

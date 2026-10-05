@@ -1,0 +1,7 @@
+description: A restored state machine drops one key: every node that restores a snapshot holds a state no replay of the committed entries gives, while every invariant over ghost ids still holds (P7-08)
+mechanism: a restore skips the snapshot's first key
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.AgreementTests.ACompactingNodeAndTwoThatNeverCompactAgreeWithTheCommittedEntries
+reason: differs from the committed entries replayed
+expect: caught

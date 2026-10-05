@@ -87,7 +87,7 @@ public sealed class RenameBarrierTests
             }
         }
 
-        var rounds = sim.Observations.OfType<IssuedObservation>().Count(o => o.Op is PersistRename);
+        var rounds = renames.Count;
         var snap = Encoding.ASCII.GetString(sim.Disks[0].Snapshot()["snap"].Span);
         Assert.StartsWith("round", snap, StringComparison.Ordinal);
         Assert.True(int.Parse(snap["round".Length..].TrimEnd('+'), CultureInfo.InvariantCulture) >= rounds - 1, $"the real file holds {snap} after {rounds} renames: renames are held, not released");
@@ -115,9 +115,12 @@ public sealed class RenameBarrierTests
                     continue;
                 }
 
-                var pendingOps = observations.Take(crash).OfType<IssuedObservation>().Select(o => o.Op).ToList();
-                var completed = observations.Take(crash).OfType<DurableObservation>().Count(o => o.Completed is not null);
-                inFlight += pendingOps.Skip(completed).Any(op => op is PersistRename) ? 1 : 0;
+                // In flight: issued to the disk (the trace's PERSIST, not the node's decision, which a held
+                // rename is too) and not durable when the crash came.
+                var lines = TraceLine.Parse(sim.Trace.Lines);
+                var crashAt = lines.FindIndex(l => l.Kind == "CRASH");
+                var durable = lines.Take(crashAt).Where(l => l.Kind == "DURABLE").Select(l => l.Fields["seq"]).ToHashSet();
+                inFlight += lines.Take(crashAt).Any(l => l.Kind == "PERSIST" && l.Fields["op"] == nameof(PersistRename) && !durable.Contains(l.Fields["seq"])) ? 1 : 0;
                 var after = observations.Skip(crash).OfType<DurableObservation>().FirstOrDefault(o => o.Completed is null && o.File == "snap");
                 empty += after is { Content: { } c } && !Encoding.ASCII.GetString(c.Span).StartsWith("round", StringComparison.Ordinal) ? 1 : 0;
             }

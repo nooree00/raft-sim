@@ -1,0 +1,15 @@
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -100,7 +100,11 @@
+         for (var i = 0; i < count; i++)
+         {
+             var key = GetText(span, ref at);
+-            _state[key] = GetText(span, ref at);
++            var value = GetText(span, ref at);
++            if (i > 0)
++            {
++                _state[key] = value;
++            }
+         }
+     }
+ 

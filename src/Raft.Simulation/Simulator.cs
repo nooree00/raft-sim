@@ -605,12 +605,15 @@ public sealed class Simulator
                     h.Held.Enqueue(new HeldEffect(r, h.Disk.IssuedCount + h.HeldPersists, Steps));
                     h.HeldPersists++;
                     h.RenameAt = h.Disk.IssuedCount + h.HeldPersists;
+                    ObserveIssued(h, r, Steps);
                     break;
                 case Persist p when h.HeldPersists > 0 || h.RenameAt > h.Disk.CompletedCount:
                     h.Held.Enqueue(new HeldEffect(p, h.RenameAt, Steps));
                     h.HeldPersists++;
+                    ObserveIssued(h, p, Steps);
                     break;
                 case Persist p:
+                    ObserveIssued(h, p, Steps);
                     IssuePersist(h, p, Steps);
                     break;
                 case Send or ClientResponse:
@@ -633,6 +636,20 @@ public sealed class Simulator
         Release(h);
     }
 
+    /// <summary>
+    /// The node decided a write (<see cref="IssuedObservation"/>): observed when the node emits it,
+    /// not when the world releases it to the disk (P7-08). A held write is the node's intent from the
+    /// step that emitted it, and the node acts on it at once: the checkers' intended log followed the
+    /// disk's issue order and lagged the node by every write held behind a rename.
+    /// </summary>
+    private void ObserveIssued(Host h, Persist p, long step)
+    {
+        if (Observe)
+        {
+            _observations.Add(new IssuedObservation(_now, h.Id, p, step));
+        }
+    }
+
     private void IssuePersist(Host h, Persist p, long step)
     {
         var latency = Between("disk:" + h.Id, (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
@@ -643,11 +660,6 @@ public sealed class Simulator
 
         var w = h.Disk.Issue(p, _now + latency);
         Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
-        if (Observe)
-        {
-            _observations.Add(new IssuedObservation(_now, h.Id, p, step));
-        }
-
         Count(_effects, p.GetType());
         At(w.CompleteAt, () => CompleteWrite(h, w));
         CheckArmedCrashes(h);

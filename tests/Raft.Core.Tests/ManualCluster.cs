@@ -27,6 +27,8 @@ internal sealed class ManualCluster
     public IReadOnlyList<NodeId> Nodes { get; }
 
     private readonly RaftOptions _options;
+    private readonly Func<NodeId, RaftOptions?>? _optionsFor;
+    private readonly Func<NodeId, IStateMachine>? _stateMachine;
     private readonly Dictionary<NodeId, ulong> _timeoutOffset;
     private readonly Dictionary<NodeId, RaftNode?> _nodes = [];
     private readonly Dictionary<NodeId, Dictionary<string, byte[]>> _files = [];
@@ -36,9 +38,13 @@ internal sealed class ManualCluster
     private readonly Dictionary<long, (long Time, byte[] Reply)> _replies = [];
     private long _time, _step, _id, _request;
 
-    public ManualCluster(RaftOptions options, ulong n1Offset = 0, ulong n2Offset = 149, ulong n3Offset = 0, NodeId[]? members = null, NodeId[]? spares = null)
+    /// <param name="optionsFor">A node's own options, where they differ from <paramref name="options"/> (P7-08: compacting and non-compacting nodes in one cluster).</param>
+    /// <param name="stateMachine">A node's state machine for each incarnation, a new key-value one by default.</param>
+    public ManualCluster(RaftOptions options, ulong n1Offset = 0, ulong n2Offset = 149, ulong n3Offset = 0, NodeId[]? members = null, NodeId[]? spares = null, Func<NodeId, RaftOptions?>? optionsFor = null, Func<NodeId, IStateMachine>? stateMachine = null)
     {
         _options = options;
+        _optionsFor = optionsFor;
+        _stateMachine = stateMachine;
         _members = members ?? All;
         Nodes = [.. _members, .. spares ?? []];
         _timeoutOffset = new() { [N1] = n1Offset, [N2] = n2Offset, [N3] = n3Offset };
@@ -74,7 +80,7 @@ internal sealed class ManualCluster
     {
         _incarnation[n] = _incarnation.GetValueOrDefault(n) + 1;
         var files = _files[n].ToDictionary(kv => kv.Key, kv => (ReadOnlyMemory<byte>)kv.Value, StringComparer.Ordinal);
-        _nodes[n] = new RaftNode(new NodeContext(n, _members.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset.GetValueOrDefault(n, (ulong)(n.Value * 37))), files, _members), _options, new KvStateMachine());
+        _nodes[n] = new RaftNode(new NodeContext(n, _members.Where(p => p != n).ToList(), new ConstantRandom(_timeoutOffset.GetValueOrDefault(n, (ulong)(n.Value * 37))), files, _members), _optionsFor?.Invoke(n) ?? _options, _stateMachine?.Invoke(n) ?? new KvStateMachine());
         Observations.Add(new StartObservation(_time, n, _incarnation[n]));
     }
 
