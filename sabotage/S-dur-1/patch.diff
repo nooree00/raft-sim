@@ -1,6 +1,6 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -262,6 +262,7 @@
+@@ -524,6 +524,7 @@
          // A new term is persisted before the log changes it authorises: a deposed leader truncating its
          // suffix at the new leader's word acts on that term (found by the log checkers, P4-03: the
          // truncation was issued before the term that deposed it).
@@ -8,12 +8,12 @@
          Save(effects);
  
          // Truncate only at a real conflict: an entry already held with the same term is the same entry
-@@ -295,8 +296,6 @@
+@@ -559,8 +560,6 @@
              _commitIndex = Math.Min(ae.LeaderCommit, lastNew);
              Apply(effects);
          }
 -
--        Reply(from, new AppendEntriesResponse(_term, true, lastNew), effects);
+-        Reply(from, new AppendEntriesResponse(_term, true, lastNew, ae.Round), effects);
      }
  
      private void OnAppendEntriesResponse(NodeId from, AppendEntriesResponse r, List<Effect> effects)

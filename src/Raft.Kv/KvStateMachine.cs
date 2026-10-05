@@ -92,6 +92,16 @@ public sealed class KvStateMachine : IStateMachine
         return Encoding.ASCII.GetBytes(Execute(text));
     }
 
+    /// <summary>A `Get` outside a session reads (P8-05): reads carry no session (phase 8 decision 4).</summary>
+    public bool IsQuery(ReadOnlyMemory<byte> command)
+    {
+        var span = command.Span;
+        return span.Length > 4 && span[0] == (byte)'G' && span[1] == (byte)'e' && span[2] == (byte)'t' && span[3] == (byte)'|' && span[4..].IndexOf((byte)'|') < 0;
+    }
+
+    public ReadOnlyMemory<byte> Query(ReadOnlyMemory<byte> command) =>
+        IsQuery(command) ? Encoding.ASCII.GetBytes(Execute(Encoding.ASCII.GetString(command.Span))) : Encoding.ASCII.GetBytes("error");
+
     private string Execute(string text)
     {
         var p = text.Split('|');

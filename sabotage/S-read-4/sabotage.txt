@@ -1,0 +1,7 @@
+description: An acknowledgement counts for the leader's latest read round whichever request it answers: an answer to a heartbeat sent before the read arrived confirms the read (P8-05)
+mechanism: the round tag ignored
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReadIndexTests.AReadWaitsForTheSlowFollowerInItsQuorum
+reason: an acknowledgement of a heartbeat sent before the read confirmed it
+expect: caught

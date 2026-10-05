@@ -130,6 +130,10 @@ internal sealed class AgreementProbe
 
         public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command) => _kv.Apply(index, command);
 
+        public bool IsQuery(ReadOnlyMemory<byte> command) => _kv.IsQuery(command);
+
+        public ReadOnlyMemory<byte> Query(ReadOnlyMemory<byte> command) => _kv.Query(command);
+
         public ReadOnlyMemory<byte> Snapshot() => _kv.Snapshot();
 
         public void Restore(ReadOnlyMemory<byte> snapshot)

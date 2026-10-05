@@ -1,6 +1,6 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -421,7 +421,7 @@
+@@ -621,7 +621,7 @@
                  }
              }
  
@@ -8,4 +8,4 @@
 +            if (new Configuration(ConfigurationAt(n).New ?? ConfigurationAt(n).Old).IsQuorum(holders))
              {
                  _commitIndex = n;
-                 Apply(effects);
+                 TermCommitted();

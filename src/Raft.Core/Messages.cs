@@ -21,18 +21,22 @@ public sealed record LogEntry(Term Term, byte[] Command)
     public override int GetHashCode() => Term.GetHashCode() ^ Command.Length;
 }
 
-/// <summary>Invoked by leaders to replicate entries (§5.3); with no entries, a heartbeat (§5.2).</summary>
-public sealed record AppendEntries(Term Term, NodeId Leader, long PrevLogIndex, Term PrevLogTerm, IReadOnlyList<LogEntry> Entries, long LeaderCommit) : Message(Term)
+/// <summary>
+/// Invoked by leaders to replicate entries (§5.3); with no entries, a heartbeat (§5.2).
+/// <see cref="Round"/> (P8-05) is the leader's latest read round when it sent this, echoed in the
+/// response: an acknowledgement confirms the reads of that round and every earlier one.
+/// </summary>
+public sealed record AppendEntries(Term Term, NodeId Leader, long PrevLogIndex, Term PrevLogTerm, IReadOnlyList<LogEntry> Entries, long LeaderCommit, long Round = 0) : Message(Term)
 {
     public bool Equals(AppendEntries? other) =>
         other is not null && Term == other.Term && Leader == other.Leader && PrevLogIndex == other.PrevLogIndex
-        && PrevLogTerm == other.PrevLogTerm && LeaderCommit == other.LeaderCommit && Entries.SequenceEqual(other.Entries);
+        && PrevLogTerm == other.PrevLogTerm && LeaderCommit == other.LeaderCommit && Round == other.Round && Entries.SequenceEqual(other.Entries);
 
     public override int GetHashCode() => Term.GetHashCode() ^ Leader.GetHashCode() ^ Entries.Count;
 }
 
-/// <summary>The reply to <see cref="AppendEntries"/>; <see cref="MatchIndex"/> is the last index the follower now matches.</summary>
-public sealed record AppendEntriesResponse(Term Term, bool Success, long MatchIndex) : Message(Term);
+/// <summary>The reply to <see cref="AppendEntries"/>; <see cref="MatchIndex"/> is the last index the follower now matches, <see cref="Round"/> the request's.</summary>
+public sealed record AppendEntriesResponse(Term Term, bool Success, long MatchIndex, long Round = 0) : Message(Term);
 
 /// <summary>
 /// Invoked by leaders to send a follower behind their snapshot a chunk of it (Figure 13, phase 7

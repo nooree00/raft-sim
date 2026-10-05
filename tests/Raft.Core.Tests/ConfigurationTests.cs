@@ -39,6 +39,10 @@ public sealed class ConfigurationTests
             return ReadOnlyMemory<byte>.Empty;
         }
 
+        public bool IsQuery(ReadOnlyMemory<byte> command) => false;
+
+        public ReadOnlyMemory<byte> Query(ReadOnlyMemory<byte> command) => ReadOnlyMemory<byte>.Empty;
+
         public ReadOnlyMemory<byte> Snapshot() => ReadOnlyMemory<byte>.Empty;
 
         public void Restore(ReadOnlyMemory<byte> snapshot)

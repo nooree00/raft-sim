@@ -25,7 +25,7 @@ public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTim
     public const int HeartbeatsPerTimeout = 3;
 
     /// <summary>An encoded AppendEntries: its fixed fields, then per entry a term and a length.</summary>
-    private const long AppendEntriesFixed = 41, PerEntry = 12;
+    private const long AppendEntriesFixed = 49, PerEntry = 12;
 
     public static RaftOptions Default { get; } = new();
 
@@ -104,6 +104,10 @@ public sealed class RaftNode : INode
     private long _restored;
     private readonly Dictionary<NodeId, Sent> _snapshotSent = [];
     private Incoming? _incoming;
+    private readonly List<Read> _reads = [];
+    private readonly Dictionary<NodeId, long> _acked = [];
+    private long _round;
+    private bool _termCommitted;
 
     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
     {
@@ -206,6 +210,7 @@ public sealed class RaftNode : INode
                 break;
         }
 
+        ServeReads(effects);
         Save(effects);
         return effects;
     }
@@ -471,7 +476,7 @@ public sealed class RaftNode : INode
     {
         if (ae.Term < _term)
         {
-            Reply(from, new AppendEntriesResponse(_term, false, 0), effects);
+            Reply(from, new AppendEntriesResponse(_term, false, 0, ae.Round), effects);
             return;
         }
 
@@ -501,7 +506,7 @@ public sealed class RaftNode : INode
             ae = ae with { PrevLogIndex = ae.PrevLogIndex + covered, PrevLogTerm = covered == 0 ? ae.PrevLogTerm : ae.Entries[covered - 1].Term, Entries = after };
             if (ae.PrevLogIndex < _log.BaseIndex)
             {
-                Reply(from, new AppendEntriesResponse(_term, true, ae.PrevLogIndex), effects);
+                Reply(from, new AppendEntriesResponse(_term, true, ae.PrevLogIndex, ae.Round), effects);
                 return;
             }
         }
@@ -512,7 +517,7 @@ public sealed class RaftNode : INode
         // entry per rejection, which with heartbeats alone takes one step per interval (P4-03).
         if (ae.PrevLogIndex > _log.LastIndex || _log.TermAt(ae.PrevLogIndex) != ae.PrevLogTerm)
         {
-            Reply(from, new AppendEntriesResponse(_term, false, Math.Max(_log.BaseIndex, Math.Min(_log.LastIndex, ae.PrevLogIndex - 1))), effects);
+            Reply(from, new AppendEntriesResponse(_term, false, Math.Max(_log.BaseIndex, Math.Min(_log.LastIndex, ae.PrevLogIndex - 1)), ae.Round), effects);
             return;
         }
 
@@ -555,7 +560,7 @@ public sealed class RaftNode : INode
             Apply(effects);
         }
 
-        Reply(from, new AppendEntriesResponse(_term, true, lastNew), effects);
+        Reply(from, new AppendEntriesResponse(_term, true, lastNew, ae.Round), effects);
     }
 
     private void OnAppendEntriesResponse(NodeId from, AppendEntriesResponse r, List<Effect> effects)
@@ -563,6 +568,13 @@ public sealed class RaftNode : INode
         if (Role != Role.Leader || r.Term != _term || !_nextIndex.ContainsKey(from))
         {
             return;
+        }
+
+        // Any answer in this term, success or not, says the peer followed this leader when it handled
+        // the request: the reads of that request's round, and every earlier one, have its vote (P8-05).
+        if (!_acked.TryGetValue(from, out var acked) || r.Round > acked)
+        {
+            _acked[from] = r.Round;
         }
 
         if (r.Success)
@@ -612,6 +624,7 @@ public sealed class RaftNode : INode
             if (ConfigurationAt(n).IsQuorum(holders))
             {
                 _commitIndex = n;
+                TermCommitted();
                 Apply(effects);
                 return;
             }
@@ -639,6 +652,12 @@ public sealed class RaftNode : INode
             return;
         }
 
+        if (_stateMachine.IsQuery(c.Payload))
+        {
+            OnRead(c, effects);
+            return;
+        }
+
         if (c.Payload.Length > _options.MaxCommandBytes)
         {
             effects.Add(new ClientResponse(c.RequestId, Ascii("too-large|" + _options.MaxCommandBytes.ToString(CultureInfo.InvariantCulture))));
@@ -654,6 +673,98 @@ public sealed class RaftNode : INode
             var peer = peers[k];
             SendAppend(peer, effects);
         }
+    }
+
+    /// <summary>
+    /// A read (P8-05, phase 8 decision 4: ReadIndex). It joins a new round, which leaves at once in a
+    /// heartbeat to every peer; only an answer to a request sent from now on carries this round or a
+    /// later one. Its index is the commit index, once an entry of this term has committed: before
+    /// that, the commit index can be behind entries a predecessor committed and answered.
+    /// </summary>
+    private void OnRead(ClientRequest c, List<Effect> effects)
+    {
+        _round++;
+        _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _termCommitted ? _commitIndex : -1 });
+        Heartbeats(effects);
+    }
+
+    /// <summary>An entry of this term has committed: the reads waiting for it take the commit index as theirs.</summary>
+    private void TermCommitted()
+    {
+        if (_termCommitted)
+        {
+            return;
+        }
+
+        _termCommitted = true;
+        for (var k = 0; k < _reads.Count; k++)
+        {
+            if (_reads[k].Index < 0)
+            {
+                _reads[k].Index = _commitIndex;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Answer every read whose index has been applied and whose round a quorum of the configuration in
+    /// effect has acknowledged, the leader counting where it is a member; a joint configuration needs
+    /// both majorities, as commitment does (P6-05). A node that is no longer leader answers none: its
+    /// reads are dropped unanswered, and their clients time out.
+    /// </summary>
+    private void ServeReads(List<Effect> effects)
+    {
+        if (_reads.Count == 0)
+        {
+            return;
+        }
+
+        if (Role != Role.Leader)
+        {
+            _reads.Clear();
+            return;
+        }
+
+        var configuration = Configuration;
+        var peers = Peers();
+        for (var k = 0; k < _reads.Count; k++)
+        {
+            var read = _reads[k];
+            if (read.Index < 0 || read.Index > _lastApplied)
+            {
+                continue;
+            }
+
+            var holders = new List<NodeId> { _context.Id };
+            for (var j = 0; j < peers.Count; j++)
+            {
+                if (_acked.TryGetValue(peers[j], out var acked) && acked >= read.Round)
+                {
+                    holders.Add(peers[j]);
+                }
+            }
+
+            if (!configuration.IsQuorum(holders))
+            {
+                continue;
+            }
+
+            effects.Add(new ClientResponse(read.RequestId, _stateMachine.Query(read.Query)));
+            _reads.RemoveAt(k);
+            k--;
+        }
+    }
+
+    /// <summary>A read waiting to be answered: its round, and its index (-1 until an entry of this term commits).</summary>
+    private sealed class Read(long requestId, byte[] query, long round)
+    {
+        public long RequestId { get; } = requestId;
+
+        public byte[] Query { get; } = query;
+
+        public long Round { get; } = round;
+
+        public long Index { get; set; }
     }
 
     /// <summary>
@@ -953,6 +1064,9 @@ public sealed class RaftNode : INode
     {
         Role = Role.Leader;
         _leaderHint = _context.Id;
+        _reads.Clear();
+        _acked.Clear();
+        _termCommitted = false;
         effects.Add(Event("leader", new Field("term", N(_term.Value))));
         EnsurePeers();
         Heartbeats(effects);
@@ -994,7 +1108,7 @@ public sealed class RaftNode : INode
         }
 
         var prev = next - 1;
-        var ae = new AppendEntries(_term, _context.Id, prev, _log.TermAt(prev), _log.From(next, _options.MaxEntriesPerAppend), _commitIndex);
+        var ae = new AppendEntries(_term, _context.Id, prev, _log.TermAt(prev), _log.From(next, _options.MaxEntriesPerAppend), _commitIndex, _round);
         effects.Add(new Send(peer, MessageCodec.Encode(ae)));
     }
 
@@ -1083,6 +1197,10 @@ public sealed class RaftNode : INode
     private sealed class NoStateMachine : IStateMachine
     {
         public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command) => ReadOnlyMemory<byte>.Empty;
+
+        public bool IsQuery(ReadOnlyMemory<byte> command) => false;
+
+        public ReadOnlyMemory<byte> Query(ReadOnlyMemory<byte> command) => ReadOnlyMemory<byte>.Empty;
 
         public ReadOnlyMemory<byte> Snapshot() => ReadOnlyMemory<byte>.Empty;
 

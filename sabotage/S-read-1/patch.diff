@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -744,7 +744,7 @@ public sealed class RaftNode : INode
+                 }
+             }
+ 
+-            if (!configuration.IsQuorum(holders))
++            if (!configuration.IsQuorum(holders) && false)
+             {
+                 continue;
+             }

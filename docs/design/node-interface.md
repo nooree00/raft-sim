@@ -98,7 +98,7 @@ shift any other draw.
 
 ## 8. The state machine
 
-`IStateMachine` (`Apply`, `Snapshot`, `Restore`) is injected into a Raft node (phase 3 and later); the
+`IStateMachine` (`Apply`, `Snapshot`, `Restore`, and `IsQuery` and `Query` for reads answered without a log entry, P8-05) is injected into a Raft node (phase 3 and later); the
 key-value store implements it. Pure, like the node.
 
 ## 8a. Messages and their wire form
@@ -107,7 +107,9 @@ Peers exchange `RequestVote`, `RequestVoteResponse`, `AppendEntries` and `Append
 (Figure 2), and `InstallSnapshot` and `InstallSnapshotResponse` (Figure 13, P7-07: a chunk of the
 snapshot's record at an offset, and the bytes the follower holds from its start or that it holds
 the snapshot whole) as bytes, through `MessageCodec` in Core: a type byte, fixed-width big-endian integers,
-and a count or length before every variable part.
+and a count or length before every variable part. `AppendEntries` and its response carry a read round
+(P8-05): the leader's latest when it sent the request, echoed in the response, so an acknowledgement
+confirms only the reads that arrived before its request left.
 
 **The canonical rule (P3-02):** every byte string decodes to at most one message, and every
 message has exactly one encoding. Decoding rejects trailing bytes, an unknown type, a boolean other

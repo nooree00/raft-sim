@@ -1,0 +1,7 @@
+description: A new leader takes its commit index as a read's index before an entry of its own term has committed: the index can be behind a write its predecessor committed and answered (P8-05)
+mechanism: no wait for the term's own commit
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReadIndexTests.ANewLeadersReadWaitsForItsNoOp
+reason: before its no-op committed
+expect: caught

@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -684,7 +684,7 @@ public sealed class RaftNode : INode
+     private void OnRead(ClientRequest c, List<Effect> effects)
+     {
+         _round++;
+-        _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _termCommitted ? _commitIndex : -1 });
++        _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _commitIndex });
+         Heartbeats(effects);
+     }
+ 

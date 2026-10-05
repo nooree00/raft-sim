@@ -1,0 +1,7 @@
+description: A leader answers a read once applied to its index without a heartbeat round acknowledged by a quorum: a partitioned old leader answers from state a later leader has overwritten (P8-05)
+mechanism: the read's heartbeat round skipped
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReadIndexTests.APartitionedOldLeaderCannotAnswerARead
+reason: the partitioned old leader answered the read
+expect: caught

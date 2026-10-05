@@ -31,8 +31,8 @@ public sealed class MessageCodecTests
             0 => new RequestVote(T(), N(), I(), T()),
             1 => new RequestVoteResponse(T(), rng.Next(2) == 0),
             2 => new AppendEntries(T(), N(), I(), T(),
-                Enumerable.Range(0, rng.Next(0, 4)).Select(_ => new LogEntry(T(), Enumerable.Range(0, rng.Next(0, 6)).Select(_ => (byte)rng.Next(256)).ToArray())).ToList(), I()),
-            3 => new AppendEntriesResponse(T(), rng.Next(2) == 0, I()),
+                Enumerable.Range(0, rng.Next(0, 4)).Select(_ => new LogEntry(T(), Enumerable.Range(0, rng.Next(0, 6)).Select(_ => (byte)rng.Next(256)).ToArray())).ToList(), I(), I()),
+            3 => new AppendEntriesResponse(T(), rng.Next(2) == 0, I(), I()),
             4 => new InstallSnapshot(T(), N(), I(), T(), I(), B(), rng.Next(2) == 0),
             _ => new InstallSnapshotResponse(T(), I(), I(), rng.Next(2) == 0),
         };
@@ -133,7 +133,7 @@ public sealed class MessageCodecTests
     [InlineData("negative term", "02FFFFFFFFFFFFFFFF01")]
     [InlineData("node id 0", "0100000000000000010000000000000000000000000000000000000000")]
     [InlineData("truncated", "01000000000000000100000002000000000000000300000000000000")]
-    [InlineData("entry count past the end", "0300000000000000010000000100000000000000000000000000000000000000000000000000000001")]
+    [InlineData("entry count past the end", "03000000000000000100000001000000000000000000000000000000000000000000000000000000000000000000000001")]
     [InlineData("empty", "")]
     public void AMalformedOrNonCanonicalByteStringDecodesToNothing(string what, string hex) =>
         Assert.True(MessageCodec.Decode(Convert.FromHexString(hex)) is null, what + " decoded");
@@ -143,6 +143,6 @@ public sealed class MessageCodecTests
     {
         Assert.Equal("02000000000000000701", Convert.ToHexString(MessageCodec.Encode(new RequestVoteResponse(new Term(7), true))));
         Assert.Equal("0100000000000000010000000200000000000000030000000000000000", Convert.ToHexString(MessageCodec.Encode(new RequestVote(new Term(1), new NodeId(2), 3, Term.Zero))));
-        Assert.Equal("0300000000000000010000000100000000000000000000000000000000000000000000000000000000", Convert.ToHexString(MessageCodec.Encode(new AppendEntries(new Term(1), new NodeId(1), 0, Term.Zero, [], 0))));
+        Assert.Equal("03000000000000000100000001000000000000000000000000000000000000000000000000000000000000000000000000", Convert.ToHexString(MessageCodec.Encode(new AppendEntries(new Term(1), new NodeId(1), 0, Term.Zero, [], 0))));
     }
 }

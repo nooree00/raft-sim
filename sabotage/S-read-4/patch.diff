@@ -1,0 +1,15 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -572,10 +572,7 @@ public sealed class RaftNode : INode
+ 
+         // Any answer in this term, success or not, says the peer followed this leader when it handled
+         // the request: the reads of that request's round, and every earlier one, have its vote (P8-05).
+-        if (!_acked.TryGetValue(from, out var acked) || r.Round > acked)
+-        {
+-            _acked[from] = r.Round;
+-        }
++        _acked[from] = _round;
+ 
+         if (r.Success)
+         {

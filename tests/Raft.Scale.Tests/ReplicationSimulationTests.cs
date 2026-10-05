@@ -88,7 +88,8 @@ public sealed class ReplicationSimulationTests
     /// P4-03's prediction, measured: a follower isolated while the leader commits many entries catches
     /// up, and the ticks it takes are written beside the assembly. From phase 7 the leader has
     /// compacted past the follower's log by then, and the follower catches up by installing its
-    /// snapshot (P7-07).
+    /// snapshot (P7-07). Fifteen clients, not twelve, from phase 8: a `Get` is answered without an
+    /// entry (P8-05), and twelve left the follower 964 entries behind.
     /// </summary>
     [Fact]
     public void AnIsolatedFollowerCatchesUpAfterTheLeaderCommitsManyEntries()
@@ -97,7 +98,7 @@ public sealed class ReplicationSimulationTests
         var (probe, ph) = Cluster.Run(seed, 1_000);
         var leader = ph.Elections().OrderBy(e => e.Value).Select(e => e.Key.Candidate).First();
         var follower = new[] { N1, N2, N3 }.First(n => n != leader);
-        var (sim, h) = Cluster.Run(seed, 5_000, new FaultSchedule([new Isolate(1_000, follower, Healed)]), clients: 12, workload: new RaftWorkload(1_000, target: leader));
+        var (sim, h) = Cluster.Run(seed, 5_000, new FaultSchedule([new Isolate(1_000, follower, Healed)]), clients: 15, workload: new RaftWorkload(1_000, target: leader));
         foreach (var r in Cluster.CheckLog(sim, h))
         {
             Assert.True(r.Holds, $"{r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");

@@ -41,6 +41,12 @@ public interface IStateMachine
     /// <summary>Apply the committed entry at <paramref name="index"/> (P8-01: a session is named by the index of the entry that registered it).</summary>
     ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command);
 
+    /// <summary>Whether <paramref name="command"/> only reads: a leader answers it by ReadIndex, without a log entry (P8-05, phase 8 decision 4).</summary>
+    bool IsQuery(ReadOnlyMemory<byte> command);
+
+    /// <summary>Answer a command <see cref="IsQuery"/> accepted, from the state applied so far, changing nothing.</summary>
+    ReadOnlyMemory<byte> Query(ReadOnlyMemory<byte> command);
+
     ReadOnlyMemory<byte> Snapshot();
 
     void Restore(ReadOnlyMemory<byte> snapshot);

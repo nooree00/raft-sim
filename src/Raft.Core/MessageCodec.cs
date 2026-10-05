@@ -28,7 +28,7 @@ public static class MessageCodec
                 w.Add(RequestVoteResponseType); Long(w, m.Term.Value); w.Add(m.VoteGranted ? (byte)1 : (byte)0);
                 break;
             case AppendEntries m:
-                w.Add(AppendEntriesType); Long(w, m.Term.Value); Int(w, m.Leader.Value); Long(w, m.PrevLogIndex); Long(w, m.PrevLogTerm.Value); Long(w, m.LeaderCommit);
+                w.Add(AppendEntriesType); Long(w, m.Term.Value); Int(w, m.Leader.Value); Long(w, m.PrevLogIndex); Long(w, m.PrevLogTerm.Value); Long(w, m.LeaderCommit); Long(w, m.Round);
                 Int(w, m.Entries.Count);
                 foreach (var e in m.Entries)
                 {
@@ -37,7 +37,7 @@ public static class MessageCodec
 
                 break;
             case AppendEntriesResponse m:
-                w.Add(AppendEntriesResponseType); Long(w, m.Term.Value); w.Add(m.Success ? (byte)1 : (byte)0); Long(w, m.MatchIndex);
+                w.Add(AppendEntriesResponseType); Long(w, m.Term.Value); w.Add(m.Success ? (byte)1 : (byte)0); Long(w, m.MatchIndex); Long(w, m.Round);
                 break;
             case InstallSnapshot m:
                 w.Add(InstallSnapshotType); Long(w, m.Term.Value); Int(w, m.Leader.Value); Long(w, m.LastIncludedIndex); Long(w, m.LastIncludedTerm.Value); Long(w, m.Offset);
@@ -63,7 +63,7 @@ public static class MessageCodec
             RequestVoteType => r.Term() is { } t && r.Node() is { } c && r.Index() is { } li && r.Term() is { } lt ? new RequestVote(t, c, li, lt) : null,
             RequestVoteResponseType => r.Term() is { } t && r.Bool() is { } g ? new RequestVoteResponse(t, g) : null,
             AppendEntriesType => DecodeAppendEntries(r),
-            AppendEntriesResponseType => r.Term() is { } t && r.Bool() is { } s && r.Index() is { } mi ? new AppendEntriesResponse(t, s, mi) : null,
+            AppendEntriesResponseType => r.Term() is { } t && r.Bool() is { } s && r.Index() is { } mi && r.Index() is { } round ? new AppendEntriesResponse(t, s, mi, round) : null,
             InstallSnapshotType => r.Term() is { } t && r.Node() is { } leader && r.Index() is { } li && r.Term() is { } lt && r.Index() is { } offset && r.Count() is { } n && r.Bytes(n) is { } data && r.Bool() is { } done
                 ? new InstallSnapshot(t, leader, li, lt, offset, data, done) : null,
             InstallSnapshotResponseType => r.Term() is { } t && r.Index() is { } li && r.Index() is { } received && r.Bool() is { } done ? new InstallSnapshotResponse(t, li, received, done) : null,
@@ -74,7 +74,7 @@ public static class MessageCodec
 
     private static AppendEntries? DecodeAppendEntries(Reader r)
     {
-        if (r.Term() is not { } t || r.Node() is not { } leader || r.Index() is not { } pi || r.Term() is not { } pt || r.Index() is not { } commit || r.Count() is not { } n)
+        if (r.Term() is not { } t || r.Node() is not { } leader || r.Index() is not { } pi || r.Term() is not { } pt || r.Index() is not { } commit || r.Index() is not { } round || r.Count() is not { } n)
         {
             return null;
         }
@@ -90,7 +90,7 @@ public static class MessageCodec
             entries.Add(new LogEntry(et, command));
         }
 
-        return new AppendEntries(t, leader, pi, pt, entries, commit);
+        return new AppendEntries(t, leader, pi, pt, entries, commit, round);
     }
 
     private static void Int(List<byte> w, int v)
