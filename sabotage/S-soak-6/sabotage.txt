@@ -1,6 +1,7 @@
-description: the soak's budget too small for the hardest decided histories
+description: the soak's budget too small for the hardest decided histories: 1,000 states, below the hardest one's 2,477 (P8-09)
 mechanism: the named hardest seeds no longer fit the budget
 kind: test
 project: tests/Raft.Budget.Tests
-target: Raft.Budget.Tests.BudgetTests.TheSoaksHardestDecidedHistoriesAreDecidedWithinTheBudget(seed: 8260)
+target: Raft.Budget.Tests.BudgetTests.TheSoaksHardestDecidedHistoriesAreDecidedWithinTheBudget(seed: 5908)
+reason: Undecided
 expect: caught

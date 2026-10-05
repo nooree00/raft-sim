@@ -91,9 +91,12 @@ internal static class SessionCoverage
         }
 
         // Reads, from the simulator's trace at the node: arrival (REQUEST) and release (RESPONSE).
-        // A read is a `Get` outside a session that its client saw answered `ok|`.
+        // A read is a `Get` outside a session that its client saw answered `ok|`, with no entry of its
+        // bytes committed (P8-09): a read routed through the log is not a ReadIndex read.
+        var logged = log.Commits.Select(c => log.CommandOf(c.Ghost)).Where(b => b is [(byte)'G', (byte)'e', (byte)'t', (byte)'|', ..]).Select(b => Encoding.ASCII.GetString(b!)).ToHashSet(StringComparer.Ordinal);
         var arrived = new Dictionary<string, (long Time, string Node)>(StringComparer.Ordinal);
-        var reads = clients.Where(c => c.Response is not null && Encoding.ASCII.GetString(c.Request.Span).StartsWith("Get|", StringComparison.Ordinal) && Encoding.ASCII.GetString(c.Reply.Span).StartsWith("ok|", StringComparison.Ordinal))
+        var reads = clients.Where(c => c.Response is not null && Encoding.ASCII.GetString(c.Request.Span) is var r && r.StartsWith("Get|", StringComparison.Ordinal) && !logged.Contains(r)
+                && Encoding.ASCII.GetString(c.Reply.Span).StartsWith("ok|", StringComparison.Ordinal))
             .Select(c => c.RequestId.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
         var elected = elections.Elections();
         foreach (var line in trace)

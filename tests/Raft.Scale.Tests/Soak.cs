@@ -454,6 +454,12 @@ internal static class Soak
         // quorum's last acknowledgement and the old leader learning of the new term. 1 of the baseline
         // sample's 300, 0 of the membership sample's. Its soak counts are P8-09's measurement.
         ["read-answered-after-a-later-term-began"] = "an old leader's read released after a later election, its round acknowledged before it: 1 of the baseline sample",
+
+        // P8-09: 174 of the baseline soak's 10,000 (1.74%, over the floor) and 32 of the membership
+        // soak's (0.32%): a commit, a lost answer, a compaction past the entry and the retry reaching a
+        // node that restored, within one client's retries, on a workload committing about two thirds of
+        // the baseline's entries. Exercised directly by SessionCompactionTests (install and restart).
+        ["retry-deduplicated-by-a-restored-table"] = "a retry answered from a table a snapshot carried: 0.32% of the membership soak, 1.74% of the baseline",
     };
 
     /// <summary>

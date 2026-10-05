@@ -1,0 +1,7 @@
+description: Reads are routed back through the log in the soak: every Get is an entry, nothing is answered by ReadIndex, and the soak's read dimensions measure reads that never waited for a round (P8-09)
+mechanism: reads appended to the log, not answered by ReadIndex
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
+reason: read-waited-past-a-heartbeat-interval: 0 of 300
+expect: caught

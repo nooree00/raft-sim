@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -652,7 +652,7 @@ public sealed class RaftNode : INode
+             return;
+         }
+ 
+-        if (_stateMachine.IsQuery(c.Payload))
++        if (_stateMachine.IsQuery(c.Payload) && false)
+         {
+             OnRead(c, effects);
+             return;

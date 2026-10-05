@@ -316,13 +316,17 @@ So the checker is a separate deliverable.
   history. The baseline soak's file is now empty: no execution of its 10,000 is
   undecided, and **KL-1**'s seed (7723) now yields another history, decided in
   168 states (KL-1, seed 7723 key k3, was undecided at 32,000,000 states and
-  12.5 GB on the GitHub runner). The membership soak holds **KL-3**: seed 8741,
+  12.5 GB on the GitHub runner). Until phase 8 the membership soak held **KL-3**: seed 8741,
   key k5 again, with another history (34 operations, 22 indeterminate), undecided
   at every budget measured locally: 8,000,000 states (1.9 GB, 60 s), 16,000,000
   (3.7 GB, 128 s), 32,000,000 (7.2 GB, 287 s) and 40,000,000 (8.7 GB, 376 s).
   It replaces **KL-2** (the same seed and key before compaction, undecided on the
   GitHub runner from 8,000,000 states, 1.8 GB, to 40,000,000, 8.7 GB, P7-01).
-  KL-3 is promised to the register's structural-measure row.
+  KL-3 was promised to the register's structural-measure row. Phase 8 (sessions, so
+  a retry is one operation, and ReadIndex reads) changed every history again, and
+  both files are now empty: KL-3's seed is decided in at most 103 states over its
+  keys, and neither soak's 10,000 executions has an undecided search (the hardest
+  decided histories: 2,477 states baseline, 2,336 membership).
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct
