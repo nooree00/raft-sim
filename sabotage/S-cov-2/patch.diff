@@ -1,8 +1,8 @@
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -533,7 +533,7 @@
-         h.Held.Clear();
+@@ -542,7 +542,7 @@
          h.HeldPersists = 0;
+         h.RenameAt = 0;
          var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
 -        var disk = h.Disk.Crash(loss, draws.NextUInt64);
 +        var disk = h.Disk.Crash(loss == DiskLoss.Torn ? DiskLoss.Pending : loss, draws.NextUInt64);

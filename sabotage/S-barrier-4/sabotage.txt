@@ -1,0 +1,7 @@
+description: The world releases a write emitted after a rename as soon as the rename is issued: a crash can keep the write and lose the rename, and the write lands on the old file (P7-05)
+mechanism: persists behind a held rename wait for its issue, not its durability
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RenameBarrierTests.ARenameWaitsForEveryEarlierWriteAndThenHappens
+reason: before the rename was durable
+expect: caught

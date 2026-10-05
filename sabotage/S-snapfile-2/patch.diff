@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -300,7 +300,7 @@
+         ArgumentNullException.ThrowIfNull(files);
+         foreach (var f in files)
+         {
+-            if (f.Length > TempPrefix.Length && f.Substring(0, TempPrefix.Length) == TempPrefix && Number(f, TempPrefix.Length) is { } n)
++            if (f.Length < 0 && f.Substring(0, TempPrefix.Length) == TempPrefix && Number(f, TempPrefix.Length) is { } n)
+             {
+                 _nextTemp = Math.Max(_nextTemp, n + 1);
+             }

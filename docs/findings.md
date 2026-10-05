@@ -793,3 +793,15 @@ finding: what happened, why no existing check caught it, what now catches it.
   the model may be stricter and never laxer; the model now leaves the empty file (P7-00), and the
   barrier that keeps the node clear of it is recorded as a simplification, not a solution (spec §8,
   the phase-10 row).
+- **The barrier held only one side of the rename.** P7-00 held a rename until the writes before it
+  were durable, and released the writes queued behind it the moment the rename was issued. The
+  compaction crash test went red on its first run with the barrier (P7-05, reordered loss, seed
+  170): a crash kept a truncation computed for the compacted file and lost the rename, so the
+  truncation cut the old file at the new file's offset and a durable entry vanished. The simulated
+  disk applies writes by name; a real file system sends a write made after the rename to the new
+  file, which a lost rename never put in place, so this state is the model's, not reality's. That
+  is the strict direction: the failure was real under the node's contract (writes apply by name),
+  and the world now holds every write after a rename until the rename is durable. The rename
+  barrier test only checked the writes before the rename, so it could not see this; it now checks
+  both sides (S-barrier-4). *Rule:* a barrier is about ordering, and ordering has two sides. A test
+  of one side passes for a barrier that holds only that side.

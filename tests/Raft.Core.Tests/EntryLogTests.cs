@@ -225,6 +225,244 @@ public sealed class EntryLogTests
         Assert.True(control.Count > 0, "the index-free control never failed: a lost truncation never met a later append, so the test does not reach the case the index exists for");
     }
 
+    /// <summary>The log as it stands, the snapshot's covered entries (its state, in these tests) and then the retained ones.</summary>
+    private static string Logical(LogStore store) =>
+        string.Join(" ", new[] { store.Snapshot is { } sn ? Encoding.ASCII.GetString(sn.State) : "" }
+            .Concat(Enumerable.Range((int)store.BaseIndex + 1, (int)(store.LastIndex - store.BaseIndex)).Select(i => store.At(i)).Select(e => $"{e.Index}:{e.Term.Value}:{Encoding.ASCII.GetString(e.Command)}"))
+            .Where(x => x.Length > 0));
+
+    /// <summary>
+    /// P7-05: the crash-during-write test with compactions. As <see cref="CrashDuringWrites"/>, and in
+    /// some writes the log is also compacted to a random index (its state: the covered entries' text,
+    /// so a recovery can be compared with what was written), the compaction's file and rename issued
+    /// through the world's rename barrier (P7-00) or, for the control, without it. Every recovery must
+    /// not refuse, must be a prefix of the log after some write since the last completed one, and must
+    /// cover at least the last snapshot whose rename completed.
+    /// </summary>
+    private static (List<string> Failures, Dictionary<string, int> Counts) CrashDuringCompactions(bool barrier)
+    {
+        var failures = new List<string>();
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        void Count(string k) => counts[k] = counts.GetValueOrDefault(k) + 1;
+        foreach (var mode in new[] { DiskLoss.Pending, DiskLoss.Torn, DiskLoss.Reordered })
+        {
+            for (var seed = 1; seed <= 200; seed++)
+            {
+                var rng = new Random(seed);
+                var draws = new Random(seed * 31);
+                var disk = new SimDisk();
+                var held = new List<Persist>();
+                var store = new LogStore(EntryLog.Recover(null));
+                var durableSnapshot = 0L;
+                var renamedTo = new Dictionary<string, long>(StringComparer.Ordinal);
+
+                // The world (P7-00, P7-05): a rename waits until every write issued before it is durable,
+                // and every write after a rename waits until the rename is durable.
+                bool RenamePending() => disk.Pending.Any(p => p.Op is PersistRename);
+                void Release()
+                {
+                    while (held.Count > 0 && (held[0] is PersistRename ? disk.Pending.Count == 0 : !RenamePending()))
+                    {
+                        disk.Issue(held[0], 0);
+                        held.RemoveAt(0);
+                    }
+                }
+
+                void Issue(Persist op)
+                {
+                    if (barrier && (held.Count > 0 || op is PersistRename || RenamePending()))
+                    {
+                        held.Add(op);
+                        Release();
+                    }
+                    else
+                    {
+                        disk.Issue(op, 0);
+                    }
+                }
+
+                void Complete(int max)
+                {
+                    for (var k = 0; k < max && (disk.Pending.Count > 0 || held.Count > 0); k++)
+                    {
+                        if (disk.Pending.Count > 0 && disk.CompleteNext().Op is PersistRename done)
+                        {
+                            durableSnapshot = Math.Max(durableSnapshot, renamedTo[done.File]);
+                        }
+
+                        Release();
+                    }
+                }
+
+                for (var cycle = 0; cycle < 3; cycle++)
+                {
+                    var states = new List<string> { Logical(store) };
+                    var completed = 0;
+                    var lowestTruncate = long.MaxValue;
+                    var writes = rng.Next(2, 6);
+                    for (var w = 1; w <= writes; w++)
+                    {
+                        var from = store.LastIndex > store.BaseIndex && rng.Next(3) == 0 ? rng.Next((int)store.BaseIndex + 1, (int)store.LastIndex + 1) : 0;
+                        if (from > 0 && store.TruncateFrom(from) is { } t)
+                        {
+                            Issue(t);
+                            lowestTruncate = Math.Min(lowestTruncate, from);
+                        }
+
+                        var term = (cycle * 10) + w;
+                        Issue(store.Append(Enumerable.Range(0, rng.Next(1, 4)).Select(k => E(term, $"s{seed}c{cycle}w{w}k{k}")).ToList()));
+                        if (rng.Next(2) == 0)
+                        {
+                            var index = rng.Next((int)store.BaseIndex + 1, (int)store.LastIndex + 1);
+                            var covered = Logical(store).Split(' ').Take(index);
+                            var ops = store.Compact(index, null, Encoding.ASCII.GetBytes(string.Join(" ", covered)));
+                            renamedTo[ops[0].File] = index;
+                            Count("compactions");
+                            foreach (var op in ops)
+                            {
+                                Issue(op);
+                            }
+                        }
+
+                        states.Add(Logical(store));
+                        if (rng.Next(2) == 0)
+                        {
+                            Complete(int.MaxValue);
+                            completed = w;
+                            lowestTruncate = long.MaxValue;
+                        }
+                    }
+
+                    // Some of what is in flight completes before the crash: a crash can land between a
+                    // compaction's file and its rename, or between the rename and what follows it.
+                    Complete(rng.Next(disk.Pending.Count + held.Count + 1));
+                    Count("crashes");
+                    Count(disk.Pending.Any(p => p.Op is PersistRename) ? "rename-in-flight" : "rename-not-in-flight");
+                    if (disk.Pending.Any(p => p.Op is PersistAppend a && a.File != EntryLog.FileName))
+                    {
+                        Count("compaction-file-in-flight");
+                    }
+
+                    if (held.Any(op => op is PersistRename))
+                    {
+                        Count("rename-held");
+                    }
+
+                    held.Clear();
+                    disk.Crash(mode, () => (ulong)draws.NextInt64());
+                    var files = disk.Snapshot();
+                    var r = EntryLog.Recover(files.TryGetValue(EntryLog.FileName, out var m) ? m.ToArray() : null);
+                    if (r.Path == RecoveryPath.Refused)
+                    {
+                        failures.Add($"{mode} seed {seed} cycle {cycle}: refused: {r.Detail}");
+                        break;
+                    }
+
+                    store = new LogStore(r);
+                    store.AvoidNames(files.Keys);
+                    var got = Logical(store);
+                    var gotList = got.Length == 0 ? [] : got.Split(' ');
+                    var durable = states[completed].Length == 0 ? [] : states[completed].Split(' ');
+                    var kept = (int)Math.Min(durable.Length, lowestTruncate - 1);
+                    if (store.BaseIndex < durableSnapshot)
+                    {
+                        failures.Add($"{mode} seed {seed} cycle {cycle}: recovered a snapshot of {store.BaseIndex}, below the last durable one, of {durableSnapshot}: [{got}]");
+                        break;
+                    }
+
+                    if (!gotList.Take(kept).SequenceEqual(durable.Take(kept)) || !states.Skip(completed).Any(st =>
+                    {
+                        var s = st.Length == 0 ? [] : st.Split(' ');
+                        return gotList.Length <= s.Length && s.Take(gotList.Length).SequenceEqual(gotList);
+                    }))
+                    {
+                        failures.Add($"{mode} seed {seed} cycle {cycle}: recovered [{got}], a prefix of none of [{string.Join("] [", states.Skip(completed))}]");
+                        break;
+                    }
+
+                    durableSnapshot = store.BaseIndex;
+                    if (store.CutTornTail is { } cut)
+                    {
+                        disk.Issue(cut, 0);
+                        disk.CompleteNext();
+                    }
+                }
+            }
+        }
+
+        return (failures, counts);
+    }
+
+    /// <summary>
+    /// P7-05: every crash during a compaction recovers a prefix of something written and never less
+    /// than the last durable snapshot covered, with the barrier. Without it (the P7-00 control) some
+    /// crash keeps a rename and loses the file it renames. Vacuity risk: crashes that never land
+    /// during a compaction (guarded: crashes with the compaction's file in flight and with the rename
+    /// in flight are both counted and required). Sabotages S-snapfile-1, S-snapfile-2.
+    /// </summary>
+    [Fact]
+    public void EveryCrashDuringACompactionRecoversAPrefixAndNeverLessThanTheDurableSnapshot()
+    {
+        var (failures, counts) = CrashDuringCompactions(barrier: true);
+        var (control, _) = CrashDuringCompactions(barrier: false);
+        System.IO.File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "entry-log-compaction-crashes.txt"), string.Join("\n",
+            "3 loss modes x 200 seeds x 3 crash-and-restart cycles, compactions in about half the writes",
+            "counts: " + string.Join(", ", counts.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => $"{k.Key} {k.Value}")),
+            $"without the barrier: {control.Count} failure(s)",
+            control.Count == 0 ? "" : "  first: " + control[0]) + "\n");
+
+        Assert.True(failures.Count == 0, string.Join("\n", failures.Take(5)));
+        foreach (var k in new[] { "compactions", "compaction-file-in-flight", "rename-in-flight" })
+        {
+            Assert.True(counts.GetValueOrDefault(k) > 0, $"no crash counted as {k}: the test did not reach that case");
+        }
+
+        Assert.True(control.Count > 0, "without the barrier no crash lost a compaction's file and kept its rename: the control shows nothing");
+    }
+
+    /// <summary>A compacted log recovers from its file as it was, and appends and truncations after the compaction reach the new file.</summary>
+    [Fact]
+    public void ACompactedLogRecoversAndTakesLaterWrites()
+    {
+        var disk = new SimDisk();
+        var store = new LogStore(EntryLog.Recover(null));
+        disk.Issue(store.Append([E(1, "a"), E(1, "b"), E(2, "c"), E(2, "d")]), 0);
+        foreach (var op in store.Compact(2, null, Encoding.ASCII.GetBytes("ab")))
+        {
+            disk.Issue(op, 0);
+        }
+
+        disk.Issue(store.TruncateFrom(4)!, 0);
+        disk.Issue(store.Append([E(3, "D"), E(3, "e")]), 0);
+        while (disk.Pending.Count > 0)
+        {
+            disk.CompleteNext();
+        }
+
+        var r = EntryLog.Recover(disk.Snapshot()[EntryLog.FileName].ToArray());
+        Assert.Equal(RecoveryPath.Clean, r.Path);
+        Assert.Equal((2L, new Term(1), "ab"), (r.Snapshot!.Index, r.Snapshot.Term, Encoding.ASCII.GetString(r.Snapshot.State)));
+        Assert.Equal("3:2:c 4:3:D 5:3:e", Show(r.Entries));
+        Assert.Equal(new[] { EntryLog.FileName }, disk.Snapshot().Keys);
+        var recovered = new LogStore(r);
+        Assert.Equal((5L, new Term(3), new Term(1)), (recovered.LastIndex, recovered.LastTerm, recovered.TermAt(2)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => recovered.TermAt(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => recovered.TruncateFrom(2));
+    }
+
+    /// <summary>A compaction's file is named after none of the files the node held at its start.</summary>
+    [Fact]
+    public void ACompactionsFileIsNamedAfterNoFileTheNodeHeld()
+    {
+        var store = new LogStore(EntryLog.Recover(null));
+        store.Append([E(1, "a"), E(1, "b")]);
+        store.AvoidNames([EntryLog.FileName, "entries.0", "entries.7", "entries.x", "termvote.log"]);
+        var first = store.Compact(1, null, []);
+        var second = store.Compact(2, null, []);
+        Assert.Equal("entries.8", first[0].File);
+        Assert.Equal("entries.9", second[0].File);
+    }
+
     /// <summary>The control: the same framing, read in order with each record's index ignored.</summary>
     private static EntryLogRecovery IndexFree(byte[]? file)
     {

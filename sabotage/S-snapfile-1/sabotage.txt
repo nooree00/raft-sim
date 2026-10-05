@@ -1,0 +1,7 @@
+description: A compaction rewrites the log file in place instead of writing a new file and renaming it: a crash between the cut and the write, or a torn write, loses the log (P7-05)
+mechanism: the snapshot written to entries.log directly, not renamed
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.EveryCrashDuringACompactionRecoversAPrefixAndNeverLessThanTheDurableSnapshot
+reason: a prefix of none of
+expect: caught

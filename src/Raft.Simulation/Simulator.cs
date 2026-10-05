@@ -276,6 +276,14 @@ public sealed class Simulator
         /// <summary>Persists in <see cref="Held"/>, not yet issued to the disk: barriers count them as emitted.</summary>
         public int HeldPersists { get; set; }
 
+        /// <summary>
+        /// The position among the node's persists of the last rename it emitted: a persist emitted
+        /// after it waits until it is durable (P7-05). The disk applies a write by name, so a write
+        /// meant for the renamed file that a crash kept while losing the rename would land on the old
+        /// one; a real file system sends it to the new file, which the lost rename never put in place.
+        /// </summary>
+        public long RenameAt { get; set; }
+
         public long LastTick { get; set; }
 
         public long SlowLatency { get; set; }
@@ -532,6 +540,7 @@ public sealed class Simulator
         var dropped = h.Held.Count;
         h.Held.Clear();
         h.HeldPersists = 0;
+        h.RenameAt = 0;
         var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
         var disk = h.Disk.Crash(loss, draws.NextUInt64);
         Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
@@ -595,9 +604,10 @@ public sealed class Simulator
                 case PersistRename r when !_config.ReleaseRenamesEarly:
                     h.Held.Enqueue(new HeldEffect(r, h.Disk.IssuedCount + h.HeldPersists, Steps));
                     h.HeldPersists++;
+                    h.RenameAt = h.Disk.IssuedCount + h.HeldPersists;
                     break;
-                case Persist p when h.HeldPersists > 0:
-                    h.Held.Enqueue(new HeldEffect(p, 0, Steps));
+                case Persist p when h.HeldPersists > 0 || h.RenameAt > h.Disk.CompletedCount:
+                    h.Held.Enqueue(new HeldEffect(p, h.RenameAt, Steps));
                     h.HeldPersists++;
                     break;
                 case Persist p:

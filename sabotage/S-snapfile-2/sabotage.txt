@@ -1,0 +1,7 @@
+description: A compaction's file name ignores the files a crash left: a compaction's file written and never renamed is appended to again after a restart, and its stale bytes are installed (P7-05)
+mechanism: the temporary file's name reused across restarts
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.EntryLogTests.EveryCrashDuringACompactionRecoversAPrefixAndNeverLessThanTheDurableSnapshot
+reason: refused
+expect: caught

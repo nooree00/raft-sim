@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -343,7 +343,7 @@
+         _fileLength = bytes.Count;
+         Snapshot = snapshot;
+         var name = TempPrefix + (_nextTemp++).ToString(CultureInfo.InvariantCulture);
+-        return new List<Persist> { new PersistAppend(name, bytes.ToArray()), new PersistRename(name, EntryLog.FileName) };
++        return new List<Persist> { new PersistTruncate(EntryLog.FileName, 0), new PersistAppend(EntryLog.FileName, bytes.ToArray()) };
+     }
+ 
+     /// <summary>The decimal number <paramref name="s"/> holds from <paramref name="at"/> to its end, or null.</summary>

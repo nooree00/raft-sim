@@ -234,13 +234,19 @@ public static class EntryLog
 /// A node's log and the file under it: the entries, and for each the byte offset just past its
 /// record, so that truncating from index i cuts the file at the end of the live entry i-1. After a
 /// lost truncation the live record for an index can sit after stale records for that index and
-/// above, and cutting at the live record itself would bring the stale ones back (P4-02).
+/// above, and cutting at the live record itself would bring the stale ones back (P4-02). After a
+/// compaction (P7-05) the entries follow a snapshot: indices at or below its index no longer
+/// resolve, except that the term at its index is its term.
 /// </summary>
 public sealed class LogStore
 {
+    /// <summary>The prefix of a compaction's file name; the rest is a number no file the node held at its start had (P7-05).</summary>
+    public const string TempPrefix = "entries.";
+
     private readonly List<StoredEntry> _entries;
     private readonly List<long> _configurations = [];
     private long _fileLength;
+    private long _nextTemp;
 
     public LogStore(EntryLogRecovery recovery)
     {
@@ -252,6 +258,7 @@ public sealed class LogStore
 
         _entries = new List<StoredEntry>(recovery.Entries);
         _fileLength = recovery.ValidLength;
+        Snapshot = recovery.Snapshot;
         for (var i = 0; i < _entries.Count; i++)
         {
             Note(_entries[i]);
@@ -266,13 +273,102 @@ public sealed class LogStore
     /// <summary>The cut a node must make before anything else after recovering a torn tail (P3-08's finding, for this file).</summary>
     public PersistTruncate? CutTornTail { get; }
 
-    public long LastIndex => _entries.Count;
+    /// <summary>The snapshot the log follows, null before the first compaction.</summary>
+    public LogSnapshot? Snapshot { get; private set; }
 
-    public Term LastTerm => _entries.Count == 0 ? Term.Zero : _entries[^1].Term;
+    /// <summary>The snapshot's index: the entries start after it.</summary>
+    public long BaseIndex => Snapshot?.Index ?? 0;
 
-    public Term TermAt(long index) => index == 0 ? Term.Zero : _entries[(int)index - 1].Term;
+    public Term BaseTerm => Snapshot?.Term ?? Term.Zero;
 
-    public StoredEntry At(long index) => _entries[(int)index - 1];
+    public long LastIndex => BaseIndex + _entries.Count;
+
+    public Term LastTerm => _entries.Count == 0 ? BaseTerm : _entries[^1].Term;
+
+    public Term TermAt(long index) => index == BaseIndex ? BaseTerm : index < BaseIndex ? throw Compacted(index) : _entries[(int)(index - BaseIndex) - 1].Term;
+
+    public StoredEntry At(long index) => index <= BaseIndex ? throw Compacted(index) : _entries[(int)(index - BaseIndex) - 1];
+
+    /// <summary>
+    /// Names a compaction's file will not collide with: one past the largest number among the files
+    /// the node held at its start. A crash can leave a compaction's file written and never renamed,
+    /// and appending to it again would install its stale bytes (S-snapfile-2); any file a crash left
+    /// is in the node's files at its next start, and every pending write died with the crash.
+    /// </summary>
+    public void AvoidNames(IEnumerable<string> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        foreach (var f in files)
+        {
+            if (f.Length > TempPrefix.Length && f.Substring(0, TempPrefix.Length) == TempPrefix && Number(f, TempPrefix.Length) is { } n)
+            {
+                _nextTemp = Math.Max(_nextTemp, n + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Compact the log up to <paramref name="index"/> (P7-05, phase 7 decision 2): a new, uniquely
+    /// named file holding the snapshot record and then every retained entry, renamed over the log
+    /// file. One rename, so a crash leaves the old log or the new one; the world holds the rename
+    /// until the new file is durable (P7-00). Writes emitted after it reach the new file.
+    /// </summary>
+    public IReadOnlyList<Persist> Compact(long index, Configuration? configuration, byte[] state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (index <= BaseIndex || index > LastIndex)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), index, "a compaction must cover more than the snapshot and no more than the log");
+        }
+
+        var term = TermAt(index);
+        var bytes = new List<byte>(EntryLog.SnapshotRecord(index, term, configuration, state));
+        var snapshot = new LogSnapshot(index, term, configuration, state, bytes.Count);
+        var retained = new List<StoredEntry>();
+        var previous = term;
+        for (var i = index + 1; i <= LastIndex; i++)
+        {
+            var e = At(i);
+            bytes.AddRange(EntryLog.Record(i, e.Term, previous, e.Command));
+            retained.Add(e with { EndOffset = bytes.Count });
+            previous = e.Term;
+        }
+
+        _entries.Clear();
+        _entries.AddRange(retained);
+        while (_configurations.Count > 0 && _configurations[0] <= index)
+        {
+            _configurations.RemoveAt(0);
+        }
+        _fileLength = bytes.Count;
+        Snapshot = snapshot;
+        var name = TempPrefix + (_nextTemp++).ToString(CultureInfo.InvariantCulture);
+        return new List<Persist> { new PersistAppend(name, bytes.ToArray()), new PersistRename(name, EntryLog.FileName) };
+    }
+
+    /// <summary>The decimal number <paramref name="s"/> holds from <paramref name="at"/> to its end, or null.</summary>
+    private static long? Number(string s, int at)
+    {
+        if (at >= s.Length || s.Length - at > 18)
+        {
+            return null;
+        }
+
+        long n = 0;
+        for (var i = at; i < s.Length; i++)
+        {
+            if (s[i] < '0' || s[i] > '9')
+            {
+                return null;
+            }
+
+            n = (n * 10) + (s[i] - '0');
+        }
+
+        return n;
+    }
+
+    private static ArgumentOutOfRangeException Compacted(long index) => new(nameof(index), index, "compacted into the snapshot");
 
     /// <summary>
     /// The index of the latest configuration entry at or below <paramref name="index"/>, 0 when there
@@ -299,13 +395,14 @@ public sealed class LogStore
         var result = new List<LogEntry>();
         for (var i = index; i <= LastIndex && result.Count < max; i++)
         {
-            result.Add(new LogEntry(_entries[(int)i - 1].Term, _entries[(int)i - 1].Command));
+            var e = At(i);
+            result.Add(new LogEntry(e.Term, e.Command));
         }
 
         return result;
     }
 
-    /// <summary>Drop every entry at <paramref name="index"/> or above; null when there is none.</summary>
+    /// <summary>Drop every entry at <paramref name="index"/> or above; null when there is none. Never at or below the snapshot: those entries are committed.</summary>
     public PersistTruncate? TruncateFrom(long index)
     {
         if (index > LastIndex)
@@ -313,8 +410,14 @@ public sealed class LogStore
             return null;
         }
 
-        _fileLength = index == 1 ? 0 : _entries[(int)index - 2].EndOffset;
-        _entries.RemoveRange((int)index - 1, _entries.Count - (int)index + 1);
+        if (index <= BaseIndex)
+        {
+            throw Compacted(index);
+        }
+
+        var at = (int)(index - BaseIndex) - 1;
+        _fileLength = at == 0 ? Snapshot?.EndOffset ?? 0 : _entries[at - 1].EndOffset;
+        _entries.RemoveRange(at, _entries.Count - at);
         while (_configurations.Count > 0 && _configurations[^1] >= index)
         {
             _configurations.RemoveAt(_configurations.Count - 1);

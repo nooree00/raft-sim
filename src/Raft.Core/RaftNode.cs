@@ -114,6 +114,7 @@ public sealed class RaftNode : INode
         }
 
         _log = new LogStore(EntryLog.Recover(context.Files.TryGetValue(EntryLog.FileName, out var l) ? l.ToArray() : null));
+        _log.AvoidNames(context.Files.Keys);
         _cutTornLogTail = _log.CutTornTail;
         _term = recovery.State.Term;
         _votedFor = recovery.State.VotedFor;

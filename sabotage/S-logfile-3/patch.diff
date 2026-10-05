@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/EntryLog.cs
 +++ b/src/Raft.Core/EntryLog.cs
-@@ -235,7 +235,7 @@
-             return null;
+@@ -391,7 +391,7 @@
          }
  
--        _fileLength = index == 1 ? 0 : _entries[(int)index - 2].EndOffset;
-+        _fileLength = _entries[(int)index - 1].EndOffset - 32 - _entries[(int)index - 1].Command.Length;
-         _entries.RemoveRange((int)index - 1, _entries.Count - (int)index + 1);
+         var at = (int)(index - BaseIndex) - 1;
+-        _fileLength = at == 0 ? Snapshot?.EndOffset ?? 0 : _entries[at - 1].EndOffset;
++        _fileLength = _entries[at].EndOffset - 32 - _entries[at].Command.Length;
+         _entries.RemoveRange(at, _entries.Count - at);
          while (_configurations.Count > 0 && _configurations[^1] >= index)
          {

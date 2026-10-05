@@ -1,0 +1,13 @@
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -606,8 +606,8 @@
+                     h.HeldPersists++;
+                     h.RenameAt = h.Disk.IssuedCount + h.HeldPersists;
+                     break;
+-                case Persist p when h.HeldPersists > 0 || h.RenameAt > h.Disk.CompletedCount:
+-                    h.Held.Enqueue(new HeldEffect(p, h.RenameAt, Steps));
++                case Persist p when h.HeldPersists > 0:
++                    h.Held.Enqueue(new HeldEffect(p, 0, Steps));
+                     h.HeldPersists++;
+                     break;
+                 case Persist p:

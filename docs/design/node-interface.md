@@ -59,8 +59,10 @@ node never waits, the world holds the message back. Consequences:
 - The simulator can violate the barrier deliberately (a positive-control mode), and phase 3's
   invariants must then go red.
 - **A rename waits too** (phase 7, decision 1): the world holds a `PersistRename` until every persist
-  the node emitted before it is durable, and a persist emitted after a held rename waits behind it,
-  so the node's writes reach the disk in the order it emitted them. This is the fsync before the
+  the node emitted before it is durable, and a persist emitted after a rename waits until the rename
+  is durable (P7-05: the disk applies a write by name, and a write meant for the renamed file, kept
+  by a crash that lost the rename, landed on the old file and cut entries from it), so the node's
+  writes reach the disk in the order it emitted them. This is the fsync before the
   rename (spec §8) done where the barrier already lives; the node still never waits. It is a
   simplification, not the contract: a real file system can make a rename durable without the data,
   and the barrier assumes the I/O layer prevents that (spec §8's known limit, the register's
