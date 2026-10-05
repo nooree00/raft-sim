@@ -10,4 +10,4 @@ Parsed by `gates register`. One line per phase that has started: `- Pn: in progr
 - P4: complete
 - P5: complete
 - P6: complete
-- P7: in progress
+- P7: complete

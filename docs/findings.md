@@ -805,3 +805,31 @@ finding: what happened, why no existing check caught it, what now catches it.
   barrier test only checked the writes before the rename, so it could not see this; it now checks
   both sides (S-barrier-4). *Rule:* a barrier is about ordering, and ordering has two sides. A test
   of one side passes for a barrier that holds only that side.
+- **Invariants over what was applied do not check what the state is.** Every log invariant compares
+  ghost ids: which entry a node applied at which index. A restore that drops one key applies the
+  right entries and holds the wrong state, and no invariant can see it: under S-agree-1 the
+  invariants went red in none of 100 executions, linearizability in 7 (only where a client read the
+  dropped key after the restore), and P7-08's replay comparison in 97. The positive control told the
+  same story from the other side (P7-10): a node compacting past its commit index was caught in 18 of
+  300 executions by the invariants and in 118 by the replay. Compaction is the first mechanism that
+  moves state without applying entries, so it is the first the ghost-id invariants are blind to. The
+  replay comparison runs in every soak execution from P7-11. *Rule:* when a mechanism produces a
+  state by a path other than the one the checker watches, check the state itself, against a replay
+  from the recorded inputs, not against another node.
+- **"Issued" meant two things, and they came apart when the world began to hold writes.**
+  `IssuedObservation` was documented as the node's decision and recorded when the world issued the
+  write to the disk. They were the same moment until P7-00 made the world hold writes behind a
+  rename. Then a follower that installed a snapshot applied entries whose appends were held, and the
+  checkers, building its log from writes issued to the disk, reported it applying entries it did not
+  hold. The same gap showed twice, first for the restore event and then for the appends. Both were
+  found by the scale tests and the agreement sample, not by the hand-built traces. A write is now
+  observed when the node emits it; the disk's order stays in the trace. *Rule:* when a component
+  starts delaying what it used to pass straight through, every consumer of the "when" has to be
+  re-read, because each of them assumed the two moments were one.
+- **A construction that passes against the bug it targets tests nothing.** P7-07's stale-chunk
+  construction passed against the implementation it was written to catch: the older snapshot's
+  chunk at offset 8 was byte-identical to the newer one's (both records' length and term fields
+  agree there). Running the construction against the naive implementation before fixing it is what
+  showed this. The same check found a second flaw nobody predicted (a repeated first chunk restarted
+  the transfer). *Rule:* run a new construction against the wrong implementation first. A red there
+  is what makes its green worth anything, the same reasoning as a sabotage, applied before the fix.

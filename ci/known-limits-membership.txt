@@ -4,3 +4,4 @@
 # id | seed | key | sha-256 of the key's sub-history | register: open row | report: approving phase report
 # KL-2 (seed 8741, key k5) removed at P7-11: with compaction on, seed 8741's key k5 has another
 # history, still undecided; recorded again, under a new id, by the phase-7 report.
+KL-3 | 8741 | k5 | 7dbd0893dc65ffb521871048bb6dd8c9382cfe9b13a1579f65b6f77e611351b8 | register: A structural measure of linearizability-checking cost | report: docs/phases/P7/report.md

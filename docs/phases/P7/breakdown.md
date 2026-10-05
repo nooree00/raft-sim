@@ -189,7 +189,7 @@ nothing.
 - **Sabotage:** S-cov-13
 - **Verifiable here:** yes — the simulator
 - **Prediction:** "An install that discarded the suffix" is the rarest and below the floor at first: it needs a follower holding entries past the snapshot that conflict with it, which takes a leader change between the follower's divergence and the snapshot, while most installs reach followers whose logs simply end before the snapshot's index. **Observable:** each dimension's count over the 300-execution samples.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — "an install that discarded the suffix" was the rarest compaction dimension in both samples. It was below the floor in the membership sample (0 of 300) but exactly at the floor in the baseline's (3 of 300). Over 10,000 baseline executions it reached 63 (0.63%), below the soak's rate floor of 1%. It is declared below the soak floor (never below 3), with its reason and the construction that exercises it directly (`AFollowerWhoseLogDisagreesWithTheSnapshotDiscardsIt`); that declaration is the reviewer's. The baseline sample's counts: compacted 300, installed by a follower 286 (95.3%, declared always-on; 94.3% of the soak), restarted from a snapshot 228, a crash with a compaction in flight 22, an install that kept the suffix 36, one that discarded it 3. The membership sample had a compaction during joint consensus in 5. Every dimension reads the node's own disk: an install counts when the follower's disk took the rename of the file its chunks were written to. S-cov-13 counts it when the leader sends the last chunk instead, and the construction with every chunk lost catches that.
 
 ### P7-10 — The positive control: a compaction that discards an uncommitted entry
 
@@ -198,7 +198,7 @@ nothing.
 - **Sabotage:** S-compact-5
 - **Verifiable here:** yes — constructions and the simulator
 - **Prediction:** The construction goes red on State Machine Safety (the snapshot counts as applying the overwritten entry, decision 5), and the sample catches the variant in more than 3% of executions, since phase 6's two wrong predictions were the same misjudgment of how often the generator's faults line up with a window, and here the window is every compaction that runs ahead of commitment. **Observable:** the construction's verdict for both nodes, and the variant's red executions over the 300-execution sample.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — in the construction the control turned State Machine Safety red ("n1 applied a different entry at 7 than n2 did") and No Spurious Commit with it, after the guard confirmed the next leader's entry at 7 is of term 3. The real node held every invariant in the same construction. The control also can never reconcile with the new leader: the two exchange rejections forever, so the construction delivers bounded rounds instead of settling. Over the soak's 300 executions the control was caught in 120 (40%), above the predicted 3%. But the invariants caught only 18 (No Spurious Commit; State Machine Safety in none), and P7-08's agreement check caught 118. In the sample a compacted uncommitted entry is rarely restored and then overwritten under the checkers' eyes, while the compacting node's state machine diverges from the replay in two executions of five. The invariants over ghost ids would have let this control through in 94% of executions.
 
 ### P7-11 — The soaks with compaction, and their known limits
 
@@ -207,7 +207,7 @@ nothing.
 - **Sabotage:** S-soak-10, S-compact-6
 - **Verifiable here:** partial — the soaks run locally; the CI jobs only in CI
 - **Prediction:** Deterministic quantities only (P5's constraint): with compaction, both soaks' undecided searches change identity (no seed of KL-1 or KL-2 stays undecided with the same history) but not number (one each, give or take one), because compaction changes timing, not the workload's shape; and no invariant is violated in either. **Observable:** each soak's undecided list and verdict, against phase 6's.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — with compaction on, neither soak kept an undecided search with the same history. The number stayed within one: the baseline soak went from one (KL-1) to none, and seed 7723's new history is decided in 168 states. The membership soak went from one to one: seed 8741's key k5 again, with another history (KL-3, 34 operations), undecided from 8,000,000 to 40,000,000 states. The seed survived the change, as it survived P6-11's generator change. The node violated no invariant in either soak. The membership soak's first run did go red, on a checker defect (seed 434: the checker read a crashed node's other files from before the crash's report of what the disk kept), fixed with S-compact-6 before the run that counts. The budget tests' seeds were re-picked from the new distribution (8260, 4681, 7248). Seed 3044 stays the hardest decided history, at 21,232,723 states against 21,232,606 before.
 
 ### P7-12 — The harness's fixed cost (register, kept at phase 7)
 
@@ -216,7 +216,7 @@ nothing.
 - **Sabotage:** S-harness-4
 - **Verifiable here:** partial — the split locally; the effect on GitHub in CI
 - **Prediction:** Within one CI run, a shard's ready time with the shared baseline is lower than its four-worker baseline by at least a third of the `Raft.Scale.Tests` baseline, because the four concurrent runs contend for four cores and the single run does not. **Observable:** the per-worker split lines in one run before and one after, each shard against itself.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the number came true, but the mechanism did not exist. Since P4-12 the harness has run each project's baseline check once per shard, on one worker, never on four; the register row described the design before that. What does slow the `Raft.Scale.Tests` check is contention with the other three workers' entries. Measured locally on shard 7 (4 Scale targets), both from cold builds: run normally, the Scale baseline took 76 s, the slowest worker was ready at 137 s, and the shard took 539 s. With `--baseline-first` (no entry starts until every baseline check is done), the Scale baseline took 42 s, the slowest worker was ready at 97 s, and the shard took 552 s. The ready time fell by 40 s, more than the predicted third of the Scale baseline (25 s), while the total rose by 13 s: the three other workers wait instead of running entries. So the barrier is not adopted (the option stays, for measuring). A second normal run, with warm builds, took 492 s and is not comparable. The guard the task's vacuity named is added: every entry must be in some baseline unit (S-harness-4). The row is argued again in the register with these numbers.
 
 ## Sabotage ids
 

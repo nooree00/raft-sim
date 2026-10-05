@@ -312,14 +312,17 @@ So the checker is a separate deliverable.
   name its exact entries, so adding or replacing one is a visible edit to a
   reviewed set. Each soak keeps its own entries (phase 6: the baseline soak's in
   `ci/known-limits.txt`, the membership soak's in `ci/known-limits-membership.txt`).
-  Today they hold one each: **KL-1** (baseline), seed 7723, key k3, undecided at
-  32,000,000 states (12.5 GB on the GitHub runner; still undecided at 48,000,000
-  while swapping); and **KL-2** (membership), seed 8741, key k5, undecided at
-  every budget measured on the GitHub runner: 8,000,000 states (1.8 GB, 49 s),
-  16,000,000 (3.6 GB, 98 s), 32,000,000 (7.1 GB, 208 s) and 40,000,000 (8.7 GB,
-  273 s), within memory (P7-01). Both are promised to the register's
-  structural-measure row. Phase 7 turns compaction on in both soaks, which
-  changes every history; both are re-measured and re-recorded then.
+  Phase 7 turned compaction on in both soaks (decision 6), which changed every
+  history. The baseline soak's file is now empty: no execution of its 10,000 is
+  undecided, and **KL-1**'s seed (7723) now yields another history, decided in
+  168 states (KL-1, seed 7723 key k3, was undecided at 32,000,000 states and
+  12.5 GB on the GitHub runner). The membership soak holds **KL-3**: seed 8741,
+  key k5 again, with another history (34 operations, 22 indeterminate), undecided
+  at every budget measured locally: 8,000,000 states (1.9 GB, 60 s), 16,000,000
+  (3.7 GB, 128 s), 32,000,000 (7.2 GB, 287 s) and 40,000,000 (8.7 GB, 376 s).
+  It replaces **KL-2** (the same seed and key before compaction, undecided on the
+  GitHub runner from 8,000,000 states, 1.8 GB, to 40,000,000, 8.7 GB, P7-01).
+  KL-3 is promised to the register's structural-measure row.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct

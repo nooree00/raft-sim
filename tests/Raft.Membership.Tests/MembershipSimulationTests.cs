@@ -244,8 +244,8 @@ public sealed class MembershipSimulationTests
         Assert.Equal(RecordedMembershipLimits, KnownLimits.RecordedIn(Profile.LimitsFile).Select(e => $"{e.Id} {e.Seed} {e.Key} {e.Digest}"));
     }
 
-    /// <summary>The reviewed set (ci/known-limits-membership.txt). KL-2 removed at P7-11: its history no longer occurs.</summary>
-    private static readonly string[] RecordedMembershipLimits = [];
+    /// <summary>The reviewed set (ci/known-limits-membership.txt). KL-2 removed at P7-11: its history no longer occurs; KL-3, seed 8741's key k5 with compaction on, approved by the phase-7 report.</summary>
+    private static readonly string[] RecordedMembershipLimits = ["KL-3 8741 k5 7dbd0893dc65ffb521871048bb6dd8c9382cfe9b13a1579f65b6f77e611351b8"];
 
     [Fact]
     public void TheMembershipSampleHoldsEveryInvariant() =>
