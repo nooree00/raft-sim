@@ -1,0 +1,7 @@
+description: A read's heartbeat round is counted in the new configuration alone while joint: a majority of C_new that holds no old server but the leader confirms the read (P8-06)
+mechanism: the read's quorum counted in C_new alone
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReadMembershipTests.AReadWhileJointWaitsForAMajorityOfBothConfigurations
+reason: a read was answered by a majority of the new configuration alone while joint
+expect: caught

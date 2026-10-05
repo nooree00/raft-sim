@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -725,7 +725,7 @@ public sealed class RaftNode : INode
+             return;
+         }
+ 
+-        var configuration = Configuration;
++        var configuration = new Configuration(Configuration.New ?? Configuration.Old);
+         var peers = Peers();
+         for (var k = 0; k < _reads.Count; k++)
+         {

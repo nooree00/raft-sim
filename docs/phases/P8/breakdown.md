@@ -149,7 +149,7 @@ whenever a phase grows the harness.
 - **Sabotage:** S-read-3
 - **Verifiable here:** yes — constructions
 - **Prediction:** Passes on the first run, because the read's quorum will reuse `ConfigurationAt(...).IsQuorum`, the call commitment uses, and the bug phase 6 found there (a quorum of one configuration) cannot recur through a shared call. **Observable:** the construction's verdict before any fix.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — both constructions passed on their first run: a read while joint, its round acknowledged by `C_new`'s majority (n4, n5) and no old server, waited until n2 and n3 were reachable, and the leader removed by `C_new` redirected a read once it stepped down. The round is counted with `Configuration.IsQuorum`, the configuration in effect at the log's last index and the call elections use, which needs both majorities while joint. S-read-3, the round counted in `C_new` alone, answers the joint read.
 
 ### P8-07 — The simulator's session and read dimensions, from the party they happen to
 
