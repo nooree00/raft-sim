@@ -1,0 +1,7 @@
+description: Both positive controls on by default in the real node and state machine: leaders answer reads from their own state at once, and every session command is applied whatever its sequence number (P8-08)
+mechanism: the controls' options on by default
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ControlConstructionTests.TheRealNodeIsGreenInBothControlConstructions
+reason: the real state machine answered the read after the retry with ok|xx
+expect: caught

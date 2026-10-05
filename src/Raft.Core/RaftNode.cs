@@ -16,7 +16,7 @@ namespace Raft.Core;
 /// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
 /// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
 /// </summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false)
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = false)
 {
     /// <summary>
     /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
@@ -683,6 +683,14 @@ public sealed class RaftNode : INode
     /// </summary>
     private void OnRead(ClientRequest c, List<Effect> effects)
     {
+        // The positive control (P8-08): a leader that answers from its own state at once, as if it
+        // could not have been deposed.
+        if (_options.ReadsWithoutQuorum)
+        {
+            effects.Add(new ClientResponse(c.RequestId, _stateMachine.Query(c.Payload)));
+            return;
+        }
+
         _round++;
         _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _termCommitted ? _commitIndex : -1 });
         Heartbeats(effects);

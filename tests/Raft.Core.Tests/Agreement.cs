@@ -16,7 +16,7 @@ namespace Raft.Core.Tests;
 /// came from the other proves nothing, and a follower's snapshot came from a leader). The applied
 /// ghost ids are State Machine Safety's (P4-01, decision 5).
 /// </summary>
-internal sealed class AgreementProbe
+internal sealed class AgreementProbe(bool deduplicate = true)
 {
     /// <summary>Never compacting in a test's lifetime: the largest threshold small commands allow.</summary>
     public static readonly RaftOptions Uncompacted = RaftOptions.Default with { MaxCommandBytes = 4_096, SnapshotThreshold = RaftOptions.LargestThresholdFor(4_096) };
@@ -26,7 +26,7 @@ internal sealed class AgreementProbe
     /// <summary>A new state machine for a node's next incarnation, recorded.</summary>
     public IStateMachine For(NodeId node)
     {
-        var m = new Recorded();
+        var m = new Recorded(deduplicate);
         (_machines.TryGetValue(node, out var l) ? l : _machines[node] = []).Add(m);
         return m;
     }
@@ -120,9 +120,10 @@ internal sealed class AgreementProbe
     private static string N(long v) => v.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>A key-value state machine that keeps the bytes of each snapshot it restored.</summary>
-    private sealed class Recorded : IStateMachine
+    /// <remarks><paramref name="deduplicate"/> false is the positive control's state machine (P8-08); the replay it is compared with always deduplicates.</remarks>
+    private sealed class Recorded(bool deduplicate) : IStateMachine
     {
-        private readonly KvStateMachine _kv = new();
+        private readonly KvStateMachine _kv = new(deduplicate);
 
         public List<byte[]> Restores { get; } = [];
 

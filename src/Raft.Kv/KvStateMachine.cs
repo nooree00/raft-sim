@@ -19,7 +19,7 @@ namespace Raft.Kv;
 /// is refused ("unknown-session|"). At most <see cref="MaxSessions"/> sessions; a `Register` past it
 /// is refused ("sessions-full|"). Sessions never expire in phase 8 (the register's row).
 /// </summary>
-public sealed class KvStateMachine : IStateMachine
+public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
 {
     /// <summary>The largest legitimate number of sessions (P8-01, the reviewer's addition to decision 3).</summary>
     public const int MaxSessions = 1_000_000;
@@ -72,6 +72,14 @@ public sealed class KvStateMachine : IStateMachine
             if (!_sessions.TryGetValue(id, out var session))
             {
                 return Encoding.ASCII.GetBytes("unknown-session|");
+            }
+
+            // The positive control (P8-08): every session command applied, whatever its number.
+            if (!deduplicate)
+            {
+                var applied = Execute(s[3]);
+                _sessions[id] = new Session(Math.Max(sequence, session.Sequence), applied);
+                return Encoding.ASCII.GetBytes(applied);
             }
 
             if (sequence == session.Sequence)

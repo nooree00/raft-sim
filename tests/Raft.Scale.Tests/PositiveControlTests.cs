@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Raft.Core;
+using Raft.Checker;
 using Raft.Core.Tests;
 using Raft.Simulation;
 using Xunit;
@@ -167,5 +168,67 @@ public sealed class PositiveControlTests
             $"caught: {red} of {run}; by invariant: {string.Join(", ", byInvariant.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => $"{k.Key} {k.Value}"))}; by agreement {agreementRed}; a node threw {threw}") + "\n");
         Assert.True(red >= 3, $"the control was caught in only {red} of {run} executions");
     }
-}
 
+    /// <summary>One generated execution of the soak's configuration, with a P8-08 control on or off: whether linearizability rejected it, and whether the agreement check disagreed.</summary>
+    private static (bool Caught, bool AgreementRed) Control(string? control, int seed)
+    {
+        var probe = new AgreementProbe(deduplicate: control != "no-deduplication");
+        var options = control == "reads-without-a-quorum" ? SoakConfig.Options with { ReadsWithoutQuorum = true } : SoakConfig.Options;
+        var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakConfig.FaultsUntil });
+        var (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new SessionWorkload(new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think), Cluster.Nodes),
+            node: ctx => new RaftNode(ctx, options, probe.For(ctx.Id)));
+        var caught = WglChecker.Check(ClientHistory.From(sim.ClientLog).History, SoakConfig.CheckerBudget).Verdict == Verdict.NotLinearizable;
+        var observations = sim.Observations.ToList();
+        return (caught, probe.Check(observations, new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes))).Failures.Count > 0);
+    }
+
+    /// <summary>
+    /// P8-08: the deduplication control (a state machine applying every session command) over the
+    /// soak's generated executions, caught by linearizability; the test stops once it is caught 3
+    /// times (the floor; phase 7's acceptance), in at most 300 executions. With RAFT_CONTROL_FULL=1 it
+    /// runs every execution up to RAFT_CONTROL_MAX (300 by default), the measurement the breakdown
+    /// records, for either control (RAFT_CONTROL names it).
+    /// </summary>
+    [Fact]
+    public void TheDeduplicationControlIsCaughtByLinearizabilityInTheGeneratedSample()
+    {
+        var full = Environment.GetEnvironmentVariable("RAFT_CONTROL_FULL") == "1";
+        var control = full ? Environment.GetEnvironmentVariable("RAFT_CONTROL") ?? "no-deduplication" : "no-deduplication";
+        var executions = int.TryParse(Environment.GetEnvironmentVariable("RAFT_CONTROL_MAX"), out var max) ? max : 300;
+        var caughtSeeds = new List<int>();
+        int run = 0, agreementRed = 0;
+        for (var seed = 1; seed <= executions && (full || caughtSeeds.Count < 3); seed++)
+        {
+            run++;
+            var (caught, disagreed) = Control(control, seed);
+            if (caught)
+            {
+                caughtSeeds.Add(seed);
+            }
+
+            agreementRed += disagreed ? 1 : 0;
+        }
+
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, $"control-{control}.txt"),
+            $"{control}: {run} executions ({(full ? "all" : "stopping at 3 caught")}, at most {executions}); caught by linearizability in {caughtSeeds.Count} (seeds {string.Join(", ", caughtSeeds)}); agreement red in {agreementRed}\n");
+        Assert.True(caughtSeeds.Count >= 3, $"the {control} control was caught by linearizability in only {caughtSeeds.Count} of {run} executions");
+    }
+
+    /// <summary>
+    /// P8-08: the read control (leaders answering reads from their own state at once) is caught in 7
+    /// of 3,000 generated executions (0.23%; 1 of the first 300), too rare for a sample that stops at
+    /// the floor: the third catch is at seed 1,418, and a sample running that far under a sabotage
+    /// that slows executions is how phase 7's shard 10 went over its ceiling. So, as the budget tests
+    /// name their seeds, it runs the first three executions that measurement found it caught in. Each
+    /// must be rejected with the control on, and accepted with the real node on the same seed.
+    /// </summary>
+    [Theory]
+    [InlineData(33)]
+    [InlineData(1367)]
+    [InlineData(1418)]
+    public void TheReadControlIsCaughtByLinearizabilityWhereTheMeasurementFoundIt(int seed)
+    {
+        Assert.True(Control("reads-without-a-quorum", seed).Caught, $"seed {seed}: the read control's history was accepted");
+        Assert.False(Control(null, seed).Caught, $"seed {seed}: the real node's history was rejected");
+    }
+}
