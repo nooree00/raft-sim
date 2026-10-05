@@ -117,7 +117,7 @@ nothing.
 - **Sabotage:** ; manual: the probe asserts KL-2's digest, and is run once with a digest one character off to see it refuse
 - **Verifiable here:** no — the GitHub runner only
 - **Prediction:** On the runner KL-2 stays undecided at every budget up to 40 million states, peaking below KL-1's 12.5 GB at 32 million (7.2 GB locally against KL-1's 12 GB locally), because its search memoises fewer distinct states per step (34 operations against 46). **Observable:** the probe's states, peak memory and verdict per budget.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — on the runner (probe branch `claude/blissful-goodall-358smj-probe-kl2`, run 37251320739, the reviewer deletes the branch; 15.6 GB memory available) KL-2 stayed undecided at every budget: 8,000,000 states (1,805 MB, 49 s), 16,000,000 (3,606 MB, 98 s), 32,000,000 (7,139 MB, 208 s), 40,000,000 (8,673 MB, 273 s), peaking well below KL-1's 12.5 GB at 32,000,000. Locally, the same budgets peaked within 1% of the runner (7,188 MB at 32,000,000) and ran 1.5 times slower. Memory per state is about 223 bytes against KL-1's about 390, which fits fewer operations memoised per state (34 against 46) without proving that is why. The probe asserted KL-2's digest before measuring, and refused, locally, a digest one character off. Recorded in spec §6 beside KL-1's. The curve is of a history phase 7 is about to change (decision 6).
 
 ### P7-02 — The log's properties, enumerated before anything removes data
 

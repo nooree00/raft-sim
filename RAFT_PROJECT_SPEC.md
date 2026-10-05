@@ -310,10 +310,16 @@ So the checker is a separate deliverable.
   as unverified, under its own name, and says that its linearizability is
   unknown. No rate, count or floor attaches to the list, and the soak's tests
   name its exact entries, so adding or replacing one is a visible edit to a
-  reviewed set. Today it holds one entry: **KL-1**, seed 7723, key k3,
-  undecided at 32,000,000 states (12.5 GB on the GitHub runner; still undecided
-  at 48,000,000 while swapping), promised to the register's structural-measure
-  row.
+  reviewed set. Each soak keeps its own entries (phase 6: the baseline soak's in
+  `ci/known-limits.txt`, the membership soak's in `ci/known-limits-membership.txt`).
+  Today they hold one each: **KL-1** (baseline), seed 7723, key k3, undecided at
+  32,000,000 states (12.5 GB on the GitHub runner; still undecided at 48,000,000
+  while swapping); and **KL-2** (membership), seed 8741, key k5, undecided at
+  every budget measured on the GitHub runner: 8,000,000 states (1.8 GB, 49 s),
+  16,000,000 (3.6 GB, 98 s), 32,000,000 (7.1 GB, 208 s) and 40,000,000 (8.7 GB,
+  273 s), within memory (P7-01). Both are promised to the register's
+  structural-measure row. Phase 7 turns compaction on in both soaks, which
+  changes every history; both are re-measured and re-recorded then.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct
