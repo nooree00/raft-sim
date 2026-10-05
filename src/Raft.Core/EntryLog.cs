@@ -45,6 +45,9 @@ public static class EntryLog
     public const string FileName = "entries.log";
     private const int Header = 4, Fixed = 24, Trailer = 4;
 
+    /// <summary>The bytes a record adds to its command.</summary>
+    public const int RecordOverhead = Header + Fixed + Trailer;
+
     public static byte[] Record(long index, Term term, Term previousTerm, byte[] command)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -340,9 +343,10 @@ public sealed class LogStore
         {
             _configurations.RemoveAt(0);
         }
+
         _fileLength = bytes.Count;
         Snapshot = snapshot;
-        var name = TempPrefix + (_nextTemp++).ToString(CultureInfo.InvariantCulture);
+        var name = NewFileName();
         return new List<Persist> { new PersistAppend(name, bytes.ToArray()), new PersistRename(name, EntryLog.FileName) };
     }
 
@@ -366,6 +370,49 @@ public sealed class LogStore
         }
 
         return n;
+    }
+
+    /// <summary>A name for a file that will replace the log: no file the node held at its start had it, and it was never given before.</summary>
+    public string NewFileName() => TempPrefix + (_nextTemp++).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Install a snapshot a leader sent (P7-07, Figure 13), whose record the node has written to
+    /// <paramref name="file"/>, <paramref name="written"/> bytes: the entries after it are kept if
+    /// the log holds the snapshot's last entry, else the log is discarded. The kept entries follow
+    /// the record in the file, which is then renamed over the log, as a compaction's is.
+    /// </summary>
+    public IReadOnlyList<Persist> Install(LogSnapshot snapshot, string file, long written)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var keep = snapshot.Index > BaseIndex && snapshot.Index <= LastIndex && TermAt(snapshot.Index) == snapshot.Term;
+        var bytes = new List<byte>();
+        var retained = new List<StoredEntry>();
+        var previous = snapshot.Term;
+        for (var i = snapshot.Index + 1; keep && i <= LastIndex; i++)
+        {
+            var e = At(i);
+            bytes.AddRange(EntryLog.Record(i, e.Term, previous, e.Command));
+            retained.Add(e with { EndOffset = written + bytes.Count });
+            previous = e.Term;
+        }
+
+        _entries.Clear();
+        _entries.AddRange(retained);
+        while (_configurations.Count > 0 && (!keep || _configurations[0] <= snapshot.Index))
+        {
+            _configurations.RemoveAt(0);
+        }
+
+        _fileLength = written + bytes.Count;
+        Snapshot = snapshot with { EndOffset = written };
+        var writes = new List<Persist>();
+        if (bytes.Count > 0)
+        {
+            writes.Add(new PersistAppend(file, bytes.ToArray()));
+        }
+
+        writes.Add(new PersistRename(file, EntryLog.FileName));
+        return writes;
     }
 
     private static ArgumentOutOfRangeException Compacted(long index) => new(nameof(index), index, "compacted into the snapshot");

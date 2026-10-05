@@ -1,15 +1,12 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -458,12 +458,7 @@
+@@ -461,9 +461,7 @@
                  case LogHistory.Applied a:
                      OnApplied(a);
                      break;
 -                case LogHistory.Restored rs:
--                    for (var p = 1L; p <= rs.Index; p++)
--                    {
--                        OnApplied(new LogHistory.Applied(rs.Seq, rs.Node, p));
--                    }
--
+-                    (_pendingRestores.TryGetValue(rs.Node, out var pending) ? pending : _pendingRestores[rs.Node] = []).Add(rs);
+-                    Restore(rs.Node);
 +                case LogHistory.Restored:
                      break;
              }

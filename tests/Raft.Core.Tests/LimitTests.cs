@@ -112,9 +112,13 @@ public sealed class LimitTests
         Assert.Equal("too-large|" + options.MaxCommandBytes.ToString(System.Globalization.CultureInfo.InvariantCulture), refusal);
     }
 
-    public static TheoryData<string> OptionLimits() => new("heartbeat", "spread", "command", "batch");
+    public static TheoryData<string> OptionLimits() => new("heartbeat", "spread", "command", "batch", "threshold", "chunk");
 
-    /// <summary>Each option at its bound is accepted by a node, and one past it refused at construction.</summary>
+    /// <summary>
+    /// Each option at its bound is accepted by a node, and one past it refused at construction. The
+    /// largest command bounds the threshold too (P7-06): its entries must fit the log file, so at the
+    /// largest command the threshold is the largest that bound allows.
+    /// </summary>
     [Theory]
     [MemberData(nameof(OptionLimits))]
     public void EachOptionAtItsBoundIsAcceptedAndOnePastItRefused(string limit)
@@ -124,7 +128,9 @@ public sealed class LimitTests
         {
             "heartbeat" => (d with { HeartbeatInterval = d.ElectionTimeoutMin / RaftOptions.HeartbeatsPerTimeout }, d with { HeartbeatInterval = (d.ElectionTimeoutMin / RaftOptions.HeartbeatsPerTimeout) + 1 }),
             "spread" => (d with { ElectionTimeoutMax = d.ElectionTimeoutMin + d.HeartbeatInterval }, d with { ElectionTimeoutMax = d.ElectionTimeoutMin + d.HeartbeatInterval - 1 }),
-            "command" => (d with { MaxCommandBytes = RaftOptions.LargestCommandFor(d.MaxEntriesPerAppend) }, d with { MaxCommandBytes = RaftOptions.LargestCommandFor(d.MaxEntriesPerAppend) + 1 }),
+            "command" => (d with { MaxCommandBytes = RaftOptions.LargestCommandFor(d.MaxEntriesPerAppend), SnapshotThreshold = RaftOptions.LargestThresholdFor(RaftOptions.LargestCommandFor(d.MaxEntriesPerAppend)) }, d with { MaxCommandBytes = RaftOptions.LargestCommandFor(d.MaxEntriesPerAppend) + 1, SnapshotThreshold = 1 }),
+            "threshold" => (d with { SnapshotThreshold = RaftOptions.LargestThresholdFor(d.MaxCommandBytes) }, d with { SnapshotThreshold = RaftOptions.LargestThresholdFor(d.MaxCommandBytes) + 1 }),
+            "chunk" => (d with { SnapshotChunkBytes = RaftOptions.LargestCommandFor(1) }, d with { SnapshotChunkBytes = RaftOptions.LargestCommandFor(1) + 1 }),
             _ => (d with { MaxEntriesPerAppend = 1 }, d with { MaxEntriesPerAppend = 0 }),
         };
 

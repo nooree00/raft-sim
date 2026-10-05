@@ -1,0 +1,6 @@
+description: An installed snapshot always discards the log: a follower ahead of the snapshot loses entries it held, committed ones among them (P7-07, Figure 13)
+mechanism: the suffix past the snapshot always discarded
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.InstallSnapshotTests.AFollowerHoldingTheSnapshotsLastEntryKeepsTheEntriesAfterIt
+expect: caught

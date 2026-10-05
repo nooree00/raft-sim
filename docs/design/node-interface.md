@@ -104,7 +104,9 @@ key-value store implements it. Pure, like the node.
 ## 8a. Messages and their wire form
 
 Peers exchange `RequestVote`, `RequestVoteResponse`, `AppendEntries` and `AppendEntriesResponse`
-(Figure 2) as bytes, through `MessageCodec` in Core: a type byte, fixed-width big-endian integers,
+(Figure 2), and `InstallSnapshot` and `InstallSnapshotResponse` (Figure 13, P7-07: a chunk of the
+snapshot's record at an offset, and the bytes the follower holds from its start or that it holds
+the snapshot whole) as bytes, through `MessageCodec` in Core: a type byte, fixed-width big-endian integers,
 and a count or length before every variable part.
 
 **The canonical rule (P3-02):** every byte string decodes to at most one message, and every

@@ -373,6 +373,7 @@ internal sealed class LogAnalysis
     private readonly LogHistory _h;
     private readonly bool _byBytes;
     private readonly Dictionary<NodeId, List<Held>> _intended = [];
+    private readonly Dictionary<NodeId, List<LogHistory.Restored>> _pendingRestores = [];
     private readonly Dictionary<NodeId, List<Held>> _durable = [];
     private readonly Dictionary<long, Dictionary<long, string>> _messageGhosts = [];
     private readonly Dictionary<long, Term> _messageTerms = [];
@@ -418,6 +419,7 @@ internal sealed class LogAnalysis
                     break;
                 case LogHistory.Issued i:
                     OnIssued(i);
+                    Restore(i.Node);
                     break;
                 case LogHistory.Durable du:
                     OnDurable(du);
@@ -430,6 +432,7 @@ internal sealed class LogAnalysis
                     }
 
                     _tenure.Remove(c.Node);
+                    _pendingRestores.Remove(c.Node);
                     Intended(c.Node).Clear();
                     Intended(c.Node).AddRange(Durable(c.Node));
                     Lower(c.Node, Intended(c.Node).Count);
@@ -459,11 +462,8 @@ internal sealed class LogAnalysis
                     OnApplied(a);
                     break;
                 case LogHistory.Restored rs:
-                    for (var p = 1L; p <= rs.Index; p++)
-                    {
-                        OnApplied(new LogHistory.Applied(rs.Seq, rs.Node, p));
-                    }
-
+                    (_pendingRestores.TryGetValue(rs.Node, out var pending) ? pending : _pendingRestores[rs.Node] = []).Add(rs);
+                    Restore(rs.Node);
                     break;
             }
         }
@@ -500,6 +500,30 @@ internal sealed class LogAnalysis
     private static Held? At(List<Held> log, long index) => index >= 1 && index <= log.Count ? log[(int)index - 1] : null;
 
     private List<Held> Intended(NodeId n) => _intended.TryGetValue(n, out var l) ? l : _intended[n] = [];
+
+    /// <summary>
+    /// A restore counts as applying every index its snapshot covers once the node's log holds them
+    /// (P7-06): a follower installing a snapshot restores its state machine at once, while the world
+    /// holds the rename that puts the snapshot in its log until the snapshot's file is durable, so the
+    /// event arrives before the log holds what it covers. Lost with the node in a crash.
+    /// </summary>
+    private void Restore(NodeId node)
+    {
+        if (!_pendingRestores.TryGetValue(node, out var pending))
+        {
+            return;
+        }
+
+        while (pending.Count > 0 && pending[0].Index <= Intended(node).Count)
+        {
+            var rs = pending[0];
+            pending.RemoveAt(0);
+            for (var p = 1L; p <= rs.Index; p++)
+            {
+                OnApplied(new LogHistory.Applied(rs.Seq, rs.Node, p));
+            }
+        }
+    }
 
     private List<Held> Durable(NodeId n) => _durable.TryGetValue(n, out var l) ? l : _durable[n] = [];
 

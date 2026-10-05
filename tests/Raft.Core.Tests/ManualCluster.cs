@@ -117,6 +117,19 @@ internal sealed class ManualCluster
             case PersistTruncate t when files.TryGetValue(t.File, out var cur) && cur.Length > t.Length:
                 files[t.File] = cur[..(int)t.Length];
                 break;
+            case PersistRename r:
+                files[r.To] = files.Remove(r.File, out var renamed) ? renamed : [];
+                break;
+            case PersistWriteAt w:
+                var at = files.GetValueOrDefault(w.File, []);
+                var grown = new byte[Math.Max(at.Length, w.Offset + w.Data.Length)];
+                at.CopyTo(grown, 0);
+                w.Data.Span.CopyTo(grown.AsSpan((int)w.Offset));
+                files[w.File] = grown;
+                break;
+            case PersistDelete d:
+                files.Remove(d.File);
+                break;
         }
     }
 
@@ -200,6 +213,12 @@ internal sealed class ManualCluster
 
     /// <summary>Loses every message in flight from <paramref name="from"/> (to <paramref name="to"/> only, when given).</summary>
     public void Drop(NodeId from, NodeId? to = null) => _inFlight.RemoveAll(m => m.From == from && (to is null || m.To == to));
+
+    /// <summary>The snapshot at the head of the node's log file, as its disk holds it, if any.</summary>
+    public LogSnapshot? SnapshotOf(NodeId n) => EntryLog.Recover(_files[n].GetValueOrDefault(EntryLog.FileName)).Snapshot;
+
+    /// <summary>The node's files' names, as its disk holds them.</summary>
+    public IReadOnlyCollection<string> FilesOf(NodeId n) => _files[n].Keys;
 
     /// <summary>The node's log as its disk holds it.</summary>
     public IReadOnlyList<StoredEntry> EntriesOf(NodeId n) => EntryLog.Recover(_files[n].GetValueOrDefault(EntryLog.FileName)).Entries;

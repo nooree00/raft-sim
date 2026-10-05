@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -400,7 +400,7 @@
+         }
+ 
+         Save(effects);
+-        effects.Add(new PersistWriteAt(incoming.File, m.Offset, m.Data));
++        effects.Add(new PersistWriteAt(incoming.File, 0, m.Data));
+         for (var k = 0; k < m.Data.Length; k++)
+         {
+             var at = (int)m.Offset + k;

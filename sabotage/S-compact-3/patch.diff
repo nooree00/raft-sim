@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -787,7 +787,7 @@
+ 
+         var at = _log.ConfigurationIndexAtOrBelow(_lastApplied);
+         var configuration = at == 0 ? _log.Snapshot?.Configuration : Configuration.Decode(_log.At(at).Command);
+-        effects.AddRange(_log.Compact(_lastApplied, configuration, _stateMachine.Snapshot().ToArray()));
++        effects.AddRange(_log.Compact(_log.LastIndex, configuration, _stateMachine.Snapshot().ToArray()));
+         effects.Add(Event("compact", new Field("index", N(_lastApplied))));
+     }
+ 

@@ -1,8 +1,8 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -292,7 +292,7 @@
+@@ -549,7 +549,7 @@
          var lastNew = ae.PrevLogIndex + ae.Entries.Count;
-         if (ae.LeaderCommit > _commitIndex)
+         if (ae.LeaderCommit > _commitIndex && Math.Min(ae.LeaderCommit, lastNew) > _commitIndex)
          {
 -            _commitIndex = Math.Min(ae.LeaderCommit, lastNew);
 +            _commitIndex = Math.Min(ae.LeaderCommit, _log.LastIndex);

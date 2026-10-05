@@ -1,10 +1,10 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -290,9 +290,9 @@
-         }
- 
+@@ -547,9 +547,9 @@
+         // The commit index never falls (P7-06): an AppendEntries carrying a prefix once lowered it, and
+         // a compaction relies on it staying at or above the snapshot's index.
          var lastNew = ae.PrevLogIndex + ae.Entries.Count;
--        if (ae.LeaderCommit > _commitIndex)
+-        if (ae.LeaderCommit > _commitIndex && Math.Min(ae.LeaderCommit, lastNew) > _commitIndex)
 +        if (lastNew > _commitIndex)
          {
 -            _commitIndex = Math.Min(ae.LeaderCommit, lastNew);

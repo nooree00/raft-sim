@@ -1,0 +1,6 @@
+description: Every chunk of a snapshot is written at the start of its file: the record on disk is the last chunk over the first, while the state restored in memory is right (P7-07)
+mechanism: a chunk applied at the wrong offset
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.InstallSnapshotTests.ChunksDuplicatedLostAndOutOfOrderInstallTheSnapshotWhole
+expect: caught

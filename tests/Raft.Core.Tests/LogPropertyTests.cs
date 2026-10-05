@@ -11,10 +11,10 @@ namespace Raft.Core.Tests;
 
 /// <summary>
 /// P7-02: the log's properties (docs/design/log-properties.md), one test each, every test taking
-/// logs as input so that compaction's effect on each is visible when compacted logs join them
-/// (P7-06). Vacuity risks: an enumeration from spec §8's list alone (guarded: the table derives
+/// logs as input, generated and compacted (P7-06), so that compaction's effect on each is
+/// visible. Vacuity risks: an enumeration from spec §8's list alone (guarded: the table derives
 /// from every reader of the log); a property test compaction can never reach (guarded: each test
-/// runs over <see cref="Logs"/>). Sabotages S-logprop-1, S-logprop-2.
+/// runs over <see cref="Logs"/>, half of them compacted). Sabotages S-logprop-1, S-logprop-2.
 /// </summary>
 public sealed class LogPropertyTests
 {
@@ -25,11 +25,13 @@ public sealed class LogPropertyTests
 
     /// <summary>
     /// Generated logs: appends of key-value commands and configuration entries in several terms, with
-    /// truncations, every write applied to a simulated disk in order. Compacted logs join at P7-06.
+    /// truncations, every write applied to a simulated disk in order; then the same logs compacted at
+    /// a random index (P7-06), the state the commands up to it built and the configuration in effect
+    /// there in the snapshot, the compaction's file renamed over the log.
     /// </summary>
     public static IEnumerable<Sample> Logs()
     {
-        for (var seed = 1; seed <= 40; seed++)
+        for (var seed = 1; seed <= 80; seed++)
         {
             var rng = new Random(seed);
             var store = new LogStore(EntryLog.Recover(null));
@@ -51,13 +53,30 @@ public sealed class LogPropertyTests
                 disk.CompleteNext();
             }
 
-            var file = disk.Snapshot()[EntryLog.FileName].ToArray();
             var commands = Enumerable.Range(1, (int)store.LastIndex).Select(i => store.At(i).Command).ToList();
-            yield return new Sample("generated " + seed, store, file, commands);
+            if (seed > 40)
+            {
+                var index = rng.Next(1, (int)store.LastIndex + 1);
+                var kv = new KvStateMachine();
+                foreach (var c in commands.Take(index).Where(c => !Configuration.IsInternal(c)))
+                {
+                    kv.Apply(c);
+                }
+
+                var at = store.ConfigurationIndexAtOrBelow(index);
+                foreach (var op in store.Compact(index, at == 0 ? null : Configuration.Decode(store.At(at).Command), kv.Snapshot().ToArray()))
+                {
+                    disk.Issue(op, 0);
+                    disk.CompleteNext();
+                }
+            }
+
+            var file = disk.Snapshot()[EntryLog.FileName].ToArray();
+            yield return new Sample((seed > 40 ? "compacted " : "generated ") + seed, store, file, commands);
         }
     }
 
-    public static TheoryData<int> Indexes() => new(Enumerable.Range(0, 40));
+    public static TheoryData<int> Indexes() => new(Enumerable.Range(0, 80));
 
     private static Sample At(int i) => Logs().ElementAt(i);
 
@@ -66,10 +85,16 @@ public sealed class LogPropertyTests
     public void EveryIndexResolves(int i)
     {
         var s = At(i);
-        Assert.Equal(Term.Zero, s.Store.TermAt(0));
-        for (var index = 1L; index <= s.Store.LastIndex; index++)
+        Assert.Equal(s.Store.Snapshot?.Term ?? Term.Zero, s.Store.TermAt(s.Store.BaseIndex));
+        for (var index = s.Store.BaseIndex + 1; index <= s.Store.LastIndex; index++)
         {
             Assert.Equal(s.Store.At(index).Term, s.Store.TermAt(index));
+        }
+
+        // Below the snapshot nothing resolves: those entries are its state now.
+        for (var index = 1L; index < s.Store.BaseIndex; index++)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => s.Store.TermAt(index));
         }
     }
 
@@ -78,13 +103,13 @@ public sealed class LogPropertyTests
     public void IndicesAreDense(int i)
     {
         var s = At(i);
-        for (var index = 1L; index <= s.Store.LastIndex; index++)
+        for (var index = s.Store.BaseIndex + 1; index <= s.Store.LastIndex; index++)
         {
             Assert.Equal(index, s.Store.At(index).Index);
         }
     }
 
-    /// <summary>Replaying the log from the empty state gives the state the commands built; configuration entries never reach the state machine.</summary>
+    /// <summary>Replaying the log from its snapshot's state (the empty state without one) gives the state the commands built; configuration entries never reach the state machine.</summary>
     [Theory]
     [MemberData(nameof(Indexes))]
     public void ReplayingTheLogGivesTheState(int i)
@@ -92,7 +117,12 @@ public sealed class LogPropertyTests
         var s = At(i);
         var replayed = new KvStateMachine();
         var direct = new KvStateMachine();
-        for (var index = 1L; index <= s.Store.LastIndex; index++)
+        if (s.Store.Snapshot is { } snapshot)
+        {
+            replayed.Restore(snapshot.State);
+        }
+
+        for (var index = s.Store.BaseIndex + 1; index <= s.Store.LastIndex; index++)
         {
             var command = s.Store.At(index).Command;
             if (!Configuration.IsInternal(command))
@@ -121,7 +151,8 @@ public sealed class LogPropertyTests
         var s = At(i);
         var recovered = new LogStore(EntryLog.Recover(s.File));
         Assert.Equal(s.Store.LastIndex, recovered.LastIndex);
-        for (var prev = 0L; prev <= s.Store.LastIndex; prev++)
+        Assert.Equal(s.Store.BaseIndex, recovered.BaseIndex);
+        for (var prev = s.Store.BaseIndex; prev <= s.Store.LastIndex; prev++)
         {
             Assert.Equal(s.Store.TermAt(prev), recovered.TermAt(prev));
         }
@@ -162,7 +193,7 @@ public sealed class LogPropertyTests
     public void ATruncationCutsTheFileWhereTheEntryEnded(int i)
     {
         var s = At(i);
-        for (var from = 2L; from <= s.Store.LastIndex; from++)
+        for (var from = Math.Max(2L, s.Store.BaseIndex + 1); from <= s.Store.LastIndex; from++)
         {
             var store = new LogStore(EntryLog.Recover(s.File));
             var cut = store.TruncateFrom(from)!;
@@ -172,16 +203,28 @@ public sealed class LogPropertyTests
         }
     }
 
-    /// <summary>The configuration index at or below every index is the latest configuration entry at or below it.</summary>
+    /// <summary>
+    /// The configuration at every index is the latest configuration entry at or below it: found in the
+    /// log after the snapshot, and in the snapshot when that entry is at or below its index.
+    /// </summary>
     [Theory]
     [MemberData(nameof(Indexes))]
     public void TheConfigurationAtAnIndexIsTheLatestAtOrBelowIt(int i)
     {
         var s = At(i);
-        for (var index = 0L; index <= s.Store.LastIndex; index++)
+        for (var index = s.Store.BaseIndex; index <= s.Store.LastIndex; index++)
         {
-            var expected = Enumerable.Range(1, (int)index).Where(k => Configuration.IsInternal(s.Store.At(k).Command)).Select(k => (long)k).DefaultIfEmpty(0).Max();
-            Assert.Equal(expected, s.Store.ConfigurationIndexAtOrBelow(index));
+            var expected = Enumerable.Range(1, (int)index).Where(k => Configuration.IsInternal(s.Commands[k - 1])).Select(k => (long)k).DefaultIfEmpty(0).Max();
+            var found = s.Store.ConfigurationIndexAtOrBelow(index);
+            if (expected > s.Store.BaseIndex)
+            {
+                Assert.Equal(expected, found);
+            }
+            else
+            {
+                Assert.Equal(0, found);
+                Assert.Equal(expected == 0 ? null : Configuration.Decode(s.Commands[(int)expected - 1]), s.Store.Snapshot?.Configuration);
+            }
         }
     }
 
@@ -190,7 +233,7 @@ public sealed class LogPropertyTests
     public void TheLastTermIsTheLastEntrysTerm(int i)
     {
         var s = At(i);
-        Assert.Equal(s.Store.LastIndex == 0 ? Term.Zero : s.Store.At(s.Store.LastIndex).Term, s.Store.LastTerm);
+        Assert.Equal(s.Store.LastIndex == s.Store.BaseIndex ? s.Store.Snapshot?.Term ?? Term.Zero : s.Store.At(s.Store.LastIndex).Term, s.Store.LastTerm);
     }
 
     /// <summary>The checkers' incremental view of the file, fed the node's writes one by one, equals a full recovery of the file.</summary>
@@ -210,5 +253,6 @@ public sealed class LogPropertyTests
         }
 
         Assert.Equal(EntryLog.Recover(s.File).Entries.Count, view.Count);
+        Assert.Equal(EntryLog.Recover(s.File).Snapshot?.Index, view.Snapshot?.Index);
     }
 }

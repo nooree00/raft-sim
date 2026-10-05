@@ -25,13 +25,16 @@ public sealed class MessageCodecTests
         Term T() => new(rng.Next(3) == 0 ? rng.NextInt64(0, long.MaxValue) : rng.Next(0, 20));
         long I() => rng.Next(3) == 0 ? rng.NextInt64(0, long.MaxValue) : rng.Next(0, 50);
         NodeId N() => new(rng.Next(1, 6));
-        return rng.Next(4) switch
+        byte[] B() => Enumerable.Range(0, rng.Next(0, 6)).Select(_ => (byte)rng.Next(256)).ToArray();
+        return rng.Next(6) switch
         {
             0 => new RequestVote(T(), N(), I(), T()),
             1 => new RequestVoteResponse(T(), rng.Next(2) == 0),
             2 => new AppendEntries(T(), N(), I(), T(),
                 Enumerable.Range(0, rng.Next(0, 4)).Select(_ => new LogEntry(T(), Enumerable.Range(0, rng.Next(0, 6)).Select(_ => (byte)rng.Next(256)).ToArray())).ToList(), I()),
-            _ => new AppendEntriesResponse(T(), rng.Next(2) == 0, I()),
+            3 => new AppendEntriesResponse(T(), rng.Next(2) == 0, I()),
+            4 => new InstallSnapshot(T(), N(), I(), T(), I(), B(), rng.Next(2) == 0),
+            _ => new InstallSnapshotResponse(T(), I(), I(), rng.Next(2) == 0),
         };
     }
 
@@ -49,7 +52,7 @@ public sealed class MessageCodecTests
             Assert.True(m.Equals(decoded), $"{m} decoded as {decoded}");
         }
 
-        Assert.Equal(4, kinds.Count);
+        Assert.Equal(6, kinds.Count);
     }
 
     /// <summary>

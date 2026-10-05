@@ -7,11 +7,14 @@ namespace Raft.Core;
 /// <summary>
 /// Timing and limits, in the node's own ticks (P3 decision 5): election timeout uniform in
 /// [min, max), heartbeats every interval, at most <see cref="MaxEntriesPerAppend"/> entries in one
-/// AppendEntries, commands of at most <see cref="MaxCommandBytes"/>. <see cref="DisruptionRule"/> is on
+/// AppendEntries, commands of at most <see cref="MaxCommandBytes"/>, a compaction once
+/// <see cref="SnapshotThreshold"/> applied entries follow the last snapshot (phase 7 decision 3),
+/// sent to a follower behind it in chunks of at most <see cref="SnapshotChunkBytes"/> (decision 4).
+/// <see cref="DisruptionRule"/> is on
 /// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
 /// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
 /// </summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576)
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536)
 {
     /// <summary>
     /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
@@ -28,6 +31,13 @@ public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTim
     public static int LargestCommandFor(int batch) => (int)(((int.MaxValue - AppendEntriesFixed) / Math.Max(1, batch)) - PerEntry);
 
     /// <summary>
+    /// The largest threshold for which the entries a compaction waits for, each of the largest
+    /// command, still fit the log file, which recovery reads into one array (P7-06). Entries past
+    /// them that are not yet applied are not bounded by it.
+    /// </summary>
+    public static int LargestThresholdFor(int command) => Array.MaxLength / (Math.Max(1, command) + EntryLog.RecordOverhead);
+
+    /// <summary>
     /// Why these options are refused, or null. The election timeout's spread must be at least one
     /// heartbeat (at a spread of one tick every node times out together and no leader is ever
     /// elected, P4-09), and a full batch of the largest commands must encode.
@@ -39,6 +49,8 @@ public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTim
         : ElectionTimeoutMax - ElectionTimeoutMin < HeartbeatInterval ? "the election timeout's spread is less than one heartbeat"
         : MaxEntriesPerAppend < 1 ? "MaxEntriesPerAppend is below 1"
         : MaxCommandBytes < 1 || MaxCommandBytes > LargestCommandFor(MaxEntriesPerAppend) ? "MaxCommandBytes is outside 1 and the largest command a full batch can encode"
+        : SnapshotThreshold < 1 || SnapshotThreshold > LargestThresholdFor(MaxCommandBytes) ? "SnapshotThreshold is outside 1 and the largest threshold whose entries fit the log file"
+        : SnapshotChunkBytes < 1 || SnapshotChunkBytes > LargestCommandFor(1) ? "SnapshotChunkBytes is outside 1 and the largest chunk one message can encode"
         : null;
 }
 
@@ -87,6 +99,9 @@ public sealed class RaftNode : INode
     private readonly Configuration _initial;
     private long? _membershipRequest;
     private Configuration? _catchingUp;
+    private long _restored;
+    private readonly Dictionary<NodeId, Sent> _snapshotSent = [];
+    private Incoming? _incoming;
 
     public RaftNode(NodeContext context, RaftOptions? options = null, IStateMachine? stateMachine = null)
     {
@@ -116,6 +131,14 @@ public sealed class RaftNode : INode
         _log = new LogStore(EntryLog.Recover(context.Files.TryGetValue(EntryLog.FileName, out var l) ? l.ToArray() : null));
         _log.AvoidNames(context.Files.Keys);
         _cutTornLogTail = _log.CutTornTail;
+
+        // A snapshot covers committed, applied entries: the state machine starts from it (P7-06).
+        if (_log.Snapshot is { } snapshot)
+        {
+            _stateMachine.Restore(snapshot.State);
+            _lastApplied = _commitIndex = _restored = snapshot.Index;
+        }
+
         _term = recovery.State.Term;
         _votedFor = recovery.State.VotedFor;
         _timeout = NextTimeout();
@@ -157,6 +180,12 @@ public sealed class RaftNode : INode
         {
             effects.Add(_cutTornLogTail);
             _cutTornLogTail = null;
+        }
+
+        if (_restored > 0)
+        {
+            effects.Add(Event("restore", new Field("index", N(_restored))));
+            _restored = 0;
         }
 
         switch (input)
@@ -296,6 +325,143 @@ public sealed class RaftNode : INode
             case AppendEntriesResponse aer:
                 OnAppendEntriesResponse(from, aer, effects);
                 break;
+            case InstallSnapshot ins:
+                OnInstallSnapshot(from, ins, effects);
+                break;
+            case InstallSnapshotResponse isr:
+                OnInstallSnapshotResponse(from, isr, effects);
+                break;
+        }
+    }
+
+    /// <summary>How far a follower holds the snapshot of an index, by its last reply (P7-07).</summary>
+    private sealed record Sent(long Index, long Offset);
+
+    /// <summary>A snapshot's record, built once.</summary>
+    private sealed record Built(long Index, byte[] Bytes);
+
+    /// <summary>A snapshot arriving in chunks (P7-07): its bytes so far, the file they are written to, and how many from its start are held.</summary>
+    private sealed class Incoming(long index, Term term, string file)
+    {
+        public long Index { get; } = index;
+
+        public Term Term { get; } = term;
+
+        public string File { get; } = file;
+
+        public List<byte> Bytes { get; } = [];
+    }
+
+    /// <summary>
+    /// A chunk of the leader's snapshot (Figure 13, decision 4). Chunks are written at their offsets
+    /// to a file of their own; one that leaves a gap is dropped and the reply says where the held
+    /// bytes end, so a lost chunk is sent again and a duplicate rewrites what is there. On the last,
+    /// the record must read back whole as the snapshot named, or it is discarded; then it is
+    /// installed: the state machine restored from it, the log kept after it if the log holds its
+    /// last entry, else discarded, and the file renamed over the log.
+    /// </summary>
+    private void OnInstallSnapshot(NodeId from, InstallSnapshot m, List<Effect> effects)
+    {
+        if (m.Term < _term)
+        {
+            Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, 0, false), effects);
+            return;
+        }
+
+        if (Role == Role.Candidate)
+        {
+            effects.Add(Event("candidate-steps-down", new Field("term", N(_term.Value))));
+            Role = Role.Follower;
+        }
+
+        ResetElectionTimer();
+        _heardFromLeader = true;
+        _sinceLeader = 0;
+        _leaderHint = m.Leader;
+        if (m.LastIncludedIndex <= _log.BaseIndex)
+        {
+            Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, 0, true), effects);
+            return;
+        }
+
+        // Chunks belong to the snapshot of their index and term (P7-07): keyed by the follower alone, a
+        // delayed chunk of an earlier snapshot was written into a newer one's file, and a repeated
+        // first chunk started the transfer again in a new file.
+        if (m.Offset == 0 && (_incoming is null || _incoming.Index != m.LastIncludedIndex || _incoming.Term != m.LastIncludedTerm))
+        {
+            _incoming = new Incoming(m.LastIncludedIndex, m.LastIncludedTerm, _log.NewFileName());
+        }
+
+        var incoming = _incoming is { } i && i.Index == m.LastIncludedIndex && i.Term == m.LastIncludedTerm ? i : null;
+        if (incoming is null || m.Offset > incoming.Bytes.Count)
+        {
+            Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, incoming?.Bytes.Count ?? 0, false), effects);
+            return;
+        }
+
+        Save(effects);
+        effects.Add(new PersistWriteAt(incoming.File, m.Offset, m.Data));
+        for (var k = 0; k < m.Data.Length; k++)
+        {
+            var at = (int)m.Offset + k;
+            if (at < incoming.Bytes.Count)
+            {
+                incoming.Bytes[at] = m.Data[k];
+            }
+            else
+            {
+                incoming.Bytes.Add(m.Data[k]);
+            }
+        }
+
+        if (!m.Done || m.Offset + m.Data.Length != incoming.Bytes.Count)
+        {
+            Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, incoming.Bytes.Count, false), effects);
+            return;
+        }
+
+        _incoming = null;
+        var bytes = incoming.Bytes.ToArray();
+        var read = EntryLog.Recover(bytes);
+        if (read is not { Path: RecoveryPath.Clean, Snapshot: { } snapshot } || snapshot.Index != m.LastIncludedIndex || snapshot.Term != m.LastIncludedTerm || read.ValidLength != bytes.Length || read.Entries.Count != 0)
+        {
+            effects.Add(Event("snapshot-discarded", new Field("index", N(m.LastIncludedIndex))));
+            Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, 0, false), effects);
+            return;
+        }
+
+        effects.AddRange(_log.Install(snapshot, incoming.File, bytes.Length));
+        _stateMachine.Restore(snapshot.State);
+        _commitIndex = Math.Max(_commitIndex, snapshot.Index);
+        _lastApplied = snapshot.Index;
+        effects.Add(Event("restore", new Field("index", N(snapshot.Index))));
+        Apply(effects);
+        Reply(from, new InstallSnapshotResponse(_term, m.LastIncludedIndex, bytes.Length, true), effects);
+    }
+
+    /// <summary>The follower holds the snapshot, or the bytes it reports: the next chunk, or AppendEntries after the snapshot.</summary>
+    private void OnInstallSnapshotResponse(NodeId from, InstallSnapshotResponse r, List<Effect> effects)
+    {
+        if (Role != Role.Leader || r.Term != _term || !_nextIndex.TryGetValue(from, out var next))
+        {
+            return;
+        }
+
+        if (r.Done)
+        {
+            _snapshotSent.Remove(from);
+            _matchIndex[from] = Math.Max(_matchIndex[from], r.LastIncludedIndex);
+            _nextIndex[from] = Math.Max(next, r.LastIncludedIndex + 1);
+            AdvanceCommit(effects);
+            ProceedIfCaughtUp(effects);
+            SendAppend(from, effects);
+            return;
+        }
+
+        if (r.LastIncludedIndex == _log.BaseIndex)
+        {
+            _snapshotSent[from] = new Sent(r.LastIncludedIndex, r.Received);
+            SendSnapshot(from, effects);
         }
     }
 
@@ -318,13 +484,33 @@ public sealed class RaftNode : INode
         _sinceLeader = 0;
         _leaderHint = ae.Leader;
 
+        // Entries at or below the snapshot are committed, so this term's leader holds the same ones
+        // (Leader Completeness): those are skipped, and the check moves to the snapshot's index, where
+        // the term is the snapshot's (P7-06).
+        if (ae.PrevLogIndex < _log.BaseIndex)
+        {
+            var covered = (int)Math.Min(ae.Entries.Count, _log.BaseIndex - ae.PrevLogIndex);
+            var after = new List<LogEntry>();
+            for (var k = covered; k < ae.Entries.Count; k++)
+            {
+                after.Add(ae.Entries[k]);
+            }
+
+            ae = ae with { PrevLogIndex = ae.PrevLogIndex + covered, PrevLogTerm = covered == 0 ? ae.PrevLogTerm : ae.Entries[covered - 1].Term, Entries = after };
+            if (ae.PrevLogIndex < _log.BaseIndex)
+            {
+                Reply(from, new AppendEntriesResponse(_term, true, ae.PrevLogIndex), effects);
+                return;
+            }
+        }
+
         // The consistency check (§5.3): the entry before the new ones must be the leader's. A
         // rejection says how far this log could match: its last index when it is shorter, otherwise
         // the index before the one that failed. The leader jumps there instead of stepping back one
         // entry per rejection, which with heartbeats alone takes one step per interval (P4-03).
         if (ae.PrevLogIndex > _log.LastIndex || _log.TermAt(ae.PrevLogIndex) != ae.PrevLogTerm)
         {
-            Reply(from, new AppendEntriesResponse(_term, false, Math.Min(_log.LastIndex, ae.PrevLogIndex - 1)), effects);
+            Reply(from, new AppendEntriesResponse(_term, false, Math.Max(_log.BaseIndex, Math.Min(_log.LastIndex, ae.PrevLogIndex - 1))), effects);
             return;
         }
 
@@ -358,8 +544,10 @@ public sealed class RaftNode : INode
             break;
         }
 
+        // The commit index never falls (P7-06): an AppendEntries carrying a prefix once lowered it, and
+        // a compaction relies on it staying at or above the snapshot's index.
         var lastNew = ae.PrevLogIndex + ae.Entries.Count;
-        if (ae.LeaderCommit > _commitIndex)
+        if (ae.LeaderCommit > _commitIndex && Math.Min(ae.LeaderCommit, lastNew) > _commitIndex)
         {
             _commitIndex = Math.Min(ae.LeaderCommit, lastNew);
             Apply(effects);
@@ -580,6 +768,27 @@ public sealed class RaftNode : INode
                 OnConfigurationCommitted(applied, effects);
             }
         }
+
+        Compact(effects);
+    }
+
+    /// <summary>
+    /// Phase 7 decision 3: once <see cref="RaftOptions.SnapshotThreshold"/> applied entries follow the
+    /// snapshot, compact up to the last applied one, never further. The snapshot carries the
+    /// configuration in effect at its index (null for the initial one), so a node restored from it
+    /// does not revert to its initial configuration (register).
+    /// </summary>
+    private void Compact(List<Effect> effects)
+    {
+        if (_lastApplied - _log.BaseIndex < _options.SnapshotThreshold)
+        {
+            return;
+        }
+
+        var at = _log.ConfigurationIndexAtOrBelow(_lastApplied);
+        var configuration = at == 0 ? _log.Snapshot?.Configuration : Configuration.Decode(_log.At(at).Command);
+        effects.AddRange(_log.Compact(_lastApplied, configuration, _stateMachine.Snapshot().ToArray()));
+        effects.Add(Event("compact", new Field("index", N(_lastApplied))));
     }
 
     /// <summary>
@@ -652,11 +861,15 @@ public sealed class RaftNode : INode
         }
     }
 
-    /// <summary>The configuration in effect at an index: the latest configuration entry at or below it, else the initial one.</summary>
+    /// <summary>
+    /// The configuration in effect at an index: the latest configuration entry at or below it, else
+    /// the snapshot's, else the initial one. The log keeps only the configuration entries after its
+    /// snapshot (P7-06).
+    /// </summary>
     private Configuration ConfigurationAt(long index)
     {
         var at = _log.ConfigurationIndexAtOrBelow(index);
-        return at == 0 ? _initial : Configuration.Decode(_log.At(at).Command)!;
+        return at != 0 ? Configuration.Decode(_log.At(at).Command)! : _log.Snapshot?.Configuration ?? _initial;
     }
 
     /// <summary>The index of the latest configuration entry in the log, 0 when there is none.</summary>
@@ -767,9 +980,44 @@ public sealed class RaftNode : INode
     private void SendAppend(NodeId peer, List<Effect> effects)
     {
         var next = _nextIndex[peer];
+        if (next <= _log.BaseIndex)
+        {
+            SendSnapshot(peer, effects);
+            return;
+        }
+
         var prev = next - 1;
         var ae = new AppendEntries(_term, _context.Id, prev, _log.TermAt(prev), _log.From(next, _options.MaxEntriesPerAppend), _commitIndex);
         effects.Add(new Send(peer, MessageCodec.Encode(ae)));
+    }
+
+    /// <summary>
+    /// A follower behind the snapshot is sent it (P7-07): the chunk at the offset it last reported, so
+    /// a heartbeat resends a lost chunk; from the start when the snapshot changed since.
+    /// </summary>
+    private void SendSnapshot(NodeId peer, List<Effect> effects)
+    {
+        var snapshot = _log.Snapshot!;
+        var record = SnapshotRecord();
+        var offset = _snapshotSent.TryGetValue(peer, out var sent) && sent.Index == snapshot.Index && sent.Offset < record.Length ? sent.Offset : 0;
+        var length = (int)Math.Min(_options.SnapshotChunkBytes, record.Length - offset);
+        var data = new byte[length];
+        Array.Copy(record, offset, data, 0, length);
+        effects.Add(new Send(peer, MessageCodec.Encode(new InstallSnapshot(_term, _context.Id, snapshot.Index, snapshot.Term, offset, data, offset + length == record.Length))));
+    }
+
+    private Built? _record;
+
+    /// <summary>The snapshot's record, as a follower writes it: built once per snapshot.</summary>
+    private byte[] SnapshotRecord()
+    {
+        var s = _log.Snapshot!;
+        if (_record is null || _record.Index != s.Index)
+        {
+            _record = new Built(s.Index, EntryLog.SnapshotRecord(s.Index, s.Term, s.Configuration, s.State));
+        }
+
+        return _record.Bytes;
     }
 
     /// <summary>A reply leaves only after any change to the term or vote it depends on is persisted.</summary>

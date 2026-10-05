@@ -1,9 +1,7 @@
-diff --git a/src/Raft.Core/MessageCodec.cs b/src/Raft.Core/MessageCodec.cs
-index de906b6..e46a4d6 100644
 --- a/src/Raft.Core/MessageCodec.cs
 +++ b/src/Raft.Core/MessageCodec.cs
-@@ -59,7 +59,7 @@ public static class MessageCodec
-             AppendEntriesResponseType => r.Term() is { } t && r.Bool() is { } s && r.Index() is { } mi ? new AppendEntriesResponse(t, s, mi) : null,
+@@ -69,7 +69,7 @@
+             InstallSnapshotResponseType => r.Term() is { } t && r.Index() is { } li && r.Index() is { } received && r.Bool() is { } done ? new InstallSnapshotResponse(t, li, received, done) : null,
              _ => null,
          };
 -        return m is not null && r.Ok && r.AtEnd ? m : null;

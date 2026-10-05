@@ -13,7 +13,7 @@ namespace Raft.Core;
 /// </summary>
 public static class MessageCodec
 {
-    private const byte RequestVoteType = 1, RequestVoteResponseType = 2, AppendEntriesType = 3, AppendEntriesResponseType = 4;
+    private const byte RequestVoteType = 1, RequestVoteResponseType = 2, AppendEntriesType = 3, AppendEntriesResponseType = 4, InstallSnapshotType = 5, InstallSnapshotResponseType = 6;
 
     public static byte[] Encode(Message message)
     {
@@ -39,6 +39,13 @@ public static class MessageCodec
             case AppendEntriesResponse m:
                 w.Add(AppendEntriesResponseType); Long(w, m.Term.Value); w.Add(m.Success ? (byte)1 : (byte)0); Long(w, m.MatchIndex);
                 break;
+            case InstallSnapshot m:
+                w.Add(InstallSnapshotType); Long(w, m.Term.Value); Int(w, m.Leader.Value); Long(w, m.LastIncludedIndex); Long(w, m.LastIncludedTerm.Value); Long(w, m.Offset);
+                Int(w, m.Data.Length); w.AddRange(m.Data); w.Add(m.Done ? (byte)1 : (byte)0);
+                break;
+            case InstallSnapshotResponse m:
+                w.Add(InstallSnapshotResponseType); Long(w, m.Term.Value); Long(w, m.LastIncludedIndex); Long(w, m.Received); w.Add(m.Done ? (byte)1 : (byte)0);
+                break;
             default:
                 throw new ArgumentException("unknown message type", nameof(message));
         }
@@ -57,6 +64,9 @@ public static class MessageCodec
             RequestVoteResponseType => r.Term() is { } t && r.Bool() is { } g ? new RequestVoteResponse(t, g) : null,
             AppendEntriesType => DecodeAppendEntries(r),
             AppendEntriesResponseType => r.Term() is { } t && r.Bool() is { } s && r.Index() is { } mi ? new AppendEntriesResponse(t, s, mi) : null,
+            InstallSnapshotType => r.Term() is { } t && r.Node() is { } leader && r.Index() is { } li && r.Term() is { } lt && r.Index() is { } offset && r.Count() is { } n && r.Bytes(n) is { } data && r.Bool() is { } done
+                ? new InstallSnapshot(t, leader, li, lt, offset, data, done) : null,
+            InstallSnapshotResponseType => r.Term() is { } t && r.Index() is { } li && r.Index() is { } received && r.Bool() is { } done ? new InstallSnapshotResponse(t, li, received, done) : null,
             _ => null,
         };
         return m is not null && r.Ok && r.AtEnd ? m : null;

@@ -1,0 +1,6 @@
+description: The term at the snapshot index is read from the retained log, which does not hold it: a follower whose first retained entry is the leader next refuses it forever (P7-06)
+mechanism: the consistency check at the boundary reading the retained log only
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CompactionTests.AFollowerAtItsSnapshotsBoundaryAcceptsTheLeadersNextEntries
+expect: caught

@@ -1,0 +1,11 @@
+--- a/src/Raft.Core/EntryLog.cs
++++ b/src/Raft.Core/EntryLog.cs
+@@ -384,7 +384,7 @@
+     public IReadOnlyList<Persist> Install(LogSnapshot snapshot, string file, long written)
+     {
+         ArgumentNullException.ThrowIfNull(snapshot);
+-        var keep = snapshot.Index > BaseIndex && snapshot.Index <= LastIndex && TermAt(snapshot.Index) == snapshot.Term;
++        var keep = false && snapshot.Index > BaseIndex && snapshot.Index <= LastIndex && TermAt(snapshot.Index) == snapshot.Term;
+         var bytes = new List<byte>();
+         var retained = new List<StoredEntry>();
+         var previous = snapshot.Term;

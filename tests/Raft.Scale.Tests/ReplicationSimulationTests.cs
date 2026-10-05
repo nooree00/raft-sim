@@ -86,7 +86,9 @@ public sealed class ReplicationSimulationTests
 
     /// <summary>
     /// P4-03's prediction, measured: a follower isolated while the leader commits many entries catches
-    /// up, backtracking one entry per rejection, and the ticks it takes are written beside the assembly.
+    /// up, and the ticks it takes are written beside the assembly. From phase 7 the leader has
+    /// compacted past the follower's log by then, and the follower catches up by installing its
+    /// snapshot (P7-07).
     /// </summary>
     [Fact]
     public void AnIsolatedFollowerCatchesUpAfterTheLeaderCommitsManyEntries()
@@ -101,14 +103,41 @@ public sealed class ReplicationSimulationTests
             Assert.True(r.Holds, $"{r.Invariant}: {string.Join("; ", r.Violations.Take(3))}");
         }
 
-        // Each node's durable log length after every change, replayed from the completed writes.
+        // Each node's durable log length after every change, replayed from the completed writes: the
+        // snapshot's index and the entries after it, a file renamed onto the log read whole (P7-06:
+        // from phase 7 on the follower catches up by installing the leader's snapshot).
         var views = new Dictionary<NodeId, LogHistory.FileView>();
+        var others = new Dictionary<(NodeId, string), byte[]>();
         var lengths = new List<(long Time, NodeId Node, long Length)>();
-        foreach (var d in sim.Observations.OfType<DurableObservation>().Where(d => d.File == EntryLog.FileName))
+        foreach (var d in sim.Observations.OfType<DurableObservation>())
         {
             var v = views.TryGetValue(d.Node, out var x) ? x : views[d.Node] = new LogHistory.FileView();
-            _ = d.Completed is { } op ? v.Apply(op) : v.Replace(d.Content?.ToArray() ?? []);
-            lengths.Add((d.Time, d.Node, v.Count));
+            switch (d.Completed)
+            {
+                case PersistRename r when r.To == EntryLog.FileName:
+                    v.Replace(others.Remove((d.Node, r.File), out var renamed) ? renamed : []);
+                    break;
+                case { } op when op.File == EntryLog.FileName:
+                    v.Apply(op);
+                    break;
+                case PersistAppend a:
+                    others[(d.Node, a.File)] = [.. others.GetValueOrDefault((d.Node, a.File), []), .. a.Data.Span];
+                    continue;
+                case PersistWriteAt w:
+                    var old = others.GetValueOrDefault((d.Node, w.File), []);
+                    var grown = new byte[Math.Max(old.Length, w.Offset + w.Data.Length)];
+                    old.CopyTo(grown, 0);
+                    w.Data.Span.CopyTo(grown.AsSpan((int)w.Offset));
+                    others[(d.Node, w.File)] = grown;
+                    continue;
+                case null when d.File == EntryLog.FileName:
+                    v.Replace(d.Content?.ToArray() ?? []);
+                    break;
+                default:
+                    continue;
+            }
+
+            lengths.Add((d.Time, d.Node, (v.Snapshot?.Index ?? 0) + v.Count));
         }
 
         long LengthAt(NodeId n, long t) => lengths.Where(l => l.Node == n && l.Time <= t).Select(l => l.Length).DefaultIfEmpty(0).Last();

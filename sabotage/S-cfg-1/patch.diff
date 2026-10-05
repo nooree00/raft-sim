@@ -1,14 +1,14 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -85,6 +85,7 @@
+@@ -97,6 +97,7 @@
      private long _commitIndex;
      private long _lastApplied;
      private readonly Configuration _initial;
 +    private Configuration? _cached;
      private long? _membershipRequest;
      private Configuration? _catchingUp;
- 
-@@ -132,7 +133,22 @@
+     private long _restored;
+@@ -165,7 +166,22 @@
      /// (P6-03's prediction: a value cached on append survived the truncation). The log keeps the
      /// indices of its configuration entries (LogStore), so this costs no scan.
      /// </summary>
@@ -32,7 +32,7 @@
  
      public IReadOnlyList<Effect> Handle(Input input)
      {
-@@ -345,6 +361,11 @@
+@@ -541,6 +557,11 @@
              }
  
              effects.Add(_log.Append(rest));

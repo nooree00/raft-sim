@@ -1,0 +1,6 @@
+description: A compaction covers the whole log, entries not yet committed among them: a snapshot holds what no quorum agreed (P7-06)
+mechanism: compaction past the applied index
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CompactionTests.ACompactionNeverPassesTheAppliedIndex
+expect: caught

@@ -20,3 +20,9 @@ it is visible when compacted logs are added (P7-06). The last column is filled a
 | 8 | **Configuration-bearing** (P6-03, P6-05): the configuration in effect at index *i* is the latest configuration entry at or below *i*, found in the log | `RaftNode.ConfigurationAt`, `Configuration`, recovery of the configuration on restart (phase 6 decision 2) | for *i* at or below the snapshot, the configuration is the snapshot's (register: the snapshot carries it) | `TheConfigurationAtAnIndexIsTheLatestAtOrBelowIt` |
 | 9 | **Last-term-bearing**: `LastTerm` is the last entry's term, 0 when the log is empty | `RaftNode`: the election restriction (`RequestVote`'s `lastLogTerm`), `Stand` | with an empty retained log, `LastIndex`/`LastTerm` are the snapshot's, not 0 | `TheLastTermIsTheLastEntrysTerm` |
 | 10 | **Observable by appends and truncates** (checkers): every change to `entries.log` reaches the checkers as an append or truncate of `entries.log`, and an incremental view of the file equals a full recovery of it | `LogHistory.FileView` (ignores any other operation), `ElectionHistory` (rebuilds logs from the writes a node issued) | a rename onto `entries.log` is observed under its source's name and ignored by the view; the checkers must take a replaced file whole | `AnIncrementalViewOfTheFileEqualsItsRecovery` |
+
+Compacted logs joined the tests at P7-06: half of `LogPropertyTests.Logs` are compacted at a random
+index, and each test reads through the snapshot as its row's fourth column says. All ten held on
+the first run. Of the predicted breaks (P7-02), the chain check was observed at P7-04 and the file
+view at P7-04; the configuration lookup was not observed, because the snapshot's configuration was
+used for indices at or below it before any compacted log met the lookup (P7-06's outcome).

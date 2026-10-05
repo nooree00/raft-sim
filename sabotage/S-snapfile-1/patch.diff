@@ -1,9 +1,9 @@
 --- a/src/Raft.Core/EntryLog.cs
 +++ b/src/Raft.Core/EntryLog.cs
-@@ -343,7 +343,7 @@
+@@ -347,7 +347,7 @@
          _fileLength = bytes.Count;
          Snapshot = snapshot;
-         var name = TempPrefix + (_nextTemp++).ToString(CultureInfo.InvariantCulture);
+         var name = NewFileName();
 -        return new List<Persist> { new PersistAppend(name, bytes.ToArray()), new PersistRename(name, EntryLog.FileName) };
 +        return new List<Persist> { new PersistTruncate(EntryLog.FileName, 0), new PersistAppend(EntryLog.FileName, bytes.ToArray()) };
      }
