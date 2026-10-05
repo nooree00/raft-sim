@@ -18,8 +18,13 @@ namespace Raft.Budget.Tests;
 /// </summary>
 public sealed class BudgetTests
 {
-    /// <summary>At 10,000 executions on six keys, compaction on (P7-11), by states explored: 8260 (2,450,195), 4681 (3,111,131), 7248 (7,607,718).</summary>
-    public static readonly int[] HardSeeds = [8260, 4681, 7248];
+    /// <summary>
+    /// At 10,000 executions on six keys, compaction on (P7-11), by states explored: 9886 (1,178,471),
+    /// 8260 (2,450,195), 4681 (3,111,131). 7248 (7,607,718), the second hardest, is left out with
+    /// 3044, for the same reason: with it this project's baseline check took 174 s locally, and the
+    /// harness shard holding it ran past its 15-minute ceiling on GitHub (run 37278405824).
+    /// </summary>
+    public static readonly int[] HardSeeds = [9886, 8260, 4681];
 
     public static TheoryData<int> Seeds => new(HardSeeds);
 
