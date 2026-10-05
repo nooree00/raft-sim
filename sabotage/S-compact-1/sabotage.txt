@@ -1,0 +1,6 @@
+description: The checker finds a snapshot's coverage by its index alone, so a snapshot of an index no log held at that term is taken as the one that was made (P7-04)
+mechanism: coverage looked up by index, ignoring the snapshot's term
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.AnInstalledSnapshotNoLogHeldIsRejected
+expect: caught

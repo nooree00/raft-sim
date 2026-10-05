@@ -1,6 +1,6 @@
 --- a/src/Raft.Core/EntryLog.cs
 +++ b/src/Raft.Core/EntryLog.cs
-@@ -77,7 +77,7 @@
+@@ -117,7 +117,7 @@
              }
  
              var last = at + size == fileLength;
@@ -8,4 +8,4 @@
 +            if (last || Checksum(file, (int)at, (int)(Header + length)) != Get(file, at + Header + length, 4))
              {
                  return last
-                     ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut", firstChanged)
+                     ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut", firstChanged, snapshot)

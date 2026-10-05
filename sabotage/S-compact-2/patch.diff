@@ -1,0 +1,16 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -458,12 +458,7 @@
+                 case LogHistory.Applied a:
+                     OnApplied(a);
+                     break;
+-                case LogHistory.Restored rs:
+-                    for (var p = 1L; p <= rs.Index; p++)
+-                    {
+-                        OnApplied(new LogHistory.Applied(rs.Seq, rs.Node, p));
+-                    }
+-
++                case LogHistory.Restored:
+                     break;
+             }
+         }

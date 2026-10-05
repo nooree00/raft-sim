@@ -1,7 +1,7 @@
 --- a/tests/Raft.Core.Tests/LogInvariants.cs
 +++ b/tests/Raft.Core.Tests/LogInvariants.cs
-@@ -388,7 +388,7 @@
-         var leader = _tenure.TryGetValue(i.Node, out var tenure);
+@@ -670,7 +670,7 @@
+ 
          if (i.TruncateFrom > 0 && i.TruncateFrom <= log.Count)
          {
 -            if (leader)

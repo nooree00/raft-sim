@@ -8,10 +8,18 @@ namespace Raft.Core;
 public sealed record StoredEntry(long Index, Term Term, byte[] Command, long EndOffset);
 
 /// <summary>
-/// The outcome of reading the log file: the entries, the path taken, the length of its whole records,
-/// and the lowest index this read added or replaced (0 when it changed nothing).
+/// A snapshot at the head of the log file (P7-04, phase 7 decision 2): the entries up to
+/// <see cref="Index"/> compacted into the state machine's bytes, the last of them of term
+/// <see cref="Term"/>, and the configuration in effect at <see cref="Index"/> (null for the initial one).
 /// </summary>
-public sealed record EntryLogRecovery(RecoveryPath Path, IReadOnlyList<StoredEntry> Entries, long ValidLength, string Detail, long FirstChanged = 0);
+public sealed record LogSnapshot(long Index, Term Term, Configuration? Configuration, byte[] State, long EndOffset);
+
+/// <summary>
+/// The outcome of reading the log file: the entries, the path taken, the length of its whole records,
+/// the lowest index this read added or replaced (0 when it changed nothing), and the snapshot at the
+/// file's head, if any; the entries then follow its index.
+/// </summary>
+public sealed record EntryLogRecovery(RecoveryPath Path, IReadOnlyList<StoredEntry> Entries, long ValidLength, string Detail, long FirstChanged = 0, LogSnapshot? Snapshot = null);
 
 /// <summary>
 /// The log's entries, persisted in their own append-only file (spec §8, P4 decision 4), with the
@@ -51,6 +59,28 @@ public static class EntryLog
         return b.ToArray();
     }
 
+    /// <summary>
+    /// A snapshot record (P7-04): the record framing with index 0, the snapshot's last term where an
+    /// entry's term goes and its index where the previous term goes, then the configuration's length
+    /// and encoding (length 0 for the initial configuration) and the state machine's bytes. Only the
+    /// first record of a file may be one.
+    /// </summary>
+    public static byte[] SnapshotRecord(long index, Term term, Configuration? configuration, byte[] state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var config = configuration is null ? [] : configuration.Encode();
+        var b = new List<byte>(Header + Fixed + 4 + config.Length + state.Length + Trailer);
+        Put(b, Fixed + 4 + config.Length + state.Length, 4);
+        Put(b, 0, 8);
+        Put(b, term.Value, 8);
+        Put(b, index, 8);
+        Put(b, config.Length, 4);
+        b.AddRange(config);
+        b.AddRange(state);
+        Put(b, Checksum(b, 0, b.Count), 4);
+        return b.ToArray();
+    }
+
     public static EntryLogRecovery Recover(byte[]? file) =>
         file is null || file.Length == 0 ? new(RecoveryPath.Empty, new List<StoredEntry>(), 0, "no records") : Resume(new List<StoredEntry>(), file, file.Length, 0);
 
@@ -61,7 +91,7 @@ public static class EntryLog
     /// changes. Recover is Resume from nothing; an observer of a growing file resumes where it
     /// stopped instead of reading it again.
     /// </summary>
-    public static EntryLogRecovery Resume(List<StoredEntry> entries, byte[] file, long fileLength, long from)
+    public static EntryLogRecovery Resume(List<StoredEntry> entries, byte[] file, long fileLength, long from, LogSnapshot? snapshot = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(file);
@@ -83,40 +113,57 @@ public static class EntryLog
 
             if (length < 0 || remaining < size)
             {
-                return new(RecoveryPath.TruncatedTornTail, entries, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut", firstChanged);
+                return new(RecoveryPath.TruncatedTornTail, entries, at, "torn tail after " + N(records) + " record(s): " + N(remaining) + " byte(s) cut", firstChanged, snapshot);
             }
 
             var last = at + size == fileLength;
             if (Checksum(file, (int)at, (int)(Header + length)) != Get(file, at + Header + length, 4))
             {
                 return last
-                    ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut", firstChanged)
-                    : new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption", firstChanged);
+                    ? new(RecoveryPath.TruncatedTornTail, entries, at, "final record " + N(records) + " fails its checksum: torn, cut", firstChanged, snapshot)
+                    : new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " fails its checksum and is not the last: corruption", firstChanged, snapshot);
             }
 
             if (length < Fixed)
             {
-                return new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " is whole and valid but " + N(length) + " bytes long, too short for an index and two terms: corruption");
+                return new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " is whole and valid but " + N(length) + " bytes long, too short for an index and two terms: corruption", firstChanged, snapshot);
             }
 
             var index = (long)Get(file, at + Header, 8);
             var term = (long)Get(file, at + Header + 8, 8);
             var previous = (long)Get(file, at + Header + 16, 8);
+            if (index == 0 && at == 0 && term >= 0 && previous >= 0 && length >= Fixed + 4 && (long)Get(file, at + Header + Fixed, 4) is var configLength && configLength <= length - Fixed - 4)
+            {
+                var config = new byte[configLength];
+                Array.Copy(file, at + Header + Fixed + 4, config, 0, configLength);
+                var state = new byte[length - Fixed - 4 - configLength];
+                Array.Copy(file, at + Header + Fixed + 4 + configLength, state, 0, state.Length);
+                snapshot = new LogSnapshot(previous, new Term(term), configLength == 0 ? null : Configuration.Decode(config), state, at + size);
+                at += size;
+                records++;
+                continue;
+            }
+
             if (index < 1 || term < 0 || previous < 0)
             {
-                return new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " holds index " + N(index) + ", term " + N(term) + ": corruption");
+                return new(RecoveryPath.Refused, entries, at, "record " + N(records) + " at byte " + N(at) + " holds index " + N(index) + ", term " + N(term) + ": corruption", firstChanged, snapshot);
             }
 
             var command = new byte[length - Fixed];
             Array.Copy(file, at + Header + Fixed, command, 0, command.Length);
             var end = at + size;
-            if (index > entries.Count + 1 || (index == 1 ? 0 : entries[(int)index - 2].Term.Value) != previous)
+            // Entries follow the snapshot's index, if there is one, and the first chains onto its term
+            // (P7-04: a chain check counting from index 1 dropped every entry after a snapshot). A
+            // record at or below the snapshot's index never overrides it: those entries are committed.
+            var baseIndex = snapshot?.Index ?? 0;
+            var at0 = index - baseIndex - 1;
+            if (index <= baseIndex || at0 > entries.Count || (at0 == 0 ? snapshot?.Term.Value ?? 0 : entries[(int)at0 - 1].Term.Value) != previous)
             {
                 unchained++;
             }
             else
             {
-                entries.RemoveRange((int)(index - 1), entries.Count - (int)(index - 1));
+                entries.RemoveRange((int)at0, entries.Count - (int)at0);
                 entries.Add(new StoredEntry(index, new Term(term), command, end));
                 firstChanged = firstChanged == 0 ? index : Math.Min(firstChanged, index);
             }
@@ -125,7 +172,7 @@ public static class EntryLog
             records++;
         }
 
-        return new(RecoveryPath.Clean, entries, at, N(records) + " record(s), " + N(entries.Count) + " entries" + (unchained > 0 ? ", " + N(unchained) + " unchained dropped" : ""), firstChanged);
+        return new(RecoveryPath.Clean, entries, at, N(records) + " record(s), " + N(entries.Count) + " entries" + (unchained > 0 ? ", " + N(unchained) + " unchained dropped" : ""), firstChanged, snapshot);
     }
 
     private static string N(long v) => v.ToString(CultureInfo.InvariantCulture);

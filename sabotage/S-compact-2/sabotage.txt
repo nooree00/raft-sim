@@ -1,0 +1,6 @@
+description: A restored snapshot counts as applying nothing, so a node that restores a snapshot covering other entries than it applied is never compared (P7-04)
+mechanism: the Restored event is ignored by the state-machine-safety check
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.LogInvariantTests.AnInstallCoveringAnotherEntryAtAnAppliedIndexIsRejected
+expect: caught

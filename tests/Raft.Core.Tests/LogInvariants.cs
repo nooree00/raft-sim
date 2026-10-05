@@ -24,11 +24,25 @@ internal sealed class LogHistory
 {
     public abstract record Event(long Seq, NodeId Node);
 
-    /// <summary>A log write the node issued in <paramref name="Step"/>.</summary>
-    public sealed record Issued(long Seq, NodeId Node, long Step, long TruncateFrom, IReadOnlyList<LogEntryAt> Append) : Event(Seq, Node);
+    /// <summary>
+    /// A snapshot at the head of a log file (P7-04): every entry up to <see cref="Index"/>, the last of
+    /// term <see cref="Term"/>. Which entries those are is never read from the node: the analysis
+    /// takes them from the log that held them when the snapshot was made (phase 7 decision 5).
+    /// </summary>
+    public sealed record SnapshotAt(long Index, Term Term);
 
-    /// <summary>The node's durable log changed: a write completed, or a crash changed the disk.</summary>
-    public sealed record Durable(long Seq, NodeId Node, long TruncateFrom, IReadOnlyList<LogEntryAt> Append) : Event(Seq, Node);
+    /// <summary>
+    /// A log write the node issued in <paramref name="Step"/>. With <paramref name="Snapshot"/>, the
+    /// file was replaced by one beginning with that snapshot: the log's prefix up to its index is the
+    /// snapshot's, and the truncation and appends follow it.
+    /// </summary>
+    public sealed record Issued(long Seq, NodeId Node, long Step, long TruncateFrom, IReadOnlyList<LogEntryAt> Append, SnapshotAt? Snapshot = null) : Event(Seq, Node);
+
+    /// <summary>The node's durable log changed: a write completed, or a crash changed the disk; <paramref name="Snapshot"/> as for <see cref="Issued"/>.</summary>
+    public sealed record Durable(long Seq, NodeId Node, long TruncateFrom, IReadOnlyList<LogEntryAt> Append, SnapshotAt? Snapshot = null) : Event(Seq, Node);
+
+    /// <summary>The node restored its state machine from a snapshot up to <paramref name="Index"/> (a self-report, as an apply): it counts as applying every entry the snapshot covers (spec §5, invariant 5).</summary>
+    public sealed record Restored(long Seq, NodeId Node, long Index) : Event(Seq, Node);
 
     /// <summary>
     /// An `AppendEntries` the node sent; its `LeaderCommit` is the sender's claim of commitment. `Step`
@@ -90,8 +104,11 @@ internal sealed class LogHistory
         events.AddRange(bySeq.Select(e => new Elected(e.Value, e.Key.Candidate, e.Key.Term)));
         var intended = new Dictionary<NodeId, FileView>();
         var durable = new Dictionary<NodeId, FileView>();
+        var intendedFiles = new Dictionary<NodeId, FileSet>();
+        var durableFiles = new Dictionary<NodeId, FileSet>();
         var restarting = new HashSet<NodeId>();
         FileView View(Dictionary<NodeId, FileView> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new FileView();
+        FileSet Files(Dictionary<NodeId, FileSet> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new FileSet();
         long seq = 0;
         foreach (var o in observations)
         {
@@ -106,29 +123,63 @@ internal sealed class LogHistory
                     break;
                 case IssuedObservation { Op: { File: EntryLog.FileName } op } i:
                     restarting.Remove(i.Node);
-                    var (cut, added) = View(intended, i.Node).Apply(op);
-                    events.Add(new Issued(seq, i.Node, i.Step, cut, added));
+                    var (cut, added, snap) = View(intended, i.Node).Apply(op);
+                    events.Add(new Issued(seq, i.Node, i.Step, cut, added, snap));
+                    break;
+                case IssuedObservation { Op: PersistRename { To: EntryLog.FileName } rn } i:
+                    // Compaction or an installed snapshot (P7-04): the file is replaced whole, by what
+                    // the node wrote under the source's name.
+                    restarting.Remove(i.Node);
+                    var (rcut, radded, rsnap) = View(intended, i.Node).Replace(Files(intendedFiles, i.Node).Take(rn.File));
+                    events.Add(new Issued(seq, i.Node, i.Step, rcut, radded, rsnap));
+                    break;
+                case IssuedObservation { Op: var other } i when other.File != TermVoteLog.FileName:
+                    Files(intendedFiles, i.Node).Apply(other);
                     break;
                 case IssuedObservation { Op: PersistAppend { File: TermVoteLog.FileName } tv } i:
                     var term = TermVoteLog.Recover(tv.Data.ToArray()).State.Term;
                     events.Add(new LeftTerm(seq, i.Node, new Term(term.Value - 1)));
                     break;
+                case DurableObservation { Completed: PersistRename { To: EntryLog.FileName } moved } dm:
+                    var (mcut, madded, msnap) = View(durable, dm.Node).Replace(Files(durableFiles, dm.Node).Take(moved.File));
+                    events.Add(new Durable(seq, dm.Node, mcut, madded, msnap));
+                    if (restarting.Contains(dm.Node))
+                    {
+                        intended[dm.Node] = View(durable, dm.Node).Copy();
+                    }
+
+                    break;
                 case DurableObservation { File: EntryLog.FileName } du:
-                    var (dcut, dadded) = du.Completed is { } done ? View(durable, du.Node).Apply(done) : View(durable, du.Node).Replace(du.Content?.ToArray() ?? []);
-                    events.Add(new Durable(seq, du.Node, dcut, dadded));
+                    var (dcut, dadded, dsnap) = du.Completed is { } done ? View(durable, du.Node).Apply(done) : View(durable, du.Node).Replace(du.Content?.ToArray() ?? []);
+                    events.Add(new Durable(seq, du.Node, dcut, dadded, dsnap));
                     if (restarting.Contains(du.Node))
                     {
                         intended[du.Node] = View(durable, du.Node).Copy();
                     }
 
                     break;
+                case DurableObservation du when du.File != TermVoteLog.FileName:
+                    if (du.Completed is { } completed)
+                    {
+                        Files(durableFiles, du.Node).Apply(completed);
+                    }
+                    else
+                    {
+                        Files(durableFiles, du.Node).Set(du.File, du.Content?.ToArray());
+                    }
+
+                    break;
                 case CrashObservation c:
                     events.Add(new Crashed(seq, c.Node));
                     intended[c.Node] = View(durable, c.Node).Copy();
+                    intendedFiles[c.Node] = Files(durableFiles, c.Node).Copy();
                     restarting.Add(c.Node);
                     break;
                 case EmittedObservation { Event.Name: "apply" } em:
                     events.Add(new Applied(seq, em.Node, long.Parse(em.Event.Fields.First(f => f.Key == "index").Value, CultureInfo.InvariantCulture)));
+                    break;
+                case EmittedObservation { Event.Name: "restore" } rs:
+                    events.Add(new Restored(seq, rs.Node, long.Parse(rs.Event.Fields.First(f => f.Key == "index").Value, CultureInfo.InvariantCulture)));
                     break;
             }
         }
@@ -136,22 +187,82 @@ internal sealed class LogHistory
         return new LogHistory(clusterSize, events);
     }
 
-    /// <summary>A log file as a node's recovery reads it, kept up to date write by write.</summary>
+    /// <summary>
+    /// A node's files other than its two logs, as a sequence of writes leaves them (P7-04): what a
+    /// rename onto the entry log puts there is what the node wrote under the source's name.
+    /// </summary>
+    internal sealed class FileSet
+    {
+        private Dictionary<string, byte[]> _files = new(StringComparer.Ordinal);
+
+        public FileSet Copy() => new() { _files = _files.ToDictionary(kv => kv.Key, kv => (byte[])kv.Value.Clone(), StringComparer.Ordinal) };
+
+        public void Set(string file, byte[]? content)
+        {
+            if (content is null)
+            {
+                _files.Remove(file);
+            }
+            else
+            {
+                _files[file] = content;
+            }
+        }
+
+        /// <summary>The file's bytes, removed from the set (a rename moves them); empty when it was never written, as the disk models a rename whose source data was lost (P7-00).</summary>
+        public byte[] Take(string file) => _files.Remove(file, out var b) ? b : [];
+
+        public void Apply(Persist op)
+        {
+            switch (op)
+            {
+                case PersistAppend a:
+                    _files[a.File] = [.. _files.GetValueOrDefault(a.File, []), .. a.Data.Span];
+                    break;
+                case PersistWriteAt w:
+                    var old = _files.GetValueOrDefault(w.File, []);
+                    var grown = new byte[Math.Max(old.Length, w.Offset + w.Data.Length)];
+                    old.CopyTo(grown, 0);
+                    w.Data.Span.CopyTo(grown.AsSpan((int)w.Offset));
+                    _files[w.File] = grown;
+                    break;
+                case PersistTruncate t when _files.TryGetValue(t.File, out var cur) && cur.Length > t.Length:
+                    _files[t.File] = cur[..(int)t.Length];
+                    break;
+                case PersistRename r:
+                    _files[r.To] = Take(r.File);
+                    break;
+                case PersistDelete d:
+                    _files.Remove(d.File);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A log file as a node's recovery reads it, kept up to date write by write. From P7-04 it may
+    /// begin with a snapshot: its entries then follow the snapshot's index, and a change that brings a
+    /// different snapshot is reported with it, the appends being every entry after it.
+    /// </summary>
     internal sealed class FileView
     {
         private byte[] _bytes = new byte[256];
         private int _length;
         private List<StoredEntry> _entries = [];
+        private LogSnapshot? _snapshot;
         private long _valid;
 
+        /// <summary>Entries in the file, after the snapshot's index if there is one.</summary>
         public int Count => _entries.Count;
 
-        /// <summary>The configuration this log puts in effect (P6 decisions 1, 2): its latest configuration entry, else <paramref name="initial"/>.</summary>
-        public Configuration InEffect(Configuration initial) => Configuration.InEffect(initial, _entries.Select(e => e.Command));
+        public LogSnapshot? Snapshot => _snapshot;
 
-        public FileView Copy() => new() { _bytes = (byte[])_bytes.Clone(), _length = _length, _entries = [.. _entries], _valid = _valid };
+        /// <summary>The configuration this log puts in effect (P6 decisions 1, 2): its latest configuration entry, else the snapshot's, else <paramref name="initial"/>.</summary>
+        public Configuration InEffect(Configuration initial) => Configuration.InEffect(_snapshot?.Configuration ?? initial, _entries.Select(e => e.Command));
 
-        public (long TruncateFrom, List<LogEntryAt> Append) Apply(Persist op)
+        public FileView Copy() => new() { _bytes = (byte[])_bytes.Clone(), _length = _length, _entries = [.. _entries], _snapshot = _snapshot, _valid = _valid };
+
+        public (long TruncateFrom, List<LogEntryAt> Append, SnapshotAt? Snapshot) Apply(Persist op)
         {
             switch (op)
             {
@@ -164,11 +275,11 @@ internal sealed class LogHistory
                     _length = (int)t.Length;
                     return Reread();
                 default:
-                    return (0, []);
+                    return (0, [], null);
             }
         }
 
-        public (long TruncateFrom, List<LogEntryAt> Append) Replace(byte[] content)
+        public (long TruncateFrom, List<LogEntryAt> Append, SnapshotAt? Snapshot) Replace(byte[] content)
         {
             if (content.Length >= _length && content.AsSpan(0, _length).SequenceEqual(_bytes.AsSpan(0, _length)))
             {
@@ -184,27 +295,49 @@ internal sealed class LogHistory
             return Reread();
         }
 
-        private (long, List<LogEntryAt>) Resume()
+        private long Base => _snapshot?.Index ?? 0;
+
+        private (long, List<LogEntryAt>, SnapshotAt?) Resume()
         {
             var before = _entries.Count;
-            var r = EntryLog.Resume(_entries, _bytes, _length, _valid);
+            var had = _snapshot;
+            var r = EntryLog.Resume(_entries, _bytes, _length, _valid, _snapshot);
             _valid = r.ValidLength;
-            if (r.FirstChanged == 0)
+            _snapshot = r.Snapshot;
+            if (!Same(had, _snapshot))
             {
-                return (0, []);
+                return (Base + 1, _entries.Select(At).ToList(), At(_snapshot));
             }
 
-            return (r.FirstChanged <= before ? r.FirstChanged : 0, _entries.Skip((int)r.FirstChanged - 1).Select(At).ToList());
+            if (r.FirstChanged == 0)
+            {
+                return (0, [], null);
+            }
+
+            return (r.FirstChanged <= Base + before ? r.FirstChanged : 0, _entries.Skip((int)(r.FirstChanged - Base) - 1).Select(At).ToList(), null);
         }
 
-        private (long, List<LogEntryAt>) Reread()
+        private (long, List<LogEntryAt>, SnapshotAt?) Reread()
         {
+            var had = _snapshot;
             var old = _entries.Select(At).ToList();
             _entries = [];
             var r = EntryLog.Resume(_entries, _bytes, _length, 0);
             _valid = r.ValidLength;
-            return Change(old, _entries.Select(At).ToList());
+            _snapshot = r.Snapshot;
+            if (!Same(had, _snapshot))
+            {
+                // A different snapshot (or none, where there was one): the log is described afresh.
+                return (Base + 1, _entries.Select(At).ToList(), At(_snapshot) ?? (had is null ? null : new SnapshotAt(0, Term.Zero)));
+            }
+
+            var (cut, added) = Change(old, _entries.Select(At).ToList());
+            return (cut == 0 ? 0 : cut + Base, added, null);
         }
+
+        private static bool Same(LogSnapshot? a, LogSnapshot? b) => a?.Index == b?.Index && a?.Term == b?.Term;
+
+        private static SnapshotAt? At(LogSnapshot? s) => s is null ? null : new SnapshotAt(s.Index, s.Term);
 
         private static LogEntryAt At(StoredEntry e) => new(e.Index, e.Term, e.Command);
 
@@ -256,6 +389,7 @@ internal sealed class LogAnalysis
     private readonly Dictionary<NodeId, long> _claimVerified = [];
     private readonly HashSet<NodeId> _restarting = [];
     private readonly HashSet<long> _belowQuorum = [];
+    private readonly Dictionary<(long Index, Term Term), List<Held>> _coverage = [];
     private readonly Dictionary<string, List<string>> _violations = [];
     private long _ghosts;
 
@@ -323,6 +457,13 @@ internal sealed class LogAnalysis
                     break;
                 case LogHistory.Applied a:
                     OnApplied(a);
+                    break;
+                case LogHistory.Restored rs:
+                    for (var p = 1L; p <= rs.Index; p++)
+                    {
+                        OnApplied(new LogHistory.Applied(rs.Seq, rs.Node, p));
+                    }
+
                     break;
             }
         }
@@ -433,11 +574,100 @@ internal sealed class LogAnalysis
         _claimVerified[node] = Math.Max(_claimVerified.GetValueOrDefault(node), upTo);
     }
 
+    /// <summary>
+    /// What a snapshot covers, as held entries (phase 7 decision 5): the prefix of the log that held its
+    /// last entry when it was made, recorded then; an installed snapshot takes the record its maker
+    /// left. Never read from the node. A snapshot no log ever held is a violation.
+    /// </summary>
+    private List<Held> Coverage(NodeId node, List<Held> log, LogHistory.SnapshotAt s)
+    {
+        if (s.Index == 0)
+        {
+            return [];
+        }
+
+        if (At(log, s.Index) is { } last && last.Term == s.Term)
+        {
+            var prefix = log.Take((int)s.Index).ToList();
+            if (_coverage.TryGetValue((s.Index, s.Term), out var known) && !known.Select(x => x.Ghost).SequenceEqual(prefix.Select(x => x.Ghost)))
+            {
+                Fail("log-matching", $"{node}'s snapshot of ({N(s.Term.Value)}, {N(s.Index)}) covers other entries than an earlier snapshot of it");
+            }
+
+            _coverage.TryAdd((s.Index, s.Term), [.. prefix]);
+            return prefix;
+        }
+
+        if (_coverage.TryGetValue((s.Index, s.Term), out var made))
+        {
+            return [.. made];
+        }
+
+        Fail("log-matching", $"{node} holds a snapshot of ({N(s.Term.Value)}, {N(s.Index)}) that no log held when it was made");
+        return [.. Enumerable.Range(1, (int)s.Index).Select(k => new Held(k, k == s.Index ? s.Term : Term.Zero, "unmade-" + N(s.Index) + "-" + N(k), Term.Zero, _h.Initial))];
+    }
+
+    /// <summary>
+    /// The log after a file replacement (P7-04): the snapshot's coverage, then the entries the new file
+    /// holds after it, each the entry the log already held at that index and term (compaction and an
+    /// install keep entries; they never create one). Over the logical log, so Leader Append-Only holds
+    /// for a leader that compacts and fails for one whose replacement drops an entry.
+    /// </summary>
+    private List<Held> Replaced(NodeId node, List<Held> log, LogHistory.SnapshotAt s, IReadOnlyList<LogEntryAt> append, Func<LogEntryAt, Held?> known)
+    {
+        var next = Coverage(node, log, s);
+        foreach (var e in append)
+        {
+            if (known(e) is { } held)
+            {
+                next.Add(held with { Config = ConfigAfter(next, e.Command) });
+            }
+            else
+            {
+                Fail("log-matching", $"{node}'s replaced log holds ({N(e.Term.Value)}, {N(e.Index)}), which it never held");
+                next.Add(new Held(e.Index, e.Term, "unheld-" + N(e.Index), e.Term, ConfigAfter(next, e.Command)));
+            }
+        }
+
+        return next;
+    }
+
     private void OnIssued(LogHistory.Issued i)
     {
         var log = Intended(i.Node);
         _restarting.Remove(i.Node);
         var leader = _tenure.TryGetValue(i.Node, out var tenure);
+        if (i.Snapshot is { } snap)
+        {
+            var old = log.ToList();
+            var replaced = Replaced(i.Node, log, snap, i.Append, e => At(old, e.Index) is { } h && h.Term == e.Term ? h : null);
+            var same = 0;
+            while (same < old.Count && same < replaced.Count && old[same].Ghost == replaced[same].Ghost)
+            {
+                same++;
+            }
+
+            if (leader && same < old.Count)
+            {
+                Fail("leader-append-only", $"{i.Node}, leader of term {N(tenure.Value)}, replaced its log and lost its entry at {N(same + 1)}");
+            }
+
+            if (same < old.Count)
+            {
+                Removed(i.Node, i.Step, log, same + 1);
+                Lower(i.Node, same);
+            }
+
+            log.Clear();
+            log.AddRange(replaced);
+            foreach (var h in replaced)
+            {
+                _lastIssued[(i.Node, h.Index, h.Term)] = (h.Ghost, h.CopyTerm);
+            }
+
+            return;
+        }
+
         if (i.TruncateFrom > 0 && i.TruncateFrom <= log.Count)
         {
             if (leader)
@@ -509,6 +739,33 @@ internal sealed class LogAnalysis
     {
         var held = Durable(d.Node);
         var from = held.Count + 1L;
+        if (d.Snapshot is { } snap)
+        {
+            var source = At(held, snap.Index) is { } h && h.Term == snap.Term ? held : Intended(d.Node);
+            var replaced = Replaced(d.Node, source, snap, d.Append, e => _lastIssued.TryGetValue((d.Node, e.Index, e.Term), out var x)
+                ? At(source, e.Index) is { } y && y.Ghost == x.Ghost ? y : new Held(e.Index, e.Term, x.Ghost, x.CopyTerm, _h.Initial)
+                : null);
+            from = 1;
+            while (from <= held.Count && from <= replaced.Count && held[(int)from - 1].Ghost == replaced[(int)from - 1].Ghost)
+            {
+                from++;
+            }
+
+            held.Clear();
+            held.AddRange(replaced);
+            if (_restarting.Contains(d.Node))
+            {
+                Intended(d.Node).Clear();
+                Intended(d.Node).AddRange(held);
+                Lower(d.Node, held.Count);
+            }
+
+            CheckMatching(d.Node, held, from);
+            Commit(held, from, d.Seq);
+            CheckDurable(d, from);
+            return;
+        }
+
         if (d.TruncateFrom > 0 && d.TruncateFrom <= held.Count)
         {
             held.RemoveRange((int)d.TruncateFrom - 1, held.Count - (int)d.TruncateFrom + 1);
@@ -541,7 +798,11 @@ internal sealed class LogAnalysis
 
         CheckMatching(d.Node, held, from);
         Commit(held, from, d.Seq);
+        CheckDurable(d, from);
+    }
 
+    private void CheckDurable(LogHistory.Durable d, long from)
+    {
         // Invariant 6: every entry committed in fact stays durable on a quorum. Only indices at or
         // above the change can have lost a copy. The quorum is of the configuration in effect at the
         // latest committed index, the one any future leader is elected by (P6-08): an entry committed

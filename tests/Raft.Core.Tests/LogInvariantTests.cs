@@ -27,6 +27,7 @@ public sealed class LogInvariantTests
         private readonly List<LogHistory.Event> _e = [];
         private readonly Dictionary<NodeId, List<LogEntryAt>> _logs = new() { [N1] = [], [N2] = [], [N3] = [], [N4] = [], [N5] = [] };
         private readonly Dictionary<NodeId, List<LogEntryAt>> _disks = new() { [N1] = [], [N2] = [], [N3] = [], [N4] = [], [N5] = [] };
+        private readonly Dictionary<NodeId, LogHistory.SnapshotAt> _snapshots = [];
         private long _seq, _step, _id;
 
         private long Seq => ++_seq;
@@ -121,9 +122,56 @@ public sealed class LogInvariantTests
             return this;
         }
 
+        public Trace Restore(NodeId n, long index)
+        {
+            _e.Add(new LogHistory.Restored(Seq, n, index));
+            return this;
+        }
+
         public Trace Apply(NodeId n, long index)
         {
             _e.Add(new LogHistory.Applied(Seq, n, index));
+            return this;
+        }
+
+        /// <summary>
+        /// P7-04: the node compacts its log up to <paramref name="upTo"/> and the new file becomes
+        /// durable: a snapshot of its entry there, then every entry after it. The trace keeps the
+        /// logical log for the messages it builds.
+        /// </summary>
+        public Trace Compact(NodeId n, long upTo)
+        {
+            var log = _logs[n].OrderBy(x => x.Index).ToList();
+            var snap = new LogHistory.SnapshotAt(upTo, log.First(x => x.Index == upTo).Term);
+            var retained = log.Where(x => x.Index > upTo).ToList();
+            _snapshots[n] = snap;
+            _e.Add(new LogHistory.Issued(Seq, n, ++_step, upTo + 1, retained, snap));
+            _e.Add(new LogHistory.Durable(Seq, n, upTo + 1, retained, snap));
+            _disks[n] = log;
+            return this;
+        }
+
+        /// <summary>
+        /// P7-04: <paramref name="to"/> installs <paramref name="from"/>'s latest snapshot, keeping the
+        /// entries after it if its own entry at the snapshot's index has the snapshot's term (Figure 13),
+        /// durably, and restores its state machine from it.
+        /// </summary>
+        public Trace Install(NodeId from, NodeId to) => InstallSnapshot(to, _snapshots[from], _logs[from]);
+
+        /// <summary>P7-04: <paramref name="to"/> installs a snapshot of (<paramref name="term"/>, <paramref name="index"/>) whatever any log held.</summary>
+        public Trace InstallForged(NodeId to, long index, long term) => InstallSnapshot(to, new LogHistory.SnapshotAt(index, new Term(term)), []);
+
+        private Trace InstallSnapshot(NodeId to, LogHistory.SnapshotAt snap, List<LogEntryAt> source)
+        {
+            var own = _logs[to].OrderBy(x => x.Index).ToList();
+            var keep = own.Any(x => x.Index == snap.Index && x.Term == snap.Term) ? own.Where(x => x.Index > snap.Index).ToList() : [];
+            _logs[to] = [.. source.Where(x => x.Index <= snap.Index), .. keep];
+            _snapshots[to] = snap;
+            var step = ++_step;
+            _e.Add(new LogHistory.Issued(Seq, to, step, snap.Index + 1, keep, snap));
+            _e.Add(new LogHistory.Durable(Seq, to, snap.Index + 1, keep, snap));
+            _disks[to] = _logs[to].OrderBy(x => x.Index).ToList();
+            _e.Add(new LogHistory.Restored(Seq, to, snap.Index));
             return this;
         }
 
@@ -357,5 +405,107 @@ public sealed class LogInvariantTests
 
         Assert.Equal(3, Committed(h));
         Holds(h);
+    }
+
+    /// <summary>
+    /// P7-04: a correct compaction and install accepted. n2 and then n1 compact committed, applied
+    /// entries; n3 installs n2's snapshot and keeps its own entries after it. Every invariant holds over
+    /// the logical log, and the commitment in fact is unchanged. Sabotage S-compact-1.
+    /// </summary>
+    [Fact]
+    public void ACorrectCompactionAndInstallHoldEveryInvariant()
+    {
+        var h = Healthy().Compact(N2, 3).Compact(N1, 2).Install(N2, N3).History();
+
+        Holds(h);
+        Assert.Equal(3, new LogAnalysis(h).Counts["entries-committed"]);
+    }
+
+    /// <summary>P7-04: committed entries held only in snapshots, on every node, are still committed and durable.</summary>
+    [Fact]
+    public void CommittedEntriesHeldOnlyInSnapshotsStayDurable()
+    {
+        var h = Healthy().Compact(N1, 3).Compact(N2, 3).Compact(N3, 3).History();
+
+        Holds(h);
+        Assert.Equal(3, new LogAnalysis(h).Counts["entries-committed"]);
+    }
+
+    /// <summary>
+    /// P7-04: a leader compacts past its commit index (its third entry is on its disk alone), crashes,
+    /// and a new leader commits a different third entry; the old leader then restores its snapshot,
+    /// which counts as applying the overwritten entry. State Machine Safety rejects it.
+    /// </summary>
+    [Fact]
+    public void ACompactionPastTheCommitIndexIsRejectedWhenTheSnapshotIsRestored()
+    {
+        var h = new Trace()
+            .Elect(N1, 1).Create(N1, 1).Create(N1, 1, "append x a").Durable(N1)
+            .Replicate(N1, N2, 1).Durable(N2).Claim(N1, 1, 2).Apply(N1, 1).Apply(N1, 2)
+            .Create(N1, 1, "put z 9").Durable(N1).Compact(N1, 3)
+            .Crash(N1).Leave(N1, 1).Elect(N2, 2).Create(N2, 2, "put y 2").Durable(N2)
+            .Replicate(N2, N3, 2).Durable(N3).Claim(N2, 2, 3).Apply(N2, 1).Apply(N2, 2).Apply(N2, 3)
+            .Restore(N1, 3)
+            .History();
+
+        Rejects(h, "state-machine-safety", "n1 applied a different entry at 3");
+    }
+
+    /// <summary>
+    /// P7-04: a node applies an entry at an index, then installs a snapshot covering another entry
+    /// there: the install counts as applying it, and State Machine Safety rejects it. Sabotage
+    /// S-compact-2 (an install not counted as applying).
+    /// </summary>
+    [Fact]
+    public void AnInstallCoveringAnotherEntryAtAnAppliedIndexIsRejected()
+    {
+        var h = new Trace()
+            .Elect(N1, 1).Create(N1, 1).Create(N1, 1, "append x a").Durable(N1)
+            .Replicate(N1, N3, 1).Durable(N3).Apply(N3, 2)
+            .Crash(N1, keep: 1).Leave(N1, 1).Elect(N2, 2).Create(N2, 2, "put x 1", at: 1).Create(N2, 2, "put y 2").Durable(N2)
+            .Compact(N2, 2).Install(N2, N3)
+            .History();
+
+        Rejects(h, "state-machine-safety", "n3 applied a different entry at 2");
+    }
+
+    /// <summary>P7-04: a snapshot no log held (a term at that index no leader created) is rejected, by its index and term, not its index alone. Sabotage S-compact-1.</summary>
+    [Fact]
+    public void AnInstalledSnapshotNoLogHeldIsRejected()
+    {
+        var h = Healthy().Compact(N2, 2).InstallForged(N3, 2, 7).History();
+
+        Rejects(h, "log-matching", "n3 holds a snapshot of (7, 2) that no log held when it was made");
+    }
+
+    /// <summary>
+    /// P7-04: the observation adapter reads a compaction as the node's disk shows it: a file written under
+    /// another name and renamed onto the entry log is read whole, its snapshot reported with it, for the
+    /// intended log when the rename is issued and the durable one when it completes. Until P7-04 the
+    /// adapter ignored any operation on the entry log but an append or a truncate, and a rename is
+    /// observed under its source's name (P7-02, property 10).
+    /// </summary>
+    [Fact]
+    public void ARenameOntoTheLogIsReadWholeWithItsSnapshot()
+    {
+        var e = new[] { EntryLog.Record(1, new Term(1), Term.Zero, [1]), EntryLog.Record(2, new Term(1), new Term(1), [2]), EntryLog.Record(3, new Term(1), new Term(1), [3]) };
+        var compacted = EntryLog.SnapshotRecord(2, new Term(1), null, [9]).Concat(e[2]).ToArray();
+        var write = new PersistAppend(EntryLog.FileName, e.SelectMany(x => x).ToArray());
+        var temp = new PersistAppend("entries.2", compacted);
+        var rename = new PersistRename("entries.2", EntryLog.FileName);
+        var observations = new List<Raft.Simulation.Observation>
+        {
+            new Raft.Simulation.IssuedObservation(1, N1, write, 1), new Raft.Simulation.DurableObservation(2, N1, EntryLog.FileName, null, write),
+            new Raft.Simulation.IssuedObservation(3, N1, temp, 2), new Raft.Simulation.IssuedObservation(3, N1, rename, 2),
+            new Raft.Simulation.DurableObservation(4, N1, temp.File, null, temp), new Raft.Simulation.DurableObservation(5, N1, rename.File, null, rename),
+        };
+
+        var h = LogHistory.FromObservations(observations, new ElectionHistory(observations, 3), 3);
+
+        var issued = h.Events.OfType<LogHistory.Issued>().Last();
+        var durable = h.Events.OfType<LogHistory.Durable>().Last();
+        Assert.Equal(new LogHistory.SnapshotAt(2, new Term(1)), issued.Snapshot);
+        Assert.Equal(new LogHistory.SnapshotAt(2, new Term(1)), durable.Snapshot);
+        Assert.Equal([3L], durable.Append.Select(x => x.Index));
     }
 }

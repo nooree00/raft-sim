@@ -1,0 +1,11 @@
+--- a/tests/Raft.Core.Tests/LogInvariants.cs
++++ b/tests/Raft.Core.Tests/LogInvariants.cs
+@@ -598,7 +598,7 @@
+             return prefix;
+         }
+ 
+-        if (_coverage.TryGetValue((s.Index, s.Term), out var made))
++        if (_coverage.FirstOrDefault(kv => kv.Key.Index == s.Index).Value is { } made)
+         {
+             return [.. made];
+         }

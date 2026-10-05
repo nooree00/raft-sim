@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/EntryLog.cs
 +++ b/src/Raft.Core/EntryLog.cs
-@@ -90,7 +90,7 @@
-             var command = new byte[length - Fixed];
-             Array.Copy(file, at + Header + Fixed, command, 0, command.Length);
-             var end = at + size;
--            if (index > entries.Count + 1 || (index == 1 ? 0 : entries[(int)index - 2].Term.Value) != previous)
-+            if (index > entries.Count + 1 || ((index == 1 ? 0 : entries[(int)index - 2].Term.Value) != previous && index < 0))
+@@ -157,7 +157,7 @@
+             // record at or below the snapshot's index never overrides it: those entries are committed.
+             var baseIndex = snapshot?.Index ?? 0;
+             var at0 = index - baseIndex - 1;
+-            if (index <= baseIndex || at0 > entries.Count || (at0 == 0 ? snapshot?.Term.Value ?? 0 : entries[(int)at0 - 1].Term.Value) != previous)
++            if (index <= baseIndex || at0 > entries.Count || ((at0 == 0 ? snapshot?.Term.Value ?? 0 : entries[(int)at0 - 1].Term.Value) != previous && index < 0))
              {
                  unchained++;
              }

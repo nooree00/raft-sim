@@ -71,6 +71,9 @@ internal sealed class ElectionHistory
         var current = new Dictionary<NodeId, Configuration>();
         var restarting = new HashSet<NodeId>();
         LogHistory.FileView View(Dictionary<NodeId, LogHistory.FileView> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new LogHistory.FileView();
+        var intendedFiles = new Dictionary<NodeId, LogHistory.FileSet>();
+        var durableFiles = new Dictionary<NodeId, LogHistory.FileSet>();
+        LogHistory.FileSet Files(Dictionary<NodeId, LogHistory.FileSet> d, NodeId n) => d.TryGetValue(n, out var v) ? v : d[n] = new LogHistory.FileSet();
         void Note(long at, long time, NodeId n)
         {
             var c = View(intendedLog, n).InEffect(Initial);
@@ -127,6 +130,24 @@ internal sealed class ElectionHistory
                     View(intendedLog, i.Node).Apply(op);
                     Note(seq, i.Time, i.Node);
                     break;
+                case IssuedObservation { Op: PersistRename { To: EntryLog.FileName } rn } i:
+                    // A compacted or installed log (P7-04): the configuration in effect comes with the snapshot.
+                    restarting.Remove(i.Node);
+                    View(intendedLog, i.Node).Replace(Files(intendedFiles, i.Node).Take(rn.File));
+                    Note(seq, i.Time, i.Node);
+                    break;
+                case IssuedObservation { Op: var other } i when other.File != TermVoteLog.FileName:
+                    Files(intendedFiles, i.Node).Apply(other);
+                    break;
+                case DurableObservation { Completed: PersistRename { To: EntryLog.FileName } moved } dm:
+                    View(durableLog, dm.Node).Replace(Files(durableFiles, dm.Node).Take(moved.File));
+                    if (restarting.Contains(dm.Node))
+                    {
+                        intendedLog[dm.Node] = View(durableLog, dm.Node).Copy();
+                        Note(seq, dm.Time, dm.Node);
+                    }
+
+                    break;
                 case DurableObservation { File: EntryLog.FileName } du:
                     if (du.Completed is { } done)
                     {
@@ -144,6 +165,17 @@ internal sealed class ElectionHistory
                     }
 
                     break;
+                case DurableObservation dfile when dfile.File != TermVoteLog.FileName && dfile.File != EntryLog.FileName:
+                    if (dfile.Completed is { } completed)
+                    {
+                        Files(durableFiles, dfile.Node).Apply(completed);
+                    }
+                    else
+                    {
+                        Files(durableFiles, dfile.Node).Set(dfile.File, dfile.Content?.ToArray());
+                    }
+
+                    break;
                 case StartObservation st:
                     Liveness.Add((st.Time, st.Node, true));
                     break;
@@ -151,6 +183,7 @@ internal sealed class ElectionHistory
                     Liveness.Add((c.Time, c.Node, false));
                     CrashSeqs.Add((seq, c.Time, c.Node));
                     intendedLog[c.Node] = View(durableLog, c.Node).Copy();
+                    intendedFiles[c.Node] = Files(durableFiles, c.Node).Copy();
                     restarting.Add(c.Node);
                     Note(seq, c.Time, c.Node);
                     break;
