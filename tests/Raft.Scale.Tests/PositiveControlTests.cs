@@ -113,4 +113,55 @@ public sealed class PositiveControlTests
         Assert.True(Runs - n2Led >= Coverage.FloorFor(Runs), $"n2 followed in only {Runs - n2Led} of {Runs} runs: the control was barely placed");
         Assert.True(redWhileFollowing == Runs - n2Led, $"invariant 6 named n2's disk in only {redWhileFollowing} of the {Runs - n2Led} runs where it followed: a lost log record went unseen");
     }
+
+    /// <summary>
+    /// P7-10: the positive control over the soak's generated executions. Nodes that compact past
+    /// their commit index (<see cref="RaftOptions.CompactPastCommit"/>), the soak's faults, clients and
+    /// threshold: the log invariants and the agreement check must catch them in a share of the
+    /// executions, and the real node, the soak's own sample, in none. The count is written beside the
+    /// assembly; the assertion is the floor's (3 of 300), the prediction's 3% is the report's.
+    /// </summary>
+    [Fact]
+    public void ACompactionPastTheCommitIndexIsCaughtInTheGeneratedSample()
+    {
+        int red = 0, agreementRed = 0, threw = 0;
+        var byInvariant = new Dictionary<string, int>(StringComparer.Ordinal);
+        const int Executions = 300;
+        for (var seed = 1; seed <= Executions; seed++)
+        {
+            var probe = new AgreementProbe();
+            var schedule = FaultGenerator.Generate((ulong)seed, new GeneratorConfig { Duration = SoakConfig.FaultsUntil });
+            Simulator sim;
+            ElectionHistory h;
+            try
+            {
+                (sim, h) = Cluster.Run((ulong)seed, SoakConfig.Duration, schedule, SoakConfig.Clients, new RaftWorkload(int.MaxValue, retry: true, think: SoakConfig.Think),
+                    node: ctx => new RaftNode(ctx, SoakConfig.Options with { CompactPastCommit = true }, probe.For(ctx.Id)));
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                threw++;
+                red++;
+                continue;
+            }
+
+            var observations = sim.Observations.ToList();
+            var log = new LogAnalysis(LogHistory.FromObservations(observations, h, Cluster.Nodes));
+            var failed = LogAnalysis.Names.Where(n => !log.Result(n).Holds).ToList();
+            foreach (var f in failed)
+            {
+                byInvariant[f] = byInvariant.GetValueOrDefault(f) + 1;
+            }
+
+            var disagreed = probe.Check(observations, log).Failures.Count > 0;
+            agreementRed += disagreed ? 1 : 0;
+            red += failed.Count > 0 || disagreed ? 1 : 0;
+        }
+
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "compaction-control.txt"), string.Join("\n",
+            $"{Executions} executions, every node compacting past its commit index every {SoakConfig.SnapshotThreshold} applied entries",
+            $"caught: {red} ({100.0 * red / Executions:F1}%); by invariant: {string.Join(", ", byInvariant.OrderBy(k => k.Key, StringComparer.Ordinal).Select(k => $"{k.Key} {k.Value}"))}; by agreement {agreementRed}; a node threw {threw}") + "\n");
+        Assert.True(red >= 3, $"the control was caught in only {red} of {Executions} executions");
+    }
 }
+

@@ -10,11 +10,13 @@ namespace Raft.Core;
 /// AppendEntries, commands of at most <see cref="MaxCommandBytes"/>, a compaction once
 /// <see cref="SnapshotThreshold"/> applied entries follow the last snapshot (phase 7 decision 3),
 /// sent to a follower behind it in chunks of at most <see cref="SnapshotChunkBytes"/> (decision 4).
+/// <see cref="CompactPastCommit"/> is off in every real configuration: it exists only for P7-10's
+/// positive control, a node that compacts entries no quorum has committed.
 /// <see cref="DisruptionRule"/> is on
 /// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
 /// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
 /// </summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536)
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false)
 {
     /// <summary>
     /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
@@ -785,10 +787,15 @@ public sealed class RaftNode : INode
             return;
         }
 
-        var at = _log.ConfigurationIndexAtOrBelow(_lastApplied);
+        // The positive control (P7-10) compacts the whole log and counts what it compacted as applied
+        // and committed, without applying it: the wrong node, coherent enough to keep running.
+        var index = _options.CompactPastCommit ? _log.LastIndex : _lastApplied;
+        var at = _log.ConfigurationIndexAtOrBelow(index);
         var configuration = at == 0 ? _log.Snapshot?.Configuration : Configuration.Decode(_log.At(at).Command);
-        effects.AddRange(_log.Compact(_lastApplied, configuration, _stateMachine.Snapshot().ToArray()));
-        effects.Add(Event("compact", new Field("index", N(_lastApplied))));
+        effects.AddRange(_log.Compact(index, configuration, _stateMachine.Snapshot().ToArray()));
+        effects.Add(Event("compact", new Field("index", N(index))));
+        _lastApplied = index;
+        _commitIndex = Math.Max(_commitIndex, index);
     }
 
     /// <summary>

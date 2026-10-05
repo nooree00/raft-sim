@@ -1,0 +1,7 @@
+description: The positive control's compaction in the real node: every node compacts its whole log, entries no quorum committed among them, and counts them applied (P7-10)
+mechanism: compaction past the commit index by default
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.CompactionTests.ACompactionPastTheCommitIndexTurnsStateMachineSafetyRedAndTheRealNodeDoesNot
+reason: the real node
+expect: caught

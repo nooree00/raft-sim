@@ -187,4 +187,78 @@ public sealed class CompactionTests
         Assert.Equal([N1, N2, N3, N4], c.ConfigurationOf(N2).Members.OrderBy(m => m.Value));
         Judged(c);
     }
+
+    /// <summary>
+    /// P7-10's construction: n1 leads, commits three entries and compacts, then appends four more, of
+    /// which three reach n2 and commit while the fourth (index 7) is on n1 alone. n1 crashes; n2 leads
+    /// a later term and commits its no-op at 7; n1 comes back. Returns the verdicts, and n2's entry at 7 and
+    /// n1's snapshot, for the guard that the entry was overwritten.
+    /// </summary>
+    private static (System.Collections.Generic.Dictionary<string, InvariantResult> Verdicts, Term Overwriting, LogSnapshot? Compacted) PastCommit(RaftOptions options)
+    {
+        var c = new ManualCluster(options);
+        c.Stand(N1);
+        c.Settle(All);
+        c.Client(N1, "Put|a|1");
+        c.Client(N1, "Put|b|2");
+        Rounds(c, N1, 2, All);
+        c.Client(N1, "Put|c|3");
+        c.Client(N1, "Put|d|4");
+        c.Client(N1, "Put|e|5");
+        c.Deliver(N1, N2);
+        c.Drop(N1, N3);
+        c.Client(N1, "Put|f|6");
+        c.Drop(N1);
+        c.Deliver(N2, N1);
+        var compacted = c.SnapshotOf(N1);
+        c.Crash(N1);
+
+        // n3 must stop hearing n1 before it can vote (the disruption rule): its timer runs out, its
+        // own candidacy is lost, and n2, more up to date, wins the term after.
+        c.Tick(N3, Options.ElectionTimeoutMin);
+        c.Drop(N3);
+        c.Stand(N2, above: 2);
+        c.Settle(N2, N3);
+        Rounds(c, N2, 3, N2, N3);
+        Assert.Equal(Role.Leader, c.RoleOf(N2));
+        // Bounded rounds, not settling: the control can never reconcile with the new leader, and the
+        // two would exchange rejections forever.
+        c.Restart(N1);
+        for (var i = 0; i < 4; i++)
+        {
+            c.Tick(N2, Interval);
+            foreach (var (from, to) in new[] { (N2, N1), (N1, N2), (N2, N3), (N3, N2) })
+            {
+                c.Deliver(from, to);
+            }
+        }
+        var (_, log) = c.Histories();
+        var analysis = new LogAnalysis(log);
+        // n2's term at 7, from its log or, once it has compacted there, its snapshot.
+        var overwriting = c.EntriesOf(N2).FirstOrDefault(e => e.Index == 7)?.Term ?? (c.SnapshotOf(N2) is { Index: 7 } s ? s.Term : Term.Zero);
+        return (LogAnalysis.Names.ToDictionary(n => n, analysis.Result), overwriting, compacted);
+    }
+
+    /// <summary>
+    /// The positive control (P7-10): a node that compacts past its commit index turns State Machine
+    /// Safety red in the construction, and the real node in the same construction does not. Guarded:
+    /// the entry the control compacted at 7 is overwritten by the next leader (term 3) before the
+    /// verdict is read. Sabotage S-compact-5 (the control's compaction in the real node).
+    /// </summary>
+    [Fact]
+    public void ACompactionPastTheCommitIndexTurnsStateMachineSafetyRedAndTheRealNodeDoesNot()
+    {
+        var (control, overwriting, compacted) = PastCommit(Options with { CompactPastCommit = true });
+        Assert.Equal(7, compacted?.Index);
+        Assert.Equal(new Term(3), overwriting);
+        Assert.False(control["state-machine-safety"].Holds, "the control compacted an entry the next leader overwrote, and State Machine Safety held");
+
+        var (real, _, realCompacted) = PastCommit(Options);
+        Assert.True(realCompacted?.Index == 6, $"the real node compacted to {realCompacted?.Index}, past its applied index 6");
+        foreach (var (name, r) in real)
+        {
+            Assert.True(r.Holds, $"the real node, {name}: {string.Join("; ", r.Violations.Take(3))}");
+        }
+    }
 }
+
