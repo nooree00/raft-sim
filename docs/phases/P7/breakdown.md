@@ -108,7 +108,7 @@ nothing.
 - **Sabotage:** S-barrier-1, S-barrier-2, S-barrier-3
 - **Verifiable here:** yes — `SimDisk`, the simulator and constructions run locally
 - **Prediction:** Without the barrier, the construction recovers nothing under the renamed name: today's rename of a missing source is a no-op, so the old file survives, and the case only goes red once the model also stops being lenient, which is decision 1's other half. So the control mode has to model the real hazard (a rename durable before its source's data: an empty file under the real name), and with the barrier it can never arise. **Observable:** the construction with and without the barrier, and with the lenient and the strict model.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — with the lenient disk and renames released early (the control without the strict model), 0 of 60 crashed seeds left anything wrong under the real name: the old file survived each lost source. With the strict disk and renames released early, 15 of 60 left an empty file under the real name. With the strict disk and the barrier, 0 of 60, and crashes did meet a rename in flight (the test requires it). So the control is only a control once the model is strict, as predicted; the strict rename is now the disk's only behaviour (`ARenameWhoseSourceWriteWasLostLeavesAnEmptyFileUnderTheRealName`).
 
 ### P7-01 — KL-2's curve on the GitHub runner
 
@@ -126,7 +126,7 @@ nothing.
 - **Sabotage:** S-logprop-1, S-logprop-2
 - **Verifiable here:** yes — unit tests
 - **Prediction:** The enumeration finds at least three properties §8 does not name that compaction can break, and the first P7-06 breaks is the chain check: recovery takes a record only if its `previousTerm` matches the entry before it (P4-02's unchained-record rule), and the first retained entry's predecessor is in the snapshot, not the log, so a naive compaction makes recovery drop every retained entry as unchained. The other two I expect: the configuration lookup (`ConfigurationIndexAtOrBelow` scans the log, phase 6) and the checkers' incremental file view (`FileView` resumes from an offset, which a rename invalidates). **Observable:** the table's rows beyond §8's four; P7-06's first red test by name.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — one part not yet observable. The table has six properties beyond §8's four (5-10), and five of them can be broken by compaction. The chain check broke first, by the predicted mechanism, but at P7-04, not P7-06: the snapshot record format moved there (P7-04's deviation). The first recovery that read a snapshot record dropped every retained entry as unchained (`SnapshotRecordTests.TheEntriesAfterASnapshotChainOntoIt` red), and passed once the first retained entry chained onto the snapshot's term. The file view was also confirmed at P7-04: today's view ignored a rename onto `entries.log` entirely. The configuration lookup has no compacted log to meet until P7-06; its observation is recorded there.
 
 ### P7-03 — The state machine's snapshot
 
@@ -135,7 +135,7 @@ nothing.
 - **Sabotage:** S-kvsnap-1, S-kvsnap-2
 - **Verifiable here:** yes — unit tests
 - **Prediction:** The first implementation fails the canonical-bytes test, not the round trip: a dictionary's enumeration order depends on insertion history, so two states equal by content serialise differently. **Observable:** which of the two tests fails first.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the first implementation passed the round trip and failed only the canonical-bytes comparison. It enumerated the dictionary in insertion order, so two states equal by content serialised differently. Sorting the keys by ordinal fixed it, and S-kvsnap-2 removes the sort.
 
 ### P7-04 — The checkers over the logical log, against hand-built traces
 
@@ -144,7 +144,7 @@ nothing.
 - **Sabotage:** S-compact-1, S-compact-2
 - **Verifiable here:** yes — hand-built traces
 - **Prediction:** Of today's checkers, committed-durable (invariant 6) is the one a correct compaction turns red first: it reads entries from the entry-log file view, and a compacted log no longer holds the entries its snapshot covers, so a correct node looks as if it lost committed entries. Leader Append-Only, stated over the physical log today, is the second. **Observable:** today's checkers against the correct-compaction trace, which one fails first.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — against a physical-log compaction, today's checkers went red first on Leader Append-Only: the leader's log lost the prefix it compacted. Log Matching and Entry Uniqueness followed. Committed-durable never went red, because a quorum still held every committed entry, so no correct node ever looked as if it had lost one. A real rename onto `entries.log` was ignored entirely by today's file view. The checkers now read the logical log (coverage recorded at compaction as ghost ids, decision 5), accept the correct trace and reject the three bad ones. Committed-durable is exercised by `CommittedEntriesHeldOnlyInSnapshotsStayDurable`, the case the prediction expected to go red first.
 
 ### P7-05 — The snapshot in the log file, durable and recovered
 
