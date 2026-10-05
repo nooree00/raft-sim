@@ -416,6 +416,14 @@ not a torn write, and recovery refuses to start. A crash during a write is the
 normal case, not an edge case. A snapshot is replaced atomically: write a
 temporary file, fsync it, rename it over the old one, fsync the directory.
 
+**Known limit: the rename barrier is a simplification, not the contract** (phase 7, decision 1).
+The node cannot fsync: it never learns what is durable. The world holds a rename until every write
+the node issued before it is durable, as it holds a message (node-interface §4), and the simulated
+disk models a rename whose source data was lost as leaving an empty file under the real name. A
+real file system can make a rename durable without the data; the barrier assumes the I/O layer
+prevents that, which the node cannot check. It is not solved: disk acknowledgements as inputs to
+Core, the register's phase-10 row, are what would let the node order its own writes.
+
 **Anything that removes data participates in every invariant the data
 participated in.** Log compaction discards entries the snapshot covers. Before
 writing it, enumerate every property the log satisfies — referential (an index

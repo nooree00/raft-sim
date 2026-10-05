@@ -24,6 +24,22 @@ Log compaction: snapshots and `InstallSnapshot` (spec §11 phase 7, §5 item 5, 
   the party it happens to (a follower that installed a snapshot, a node whose disk held a
   compaction when it crashed), never inferred from the mechanism that would cause it.
 
+**Approved** (reviewer): P7-00 to P7-12; stop and report after P7-12. Decision 1, the rename as a
+barrier held by the world, without pulling phase 10 forward: the barrier reuses the mechanism sends
+already have, and disk acknowledgements change the node's interface, which deserves its own phase
+rather than arriving as a fix for a model gap. **The barrier is a simplification, not the
+contract:** a real file system can make a rename durable without the data, and the barrier assumes
+it will not; spec §8 states it as a known limit with the phase-10 row named. Decisions 2 to 5 as
+proposed; decision 5 is the ghost-id principle (the reviewer's A3) for the fourth time, after the
+ghost entry ids (spec §5), the node-id-free election history (P3) and the configuration the
+simulator records (phase 6 decision 6): the simulator records what a snapshot covers and never
+reads it from the node. Decision 6, compaction in both soaks and the known limits re-recorded: a
+third soak preserving KL-1 and KL-2 would preserve two measurements of a configuration that no
+longer exists, and the stale check failing the soak until they are re-recorded is the machinery
+doing its job. Both re-recordings go to the reviewer with their curves; if either history becomes
+decidable under compaction, that is a result about compaction, reported as one. P7-01 uses a
+branch again (the reviewer deletes it).
+
 ## Ordering
 
 Tooling and the decision the rest depends on first: P7-00 (the rename barrier in the world's

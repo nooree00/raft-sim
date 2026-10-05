@@ -778,3 +778,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   the argument for why the checker gets its own vacuity guards. This phase also ran the other way:
   generated executions found the node wrong twice (P6-14, P6-15), and the measures of what happened
   wrong six times (P6-07 four times, the isolation detector, and S-cov-11 caught for the wrong reason).
+
+## Phase 7
+
+- **The model's leniency is the dangerous direction: P6-15 and the rename, a pair.** In P6-15 the
+  simulated disk was stricter than a real file system (an append lands at the end of whatever file
+  survives, where a real one fixes the offset at issue), and the node was fixed for the model: a
+  stricter model can only produce extra failures, each a real one under its own contract. The
+  rename is the inverse. `SimDisk` treated a rename whose source data was lost as a no-op, while a
+  real file system can make the rename durable without the data and leave an empty file under the
+  real name: a real crash could produce a state the simulator could not generate, so no execution
+  could ever show the node mishandling it. Found by reading the disk model while designing
+  compaction, before any node code issued a rename. *Rule:* where the model and reality differ,
+  the model may be stricter and never laxer; the model now leaves the empty file (P7-00), and the
+  barrier that keeps the node clear of it is recorded as a simplification, not a solution (spec §8,
+  the phase-10 row).
