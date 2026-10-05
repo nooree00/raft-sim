@@ -840,6 +840,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   count catches, and under that sabotage its executions slowed until it took 10 minutes, in the
   neighbours of every Scale entry. A test that measures a rate by running to the end costs its run
   time in every harness entry beside it, at the sabotaged system's speed, not the real one's. The
-  local run is the check of record before a push, but its numbers are a local machine's. *Rule:* a
-  local measurement within a tenth of a ceiling the CI runner enforces is a finding before the push,
-  not a pass; and a test that only needs a floor stops at the floor.
+  local run is the check of record before a push, but its numbers are a local machine's. *Rule*
+  (reviewer, at acceptance): a margin under 5% on a deterministic ceiling is a failure on a slower
+  runner, so a local number means nothing until the runner's ratio is applied to it; and a test that
+  only needs a floor stops at the floor. The harness shards have since moved to CI only.

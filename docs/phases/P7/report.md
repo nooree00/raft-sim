@@ -1,6 +1,15 @@
 # Phase 7 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run 37299866345: the head green on every harness shard, the
+build and both soaks; one per-commit job red, below). Decisions at acceptance: KL-1's removal and
+KL-3 approved, KL-1 described as vanishing, not becoming decidable (the history no longer occurs);
+the red commits accepted, not rewritten (listed under "Commits never verified in CI"); the harness
+shards moved from the local run to CI only, the fast stages kept local (AGENTS.md, spec §12), with
+its cost stated: a wrong-reason sabotage or a shard over its ceiling is found after the push; both
+floor declarations approved; the §10 limit test kept out of the suite with its manual result; the
+harness fixed-cost row dropped, closed with the measurement that killed it. The reviewer's reading
+of the phase's finding: invariants check the log, linearizability checks the answers, and nothing
+checked the state machine until the replay, a third oracle neither subsumes (P5-04 generalised).
 
 Log compaction (spec §11 phase 7): P7-00 to P7-12, as approved. Three deviations from the
 breakdown's order: the snapshot record format landed with the checkers (P7-04), not with the file
@@ -216,3 +225,21 @@ nothing.
 - `soak-membership` beside `soak` in branch protection; delete `prerewrite-b96fc4b`, the probe
   branches (`claude/blissful-goodall-358smj-probe-kl2` among them) and the sabotage branch; the cold
   walk of the README; P0.
+
+## Commits never verified in CI
+
+Accepted, not rewritten (reviewer, at acceptance): the commits are pushed, their fixes are forward,
+and a rewrite would cost another round of the force-push range problem. Each listed job is harness
+shard 10 failing with its step at about 16.5 minutes, over the 15-minute ceiling. The job logs
+could not be read from this environment (GitHub serves them from another host); the cause was
+reproduced locally instead: S-dur-2's entry at 713 s, from P7-10's control sample running to the end
+under that sabotage, and P7-11's budget seed. No other run will check these jobs: the per-commit
+matrix covers only a push's new commits.
+
+| Commit | What it is | Jobs with no passing verdict |
+|---|---|---|
+| `5008e44` | P7-10 positive control | shard 10 over the ceiling (run 37278405824) |
+| `749fdff` | P7-12 harness guard | shard 10 over the ceiling (run 37278405824) |
+| `96d2fe1` | P7 report (that push's head) | harness shard 10 over the ceiling (run 37278405824) |
+| `0d3fa98` | the budget-seed fix | shard 10 over the ceiling (run 37299866345): the sample fix is the next commit |
+
