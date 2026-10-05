@@ -549,7 +549,12 @@ that phase's whole attention.)
   job) and not by the harness. The soak runs on every push and is never waived
   or shrunk for time. It is slow and peripheral, which makes it the first thing
   dropped when a phase runs long; skipping it is a change to this spec, argued
-  first, not a judgement made in the moment.
+  first, not a judgement made in the moment. The harness runs on every push, in
+  CI, in parallel shards under a ceiling each; it is not run before the push
+  (phase 7 acceptance), so a sabotage caught for the wrong reason, or a shard
+  over its ceiling, is found on the branch after the push. Its fixed cost per
+  shard was measured to the end in phase 7 and is accepted as the price of
+  checking each target's own project once before its entries.
 - **Small commits**, conventional messages, every commit green. GitHub Actions
   runs only a push's head, so CI builds and fast-tests every commit in the
   pushed range. Every commit that changes more than documentation carries a
