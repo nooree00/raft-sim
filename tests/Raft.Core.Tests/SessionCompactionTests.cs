@@ -83,6 +83,13 @@ public sealed class SessionCompactionTests
     [Fact]
     public void ARetryAfterAnInstallIsAnsweredFromTheRestoredTable()
     {
+        var (c, probe) = AfterAnInstall();
+        Agreed(c, probe);
+    }
+
+    /// <summary>The install construction, built and asserted; P8-07's coverage reads it too.</summary>
+    internal static (ManualCluster C, AgreementProbe Probe) AfterAnInstall()
+    {
         var (c, probe, session, appended) = Committed();
         Rounds(c, N1, 6, All);
         Assert.True(c.SnapshotOf(N3)?.Index >= appended, "n3 did not install a snapshot covering the Append");
@@ -100,12 +107,19 @@ public sealed class SessionCompactionTests
 
         Assert.Equal("ok", c.ReplyTo(retry));
         Assert.Equal("ok|a", c.ReplyTo(read));
-        Agreed(c, probe);
+        return (c, probe);
     }
 
     /// <summary>n2 restarts from its snapshot, leads, and answers the retry from the table it restored at start.</summary>
     [Fact]
     public void ARetryAfterARestartFromASnapshotIsAnsweredFromTheRestoredTable()
+    {
+        var (c, probe) = AfterARestart();
+        Agreed(c, probe);
+    }
+
+    /// <summary>The restart construction, built and asserted; P8-07's coverage reads it too.</summary>
+    internal static (ManualCluster C, AgreementProbe Probe) AfterARestart()
     {
         var (c, probe, session, appended) = Committed();
         Assert.True(c.SnapshotOf(N2)?.Index >= appended, "n2 did not compact past the Append");
@@ -123,6 +137,6 @@ public sealed class SessionCompactionTests
 
         Assert.Equal("ok", c.ReplyTo(retry));
         Assert.Equal("ok|a", c.ReplyTo(read));
-        Agreed(c, probe);
+        return (c, probe);
     }
 }

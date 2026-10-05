@@ -18,6 +18,7 @@
     <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
     <Compile Include="../Raft.Core.Tests/SessionWorkload.cs" Link="Checkers/SessionWorkload.cs" />
     <Compile Include="../Raft.Core.Tests/CompactionCoverage.cs" Link="Checkers/CompactionCoverage.cs" />
+    <Compile Include="../Raft.Core.Tests/SessionCoverage.cs" Link="Checkers/SessionCoverage.cs" />
     <Compile Include="../Raft.Core.Tests/Cluster.cs" Link="Checkers/Cluster.cs" />
     <Compile Include="../Raft.Core.Tests/CommitLiveness.cs" Link="Checkers/CommitLiveness.cs" />
     <Compile Include="../Raft.Core.Tests/ElectionInvariants.cs" Link="Checkers/ElectionInvariants.cs" />

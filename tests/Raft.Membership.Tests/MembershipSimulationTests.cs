@@ -228,6 +228,11 @@ public sealed class MembershipSimulationTests
             // P7-11: 0 of the membership sample's 300, 3 of the baseline's: the membership workload commits
             // about 100 entries per execution against 164, so fewer followers diverge past a snapshot.
             ["install-discarded-the-suffix"] = "a follower holding a conflicting suffix past the snapshot: 0 of the membership sample",
+
+            // P8-07: 0 of the membership sample's 300, 4 of the baseline's: a commit, a lost answer, a
+            // compaction past the entry and the retry reaching a node that restored, within one client's
+            // retries, on a workload committing about two thirds of the baseline's entries.
+            ["retry-deduplicated-by-a-restored-table"] = "a retry answered from a session table a snapshot carried: 0 of the membership sample",
         });
 
     /// <summary>

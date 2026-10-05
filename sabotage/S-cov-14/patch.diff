@@ -1,0 +1,22 @@
+diff --git a/tests/Raft.Core.Tests/SessionCoverage.cs b/tests/Raft.Core.Tests/SessionCoverage.cs
+--- a/tests/Raft.Core.Tests/SessionCoverage.cs
++++ b/tests/Raft.Core.Tests/SessionCoverage.cs
+@@ -29,6 +29,10 @@ internal static class SessionCoverage
+     public static HashSet<string> Of(IReadOnlyList<Observation> observations, LogAnalysis log, ElectionHistory elections, IReadOnlyList<ClientOp> clients, IReadOnlyList<string> trace, long heartbeat)
+     {
+         var hit = new HashSet<string>(StringComparer.Ordinal);
++        if (clients.GroupBy(o => Encoding.ASCII.GetString(o.Request.Span)).Any(g => g.Count() > 1 && ClientHistory.InSession(g.Key) is not null))
++        {
++            hit.Add("retry-committed-twice-applied-once");
++        }
+ 
+         // The committed log, in index order, as (session, sequence) where an entry carries one.
+         var previous = new Dictionary<long, long>();
+@@ -46,7 +50,6 @@ internal static class SessionCoverage
+             var stale = latest.TryGetValue(k.Session, out var max) && k.Sequence < max;
+             if (lastCopy.TryGetValue((k.Session, k.Sequence), out var before) && !stale)
+             {
+-                hit.Add("retry-committed-twice-applied-once");
+                 previous[c.Index] = before;
+             }
+ 

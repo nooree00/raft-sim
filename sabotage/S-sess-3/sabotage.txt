@@ -3,5 +3,5 @@ mechanism: the retry sent with the next sequence number, not its own
 kind: test
 project: tests/Raft.Scale.Tests
 target: Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant
-reason: history-command-retried: in 0 of 300
+reason: retry-committed-twice-applied-once: 0 of 300
 expect: caught

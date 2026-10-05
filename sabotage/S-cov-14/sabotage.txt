@@ -1,0 +1,7 @@
+description: A retry deduplicated is counted when a client sends a session command twice, not from two committed copies: a resend whose original never committed counts, though nothing was deduplicated (P8-07)
+mechanism: deduplication counted from the client's resend
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SessionCoverageTests.ARetryWhoseOriginalNeverCommittedDeduplicatesNothing
+reason: DoesNotContain
+expect: caught

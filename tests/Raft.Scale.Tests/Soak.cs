@@ -47,7 +47,7 @@ internal static class Soak
     public static readonly string[] ReplicationEffects =
     [
         "follower-caught-up-by-backtracking", "conflicting-suffix-truncated", "leader-crashed-with-uncommitted-entries",
-        "entry-committed-in-a-later-term", "command-retried-and-duplicated", "crash-with-a-log-write-in-flight",
+        "entry-committed-in-a-later-term", "crash-with-a-log-write-in-flight",
     ];
 
     /// <summary>
@@ -191,18 +191,9 @@ internal static class Soak
             hit.Add("entry-committed-in-a-later-term");
         }
 
-        // Two entries committed with the same bytes: every write a client composes carries a value unique
-        // to the client and its sequence, so the second is a retry of the first (P4 decision 5: expected
-        // in phase 4). A Get or a Delete carries no value, and two of them on one key are two operations.
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var c in log.Commits.Where(c => c.Command))
-        {
-            if (log.CommandOf(c.Ghost) is { } bytes && bytes is not ([(byte)'G', (byte)'e', (byte)'t', ..] or [(byte)'D', (byte)'e', (byte)'l', ..] or [(byte)'R', (byte)'e', (byte)'g', ..]) && !seen.Add(Convert.ToHexString(bytes)))
-            {
-                hit.Add("command-retried-and-duplicated");
-                break;
-            }
-        }
+        // P4's "command-retried-and-duplicated" (two committed entries with the same bytes) retired at
+        // P8-07: with every write in a session, the same bytes are the same (session, sequence), and
+        // SessionCoverage's "retry-committed-twice-applied-once" hit exactly its executions.
 
         // A node crashed with an entry-log write issued and not yet durable.
         var pending = new Dictionary<NodeId, int>();
@@ -231,7 +222,7 @@ internal static class Soak
     /// <summary>Runs <paramref name="count"/> executions from seed <paramref name="first"/> of <paramref name="profile"/>, asserting each, and writes its report.</summary>
     public static void Run(SoakProfile profile, int first, int count)
     {
-        var effects = ElectionEffects.Concat(ReplicationEffects).Concat(Coverage.Dimensions).Concat(CompactionCoverage.Dimensions).Concat(profile.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
+        var effects = ElectionEffects.Concat(ReplicationEffects).Concat(Coverage.Dimensions).Concat(CompactionCoverage.Dimensions).Concat(SessionCoverage.Dimensions).Concat(profile.Dimensions).ToDictionary(d => d, _ => new HashSet<int>(), StringComparer.Ordinal);
         var compared = 0;
         var timeToLeader = new List<long>();
         var unknown = new SortedSet<string>(StringComparer.Ordinal);
@@ -329,7 +320,7 @@ internal static class Soak
                 timeToLeader.Add(t);
             }
 
-            var hits = Effects(h, sim.Trace.Lines, schedule).Concat(Replication(observations, h, log)).Concat(Coverage.Of(sim.Trace.Lines)).Concat(CompactionCoverage.Of(observations));
+            var hits = Effects(h, sim.Trace.Lines, schedule).Concat(Replication(observations, h, log)).Concat(Coverage.Of(sim.Trace.Lines)).Concat(CompactionCoverage.Of(observations)).Concat(SessionCoverage.Of(observations, log, h, sim.ClientLog, sim.Trace.Lines, SoakConfig.Options.HeartbeatInterval));
             foreach (var e in profile.Extra is null ? hits : hits.Concat(profile.Extra(observations, h, log, schedule)))
             {
                 if (effects.TryGetValue(e, out var set))
@@ -457,6 +448,12 @@ internal static class Soak
         // are (their logs simply end before the snapshot). Exercised directly by
         // InstallSnapshotTests.AFollowerWhoseLogDisagreesWithTheSnapshotDiscardsIt.
         ["install-discarded-the-suffix"] = "a follower holding a conflicting suffix past the snapshot: 0.63% of the baseline soak",
+
+        // P8-07: a correct ReadIndex answers after another node's later election only when its round was
+        // acknowledged before that election and the answer released after it: the window between a
+        // quorum's last acknowledgement and the old leader learning of the new term. 1 of the baseline
+        // sample's 300, 0 of the membership sample's. Its soak counts are P8-09's measurement.
+        ["read-answered-after-a-later-term-began"] = "an old leader's read released after a later election, its round acknowledged before it: 1 of the baseline sample",
     };
 
     /// <summary>
@@ -469,6 +466,9 @@ internal static class Soak
         // declared below the soak floor already (63 of 10,000 at P7-11), and rare in the membership
         // sample since phase 7. The 10,000 must still clear the absolute minimum.
         ["install-discarded-the-suffix"] = "an install over a conflicting suffix: 2 of the baseline sample with sessions",
+
+        // P8-07: see its entry below the soak floor; 1 of the baseline sample, 0 of the membership sample.
+        ["read-answered-after-a-later-term-began"] = "a read released after a later election: 1 of the baseline sample, 0 of the membership sample",
     };
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>
