@@ -1,0 +1,10 @@
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -93,7 +93,6 @@
+ 
+     public void Restore(ReadOnlyMemory<byte> snapshot)
+     {
+-        _state.Clear();
+         var span = snapshot.Span;
+         var at = 0;
+         var count = Get(span, ref at);

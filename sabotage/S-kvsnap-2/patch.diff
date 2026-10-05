@@ -1,0 +1,10 @@
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -79,7 +79,6 @@
+         var b = new List<byte>();
+         Put(b, _state.Count);
+         var keys = new List<string>(_state.Keys);
+-        keys.Sort(StringComparer.Ordinal);
+         foreach (var key in keys)
+         {
+             PutText(b, key);

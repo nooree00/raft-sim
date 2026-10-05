@@ -1,0 +1,6 @@
+description: The snapshot follows the dictionary's enumeration order, so two equal states give different bytes (P7-03; the first implementation)
+mechanism: keys are not sorted before they are written
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.KvSnapshotTests.EqualStatesGiveEqualSnapshots
+expect: caught

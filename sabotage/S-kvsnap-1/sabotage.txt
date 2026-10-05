@@ -1,0 +1,6 @@
+description: A restore merges the snapshot into what the machine held instead of replacing it: a key deleted before the snapshot comes back (P7-03)
+mechanism: the state is not cleared before a restore
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.KvSnapshotTests.ARestoreReplacesTheState
+expect: caught
