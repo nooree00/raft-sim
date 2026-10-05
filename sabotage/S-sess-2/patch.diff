@@ -1,0 +1,11 @@
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -74,7 +74,7 @@
+                 return Encoding.ASCII.GetBytes("unknown-session|");
+             }
+ 
+-            if (sequence == session.Sequence)
++            if (sequence == session.Sequence && sequence < 0)
+             {
+                 return Encoding.ASCII.GetBytes(session.Reply);
+             }

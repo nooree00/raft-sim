@@ -758,7 +758,7 @@ public sealed class RaftNode : INode
         {
             _lastApplied++;
             var entry = _log.At(_lastApplied);
-            var result = entry.Command.Length == 0 || Configuration.IsInternal(entry.Command) ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(entry.Command);
+            var result = entry.Command.Length == 0 || Configuration.IsInternal(entry.Command) ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(_lastApplied, entry.Command);
             effects.Add(Event("apply", new Field("index", N(_lastApplied))));
             if (Role == Role.Leader && _pending.Remove(_lastApplied, out var request))
             {
@@ -1082,7 +1082,7 @@ public sealed class RaftNode : INode
     /// <summary>For runs with no clients: commands are applied as nothing.</summary>
     private sealed class NoStateMachine : IStateMachine
     {
-        public ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command) => ReadOnlyMemory<byte>.Empty;
+        public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command) => ReadOnlyMemory<byte>.Empty;
 
         public ReadOnlyMemory<byte> Snapshot() => ReadOnlyMemory<byte>.Empty;
 

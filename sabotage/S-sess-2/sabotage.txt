@@ -1,0 +1,6 @@
+description: A command at the session's latest sequence number applied again instead of answered from the table: every retry of a committed command applies twice (P8-01)
+mechanism: the duplicate comparison misses equality
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SessionTests.ARetriedAppendIsAppliedOnceAndAnsweredAgain
+expect: caught

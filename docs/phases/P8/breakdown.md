@@ -104,7 +104,7 @@ whenever a phase grows the harness.
 - **Sabotage:** S-sess-1, S-sess-2
 - **Verifiable here:** yes — unit tests
 - **Prediction:** The snapshot round trip with sessions passes on the first run, and the first red test is a `Cas` retried after the value it compared changed: returning the cached `true` is right and re-evaluating it gives `false`, and I expect the first implementation to re-evaluate, because "return the cached response" is easy to implement for writes and easy to forget for a conditional. **Observable:** the first red test by name.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the snapshot round trip with sessions passed on the first run, as predicted, but no test went red first: the retried `Cas` returned its first answer because the first implementation kept every session command's reply, conditional or not. The limit test (the reviewer's addition): 1,000,000 sessions (`MaxSessions`), each holding a `Cas` reply, make a snapshot of 28,000,017 bytes, 28.0 bytes per session (an 8-byte id, an 8-byte sequence number, a 4-byte length and the reply: `ok|true` or `ok|false`). It registers, snapshots and restores in 2.2 s, and the 1,000,001st `Register` is refused. A reply's size is bounded only by what the command returns: a `Get` sent inside a session would keep the value it read, but reads carry no session (decision 4), so a session's reply is at most 8 bytes in this workload. For phase 9: 28 MB of snapshot at the bound, about 1.3% of the log file's limit.
 
 ### P8-02 — Sessions through the log, and clients that use them
 

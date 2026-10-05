@@ -1,11 +1,11 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -449,7 +449,7 @@
+@@ -757,7 +757,7 @@
          while (_lastApplied < _commitIndex)
          {
              _lastApplied++;
 -            var entry = _log.At(_lastApplied);
 +            var entry = _log.At(_lastApplied < _log.LastIndex ? _lastApplied + 1 : _lastApplied);
-             var result = entry.Command.Length == 0 || Configuration.IsInternal(entry.Command) ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(entry.Command);
+             var result = entry.Command.Length == 0 || Configuration.IsInternal(entry.Command) ? ReadOnlyMemory<byte>.Empty : _stateMachine.Apply(_lastApplied, entry.Command);
              effects.Add(Event("apply", new Field("index", N(_lastApplied))));
              if (Role == Role.Leader && _pending.Remove(_lastApplied, out var request))

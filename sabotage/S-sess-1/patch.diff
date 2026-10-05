@@ -1,0 +1,13 @@
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -156,8 +156,8 @@
+ 
+         // The session table (P8-01, spec §5 item 6), after the keys: its count, then each session in
+         // ascending id, its id and sequence number in 8 bytes each and its kept reply.
+-        Put(b, _sessions.Count);
+-        var ids = new List<long>(_sessions.Keys);
++        Put(b, 0);
++        var ids = new List<long>();
+         ids.Sort();
+         foreach (var id in ids)
+         {

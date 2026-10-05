@@ -38,7 +38,8 @@ public delegate INode NodeFactory(NodeContext context);
 /// <summary>The replicated state machine a Raft node applies committed commands to (phase 3 on).</summary>
 public interface IStateMachine
 {
-    ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command);
+    /// <summary>Apply the committed entry at <paramref name="index"/> (P8-01: a session is named by the index of the entry that registered it).</summary>
+    ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command);
 
     ReadOnlyMemory<byte> Snapshot();
 

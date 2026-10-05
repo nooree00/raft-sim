@@ -43,9 +43,12 @@ internal sealed class AgreementProbe
             if (!replays.TryGetValue(index, out var bytes))
             {
                 var kv = new KvStateMachine();
-                foreach (var c in committed.Take((int)index).Where(c => c.Length > 0 && !Configuration.IsInternal(c)))
+                for (var i = 0; i < index; i++)
                 {
-                    kv.Apply(c);
+                    if (committed[i].Length > 0 && !Configuration.IsInternal(committed[i]))
+                    {
+                        kv.Apply(i + 1, committed[i]);
+                    }
                 }
 
                 replays[index] = bytes = Convert.ToHexString(kv.Snapshot().Span);
@@ -125,7 +128,7 @@ internal sealed class AgreementProbe
 
         public byte[] Final => _kv.Snapshot().ToArray();
 
-        public ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command) => _kv.Apply(command);
+        public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command) => _kv.Apply(index, command);
 
         public ReadOnlyMemory<byte> Snapshot() => _kv.Snapshot();
 

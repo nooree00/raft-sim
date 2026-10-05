@@ -33,7 +33,7 @@ public sealed class ConfigurationTests
     {
         public List<byte[]> Applied { get; } = [];
 
-        public ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command)
+        public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command)
         {
             Applied.Add(command.ToArray());
             return ReadOnlyMemory<byte>.Empty;

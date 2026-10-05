@@ -12,24 +12,92 @@ namespace Raft.Kv;
 /// "-" for an absent value. An empty command is a leader's no-op (P4 decision 6) and changes
 /// nothing. A malformed command is applied as nothing and answered "error": the log may hold any
 /// bytes a client sent, and every node must treat them alike.
+/// Sessions (P8-01, phase 8 decisions 2 and 3): `Register|` opens a session named by its entry's
+/// index and answers "ok|index"; `Session|id|seq|command` applies the command once per sequence
+/// number: a number above the session's latest is applied and its reply kept, the latest again
+/// returns the kept reply without applying, a lower one is refused ("stale|"), an unknown session
+/// is refused ("unknown-session|"). At most <see cref="MaxSessions"/> sessions; a `Register` past it
+/// is refused ("sessions-full|"). Sessions never expire in phase 8 (the register's row).
 /// </summary>
 public sealed class KvStateMachine : IStateMachine
 {
+    /// <summary>The largest legitimate number of sessions (P8-01, the reviewer's addition to decision 3).</summary>
+    public const int MaxSessions = 1_000_000;
+
     private readonly Dictionary<string, string> _state = new(StringComparer.Ordinal);
+    private readonly Dictionary<long, Session> _sessions = [];
+
+    private sealed record Session(long Sequence, string Reply);
 
     public int Count => _state.Count;
 
-    public ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command)
+    public int Sessions => _sessions.Count;
+
+    /// <summary>A command with no index to name a session by: anything but `Register`.</summary>
+    public ReadOnlyMemory<byte> Apply(ReadOnlyMemory<byte> command) => Apply(0, command);
+
+    public ReadOnlyMemory<byte> Apply(long index, ReadOnlyMemory<byte> command)
     {
         if (command.Length == 0)
         {
             return ReadOnlyMemory<byte>.Empty;
         }
 
-        var p = Encoding.ASCII.GetString(command.Span).Split('|');
+        var text = Encoding.ASCII.GetString(command.Span);
+        if (text == "Register|")
+        {
+            if (index < 1)
+            {
+                return Encoding.ASCII.GetBytes("error");
+            }
+
+            if (_sessions.Count >= MaxSessions)
+            {
+                return Encoding.ASCII.GetBytes("sessions-full|");
+            }
+
+            _sessions[index] = new Session(0, "");
+            return Encoding.ASCII.GetBytes("ok|" + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        var s = text.Split('|', 4);
+        if (s.Length == 4 && s[0] == "Session")
+        {
+            if (!long.TryParse(s[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id)
+                || !long.TryParse(s[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var sequence))
+            {
+                return Encoding.ASCII.GetBytes("error");
+            }
+
+            if (!_sessions.TryGetValue(id, out var session))
+            {
+                return Encoding.ASCII.GetBytes("unknown-session|");
+            }
+
+            if (sequence == session.Sequence)
+            {
+                return Encoding.ASCII.GetBytes(session.Reply);
+            }
+
+            if (sequence < session.Sequence)
+            {
+                return Encoding.ASCII.GetBytes("stale|");
+            }
+
+            var reply = Execute(s[3]);
+            _sessions[id] = new Session(sequence, reply);
+            return Encoding.ASCII.GetBytes(reply);
+        }
+
+        return Encoding.ASCII.GetBytes(Execute(text));
+    }
+
+    private string Execute(string text)
+    {
+        var p = text.Split('|');
         if (p.Length < 2)
         {
-            return Encoding.ASCII.GetBytes("error");
+            return "error";
         }
 
         var present = _state.TryGetValue(p[1], out var current);
@@ -65,7 +133,7 @@ public sealed class KvStateMachine : IStateMachine
                 break;
         }
 
-        return Encoding.ASCII.GetBytes(reply);
+        return reply;
     }
 
     /// <summary>
@@ -86,6 +154,18 @@ public sealed class KvStateMachine : IStateMachine
             PutText(b, _state[key]);
         }
 
+        // The session table (P8-01, spec §5 item 6), after the keys: its count, then each session in
+        // ascending id, its id and sequence number in 8 bytes each and its kept reply.
+        Put(b, _sessions.Count);
+        var ids = new List<long>(_sessions.Keys);
+        ids.Sort();
+        foreach (var id in ids)
+        {
+            PutLong(b, id);
+            PutLong(b, _sessions[id].Sequence);
+            PutText(b, _sessions[id].Reply);
+        }
+
         return b.ToArray();
     }
 
@@ -102,6 +182,28 @@ public sealed class KvStateMachine : IStateMachine
             var key = GetText(span, ref at);
             _state[key] = GetText(span, ref at);
         }
+
+        _sessions.Clear();
+        var sessions = at < span.Length ? Get(span, ref at) : 0;
+        for (var i = 0; i < sessions; i++)
+        {
+            var id = GetLong(span, ref at);
+            var sequence = GetLong(span, ref at);
+            _sessions[id] = new Session(sequence, GetText(span, ref at));
+        }
+    }
+
+    private static void PutLong(List<byte> b, long v)
+    {
+        Put(b, (int)(v >> 32));
+        Put(b, (int)v);
+    }
+
+    private static long GetLong(ReadOnlySpan<byte> s, ref int at)
+    {
+        var high = (long)(uint)Get(s, ref at);
+        var low = (long)(uint)Get(s, ref at);
+        return (high << 32) | low;
     }
 
     private static void Put(List<byte> b, int v)

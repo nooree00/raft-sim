@@ -1,0 +1,6 @@
+description: The session table left out of the snapshot: a node restored from it forgets every session, and a retry after compaction is refused or applied again (P8-01, spec §5 item 6)
+mechanism: the snapshot writes no sessions
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SessionTests.TheSessionTableIsInTheSnapshot
+expect: caught
