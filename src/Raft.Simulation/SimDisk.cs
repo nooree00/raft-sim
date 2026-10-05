@@ -171,11 +171,11 @@ public sealed class SimDisk
                 _durable[w.File] = buf;
                 break;
             case PersistRename r:
-                if (_durable.Remove(r.File, out var content))
-                {
-                    _durable[r.To] = content;
-                }
-
+                // A rename whose source data never became durable leaves an empty file under the
+                // real name (P7-00): a real file system can make the rename durable without the data,
+                // and the model may be stricter than reality, never laxer. Until P7-00 this was a
+                // no-op, a state no real crash is limited to.
+                _durable[r.To] = _durable.Remove(r.File, out var content) ? content : [];
                 break;
             case PersistTruncate t:
                 if (_durable.TryGetValue(t.File, out var cur) && cur.Length > t.Length)

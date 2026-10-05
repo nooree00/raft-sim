@@ -1,0 +1,7 @@
+description: The world issues a rename at once instead of holding it until every earlier write is durable (P7-00, phase 7 decision 1)
+mechanism: the rename barrier is skipped
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RenameBarrierTests.WithoutTheBarrierACrashLeavesAnEmptyFileUnderTheRealName
+reason: Assert.Equal() Failure
+expect: caught

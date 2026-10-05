@@ -1,11 +1,11 @@
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -666,7 +666,7 @@
+@@ -689,7 +689,7 @@
      /// <summary>The persist barrier: release held effects, in order, whose barrier write is durable.</summary>
      private void Release(Host h)
      {
 -        var violate = _now < h.ViolateBarrierUntil;
 +        var violate = _now < h.ViolateBarrierUntil && false;
-         while (h.Held.Count > 0 && (violate || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
+         while (h.Held.Count > 0 && ((violate && h.Held.Peek().Effect is not Persist) || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
          {
              var held = h.Held.Dequeue();

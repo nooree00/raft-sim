@@ -244,7 +244,12 @@ public sealed class Simulator
 
     public IReadOnlyList<SimDisk> Disks => _hosts.Select(h => h.Disk).ToList();
 
-    /// <summary>An effect the barrier holds until write <c>Barrier</c> is durable, and the step that emitted it.</summary>
+    /// <summary>
+    /// An effect the barrier holds until write <c>Barrier</c> is durable, and the step that emitted it.
+    /// A send or response waits for every persist emitted before it; a rename too (P7-00, the fsync
+    /// before the rename that the node cannot do); a persist emitted after a held rename waits its turn
+    /// behind it (barrier 0), so the node's writes reach the disk in the order it emitted them.
+    /// </summary>
     private sealed class HeldEffect(Effect effect, long barrier, long step)
     {
         public Effect Effect { get; } = effect;
@@ -265,8 +270,11 @@ public sealed class Simulator
 
         public SimDisk Disk { get; } = new();
 
-        /// <summary>Sends and client responses waiting for every earlier persist to be durable.</summary>
+        /// <summary>Sends, client responses and renames waiting for every earlier persist to be durable, and the persists behind a held rename.</summary>
         public Queue<HeldEffect> Held { get; } = new();
+
+        /// <summary>Persists in <see cref="Held"/>, not yet issued to the disk: barriers count them as emitted.</summary>
+        public int HeldPersists { get; set; }
 
         public long LastTick { get; set; }
 
@@ -523,6 +531,7 @@ public sealed class Simulator
         h.Backlog.Clear();
         var dropped = h.Held.Count;
         h.Held.Clear();
+        h.HeldPersists = 0;
         var draws = _streams.For(Purpose("crash", h.Id, null, h.Incarnation));
         var disk = h.Disk.Crash(loss, draws.NextUInt64);
         Trace.Add(_now, h.Id.ToString(), "CRASH", [("loss", (object)loss.ToString()), .. disk, ("unsent", dropped)]);
@@ -583,26 +592,19 @@ public sealed class Simulator
         {
             switch (e)
             {
+                case PersistRename r when !_config.ReleaseRenamesEarly:
+                    h.Held.Enqueue(new HeldEffect(r, h.Disk.IssuedCount + h.HeldPersists, Steps));
+                    h.HeldPersists++;
+                    break;
+                case Persist p when h.HeldPersists > 0:
+                    h.Held.Enqueue(new HeldEffect(p, 0, Steps));
+                    h.HeldPersists++;
+                    break;
                 case Persist p:
-                    var latency = Between("disk:" + h.Id, (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
-                    if (_now < h.SlowUntil)
-                    {
-                        latency = System.Math.Max(latency, h.SlowLatency);
-                    }
-
-                    var w = h.Disk.Issue(p, _now + latency);
-                    Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
-                    if (Observe)
-                    {
-                        _observations.Add(new IssuedObservation(_now, h.Id, p, Steps));
-                    }
-
-                    Count(_effects, p.GetType());
-                    At(w.CompleteAt, () => CompleteWrite(h, w));
-                    CheckArmedCrashes(h);
+                    IssuePersist(h, p, Steps);
                     break;
                 case Send or ClientResponse:
-                    h.Held.Enqueue(new HeldEffect(e, h.Disk.IssuedCount, Steps));
+                    h.Held.Enqueue(new HeldEffect(e, h.Disk.IssuedCount + h.HeldPersists, Steps));
                     break;
                 case Emit ev:
                     Count(_effects, typeof(Emit));
@@ -619,6 +621,26 @@ public sealed class Simulator
         }
 
         Release(h);
+    }
+
+    private void IssuePersist(Host h, Persist p, long step)
+    {
+        var latency = Between("disk:" + h.Id, (ulong)h.Disk.IssuedCount, _config.MinDiskLatency, _config.MaxDiskLatency);
+        if (_now < h.SlowUntil)
+        {
+            latency = System.Math.Max(latency, h.SlowLatency);
+        }
+
+        var w = h.Disk.Issue(p, _now + latency);
+        Trace.Add(_now, h.Id.ToString(), "PERSIST", ("seq", w.Seq), ("op", p.GetType().Name), ("file", p.File));
+        if (Observe)
+        {
+            _observations.Add(new IssuedObservation(_now, h.Id, p, step));
+        }
+
+        Count(_effects, p.GetType());
+        At(w.CompleteAt, () => CompleteWrite(h, w));
+        CheckArmedCrashes(h);
     }
 
     private void CompleteWrite(Host h, SimDisk.PendingWrite w)
@@ -668,11 +690,20 @@ public sealed class Simulator
     private void Release(Host h)
     {
         var violate = _now < h.ViolateBarrierUntil;
-        while (h.Held.Count > 0 && (violate || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
+        while (h.Held.Count > 0 && ((violate && h.Held.Peek().Effect is not Persist) || h.Held.Peek().Barrier <= h.Disk.CompletedCount))
         {
             var held = h.Held.Dequeue();
             var effect = held.Effect;
-            if (effect is Send s)
+            if (effect is Persist p)
+            {
+                h.HeldPersists--;
+                IssuePersist(h, p, held.Step);
+                if (h.Node is null)
+                {
+                    return; // an armed crash fired on the write
+                }
+            }
+            else if (effect is Send s)
             {
                 Count(_effects, typeof(Send));
                 Transmit(h.Id, s, held.Step);

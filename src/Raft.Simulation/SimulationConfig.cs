@@ -32,4 +32,11 @@ public sealed record SimulationConfig
 
     /// <summary>A client gives up on an operation after this long; it is then recorded as indeterminate.</summary>
     public long ClientTimeout { get; init; } = 500;
+
+    /// <summary>
+    /// Positive control only (P7-00): renames are issued at once instead of waiting behind the rename
+    /// barrier for every earlier write to be durable. A crash can then keep a rename and lose the
+    /// write it depends on, which the disk models as an empty file under the real name.
+    /// </summary>
+    public bool ReleaseRenamesEarly { get; init; }
 }

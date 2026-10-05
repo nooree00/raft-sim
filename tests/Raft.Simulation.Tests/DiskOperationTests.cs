@@ -131,11 +131,16 @@ public sealed class DiskOperationTests
         Assert.Equal("AAAA", Read(synced, "f"));
     }
 
+    /// <summary>
+    /// Pending: write the temp file, rename it over the snapshot; a crash keeps only the rename. A real
+    /// file system can make the rename durable without the data, and the model may be stricter than
+    /// reality, never laxer (P7-00, phase 7 decision 1): the snapshot is left empty. Until P7-00 this
+    /// test asserted the snapshot untouched, the lenient model the reviewer's decision replaced; the
+    /// world's rename barrier is what keeps a node clear of this state (RenameBarrierTests).
+    /// </summary>
     [Fact]
-    public void ReorderedSurvivorsApplyInIssueOrderEvenWhenARenameDependsOnALostWrite()
+    public void ARenameWhoseSourceWriteWasLostLeavesAnEmptyFileUnderTheRealName()
     {
-        // Pending: write the temp file, rename it over the snapshot. If only the rename survives,
-        // it renames whatever temp file is durable — here none — and the snapshot must be untouched.
         var d = Disk(new PersistAppend("snap", B("old")));
         d.Issue(new PersistAppend("snap.tmp", B("new")), 10);
         d.Issue(new PersistRename("snap.tmp", "snap"), 11);
@@ -143,7 +148,7 @@ public sealed class DiskOperationTests
 
         d.Crash(DiskLoss.Reordered, draws.Dequeue);
 
-        Assert.Equal("old", Read(d, "snap"));
+        Assert.Equal("", Read(d, "snap"));
         Assert.Null(Read(d, "snap.tmp"));
     }
 }

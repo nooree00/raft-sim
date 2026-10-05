@@ -1,0 +1,6 @@
+description: The world holds renames and never releases them: every safety check passes and no rename ever happens (P7-00)
+mechanism: a held rename's barrier can never be met
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RenameBarrierTests.ARenameWaitsForEveryEarlierWriteAndThenHappens
+expect: caught

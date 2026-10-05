@@ -58,6 +58,14 @@ node never waits, the world holds the message back. Consequences:
   AppendEntries carrying the entry, and so every acknowledgement of it, follows the persist.
 - The simulator can violate the barrier deliberately (a positive-control mode), and phase 3's
   invariants must then go red.
+- **A rename waits too** (phase 7, decision 1): the world holds a `PersistRename` until every persist
+  the node emitted before it is durable, and a persist emitted after a held rename waits behind it,
+  so the node's writes reach the disk in the order it emitted them. This is the fsync before the
+  rename (spec §8) done where the barrier already lives; the node still never waits. It is a
+  simplification, not the contract: a real file system can make a rename durable without the data,
+  and the barrier assumes the I/O layer prevents that (spec §8's known limit, the register's
+  phase-10 row). The disk models a rename whose source data was lost as an empty file under the
+  real name, and a positive-control mode releases renames early to show it (P7-00).
 
 Durability, as the simulator models it: each persist completes after a (possibly slow) disk
 latency; completed writes are durable. On a crash, writes still pending are lost; the fault modes

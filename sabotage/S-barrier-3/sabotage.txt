@@ -1,0 +1,7 @@
+description: The disk model lenient again: a rename whose source write was lost is a no-op, a state no real crash is limited to, and the control can no longer show the hazard the barrier exists for (P7-00)
+mechanism: a rename of a missing source leaves the real file untouched
+kind: test
+project: tests/Raft.Simulation.Tests
+target: Raft.Simulation.Tests.RenameBarrierTests.WithoutTheBarrierACrashLeavesAnEmptyFileUnderTheRealName
+reason: the control shows nothing
+expect: caught

@@ -1,0 +1,11 @@
+--- a/src/Raft.Simulation/SimDisk.cs
++++ b/src/Raft.Simulation/SimDisk.cs
+@@ -175,7 +175,7 @@
+                 // real name (P7-00): a real file system can make the rename durable without the data,
+                 // and the model may be stricter than reality, never laxer. Until P7-00 this was a
+                 // no-op, a state no real crash is limited to.
+-                _durable[r.To] = _durable.Remove(r.File, out var content) ? content : [];
++                if (_durable.Remove(r.File, out var content)) { _durable[r.To] = content; }
+                 break;
+             case PersistTruncate t:
+                 if (_durable.TryGetValue(t.File, out var cur) && cur.Length > t.Length)

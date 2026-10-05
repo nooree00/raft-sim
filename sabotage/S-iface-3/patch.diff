@@ -1,7 +1,7 @@
 --- a/src/Raft.Simulation/Simulator.cs
 +++ b/src/Raft.Simulation/Simulator.cs
-@@ -601,6 +601,11 @@
-                     CheckArmedCrashes(h);
+@@ -604,6 +604,11 @@
+                     IssuePersist(h, p, Steps);
                      break;
                  case Send or ClientResponse:
 +                    if (e is ClientResponse early)
@@ -9,10 +9,10 @@
 +                        _responses.Add(new ClientReply(_now, h.Id, early.RequestId, early.Payload));
 +                    }
 +
-                     h.Held.Enqueue(new HeldEffect(e, h.Disk.IssuedCount, Steps));
+                     h.Held.Enqueue(new HeldEffect(e, h.Disk.IssuedCount + h.HeldPersists, Steps));
                      break;
                  case Emit ev:
-@@ -681,7 +686,6 @@
+@@ -713,7 +718,6 @@
                  // Until P2-03 this branch did not exist: every client response was dropped here.
                  Count(_effects, typeof(ClientResponse));
                  Trace.Add(_now, h.Id.ToString(), "RESPONSE", ("request", r.RequestId), ("len", r.Payload.Length), ("h", SimDisk.HashBytes(r.Payload.Span)));

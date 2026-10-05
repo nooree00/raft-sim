@@ -1,0 +1,11 @@
+--- a/src/Raft.Simulation/Simulator.cs
++++ b/src/Raft.Simulation/Simulator.cs
+@@ -593,7 +593,7 @@
+             switch (e)
+             {
+                 case PersistRename r when !_config.ReleaseRenamesEarly:
+-                    h.Held.Enqueue(new HeldEffect(r, h.Disk.IssuedCount + h.HeldPersists, Steps));
++                    h.Held.Enqueue(new HeldEffect(r, long.MaxValue, Steps));
+                     h.HeldPersists++;
+                     break;
+                 case Persist p when h.HeldPersists > 0:

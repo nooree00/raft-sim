@@ -105,7 +105,7 @@ nothing.
 
 - **Task:** Decision 1: the world holds a `PersistRename` until every persist the node emitted before it is durable, in the simulator and in node-interface §4. A simulator control mode releases renames early; with it, a construction (a temporary file written, then renamed, then a crash keeping the rename and losing the write) must leave the node unable to recover what the write held.
 - **Vacuity:** A rename that is never issued with a write still in flight never meets the barrier; guarded by the construction asserting the write was pending when the rename was issued. A barrier that holds renames and never releases them passes every safety check and loses every compaction; guarded by asserting the rename completes once the write does. Sabotages: S-barrier-1, the barrier skipped for renames (the construction recovers an empty file); S-barrier-2, renames held forever (the release assertion).
-- **Sabotage:** S-barrier-1, S-barrier-2
+- **Sabotage:** S-barrier-1, S-barrier-2, S-barrier-3
 - **Verifiable here:** yes — `SimDisk`, the simulator and constructions run locally
 - **Prediction:** Without the barrier, the construction recovers nothing under the renamed name: today's rename of a missing source is a no-op, so the old file survives, and the case only goes red once the model also stops being lenient, which is decision 1's other half. So the control mode has to model the real hazard (a rename durable before its source's data: an empty file under the real name), and with the barrier it can never arise. **Observable:** the construction with and without the barrier, and with the lenient and the strict model.
 - **Outcome:** pending
