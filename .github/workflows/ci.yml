@@ -1,225 +1,30 @@
-# All logic lives in scripts/; this file only sequences them. `gates preflight` checks this file:
-# the SDK image must equal ci/image.digest, other images and actions must be digest/SHA-pinned,
-# and nothing may suppress a failure.
+# P7-01 probe branch, never merged: KL-2's curve on the GitHub runner (the reviewer deletes the branch).
 name: ci
 
 on:
   push:
-    branches: ['**']
-  workflow_dispatch:
+    branches: ['claude/blissful-goodall-358smj-probe-kl2']
 
 permissions:
   contents: read
-  # gates reports / verify-run read workflow runs. Not needed while the repository is public
-  # (a probe without it succeeded), declared so the gate does not depend on that.
-  actions: read
 
 jobs:
-  build-core:
-    # Everything the build did except the sabotage harness, which runs sharded below (P2-01).
+  probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 90
     container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: preflight
-        run: scripts/ci-preflight.sh
       - name: build
         run: scripts/ci-build.sh
-      - name: gates
-        run: scripts/ci-gates.sh
-      - name: reports
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: scripts/ci-reports.sh
-      - name: test
-        run: scripts/ci-test.sh
-
-  sabotage:
-    # One job per harness shard of the head; the shard count comes from the manifest
-    # (ci/sabotage-shard-size.txt), and the harness itself refuses a count that disagrees with it.
-    needs: each-commit-list
-    name: sabotage ${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ${{ fromJSON(needs.each-commit-list.outputs.shards) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      CI: 'true'
-      SABOTAGE_SHARD: ${{ matrix.shard }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: build
-        run: scripts/ci-build.sh
-      - name: harness shard
-        run: scripts/ci-sabotage.sh
-
-  soak:
-    # Invariants 1, 8, 9 and 11 over 10,000 generated executions (P3-08, spec §12). Required through
-    # the build collect job below; never waived.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: build
-        run: scripts/ci-build.sh
-      - name: soak
-        run: scripts/ci-soak.sh
-
-  soak-membership:
-    # The membership soak (P6-12): 10,000 executions with membership changes, a soak of its own beside
-    # the baseline one, with its own floors and known limits. Required through the build collect job.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: build
-        run: scripts/ci-build.sh
-      - name: soak
-        run: scripts/ci-soak-membership.sh
-
-  build:
-    # The required check, name unchanged: build-core, one passing job per harness shard (the shard
-    # list recomputed from the manifest), and the two soaks. It always runs (a skipped required check
-    # counts as passing on GitHub).
-    needs: [each-commit-list, build-core, sabotage, soak, soak-membership]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      BUILD_CORE_RESULT: ${{ needs.build-core.result }}
-      GITHUB_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: build-core and every harness shard
-        run: scripts/ci-build-collect.sh
-
-  each-commit-list:
-    # The plan: the push's non-head commits and each one's harness shards, for the per-commit
-    # matrix, and the head's own shards, for the sabotage jobs. GitHub runs only a push's head.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      PUSH_BEFORE: ${{ github.event.before }}
-    outputs:
-      commits: ${{ steps.list.outputs.commits }}
-      count: ${{ steps.list.outputs.count }}
-      matrix: ${{ steps.list.outputs.matrix }}
-      shards: ${{ steps.list.outputs.shards }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: list
-        id: list
-        run: scripts/ci-each-commit-list.sh
-
-  each-commit-run:
-    # One job per (commit, harness shard), each running that commit's own scripts: shard 1 its
-    # preflight, build, gates, tests and harness share, other shards its build and harness share. A commit from before the gate scripts is classified pre-gate; its checks
-    # step is skipped, and the collect job reports it as pre-gate, not passed.
-    needs: each-commit-list
-    if: needs.each-commit-list.result == 'success' && needs.each-commit-list.outputs.count != '0'
-    name: commit ${{ matrix.commit }} ${{ matrix.shard }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.each-commit-list.outputs.matrix) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      CI: 'true'
-      COMMIT: ${{ matrix.commit }}
-      SHARD: ${{ matrix.shard }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: classify
-        id: classify
-        run: scripts/ci-commit.sh classify "$COMMIT"
-      - name: checks
-        if: steps.classify.outputs.kind == 'gated'
-        run: scripts/ci-commit.sh run "$COMMIT" "$SHARD"
-
-  each-commit:
-    # The required check. It always runs (a skipped required check counts as passing on GitHub)
-    # and requires exactly one result per commit in the range, recomputed here, not trusted from
-    # the list job.
-    needs: [each-commit-list, each-commit-run]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container: mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29
-    env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-      DOTNET_NOLOGO: '1'
-      PUSH_BEFORE: ${{ github.event.before }}
-      EACH_COMMIT_LIST: ${{ needs.each-commit-list.outputs.commits }}
-      EACH_COMMIT_LIST_RESULT: ${{ needs.each-commit-list.result }}
-      GITHUB_TOKEN: ${{ github.token }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: one result per commit
-        run: scripts/ci-each-commit-collect.sh
-
-  secrets:
-    # On the runner host: gitleaks runs as a digest-pinned container, which needs docker.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: host sabotages (secret scan, README walk)
-        run: scripts/host-sabotages.sh
-      - name: secret scan
-        run: scripts/secret-scan.sh
-
-  readme-walk:
-    # The README's cold-walk steps in a fresh copy, scrubbed environment, fresh container.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - name: README walk
-        run: scripts/readme-walk.sh
+      - name: memory
+        run: free -m
+      - name: curve
+        run: |
+          for b in 8000000 16000000 32000000 40000000; do
+            PROBE_OUT="$PWD/probe.txt" PROBE_BUDGET=$b dotnet test --project tests/Raft.Membership.Tests --no-build --filter-class "*ProbeKl2" -- --output Detailed 2>&1 | grep -E "PROBE|failed:|succeeded:|not KL-2" || true
+          done
+          cat probe.txt
