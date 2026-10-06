@@ -27,8 +27,11 @@ env -i HOME="$HOME" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbi
 rc=${PIPESTATUS[0]}
 set -e
 if [ "$rc" -ne 0 ]; then
-  # GitHub turns these into annotations: the last lines of the walk, readable where the log is not.
-  tail -15 "$log" | grep -v '^::' | sed 's/^/::error::readme-walk: /'
+  # GitHub turns these into annotations, readable where the log is not. It keeps ten per step, so
+  # the walk's failing lines and its tail go in one each, newlines encoded as %0A.
+  enc() { grep -v '^::' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}'; }
+  echo "::error::readme-walk failing lines:%0A$(grep -iE 'fail|error|exception|assert' "$log" | tail -30 | enc)"
+  echo "::error::readme-walk tail:%0A$(tail -40 "$log" | enc)"
   echo "readme-walk: stopped (exit $rc)"; exit "$rc"
 fi
 echo "readme-walk: completed"
