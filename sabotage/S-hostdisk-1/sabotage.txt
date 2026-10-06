@@ -1,0 +1,7 @@
+description: An appended record is not synced before the next effect: a send or a client response leaves while the persist before it may still be only in the page cache (P9-03)
+mechanism: a release before the persist before it is durable
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.NothingLeavesBeforeThePersistsBeforeItAreDurable
+reason: unsynced
+expect: caught

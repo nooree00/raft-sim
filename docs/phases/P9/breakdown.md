@@ -166,7 +166,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-hostdisk-1
 - **Verifiable here:** yes — on this machine's file system
 - **Prediction:** .NET has no managed call that syncs a directory: opening a directory as a file handle fails on Linux. So the rename test goes red first, on the directory sync, and the fix opens the directory with `open(2)` and calls `fsync(2)` through P/Invoke, inside `Raft.Host` only. **Observable:** the first red test and its exception.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the mechanism was right: the first implementation opened the directory with `File.OpenHandle` and `RandomAccess.FlushToDisk`, and on Linux the open fails with `UnauthorizedAccessException` ("Permission denied"). The fix is `open(2)` with `O_DIRECTORY`, `fsync(2)` and `close(2)` through `LibraryImport` in `Raft.Host` only. The test named was wrong: both tests went red at once, at the first directory sync after a file is *created*, before any rename. Creating a file needs the directory synced too, which the prediction did not count. With the fix, every send, client response and event in the recording test follows the sync of every persist before it and of the directory after every create, rename and delete. A candidate's persisted term and vote, executed on real files, are what recovery reads back. S-hostdisk-1, an append not synced, is caught by the recording test.
 
 ### P9-04 — The host: a real clock, peers and a client endpoint
 

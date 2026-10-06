@@ -1,0 +1,11 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -35,7 +35,6 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+                 case PersistAppend a:
+                     var created = !files.Exists(a.File);
+                     files.Append(a.File, a.Data.Span);
+-                    files.Sync(a.File);
+                     if (created)
+                     {
+                         files.SyncDirectory();

@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- TCP transport and process host (spec §4). -->
+  <PropertyGroup>
+    <!-- P9-03: the directory sync's P/Invoke (LibraryImport generates unsafe code). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../Raft.Kv/Raft.Kv.csproj" />
