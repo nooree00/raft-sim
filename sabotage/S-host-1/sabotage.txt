@@ -1,0 +1,7 @@
+description: The host's clock runs but its ticks never reach the node: no timer fires, no node stands, and nothing but a test calling the node directly could elect a leader (P9-04)
+mechanism: the clock's ticks never delivered
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.HostTests.ThreeHostsElectALeaderWithNobodyCallingAnything
+reason: no host became leader
+expect: caught

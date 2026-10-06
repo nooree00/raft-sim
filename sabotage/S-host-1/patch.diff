@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -170,7 +170,7 @@ public sealed class NodeHost : IAsyncDisposable
+                 var now = _clock.ElapsedMilliseconds;
+                 if (now > last)
+                 {
+-                    _inputs.Writer.TryWrite(new Tick(now - last));
++                    _ = now - last;
+                     last = now;
+                 }
+             }

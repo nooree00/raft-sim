@@ -175,7 +175,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-host-1
 - **Verifiable here:** yes — loopback, in a test process
 - **Prediction:** With a 10 ms timer and real scheduling, a heartbeat is sometimes late past the minimum election timeout on a loaded machine, and a follower stands while the leader is healthy. In a 30-second steady run of three hosts with no faults, the term goes above 1 at least once on this machine. **Observable:** the highest term of the steady run.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — in a 30-second steady run of three hosts with no faults, on this machine, the highest term reached 2 with one leader election: a follower's timer ran out while the leader was healthy, a heartbeat late past the minimum election timeout, and the follower stood; the disruption rule (P3-06) kept the others from voting for it, so the leader kept its office and the term only advanced on the candidate. The tests passed on their first run: three hosts elect a leader with nobody calling anything but the clock, a client registers, writes in its session, reads by ReadIndex and is redirected by a follower with the leader's id. In 5-second runs the term stays at 1. S-host-1, the ticks never delivered, leaves every host a follower and the first test red.
 
 ### P9-05 — A leader killed and restarted, in one test process, with the checker on the history
 
