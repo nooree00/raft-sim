@@ -1,6 +1,6 @@
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -458,7 +458,7 @@
+@@ -673,7 +673,7 @@
          }
  
          Save(effects);
@@ -9,7 +9,7 @@
          _pending[_log.LastIndex] = c.RequestId;
          var peers = Peers();
          for (var k = 0; k < peers.Count; k++)
-@@ -466,6 +466,8 @@
+@@ -681,6 +681,8 @@
              var peer = peers[k];
              SendAppend(peer, effects);
          }
@@ -17,4 +17,4 @@
 +        effects.Add(persist);
      }
  
-     /// <summary>
+     /// <summary>The P9-07 control: the entry appended and sent, and its client answered now, not at commit.</summary>

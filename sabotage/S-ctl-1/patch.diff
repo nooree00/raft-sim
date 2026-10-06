@@ -1,19 +1,17 @@
-diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -16,7 +16,7 @@ namespace Raft.Core;
+@@ -16,7 +16,7 @@
  /// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
  /// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
  /// </summary>
--public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = false)
-+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = true)
+-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = false, bool AnswerAtAppend = false)
++public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = true, bool AnswerAtAppend = false)
  {
      /// <summary>
      /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
-diff --git a/src/Raft.Kv/KvStateMachine.cs b/src/Raft.Kv/KvStateMachine.cs
 --- a/src/Raft.Kv/KvStateMachine.cs
 +++ b/src/Raft.Kv/KvStateMachine.cs
-@@ -21,7 +21,7 @@ namespace Raft.Kv;
+@@ -21,7 +21,7 @@
  /// the entry that last named it (ties by id), so every node evicts the same one; the evicted
  /// client's next command is refused "unknown-session|".
  /// </summary>

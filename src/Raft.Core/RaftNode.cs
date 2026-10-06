@@ -16,7 +16,7 @@ namespace Raft.Core;
 /// in every real configuration; it can be turned off only so that P3-06 and P4-06 can measure what
 /// the rule prevents. A node refuses options outside the bounds <see cref="Refusal"/> states (P4-09).
 /// </summary>
-public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = false)
+public sealed record RaftOptions(long ElectionTimeoutMin = 150, long ElectionTimeoutMax = 300, long HeartbeatInterval = 50, bool DisruptionRule = true, int MaxEntriesPerAppend = 64, int MaxCommandBytes = 1_048_576, int SnapshotThreshold = 1_000, int SnapshotChunkBytes = 65_536, bool CompactPastCommit = false, bool ReadsWithoutQuorum = false, bool AnswerAtAppend = false)
 {
     /// <summary>
     /// Heartbeats that fit in the shortest election timeout, at least: with three, one lost heartbeat
@@ -664,6 +664,14 @@ public sealed class RaftNode : INode
             return;
         }
 
+        // The positive control (P9-07): a session's write other than a compare-and-swap is answered
+        // when the leader appends it, before any follower holds it. Off in every real configuration.
+        if (_options.AnswerAtAppend && IsPlainSessionWrite(c.Payload.ToArray()))
+        {
+            AnswerAtAppend(c, effects);
+            return;
+        }
+
         Save(effects);
         effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
         _pending[_log.LastIndex] = c.RequestId;
@@ -673,6 +681,53 @@ public sealed class RaftNode : INode
             var peer = peers[k];
             SendAppend(peer, effects);
         }
+    }
+
+    /// <summary>The P9-07 control: the entry appended and sent, and its client answered now, not at commit.</summary>
+    private void AnswerAtAppend(ClientRequest c, List<Effect> effects)
+    {
+        Save(effects);
+        effects.Add(_log.Append(new List<LogEntry> { new(_term, c.Payload.ToArray()) }));
+        effects.Add(new ClientResponse(c.RequestId, Ascii("ok")));
+        var peers = Peers();
+        for (var k = 0; k < peers.Count; k++)
+        {
+            SendAppend(peers[k], effects);
+        }
+    }
+
+    /// <summary>`Session|…` whose command is not a `Cas`: what the P9-07 control answers at append, since its reply is "ok" whatever it applies to.</summary>
+    private static bool IsPlainSessionWrite(byte[] payload) => At(payload, 0, "Session|") && !Contains(payload, "|Cas|");
+
+    private static bool At(byte[] bytes, int offset, string text)
+    {
+        if (offset + text.Length > bytes.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (bytes[offset + i] != text[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool Contains(byte[] bytes, string text)
+    {
+        for (var i = 0; i + text.Length <= bytes.Length; i++)
+        {
+            if (At(bytes, i, text))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

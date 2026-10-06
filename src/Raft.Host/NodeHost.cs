@@ -50,6 +50,7 @@ public sealed class NodeHost : IAsyncDisposable
     private RaftNode? _node;
     private DiskExecutor? _executor;
     private long _requests;
+    private volatile bool _holdOutbound;
     private volatile int _role;
     private long _term;
 
@@ -59,6 +60,16 @@ public sealed class NodeHost : IAsyncDisposable
         _config = config;
         _events = events;
         _maxFrame = (int)Math.Min(int.MaxValue, ((long)config.Options.MaxEntriesPerAppend * (config.Options.MaxCommandBytes + 16)) + 1024);
+    }
+
+    /// <summary>
+    /// A test's hook (P9-07, phase 9 decision 8): while set, every frame to a peer is dropped, as if
+    /// the network had cut this host off from its peers but not from its clients.
+    /// </summary>
+    public bool HoldOutbound
+    {
+        get => _holdOutbound;
+        set => _holdOutbound = value;
     }
 
     /// <summary>The node's role after the last input it handled.</summary>
@@ -184,7 +195,7 @@ public sealed class NodeHost : IAsyncDisposable
 
     private void Send(Send s)
     {
-        if (_outbound.TryGetValue(s.To, out var queue))
+        if (!_holdOutbound && _outbound.TryGetValue(s.To, out var queue))
         {
             queue.Writer.TryWrite(Frames.Encode(s.Payload.Span));
         }

@@ -1,0 +1,7 @@
+description: The positive control on by default: every leader answers a session's write when it appends it, before any follower holds it, so a write answered by a leader that dies is lost (P9-07)
+mechanism: writes answered at append by default
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.ControlTests.TheRealHostNeverAnswersTheHeldWriteAndTheCheckerAcceptsTheHistory
+reason: the real host answered a write only it held
+expect: caught
