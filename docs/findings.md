@@ -865,3 +865,51 @@ finding: what happened, why no existing check caught it, what now catches it.
   mistakes that break a push. *Rule* (reviewer): before deciding whether a rule is too expensive to
   keep, measure which part of it is expensive; the rule may be cheap once that part moves.
 
+
+## Phase 8
+
+- **The undecided histories were made by how retries were recorded.** Until P8-00 a retry was a new
+  operation with the same bytes, and a retry the client gave up on was indeterminate, open to the
+  end of the history, concurrent with everything after it. With sessions a retry is one operation,
+  answered by whichever attempt was answered. The baseline soak's checking time fell from 399 s to
+  5 s, the hardest decided history from 21,232,723 states to 2,477, and KL-3, seed 8741's key k5, has
+  been undecided with three histories since phase 6 and is now decided in at most 103 states over its
+  keys. I had predicted it would stay undecided (P8-09), reasoning that a hardness surviving two
+  workload changes was not timing; it was not timing, it was the recording. No check could have
+  caught this earlier: the checker was right about every history it was given, and the histories
+  were as hard as they looked. *Rule:* before measuring what makes a check expensive, ask whether the
+  input's shape is the system's or the recorder's. Phase 11's structural-measure row now has no
+  undecided key from either soak to measure against.
+- **A server path the workload could not reach.** The stale-sequence dimension was at 0 in both
+  300-execution samples. A sequential client never sends a number below its latest, and network
+  delay is short against the client's timeout, so the state machine's `stale|` path was exercised
+  only by the unit tests. The floor found it, as floors are meant to; nothing had predicted it. The
+  session clients now send a late duplicate every 16th sequence number when the two before it were
+  answered (177 of 300 executions). The first version sent it whatever its original's fate, and a
+  copy of an unanswered command closed that operation after the client had moved on (a malformed
+  history at seed 1). *Rule:* a code path the generator cannot reach is tested only by its unit
+  tests; a dimension at zero is a question about the generator before it is one about rarity.
+- **A sabotage made vacuous by a change upstream of its patch.** S-lin-4 answers a write at append.
+  Its patch keyed on the first byte of the command, and from P8-02 every write starts `Session|` and
+  every registration `Register|`, so registrations were answered `ok` with no session in them, no
+  client ever held a session, and no write was sent. Its target checked forty histories of reads
+  alone and accepted them; the soak sample's content floors, its neighbours, went red. Found before
+  the push by running the 94 sabotages whose patches touch the changed files; the harness shards run
+  in CI only, so otherwise CI's per-commit jobs would have found it, on the branch. The patch now
+  answers session writes, the target asserts that writes completed, and S-lin-7 is the patch as it
+  had become. *Rule:* a target must assert that what its sabotage removes is present, or a protocol
+  change that removes it for everyone turns the sabotage into a test of nothing.
+- **A positive control too rare for a floor in the sample.** A leader answering reads from its own
+  state is caught in 7 of 3,000 executions (one in the first 300): it needs a deposed leader still
+  reached by a client, or a new leader read before its no-op. A sample running to its third catch
+  stops at seed 1,418, and under a sabotage that slows executions it would run to its cap, which is
+  how phase 7's shard 10 went over its ceiling. The floor was kept and the sample replaced by the
+  three executions the measurement found it caught in, each also green with the real node, as the
+  budget tests name their seeds. *Rule:* when a check's natural rate is below its floor, name the
+  executions that show it, with the rate measured once beside them, rather than lowering the floor
+  or running the sample to the end.
+- **ReadIndex needs a wire field.** An acknowledgement confirms a read only if it answers a request
+  sent after the read arrived. Without a round number echoed in the response, the answer to a
+  heartbeat sent just before the read counts: S-read-4 is that variant, and the slow-follower
+  construction catches it, though no construction in the breakdown named it. *Rule:* "a heartbeat
+  round" in a description is a set of requests, and a set needs a name on the wire.

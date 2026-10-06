@@ -185,7 +185,7 @@ whenever a phase grows the harness.
 - **Sabotage:** ; manual: the comparison is made once against a run with a re-run job, to see its numbers differ and be refused
 - **Verifiable here:** partial — CI's numbers only in CI
 - **Prediction:** No harness shard passes 75% of its ceiling on GitHub, because the new entries go to every shard round-robin and no new sample test runs to the end. **Observable:** the slowest shard's harness clock in the certifying run.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — measured on run 37393582257 (the push of P8-00 to P8-09, head `6f5001d`), every one of its 123 jobs completed once, all green. No harness shard reached 75% of its ceiling. The slowest harness step was shard 9's, at 652 s of 900 (72%); the eleven ran 407 to 652 s, against phase 7's certifying run 37299866345, whose ten ran 329 to 729 s (shard 7's 729, 81%). The soaks' steps took 376 s (603 s at phase 7) and 607 s (1,261 s), with no undecided search to pay for. The per-commit matrix's longest job was 802 s (`12aafa1`, shard 1), against 1,053 s at phase 7. Locally, the run before the push took 650 s (11 minutes; 1,036 s at phase 7's acceptance), and at GitHub's ratio of 1.1 to 1.5 it would be 12 to 16 minutes. The reason given held only because of a change made during the phase: the read control's first sample did run toward its end (to seed 1,418, at most 3,000), and was replaced by three named executions (P8-08) before the push. The manual check: run 37146478876 (`cb77f08`) was re-run. Its first attempt skipped every shard, and its soak took 1,327 s in one attempt and 892 s in the other, on the same commit, so its numbers are refused as a comparison.
 
 ## Sabotage ids
 
