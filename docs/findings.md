@@ -984,9 +984,30 @@ finding: what happened, why no existing check caught it, what now catches it.
   orchestration causes is stamped on the side that bounds it correctly for the claim (after the
   kill, for "something was in flight when it happened"); and a guard that fails once on a correct
   run is a wrong guard until shown otherwise, never a flake.
-- **CI failed twice with no readable log.** Run 37504400672 failed the README walk and the host
+- **CI failed with no readable log, four times.** Run 37504400672 failed the README walk and the host
   sabotages; the job logs were not reachable from where the failure was diagnosed, and the
   annotations carried only exit codes. The leading hypothesis (root-owned files a non-root runner
   could not remove) was fixed without being confirmed, and the scripts now print their failure
   context as `::error::` lines, which reach the annotations. *Rule:* a CI step's failure says why in
   the one channel that is always readable.
+- **A free port asked of the system is free only until someone else asks.** The host tests' fixture
+  bound port 0, read the port, released it, and the host bound it later; a parallel test's outgoing
+  connection, drawing from the same ephemeral range, took it in the gap, and a host failed to start
+  with "Address already in use". It passed the phase's local runs and failed once locally. I took it for the
+  README walk's failure on GitHub, where the annotations showed every line but the cause; that was
+  the next finding, and the port race was its own.
+  Ports now come from below the ephemeral range, each handed out once per process. *Rule:* a test
+  resource is reserved by the test that uses it, not looked up and hoped for.
+- **A sequential client overlapped itself at the history's resolution.** The checker reads two
+  operations of one client as overlapping unless one's response is strictly before the other's
+  invoke. The real client stamps microseconds, and its next invoke can follow its last response
+  within one: each run had a handful of 1 µs gaps, and about one run in ten on a slow machine a
+  0 µs gap. KillTests then failed with "client 0 has overlapping operations", intermittently, in the
+  README walk and the build job on GitHub, and never in this phase's local runs until the container
+  was limited to 1.2 CPUs. The client now stamps its invoke after its last response, moved by at most
+  a microsecond: it is sequential, so that is when the invoke happened. It is phase 8's
+  finding again, carried into this phase's breakdown: a representation choice between the client and
+  the checker (here the history's unit) made a fact about the run (one client, one operation at a
+  time) unreadable to the checker, and the breakdown had listed what is stamped and by which clock,
+  not at what resolution. *Rule:* a recorded order the
+  recorder knows (program order) is stamped so the record keeps it, whatever the clock's resolution.
