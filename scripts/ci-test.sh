@@ -28,7 +28,11 @@ for name in "${projects[@]}"; do
     rc=$code
     # One annotation per project: each failing test and the lines after it, newlines as %0A
     # (GitHub keeps ten annotations per step, and the job log is not always readable).
-    echo "::error::$name failed:%0A$(grep -A8 '^failed ' "$out" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+    # Colour codes stripped (CI's output carries them, and a match anchored on "failed " found none).
+    sed -i 's/\x1b\[[0-9;]*[A-Za-z]//g' "$out"
+    lines="$(grep -E -A8 'failed [A-Za-z]|Assert|unexplained|problems' "$out" | head -60)"
+    [ -n "$lines" ] || lines="$(tail -40 "$out")"
+    echo "::error::$name failed:%0A$(printf '%s\n' "$lines" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
   fi
   rm -f "$out"
 done
