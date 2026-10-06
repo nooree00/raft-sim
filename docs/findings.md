@@ -934,3 +934,59 @@ finding: what happened, why no existing check caught it, what now catches it.
   heartbeat sent just before the read counts: S-read-4 is that variant, and the slow-follower
   construction catches it, though no construction in the breakdown named it. *Rule:* "a heartbeat
   round" in a description is a set of requests, and a set needs a name on the wire.
+
+## Phase 9
+
+- **A prediction about my own next mistake prevents it, and tests nothing.** Four of phase 9's
+  predictions named a mistake I expected to make in code not yet written: an LRU that misses cached
+  replies (P9-01), a frame reader that assumes one read per frame (P9-02), a client that retries at
+  once after a no-leader redirect (P9-06), a dial that gives up on an unresolved name (P9-08). Each
+  was written with the breakdown, before the code, and each mistake was then not made, because the
+  prediction had named it: four forcing outcomes, none of them evidence. The predictions that were
+  evidence were about things I do not write: the platform (no managed directory sync on Linux,
+  P9-03), real scheduling (a heartbeat late on a loaded machine, P9-04), the client's load through a
+  kill (P9-05), and real timing's rate of producing a lost write (P9-07). *Rule:* a prediction made
+  before the code should be about something the code cannot decide: the platform, the scheduler,
+  the workload, a rate. A prediction about the mistake I will make is a design note, and belongs in
+  the task text.
+- **A positive control whose signature needs real timing is rarely produced by real timing.** A
+  leader answering writes at append loses an answered write only when it dies holding one that no
+  follower has. Under three clients' load in Compose that happened in 1 of 10 runs (P9-07). The
+  construction, which holds the leader's traffic before the kill, makes it happen every time. The
+  Compose runs say the real system's history is accepted under a real kill; they say little about
+  whether the checker would see this bug in a run like them. *Rule:* for a bug that needs a narrow
+  window, the construction that opens the window is the check; the realistic run is a measurement of
+  how often the window opens.
+- **Creating a file needs the directory synced, not only renaming one.** P9-03's prediction named
+  the rename as the first place a directory sync would fail; the first failure was the first
+  *created* file. The disk executor now syncs the directory after a create, a rename and a delete.
+  The simulator never modelled a lost directory entry for a created file, only for a rename (P7-00),
+  so its crash testing could not have shown this. *Rule:* when a model leaves out a kind of loss,
+  the code written against it leaves out the handling, and the first real file system finds it.
+- **Renaming an assembly made every host sabotage read as "not compiled in".** The harness hashes
+  each project's assembly by the project's name; renaming `Raft.Host.dll` to `raft-host.dll` (P9-06)
+  left nothing to compare, and the harness refused the four host entries rather than calling them
+  caught or survived. The guard held: nothing was reported caught that was not run. The rename was
+  reverted. *Rule:* a check that refuses an input it cannot read is the reason a bad change is
+  visible at all; keep it refusing.
+- **A shared event log interleaved three hosts' lines.** P9-05's first run failed parsing an event:
+  three hosts wrote JSON lines to one `TextWriter`, each under its own lock, and `WriteLine` arrives
+  as characters, so lines interleaved. It was the test fixture, not the host (each host process
+  writes its own stdout). Fixed by making a whole line atomic in the fixture. Recorded because the
+  failure looked like a host bug for one run.
+- **A guard timed against the wrong side of the act it guards.** The Compose run's guard "an
+  operation spanned the kill" failed S-compose-1's baseline on a correct, linearizable run of 37,156
+  operations. The kill's time was stamped *before* `docker compose kill`; operations take about a
+  millisecond and the kill command far longer, so the attempt actually in flight at the kill began
+  after the stamp, and no attempt seemed to span it. The same guard's earlier failure at 25 s
+  (P9-08) was called a flake and answered by lengthening the run, which only made the coincidence
+  rarer. Now stamped after the kill returns, a time no earlier than the kill. *Rule:* an event the
+  orchestration causes is stamped on the side that bounds it correctly for the claim (after the
+  kill, for "something was in flight when it happened"); and a guard that fails once on a correct
+  run is a wrong guard until shown otherwise, never a flake.
+- **CI failed twice with no readable log.** Run 37504400672 failed the README walk and the host
+  sabotages; the job logs were not reachable from where the failure was diagnosed, and the
+  annotations carried only exit codes. The leading hypothesis (root-owned files a non-root runner
+  could not remove) was fixed without being confirmed, and the scripts now print their failure
+  context as `::error::` lines, which reach the annotations. *Rule:* a CI step's failure says why in
+  the one channel that is always readable.
