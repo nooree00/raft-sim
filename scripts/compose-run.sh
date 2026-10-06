@@ -50,8 +50,12 @@ echo "compose-run: the client's load for $seconds s"
 dc --profile client run -d --name raft-client --no-deps client client --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --clients 3 --seconds "$seconds" --timeout-ms 1000 --history /out/history.jsonl > /dev/null
 sleep 10
 read -r victim vstatus < <(wait_leader)
-killed="$(date +%s%3N)"
 dc kill -s SIGKILL "n$victim"
+# Stamped after the kill returns: the first moment it is known to have happened. Stamped before, the
+# attempt in flight at the real kill (operations take about a millisecond, the kill command far
+# longer) began after the stamp, and the guard that an operation spanned the kill failed on a
+# correct run (P9-08, twice: the "flake at 25 s", then S-compose-1's baseline).
+killed="$(date +%s%3N)"
 echo "n$victim $vstatus $killed" > "$RAFT_OUT/kill.txt"
 echo "compose-run: killed n$victim ($vstatus)"
 read -r next nstatus < <(wait_leader "$victim")

@@ -1,11 +1,11 @@
 diff --git a/scripts/compose-run.sh b/scripts/compose-run.sh
 --- a/scripts/compose-run.sh
 +++ b/scripts/compose-run.sh
-@@ -46,6 +46,7 @@ echo "compose-run: the client's load for $seconds s"
+@@ -50,6 +50,7 @@
  dc --profile client run -d --name raft-client --no-deps client client --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --clients 3 --seconds "$seconds" --timeout-ms 1000 --history /out/history.jsonl > /dev/null
  sleep 10
  read -r victim vstatus < <(wait_leader)
 +victim=$(( victim % 3 + 1 )); vstatus="$(status "$victim")"
- killed="$(date +%s%3N)"
  dc kill -s SIGKILL "n$victim"
- echo "n$victim $vstatus $killed" > "$RAFT_OUT/kill.txt"
+ # Stamped after the kill returns: the first moment it is known to have happened. Stamped before, the
+ # attempt in flight at the real kill (operations take about a millisecond, the kill command far
