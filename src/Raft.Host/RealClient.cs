@@ -73,15 +73,21 @@ public static class RealClient
         var sequence = 0L;
         var op = 0;
         var end = clock.Elapsed + config.Duration;
+        var lastResponse = -1L;
 
         // One attempt: the reply, or null when it was given up. The node may change by redirect.
         async Task<string?> AttemptAsync(string request)
         {
             var id = nextId();
-            var invoke = Micros(clock);
+            // After this client's last response, in the history as in fact (the client is sequential):
+            // read in microseconds, an invoke can equal that response when it follows within one, and
+            // the checker reads the two as overlapping (P9-05, about one run in ten on a slow runner).
+            var invoke = Math.Max(Micros(clock), lastResponse + 1);
             var wall = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var reply = await SendAsync(config.Nodes[target], request, config.Timeout, stop).ConfigureAwait(false);
-            record(new HistoryEntry(client, id, target.Value, request, invoke, reply is null ? null : Micros(clock), reply ?? "", wall));
+            long? response = reply is null ? null : Math.Max(Micros(clock), invoke);
+            lastResponse = response ?? Math.Max(Micros(clock), invoke);
+            record(new HistoryEntry(client, id, target.Value, request, invoke, response, reply ?? "", wall));
             return reply;
         }
 
