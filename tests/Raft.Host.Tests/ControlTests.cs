@@ -64,7 +64,7 @@ public sealed class ControlTests
     private static bool Linearizable(List<HistoryEntry> entries)
     {
         var history = ClientHistory.From(HostHistory.ToClientLog(entries));
-        Assert.Empty(history.Unexplained);
+        Assert.True(history.Unexplained.Count == 0, "unexplained replies: " + string.Join("; ", history.Unexplained.Take(5)));
         return WglChecker.Check(history.History, 32_000_000).IsLinearizable;
     }
 

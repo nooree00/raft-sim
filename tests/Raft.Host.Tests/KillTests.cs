@@ -96,8 +96,8 @@ public sealed class KillTests
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "kill-history.txt"), string.Join("\n",
             $"killed {victim} (leader of term {victimTerm}) at {killedAt} us; {entries.Count} attempts; most attempts of one operation {attempts}",
             $"history: {history.History.Count} operations, {history.Completed} completed, {history.Indeterminate} indeterminate, {history.Refused} refused, {history.Retries} retries") + "\n");
-        Assert.Empty(history.Unexplained);
-        Assert.Empty(History.Problems(history.History));
+        Assert.True(history.Unexplained.Count == 0, "unexplained replies: " + string.Join("; ", history.Unexplained.Take(5)));
+        Assert.True(History.Problems(history.History).Count == 0, "history problems: " + string.Join("; ", History.Problems(history.History).Take(5)));
         var verdict = WglChecker.Check(history.History, 32_000_000);
         Assert.True(verdict.IsLinearizable, $"{verdict.Verdict} at key {verdict.Key}");
     }

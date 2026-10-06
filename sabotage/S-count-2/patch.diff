@@ -1,11 +1,11 @@
 --- a/scripts/ci-test.sh
 +++ b/scripts/ci-test.sh
-@@ -19,7 +19,7 @@
-   for project in tests/*/*.csproj; do projects+=("$(basename "$project" .csproj)"); done
- fi
+@@ -21,7 +21,7 @@
  for name in "${projects[@]}"; do
--  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-trx --report-xunit-trx-filename "$name.trx" --results-directory TestResults || rc=$?
-+  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-junit --results-directory TestResults || rc=$?
- done
- dotnet tools/Raft.Gates/bin/Debug/net10.0/Raft.Gates.dll testcount --results TestResults "${scope[@]}"
- exit "$rc"
+   out="$(mktemp)"
+   set +e
+-  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-trx --report-xunit-trx-filename "$name.trx" --results-directory TestResults 2>&1 | tee "$out"
++  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-junit --results-directory TestResults 2>&1 | tee "$out"
+   code=${PIPESTATUS[0]}
+   set -e
+   if [ "$code" -ne 0 ]; then

@@ -19,7 +19,18 @@ else
   for project in tests/*/*.csproj; do projects+=("$(basename "$project" .csproj)"); done
 fi
 for name in "${projects[@]}"; do
-  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-trx --report-xunit-trx-filename "$name.trx" --results-directory TestResults || rc=$?
+  out="$(mktemp)"
+  set +e
+  dotnet test --project "tests/$name/$name.csproj" --no-build --report-xunit-trx --report-xunit-trx-filename "$name.trx" --results-directory TestResults 2>&1 | tee "$out"
+  code=${PIPESTATUS[0]}
+  set -e
+  if [ "$code" -ne 0 ]; then
+    rc=$code
+    # One annotation per project: each failing test and the lines after it, newlines as %0A
+    # (GitHub keeps ten annotations per step, and the job log is not always readable).
+    echo "::error::$name failed:%0A$(grep -A8 '^failed ' "$out" | head -60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+  fi
+  rm -f "$out"
 done
 dotnet tools/Raft.Gates/bin/Debug/net10.0/Raft.Gates.dll testcount --results TestResults "${scope[@]}"
 exit "$rc"

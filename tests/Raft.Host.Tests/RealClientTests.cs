@@ -91,6 +91,6 @@ public sealed class RealClientTests
         Assert.All(unanswered, e => Assert.Null(e.Response));
         var history = ClientHistory.From(HostHistory.ToClientLog(entries));
         Assert.True(history.Indeterminate >= 1 && history.Completed == 0, $"completed {history.Completed}, indeterminate {history.Indeterminate}: an unanswered attempt closed its operation");
-        Assert.Empty(History.Problems(history.History));
+        Assert.True(History.Problems(history.History).Count == 0, "history problems: " + string.Join("; ", History.Problems(history.History).Take(5)));
     }
 }
