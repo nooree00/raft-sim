@@ -1,6 +1,14 @@
 # Phase 8 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run 37399769642, the report's head, after run 37393582257 had
+passed every job of the phase's commits). Decisions at acceptance: the floor declarations approved;
+the read control on three named seeds rather than a sample approved (7 in 3,000 would run a sample
+to seed 1,418, and phase 7's shard 10 is what that does under a slowing sabotage); retiring
+`command-retried-and-duplicated` approved, one measurement wearing two names (the CRDT project's
+§13.30); P8-05 counted as forcing, the classification working as designed. The reviewer's reading of
+the phase's finding, recorded below in its own section: the hard histories were a representation
+artifact, and phases 5 and 6 measured it. Running the sabotages whose patches touch the changed
+files is to be made mechanical (phase 9's breakdown, P9-00).
 
 Client sessions and read-only queries (spec §11 phase 8, §5 item 6, paper §8): P8-00 to P8-10, as
 approved, in the breakdown's order. One task gained a sabotage the breakdown did not name (S-read-4,
@@ -62,6 +70,25 @@ most 103 states. A retry the client gave up on had been an indeterminate operati
 the history; one operation per (session, sequence) removes it. I predicted KL-3 would survive
 (P8-09). It did not, and phase 11's structural-measure row has no undecided key from either soak to
 measure against. This is the phase's finding.
+
+### What this means for phases 5 and 6 (added at acceptance)
+
+The hard histories were a representation artifact: a retry recorded as a separate operation, and a
+retry the client abandoned left open to the end of the history. Not Raft, not the workload, not a
+property of linearizability checking. **KL-1, KL-2 and KL-3, the budget curves, the 32,000,000-state
+probe and the known-limit machinery were all measuring a choice this project made.** The machinery is
+correct: it decided, recorded and refused exactly as specified, and it still guards the soaks. The
+measurements were honest: each history was as hard as reported, on the runner reported. And the
+structural finding of P5-05 still holds: cost is driven by observed indeterminate operations and how
+they overlap on one key. But the magnitude was ours. KL-1 was undecided at 32,000,000 states and
+12.5 GB; KL-2 and KL-3 from 8,000,000 to 40,000,000 states. Those are measurements of histories in
+which every abandoned retry was an extra operation concurrent with everything after it. **A reader
+should not take the 32,000,000-state wall as a fact about WGL checkers.** With retries recorded as
+the operations they are, the hardest history of 20,000 soak executions is decided in 2,477 states.
+
+The question that would have found it was never asked across two phases: before accepting an
+expensive measurement as a property of the system, which part of it is a representation choice?
+It is a finding in its own right (findings, phase 8).
 
 **A sabotage went vacuous through a change upstream of its patch.** S-lin-4 answers a write at
 append; its patch keyed on the command's first byte, and from P8-02 that answered registrations

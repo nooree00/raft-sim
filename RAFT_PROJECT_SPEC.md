@@ -326,7 +326,11 @@ So the checker is a separate deliverable.
   a retry is one operation, and ReadIndex reads) changed every history again, and
   both files are now empty: KL-3's seed is decided in at most 103 states over its
   keys, and neither soak's 10,000 executions has an undecided search (the hardest
-  decided histories: 2,477 states baseline, 2,336 membership).
+  decided histories: 2,477 states baseline, 2,336 membership). **The magnitudes
+  above measured a representation choice** (phase 8's acceptance): a retry recorded
+  as a separate operation, an abandoned one open to the end of the history. The
+  machinery and the measurements were sound, and observed indeterminate operations
+  still drive cost, but the 32,000,000-state wall is not a fact about WGL checkers.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct

@@ -880,6 +880,18 @@ finding: what happened, why no existing check caught it, what now catches it.
   were as hard as they looked. *Rule:* before measuring what makes a check expensive, ask whether the
   input's shape is the system's or the recorder's. Phase 11's structural-measure row now has no
   undecided key from either soak to measure against.
+- **Before accepting an expensive measurement as a property of the system, ask which part of it is
+  a representation choice** (reviewer, at phase 8's acceptance). KL-1, KL-2 and KL-3, the budget
+  curves, the 32,000,000-state probe and the known-limit machinery of phases 5 and 6 were all
+  measuring a choice this project made: a retry recorded as a separate operation, an abandoned one
+  open to the end of the history. The machinery was correct and the measurements honest, and P5-05's
+  structural finding (observed indeterminate operations drive cost) still holds; the magnitude was
+  ours, and the 32,000,000-state wall is not a fact about WGL checkers. The question was never asked
+  across two phases. Each phase took the previous phase's cost as given and built on it: a budget,
+  then a curve, then a recorded limit, then a phase (11) to explain it. Nothing in that sequence
+  looks at the recorder, because every step is downstream of it. *Rule:* when a measurement is
+  expensive enough to build machinery around, list the choices between the system and the number
+  (what is recorded, how it is keyed, what is left open) and change one before building.
 - **A server path the workload could not reach.** The stale-sequence dimension was at 0 in both
   300-execution samples. A sequential client never sends a number below its latest, and network
   delay is short against the client's timeout, so the state machine's `stale|` path was exercised
@@ -897,7 +909,11 @@ finding: what happened, why no existing check caught it, what now catches it.
   the push by running the 94 sabotages whose patches touch the changed files; the harness shards run
   in CI only, so otherwise CI's per-commit jobs would have found it, on the branch. The patch now
   answers session writes, the target asserts that writes completed, and S-lin-7 is the patch as it
-  had become. *Rule:* a target must assert that what its sabotage removes is present, or a protocol
+  had become. This is a new variant (reviewer): the `reason:` check verifies that the target fails
+  with the right message, and nothing verifies that the target still exercises anything, so a patch
+  that degrades its own target passes every guard the harness has. The manual step that found it is
+  to be made mechanical (P9-00): when a push changes a file any patch touches, those entries run
+  before it. *Rule:* a target must assert that what its sabotage removes is present, or a protocol
   change that removes it for everyone turns the sabotage into a test of nothing.
 - **A positive control too rare for a floor in the sample.** A leader answering reads from its own
   state is caught in 7 of 3,000 executions (one in the first 300): it needs a deposed leader still
