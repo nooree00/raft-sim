@@ -16,7 +16,7 @@ namespace Raft.Core.Tests;
 /// came from the other proves nothing, and a follower's snapshot came from a leader). The applied
 /// ghost ids are State Machine Safety's (P4-01, decision 5).
 /// </summary>
-internal sealed class AgreementProbe(bool deduplicate = true)
+internal sealed class AgreementProbe(bool deduplicate = true, int maxSessions = KvStateMachine.MaxSessions)
 {
     /// <summary>Never compacting in a test's lifetime: the largest threshold small commands allow.</summary>
     public static readonly RaftOptions Uncompacted = RaftOptions.Default with { MaxCommandBytes = 4_096, SnapshotThreshold = RaftOptions.LargestThresholdFor(4_096) };
@@ -26,7 +26,7 @@ internal sealed class AgreementProbe(bool deduplicate = true)
     /// <summary>A new state machine for a node's next incarnation, recorded.</summary>
     public IStateMachine For(NodeId node)
     {
-        var m = new Recorded(deduplicate);
+        var m = new Recorded(deduplicate, maxSessions);
         (_machines.TryGetValue(node, out var l) ? l : _machines[node] = []).Add(m);
         return m;
     }
@@ -42,7 +42,7 @@ internal sealed class AgreementProbe(bool deduplicate = true)
         {
             if (!replays.TryGetValue(index, out var bytes))
             {
-                var kv = new KvStateMachine();
+                var kv = new KvStateMachine(maxSessions: maxSessions);
                 for (var i = 0; i < index; i++)
                 {
                     if (committed[i].Length > 0 && !Configuration.IsInternal(committed[i]))
@@ -121,9 +121,9 @@ internal sealed class AgreementProbe(bool deduplicate = true)
 
     /// <summary>A key-value state machine that keeps the bytes of each snapshot it restored.</summary>
     /// <remarks><paramref name="deduplicate"/> false is the positive control's state machine (P8-08); the replay it is compared with always deduplicates.</remarks>
-    private sealed class Recorded(bool deduplicate) : IStateMachine
+    private sealed class Recorded(bool deduplicate, int maxSessions) : IStateMachine
     {
-        private readonly KvStateMachine _kv = new(deduplicate);
+        private readonly KvStateMachine _kv = new(deduplicate, maxSessions);
 
         public List<byte[]> Restores { get; } = [];
 

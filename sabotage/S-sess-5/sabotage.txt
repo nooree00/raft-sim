@@ -1,0 +1,6 @@
+description: A full session table evicts the session with the smallest id, the oldest registered, not the one used least recently: a busy old session is evicted while an idle newer one survives (P9-01)
+mechanism: eviction by the session's id, not its last use
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.SessionExpiryTests.AFullTableEvictsTheLeastRecentlyUsedSessionNotTheOldest
+expect: caught

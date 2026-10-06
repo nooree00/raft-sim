@@ -78,12 +78,16 @@ public sealed class SessionTests
         restored.Restore(kv.Snapshot());
 
         Assert.Equal(1, restored.Sessions);
+        Assert.Equal(kv.Snapshot().ToArray(), restored.Snapshot().ToArray());
         Assert.Equal("ok", Apply(restored, 9, "Session|4|1|Append|x|a"));
         Assert.Equal("ok|a", Get(restored, "x"));
-        Assert.Equal(kv.Snapshot().ToArray(), restored.Snapshot().ToArray());
     }
 
-    /// <summary>Equal tables give equal bytes, whatever order the sessions were registered and used in.</summary>
+    /// <summary>
+    /// Equal tables give equal bytes, whatever order the sessions were registered in. From P9-01 the
+    /// index of each session's last use is part of the table (it decides eviction), so the uses are at
+    /// the same indices in both.
+    /// </summary>
     [Fact]
     public void TheSnapshotsBytesAreCanonicalWithSessions()
     {
@@ -97,8 +101,8 @@ public sealed class SessionTests
         var c = new KvStateMachine();
         Apply(c, 9, "Register|");
         Apply(c, 3, "Register|");
-        Apply(c, 10, "Session|3|1|Put|x|1");
-        Apply(c, 11, "Session|9|1|Put|y|1");
+        Apply(c, 10, "Session|9|1|Put|y|1");
+        Apply(c, 11, "Session|3|1|Put|x|1");
 
         Assert.Equal(a.Snapshot().ToArray(), c.Snapshot().ToArray());
         Assert.Equal(a.Snapshot().ToArray(), b.Snapshot().ToArray());
@@ -107,11 +111,11 @@ public sealed class SessionTests
     /// <summary>
     /// The reviewer's addition to decision 3, a §10 limit test: exactly <see cref="KvStateMachine.MaxSessions"/>
     /// sessions register, each applies one command and keeps its reply, the snapshot round-trips, and
-    /// one more registration is refused. The snapshot's size is written beside the assembly, per
-    /// session and at the bound, for phase 9.
+    /// one more registration evicts the least recently used session (P9-01; refused at phase 8). The
+    /// snapshot's size is written beside the assembly, per session and at the bound.
     /// </summary>
     [Fact]
-    public void TheLargestSessionCountSnapshotsAndRestoresAndOneMoreIsRefused()
+    public void TheLargestSessionCountSnapshotsAndRestoresAndOneMoreEvictsTheLeastRecentlyUsed()
     {
         var watch = Stopwatch.StartNew();
         var kv = new KvStateMachine();
@@ -122,12 +126,16 @@ public sealed class SessionTests
             Apply(kv, KvStateMachine.MaxSessions + i, "Session|" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|1|Cas|k|-|v");
         }
 
-        Assert.Equal("sessions-full|", Apply(kv, (3L * KvStateMachine.MaxSessions) + 1, "Register|"));
         var snapshot = kv.Snapshot();
         var restored = new KvStateMachine();
         restored.Restore(snapshot);
         Assert.Equal(KvStateMachine.MaxSessions, restored.Sessions);
         Assert.Equal(snapshot.ToArray(), restored.Snapshot().ToArray());
+        var next = (3L * KvStateMachine.MaxSessions) + 1;
+        Assert.Equal("ok|" + next.ToString(System.Globalization.CultureInfo.InvariantCulture), Apply(restored, next, "Register|"));
+        Assert.Equal(KvStateMachine.MaxSessions, restored.Sessions);
+        Assert.Equal("unknown-session|", Apply(restored, next + 1, "Session|1|2|Cas|k|v|w"));
+        Assert.Equal("ok|false", Apply(restored, next + 2, "Session|2|1|Cas|k|-|v"));
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "session-limit.txt"), FormattableString.Invariant(
             $"{KvStateMachine.MaxSessions} sessions, each holding a Cas reply (\"ok|true\" or \"ok|false\"): snapshot {snapshot.Length} bytes ({empty} with none), {(snapshot.Length - empty) / (double)KvStateMachine.MaxSessions:F1} bytes per session; {watch.Elapsed.TotalSeconds:F1} s\n"));
     }

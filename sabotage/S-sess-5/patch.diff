@@ -1,0 +1,19 @@
+diff --git a/src/Raft.Kv/KvStateMachine.cs b/src/Raft.Kv/KvStateMachine.cs
+--- a/src/Raft.Kv/KvStateMachine.cs
++++ b/src/Raft.Kv/KvStateMachine.cs
+@@ -68,8 +68,13 @@ public sealed class KvStateMachine(bool deduplicate = true, int maxSessions = Kv
+ 
+             if (_sessions.Count >= maxSessions)
+             {
+-                var (_, evicted) = _byUse.Min;
+-                _byUse.Remove(_byUse.Min);
++                var evicted = long.MaxValue;
++                foreach (var k in _sessions.Keys)
++                {
++                    evicted = Math.Min(evicted, k);
++                }
++
++                _byUse.Remove((_sessions[evicted].LastUsed, evicted));
+                 _sessions.Remove(evicted);
+             }
+ 

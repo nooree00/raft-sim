@@ -13,12 +13,12 @@ diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
 diff --git a/src/Raft.Kv/KvStateMachine.cs b/src/Raft.Kv/KvStateMachine.cs
 --- a/src/Raft.Kv/KvStateMachine.cs
 +++ b/src/Raft.Kv/KvStateMachine.cs
-@@ -19,7 +19,7 @@ namespace Raft.Kv;
- /// is refused ("unknown-session|"). At most <see cref="MaxSessions"/> sessions; a `Register` past it
- /// is refused ("sessions-full|"). Sessions never expire in phase 8 (the register's row).
+@@ -21,7 +21,7 @@ namespace Raft.Kv;
+ /// the entry that last named it (ties by id), so every node evicts the same one; the evicted
+ /// client's next command is refused "unknown-session|".
  /// </summary>
--public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
-+public sealed class KvStateMachine(bool deduplicate = false) : IStateMachine
+-public sealed class KvStateMachine(bool deduplicate = true, int maxSessions = KvStateMachine.MaxSessions) : IStateMachine
++public sealed class KvStateMachine(bool deduplicate = false, int maxSessions = KvStateMachine.MaxSessions) : IStateMachine
  {
      /// <summary>The largest legitimate number of sessions (P8-01, the reviewer's addition to decision 3).</summary>
      public const int MaxSessions = 1_000_000;

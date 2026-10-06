@@ -148,7 +148,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-sess-5
 - **Verifiable here:** yes — constructions and the simulator
 - **Prediction:** My first implementation updates a session's last use only when a command is applied fresh, not when a retry is answered from the cache, so a session whose latest command was retried is evicted while an idle one survives. The construction that retries a command, then fills the table, goes red first. **Observable:** the first red construction by name.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — the retry construction passed on its first run: the first implementation counts every command naming a session as a use, cached replies and stale refusals included, because the prediction named the omission before the code was written. The first reds were two P8-01 tests, by design rather than by defect. The last use is now part of the table, so a snapshot taken before a retry no longer equals one taken after it, and two tables used at different indices no longer give equal bytes. Both tests were corrected to what they mean now (the canonical-bytes test still varies the registration order). The limit test at the bound: 1,000,000 sessions make a snapshot of 36,000,017 bytes, **36.0 bytes per session** (28 at phase 8: the last use adds 8). The 1,000,001st `Register` evicts session 1, the least recently used, and is answered. The sample at a bound of 2 for 3 clients: 100 executions, every invariant, the agreement check (its replay at the same bound) and linearizability hold in each; a session was evicted and its client registered again in all 100, with 2,588 `unknown-session|` refusals. S-sess-5, eviction by id, is caught by the first construction.
 
 ### P9-02 — The framed transport, with a checksum
 

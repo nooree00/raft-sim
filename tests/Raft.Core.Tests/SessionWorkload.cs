@@ -15,7 +15,9 @@ namespace Raft.Core.Tests;
 /// (decision 4: a read changes nothing). A timed-out session command is sent again, the same bytes,
 /// to the node the inner workload's retry draws, up to <see cref="Retries"/> times, and then given up
 /// (it stays indeterminate) and the client continues with its next sequence number. A timed-out or
-/// refused registration is not retried: the client registers again on its next operation.
+/// refused registration is not retried: the client registers again on its next operation. A command
+/// refused `unknown-session|` (its session evicted, P9-01) ends the session: the client registers
+/// again on its next operation, and a command it had outstanding stays as its history recorded it.
 /// A late duplicate (P8-07): when a client's next sequence number is a multiple of
 /// <see cref="LateEvery"/>, and the two numbers before it were both answered `ok`, it first sends
 /// again the command two numbers back, as a request the network delivered late would arrive: the
@@ -97,10 +99,16 @@ internal sealed class SessionWorkload(IClientWorkload inner, int universe) : ICl
             _sent[client] = [];
             _answered[client] = [];
         }
-        else if (ClientHistory.InSession(Encoding.ASCII.GetString(request.Span)) is { } k && _session.GetValueOrDefault(client) == k.Session
-            && (text == "ok" || text.StartsWith("ok|", StringComparison.Ordinal)))
+        else if (ClientHistory.InSession(Encoding.ASCII.GetString(request.Span)) is { } k && _session.TryGetValue(client, out var current) && current == k.Session)
         {
-            _answered[client].Add(k.Sequence);
+            if (text == "unknown-session|")
+            {
+                _session.Remove(client);
+            }
+            else if (text == "ok" || text.StartsWith("ok|", StringComparison.Ordinal))
+            {
+                _answered[client].Add(k.Sequence);
+            }
         }
     }
 }

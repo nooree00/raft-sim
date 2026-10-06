@@ -16,18 +16,33 @@ namespace Raft.Kv;
 /// index and answers "ok|index"; `Session|id|seq|command` applies the command once per sequence
 /// number: a number above the session's latest is applied and its reply kept, the latest again
 /// returns the kept reply without applying, a lower one is refused ("stale|"), an unknown session
-/// is refused ("unknown-session|"). At most <see cref="MaxSessions"/> sessions; a `Register` past it
-/// is refused ("sessions-full|"). Sessions never expire in phase 8 (the register's row).
+/// is refused ("unknown-session|"). At most <see cref="MaxSessions"/> sessions (P9-01, phase 9
+/// decision 5): a `Register` at the bound evicts the session used least recently, by the index of
+/// the entry that last named it (ties by id), so every node evicts the same one; the evicted
+/// client's next command is refused "unknown-session|".
 /// </summary>
-public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
+public sealed class KvStateMachine(bool deduplicate = true, int maxSessions = KvStateMachine.MaxSessions) : IStateMachine
 {
     /// <summary>The largest legitimate number of sessions (P8-01, the reviewer's addition to decision 3).</summary>
     public const int MaxSessions = 1_000_000;
 
     private readonly Dictionary<string, string> _state = new(StringComparer.Ordinal);
     private readonly Dictionary<long, Session> _sessions = [];
+    private readonly SortedSet<(long LastUsed, long Id)> _byUse = [];
 
-    private sealed record Session(long Sequence, string Reply);
+    private sealed record Session(long Sequence, string Reply, long LastUsed);
+
+    /// <summary>Sets a session, keeping the order of last use beside the table.</summary>
+    private void Set(long id, Session session)
+    {
+        if (_sessions.TryGetValue(id, out var old))
+        {
+            _byUse.Remove((old.LastUsed, id));
+        }
+
+        _sessions[id] = session;
+        _byUse.Add((session.LastUsed, id));
+    }
 
     public int Count => _state.Count;
 
@@ -51,12 +66,14 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
                 return Encoding.ASCII.GetBytes("error");
             }
 
-            if (_sessions.Count >= MaxSessions)
+            if (_sessions.Count >= maxSessions)
             {
-                return Encoding.ASCII.GetBytes("sessions-full|");
+                var (_, evicted) = _byUse.Min;
+                _byUse.Remove(_byUse.Min);
+                _sessions.Remove(evicted);
             }
 
-            _sessions[index] = new Session(0, "");
+            Set(index, new Session(0, "", index));
             return Encoding.ASCII.GetBytes("ok|" + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
 
@@ -74,11 +91,16 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
                 return Encoding.ASCII.GetBytes("unknown-session|");
             }
 
+            // Every command naming the session is a use, whatever its answer: applied, answered from
+            // the cache, or refused as stale.
+            session = session with { LastUsed = Math.Max(session.LastUsed, index) };
+            Set(id, session);
+
             // The positive control (P8-08): every session command applied, whatever its number.
             if (!deduplicate)
             {
                 var applied = Execute(s[3]);
-                _sessions[id] = new Session(Math.Max(sequence, session.Sequence), applied);
+                Set(id, new Session(Math.Max(sequence, session.Sequence), applied, session.LastUsed));
                 return Encoding.ASCII.GetBytes(applied);
             }
 
@@ -93,7 +115,7 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
             }
 
             var reply = Execute(s[3]);
-            _sessions[id] = new Session(sequence, reply);
+            Set(id, new Session(sequence, reply, session.LastUsed));
             return Encoding.ASCII.GetBytes(reply);
         }
 
@@ -173,7 +195,8 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
         }
 
         // The session table (P8-01, spec §5 item 6), after the keys: its count, then each session in
-        // ascending id, its id and sequence number in 8 bytes each and its kept reply.
+        // ascending id, its id, sequence number and last use in 8 bytes each (the last use from P9-01)
+        // and its kept reply.
         Put(b, _sessions.Count);
         var ids = new List<long>(_sessions.Keys);
         ids.Sort();
@@ -181,6 +204,7 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
         {
             PutLong(b, id);
             PutLong(b, _sessions[id].Sequence);
+            PutLong(b, _sessions[id].LastUsed);
             PutText(b, _sessions[id].Reply);
         }
 
@@ -202,12 +226,14 @@ public sealed class KvStateMachine(bool deduplicate = true) : IStateMachine
         }
 
         _sessions.Clear();
+        _byUse.Clear();
         var sessions = at < span.Length ? Get(span, ref at) : 0;
         for (var i = 0; i < sessions; i++)
         {
             var id = GetLong(span, ref at);
             var sequence = GetLong(span, ref at);
-            _sessions[id] = new Session(sequence, GetText(span, ref at));
+            var lastUsed = GetLong(span, ref at);
+            Set(id, new Session(sequence, GetText(span, ref at), lastUsed));
         }
     }
 

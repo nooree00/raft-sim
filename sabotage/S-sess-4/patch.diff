@@ -1,10 +1,11 @@
 --- a/src/Raft.Kv/KvStateMachine.cs
 +++ b/src/Raft.Kv/KvStateMachine.cs
-@@ -183,7 +183,6 @@
+@@ -225,7 +225,7 @@
              _state[key] = GetText(span, ref at);
          }
  
 -        _sessions.Clear();
++
+         _byUse.Clear();
          var sessions = at < span.Length ? Get(span, ref at) : 0;
          for (var i = 0; i < sessions; i++)
-         {
