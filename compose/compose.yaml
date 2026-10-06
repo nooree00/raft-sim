@@ -29,6 +29,9 @@ services:
   client:
     image: raft-host:local
     profiles: [client]
+    # The invoking user, so the history it writes into the host's directory is the user's to delete
+    # (on a non-root CI runner, a root-owned file stopped a worktree's removal).
+    user: "${RAFT_UID:-0}:${RAFT_GID:-0}"
     networks: [clients]
     volumes: ["${RAFT_OUT:?RAFT_OUT must be the run's output directory}:/out"]
 networks:

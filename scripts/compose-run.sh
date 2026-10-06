@@ -10,6 +10,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export SDK_IMAGE="$(cat ci/image.digest)"
 export RAFT_OUT="${RAFT_OUT:-$PWD/compose-out}"
+export RAFT_UID="${RAFT_UID:-$(id -u)}" RAFT_GID="${RAFT_GID:-$(id -g)}"
+# A failure says where, as a line GitHub turns into an annotation (CI's job logs are not always
+# readable where the failure is diagnosed).
+trap 'echo "::error::compose-run: line $LINENO: $BASH_COMMAND (exit $?)"' ERR
 seconds="${RAFT_COMPOSE_SECONDS:-40}"
 rm -rf "$RAFT_OUT" && mkdir -p "$RAFT_OUT"
 dc() { docker compose -f compose/compose.yaml "$@"; }
@@ -58,4 +62,11 @@ echo "compose-run: restarted n$victim; waiting for the load to end"
 docker wait raft-client > /dev/null
 dc logs --no-log-prefix n1 n2 n3 > "$RAFT_OUT/events.jsonl"
 echo "compose-run: check"
-scripts/in-sdk.sh dotnet run --project tools/Raft.Check -- "${RAFT_OUT#"$PWD"/}"
+set +e
+scripts/in-sdk.sh dotnet run --project tools/Raft.Check -- "${RAFT_OUT#"$PWD"/}" | tee "$RAFT_OUT/check.txt"
+rc=${PIPESTATUS[0]}
+set -e
+if [ "$rc" -ne 0 ]; then
+  grep -E '^FAIL|^linearizability|^history:|error' "$RAFT_OUT/check.txt" | sed 's/^/::error::compose-run check: /' || true
+fi
+exit "$rc"

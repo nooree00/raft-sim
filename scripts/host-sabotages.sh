@@ -15,13 +15,18 @@ for f in sabotage/*/sabotage.txt; do
   wt="$(mktemp -d)/wt"; git worktree add -q --detach "$wt" HEAD
   if [ -z "${passed[$base]:-}" ]; then
     if (cd "$wt" && bash -c "$base") >/tmp/host-sab.out 2>&1; then passed[$base]=1
-    else echo "$id: BASELINE FAILS"; tail -5 /tmp/host-sab.out; bad=1; git worktree remove --force "$wt"; continue; fi
+    else echo "$id: BASELINE FAILS"; tail -5 /tmp/host-sab.out; grep -E '::error::' /tmp/host-sab.out || true; echo "::error::host-sabotages: $id baseline fails: $(tail -3 /tmp/host-sab.out | tr '\n' ' ')"; bad=1
+      if [ "$(id -u)" != 0 ]; then docker run --rm -v "$wt:/w" "$(cat ci/image.digest)" chown -R "$(id -u):$(id -g)" /w >/dev/null 2>&1 || true; fi
+      git worktree remove --force "$wt"; continue; fi
   fi
   if [ -s "sabotage/$id/patch.diff" ] && ! (cd "$wt" && git apply "$OLDPWD/sabotage/$id/patch.diff"); then
     echo "$id: APPLY FAILED"; bad=1
   elif out=$(cd "$wt" && bash -c "$cmd" 2>&1); then echo "$id: SURVIVED (exit 0)"; bad=1
   elif grep -qF -- "$msg" <<<"$out"; then echo "$id: caught"
-  else echo "$id: WRONG REASON (no '$msg')"; echo "$out" | tail -5; bad=1; fi
+  else echo "$id: WRONG REASON (no '$msg')"; echo "$out" | tail -5; echo "::error::host-sabotages: $id wrong reason: $(echo "$out" | tail -3 | tr '\n' ' ')"; bad=1; fi
+  # A container may have left root-owned files in the worktree (the Compose run's build output); on
+  # a non-root runner they stopped its removal (exit 255). Hand them back through the pinned image.
+  if [ "$(id -u)" != 0 ]; then docker run --rm -v "$wt:/w" "$(cat ci/image.digest)" chown -R "$(id -u):$(id -g)" /w >/dev/null 2>&1 || true; fi
   git worktree remove --force "$wt"
 done
 [ "$n" -gt 0 ] || { echo "no runner: host sabotages found"; exit 1; }
