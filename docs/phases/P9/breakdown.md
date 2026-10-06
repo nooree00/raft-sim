@@ -184,7 +184,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-kill-1
 - **Verifiable here:** yes — in a test process
 - **Prediction:** The verdict is green, and the first red is a guard, not the checker: the client finishes its operations in the gap between the kill and the new leader's election, so no operation spans the kill until the load is made continuous through it. **Observable:** which assertion fails first.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — no guard failed: the test passed on its first run and on three more, every guard holding before the verdict. The client's load is continuous through the kill: each logical client sends its next operation as soon as the last is answered or given up, so some operation is always in flight when the leader dies. The prediction had pictured a load with gaps. The four runs killed the leader of term 1 or 2 two seconds into 8 seconds of three clients' load; another host led a later term; the killed host restarted from its directory after 3 seconds and applied entries committed while it was down. The histories had 10,809 to 11,584 operations, 0 to 2 indeterminate and 6 to 12 retries, all accepted by WGL. S-kill-1, a follower killed, is caught by the first guard.
 
 ### P9-06 — The real client
 
@@ -193,7 +193,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-client-4
 - **Verifiable here:** yes — tests
 - **Prediction:** My first client follows a redirect whose hint is `-` (no leader known) by retrying the same node at once, so during an election one logical client sends hundreds of requests in a second. The first red is a guard I will add in P9-05 on attempts per operation. **Observable:** the largest number of attempts for one operation in P9-05's first run.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — in P9-05's runs the most attempts of one operation is 5 (the first, a redirect, and the retries after timeouts), not hundreds. The first client pauses 50 ms after a redirect that names no leader, and tries another node, because the prediction named the immediate retry before the client was written. The history round-trips through JSON lines, and an attempt never answered is written without a response: in the adapter its operation stays open (indeterminate), not completed. S-client-4, the give-up time written as the response, closes it and is caught.
 
 ### P9-07 — The positive control in real processes
 

@@ -34,10 +34,11 @@ public sealed record ClientConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes
 /// </summary>
 public static class RealClient
 {
-    public static async Task RunAsync(ClientConfig config, Action<HistoryEntry> record, CancellationToken stop)
+    /// <param name="clock">The history's one clock; a test passes its own, to stamp its own events (a kill) on the same scale.</param>
+    public static async Task RunAsync(ClientConfig config, Action<HistoryEntry> record, CancellationToken stop, Stopwatch? clock = null)
     {
         ArgumentNullException.ThrowIfNull(config);
-        var clock = Stopwatch.StartNew();
+        clock ??= Stopwatch.StartNew();
         var ids = 0L;
         var gate = new object();
         void Record(HistoryEntry e)
@@ -163,7 +164,12 @@ public static class RealClient
         }
     }
 
-    private static long Micros(Stopwatch clock) => clock.ElapsedTicks * 1_000_000 / Stopwatch.Frequency;
+    /// <summary>The clock's reading in microseconds, the history's unit.</summary>
+    public static long Micros(Stopwatch clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        return clock.ElapsedTicks * 1_000_000 / Stopwatch.Frequency;
+    }
 
     /// <summary>One request on a new connection; its reply line, or null if none came within <paramref name="timeout"/>.</summary>
     private static async Task<string?> SendAsync(DnsEndPoint node, string request, TimeSpan timeout, CancellationToken stop)

@@ -1,0 +1,7 @@
+description: The kill test kills a follower instead of the leader: the cluster keeps its leader, nothing about a leader's death is exercised, and the history is accepted (P9-05)
+mechanism: the orchestration picks a follower to kill
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.KillTests.ALeaderKilledAndRestartedLeavesAHistoryTheCheckerAccepts
+reason: was not the leader
+expect: caught

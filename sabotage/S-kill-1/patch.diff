@@ -1,0 +1,12 @@
+diff --git a/tests/Raft.Host.Tests/KillTests.cs b/tests/Raft.Host.Tests/KillTests.cs
+--- a/tests/Raft.Host.Tests/KillTests.cs
++++ b/tests/Raft.Host.Tests/KillTests.cs
+@@ -39,7 +39,7 @@ public sealed class KillTests
+     private static long Index(IReadOnlyDictionary<string, string> f) => long.Parse(f["index"], CultureInfo.InvariantCulture);
+ 
+     /// <summary>Picks the host to kill: the leader (S-kill-1 picks a follower).</summary>
+-    private static NodeId Victim(HostCluster c, NodeId leader) => leader;
++    private static NodeId Victim(HostCluster c, NodeId leader) => c.Nodes.First(n => n != leader);
+ 
+     [Fact]
+     public async Task ALeaderKilledAndRestartedLeavesAHistoryTheCheckerAccepts()

@@ -149,6 +149,15 @@ internal sealed class EventLog : TextWriter
         }
     }
 
+    /// <summary>A whole line at once: three hosts write here, each under its own lock, so a line must not be assembled character by character.</summary>
+    public override void WriteLine(string? value)
+    {
+        lock (_lines)
+        {
+            _lines.Add(value ?? "");
+        }
+    }
+
     public override void Write(char value)
     {
         lock (_lines)
