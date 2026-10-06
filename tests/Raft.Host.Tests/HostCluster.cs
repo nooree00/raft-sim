@@ -122,11 +122,30 @@ internal sealed class HostCluster : IAsyncDisposable
         }
     }
 
+    // Below Linux's ephemeral range (32768 to 60999), so no outgoing connection can take a port
+    // between its choice and the host's bind: a port asked of the system (bind to 0, release, bind
+    // again later) was taken in that gap by a parallel test's client socket (P9-09, "Address already
+    // in use"). Each port is handed out once per process; the start varies by process, and a port in
+    // use is skipped, for test processes running side by side (the harness's workers).
+    private static int _nextPort = 20_000 + (Environment.ProcessId * 97 % 1_000 * 12);
+
     private static int FreePort()
     {
-        using var l = new TcpListener(IPAddress.Loopback, 0);
-        l.Start();
-        return ((IPEndPoint)l.LocalEndpoint).Port;
+        for (var tries = 0; tries < 1_000; tries++)
+        {
+            var port = 20_000 + ((Interlocked.Increment(ref _nextPort) - 20_000) % 12_000);
+            try
+            {
+                using var l = new TcpListener(IPAddress.Loopback, port);
+                l.Start();
+                return port;
+            }
+            catch (SocketException)
+            {
+            }
+        }
+
+        throw new InvalidOperationException("no free port below the ephemeral range");
     }
 }
 
