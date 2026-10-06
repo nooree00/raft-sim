@@ -17,9 +17,11 @@ using Raft.Kv;
 namespace Raft.Host;
 
 /// <summary>Where a host listens and whom it talks to (P9-04).</summary>
-/// <param name="Peers">Every member's peer endpoint, this host's own included.</param>
+/// <param name="Peers">Every member's peer address by name, this host's own included; a name is resolved at every dial, so a peer whose name does not resolve yet is dialled again later.</param>
+/// <param name="PeerListen">Where this host accepts its peers.</param>
+/// <param name="Client">Where this host accepts clients.</param>
 /// <param name="TickMilliseconds">How often the clock's tick is delivered; one tick unit is one millisecond.</param>
-public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, IPEndPoint> Peers, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10);
+public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10);
 
 /// <summary>
 /// One Raft node in a process (P9-04, spec §4's host): a single thread runs the node, fed by a
@@ -83,7 +85,7 @@ public sealed class NodeHost : IAsyncDisposable
         _node = new RaftNode(new NodeContext(_config.Id, peers, new SystemRandom(), DiskExecutor.Load(files), members), _config.Options, new KvStateMachine());
         _executor = new DiskExecutor(files, Send, Respond, Emit);
 
-        var peerListener = new TcpListener(_config.Peers[_config.Id]);
+        var peerListener = new TcpListener(_config.PeerListen);
         var clientListener = new TcpListener(_config.Client);
         peerListener.Start();
         clientListener.Start();
@@ -248,7 +250,7 @@ public sealed class NodeHost : IAsyncDisposable
             {
                 using var client = new TcpClient { NoDelay = true };
                 _connections.Add(client);
-                await client.ConnectAsync(_config.Peers[peer], _stop.Token).ConfigureAwait(false);
+                await client.ConnectAsync(_config.Peers[peer].Host, _config.Peers[peer].Port, _stop.Token).ConfigureAwait(false);
                 var stream = client.GetStream();
                 await stream.WriteAsync(hello, _stop.Token).ConfigureAwait(false);
                 while (await frames.WaitToReadAsync(_stop.Token).ConfigureAwait(false))

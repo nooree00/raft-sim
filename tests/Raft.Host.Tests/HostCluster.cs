@@ -47,7 +47,8 @@ internal sealed class HostCluster : IAsyncDisposable
 
     public void Start(NodeId n)
     {
-        var host = new NodeHost(new HostConfig(n, _peers, _clients[n], Path.Combine(_root, n.ToString()), _options), Events);
+        var peers = _peers.ToDictionary(p => p.Key, p => new DnsEndPoint("127.0.0.1", p.Value.Port));
+        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options), Events);
         host.Start();
         _hosts[n] = host;
     }

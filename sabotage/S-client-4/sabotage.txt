@@ -1,0 +1,7 @@
+description: The real client writes a given-up attempt with the time it gave up as its response: an operation that may or may not take effect is recorded as completed, spec §6's closed-at-timeout treatment (P9-06)
+mechanism: a given-up attempt stamped with a response time
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.RealClientTests.AnAttemptThatIsNeverAnsweredIsRecordedWithoutAResponse
+reason: Assert.All() Failure
+expect: caught

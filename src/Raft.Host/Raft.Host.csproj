@@ -3,6 +3,8 @@
   <PropertyGroup>
     <!-- P9-03: the directory sync's P/Invoke (LibraryImport generates unsafe code). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- P9-06: `raft-host node` and `raft-host client` (phase 9 decision 3). -->
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Raft.Core/Raft.Core.csproj" />

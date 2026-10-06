@@ -121,6 +121,9 @@
           "xunit.v3.runner.common": "[4.0.1]"
         }
       },
+      "raft.checker": {
+        "type": "Project"
+      },
       "raft.core": {
         "type": "Project"
       },
@@ -132,6 +135,12 @@
         }
       },
       "raft.kv": {
+        "type": "Project",
+        "dependencies": {
+          "Raft.Core": "[1.0.0, )"
+        }
+      },
+      "raft.simulation": {
         "type": "Project",
         "dependencies": {
           "Raft.Core": "[1.0.0, )"
