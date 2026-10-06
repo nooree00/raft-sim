@@ -1,0 +1,12 @@
+diff --git a/tools/Raft.Gates/Touched.cs b/tools/Raft.Gates/Touched.cs
+--- a/tools/Raft.Gates/Touched.cs
++++ b/tools/Raft.Gates/Touched.cs
+@@ -46,7 +46,7 @@ internal static class Touched
+ 
+     /// <summary>The ids of the entries whose patch or control names one of <paramref name="changed"/>.</summary>
+     public static IReadOnlyList<string> Select(IEnumerable<TouchedEntry> entries, IReadOnlySet<string> changed) =>
+-        entries.Where(e => PathsIn(e.Patch).Concat(e.Control is null ? [] : PathsIn(e.Control)).Any(changed.Contains)).Select(e => e.Id).ToList();
++        entries.Where(e => PathsIn(e.Patch).Any(changed.Contains)).Select(e => e.Id).ToList();
+ 
+     /// <summary>The per-entry rate and the threshold, from <see cref="ConfigFile"/>: "seconds-per-entry N" and "confirm-above-minutes N".</summary>
+     public static (double SecondsPerEntry, double ConfirmAboveMinutes) ParseConfig(string text)

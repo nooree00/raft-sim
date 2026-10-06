@@ -9,7 +9,7 @@ names the script that enforces it, or says plainly that nothing does.
 | A breakdown for every phase: vacuity risk, sabotage, verifiability, prediction, outcome (evidence or forcing) per task | `gates breakdown` | CI, build job |
 | Predict before implementing | `gates trailers`: each task's first `Task:` commit must descend from the commit that introduced its current prediction | CI, build job |
 | Every non-documentation commit names its task | `gates trailers` (`Task: Pn-nn` trailer) | CI, build job |
-| Sabotage is a standing practice, from a committed tree | `gates sabotage --shard i/n` (container), one job per shard, the shard count derived from the manifest (`ci/sabotage-shard-size.txt`), 15-minute ceiling per shard; `gates build-collect` requires every shard; `scripts/host-sabotages.sh` (host), every push; the shards run in CI only, not before a push (phase 7 acceptance) | CI, sabotage i/n, build and secrets jobs |
+| Sabotage is a standing practice, from a committed tree | `gates sabotage --shard i/n` (container), one job per shard, the shard count derived from the manifest (`ci/sabotage-shard-size.txt`), 15-minute ceiling per shard; `gates build-collect` requires every shard; `scripts/host-sabotages.sh` (host), every push; the shards run in CI only, not before a push (phase 7 acceptance); `gates sabotage --touched` (container), the entries whose patch or control names a file the push changed, at its head, before the push, its plan printed first (P9-00) | CI, sabotage i/n, build and secrets jobs |
 | Every commit green | CI: `gates each-commit-list`, one matrix job per non-head commit and harness shard running that commit's own scripts (`scripts/ci-commit.sh`: shard 1 runs its preflight, build, gates, tests and harness share; pre-gate commits reported as such), and `gates each-commit-collect` requiring one result per (commit, shard). The head gets the full run. Before a push, locally, only the head's full run (P4 acceptance, below); the per-commit matrix is verified in CI and must be green before merge | CI, each-commit-list / commit SHA / each-commit jobs |
 | Invariants at scale: the harness's verdict covers the suite's sample only; 10,000 executions run in each soak, never waived (spec §12) | Two soaks, each its own workload and floors (P6-12): `scripts/ci-soak.sh` (the baseline) and `scripts/ci-soak-membership.sh` (membership changes), 10,000 executions each, each refusing a report covering fewer, in CI only, not in the local pre-push run (P5 acceptance); `gates build-collect` requires exactly one passing `soak` and one passing `soak-membership` job; `gates reports` requires a successful `soak` job in the run certifying any report from phase 3 on, and `soak-membership` too from phase 6 on; branch protection lists `soak` and `soak-membership` (the person's setting) | CI, soak, soak-membership and build jobs |
 | Keep a register; unimplemented throws and is listed | `gates register` | CI, build job |
@@ -34,7 +34,13 @@ names the script that enforces it, or says plainly that nothing does.
   changed. Only evidence tests the prediction; report the two counts separately.
 - Before every push, run the head's CI sequence locally, documentation-only pushes included
   (sabotages patch documentation too, P0 findings log): the report-at-head rule (`gates
-  each-commit --check`), preflight, build, gates, tests, host sabotages, secret scan, README walk.
+  each-commit --check`), preflight, build, gates, tests, host sabotages, secret scan, README walk,
+  and **the touched-file sabotages** (P9-00): `gates sabotage --touched <the previous push's head>`
+  runs, at the head, every entry whose patch or control names a file the push changed. It prints its
+  plan before anything runs (the count, the fraction of the manifest, the estimate from
+  `ci/sabotage-touched.txt`), and a selection estimated past that file's threshold runs only with
+  `--accept-estimate`, a decision the phase report records with the fraction. Why the push's range
+  and not each commit: S-lin-4 broke at a commit that never touched its patch's file (phase 8).
   **The harness shards are not run locally** (phase 7 acceptance): the local run had reached 90 to
   105 minutes, most of it the ten shards, which run in parallel in CI and are required there. The
   fast stages stay local because they catch the push-breaking mistakes: format errors, stale

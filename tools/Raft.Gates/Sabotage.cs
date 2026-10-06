@@ -45,6 +45,8 @@ internal static class Sabotage
         var workersOption = Options.Take(rest, "--workers");
         var shardOption = Options.Take(rest, "--shard");
         var baselineFirst = rest.Remove("--baseline-first");
+        var touched = Options.Take(rest, "--touched");
+        var acceptEstimate = rest.Remove("--accept-estimate");
         var f = new Findings();
         var clock = Stopwatch.StartNew();
 
@@ -63,6 +65,31 @@ internal static class Sabotage
         }
 
         var specs = all.Where(s => !s.RunsOnHost).ToList();
+        if (touched is not null)
+        {
+            // P9-00: the entries the push makes worth running, decided and printed before anything runs.
+            var diff = repo.Git("diff", "--name-only", touched + "..HEAD");
+            if (!diff.Ok)
+            {
+                f.Fail($"--touched {touched}: git diff failed: {diff.StdErr}");
+                return f;
+            }
+
+            var changed = diff.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+            var (rate, threshold) = Touched.ParseConfig(File.ReadAllText(repo.PathOf(Touched.ConfigFile)));
+            var chosen = Touched.Select(specs.Select(s => new TouchedEntry(s.Id, File.ReadAllText(s.PatchPath), s.ControlPath is null ? null : File.ReadAllText(s.ControlPath))), changed).ToHashSet(StringComparer.Ordinal);
+            var plan = Touched.PlanFor(chosen.Count, specs.Count, rate, threshold, acceptEstimate);
+            Console.WriteLine($"[sabotage] {changed.Count} files changed in {touched}..HEAD; {plan.Line}");
+            Console.Out.Flush();
+            f.Note(plan.Line);
+            if (!plan.Run)
+            {
+                f.Require(chosen.Count == 0, plan.Line);
+                return f;
+            }
+
+            specs = specs.Where(s => chosen.Contains(s.Id)).ToList();
+        }
         if (shardOption is not null && only is null)
         {
             // The plan is recomputed here from the committed manifest: a shard job started with a

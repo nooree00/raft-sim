@@ -1,0 +1,8 @@
+# The touched-file stage of the local run (P9-00, phase 9 decision 1). Its plan is printed before
+# anything runs: the selected count, the selected fraction of the manifest, and the estimate below.
+# A selection estimated past the threshold runs only with --accept-estimate, a decision the phase
+# report records. Changing either number is a visible decision.
+# Phase 8's first push: 94 entries in 21.4 minutes locally, in one invocation (13.7 s each).
+seconds-per-entry 13.7
+# The local run's own length at phase 8 (650 to 710 s): past it, the stage would more than double it.
+confirm-above-minutes 11

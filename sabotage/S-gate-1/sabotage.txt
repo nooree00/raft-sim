@@ -1,0 +1,6 @@
+description: The touched-file selection reads only an entry's patch: an entry whose control alone touches a changed file is never selected before the push (P9-00)
+mechanism: the control left out of an entry's footprint
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TouchedTests.AnEntryWhoseControlAloneTouchesAChangedFileIsSelected
+expect: caught
