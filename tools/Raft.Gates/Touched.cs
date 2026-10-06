@@ -20,8 +20,15 @@ internal static class Touched
 {
     public const string ConfigFile = "ci/sabotage-touched.txt";
 
-    /// <summary>What a run of the selection is expected to cost, and whether it goes ahead.</summary>
-    internal sealed record Plan(int Selected, int Manifest, TimeSpan Estimate, bool Run, string Line);
+    /// <summary>
+    /// What a run of the selection is expected to cost, whether it goes ahead, and the ceiling it runs
+    /// under: the shards' 15 minutes, or 1.5 times an accepted estimate past them (P9-00: the first
+    /// accepted selection, 80 entries in 18.5 minutes, failed on the shards' ceiling it had inherited).
+    /// </summary>
+    internal sealed record Plan(int Selected, int Manifest, TimeSpan Estimate, bool Run, string Line)
+    {
+        public TimeSpan Ceiling => TimeSpan.FromMinutes(Math.Max(15, Estimate.TotalMinutes * 1.5));
+    }
 
     /// <summary>The files a unified diff names, old and new sides, without the a/ and b/ prefixes.</summary>
     public static IReadOnlySet<string> PathsIn(string diff)

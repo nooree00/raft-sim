@@ -56,6 +56,14 @@ public sealed class TouchedTests
         Assert.True(Touched.PlanFor(10, 292, 13.7, 11, accepted: false).Run);
     }
 
+    /// <summary>An accepted selection runs under its own ceiling, not the shards' 15 minutes, which it would exceed by construction.</summary>
+    [Fact]
+    public void AnAcceptedSelectionRunsUnderItsOwnCeiling()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(15), Touched.PlanFor(10, 292, 13.7, 11, accepted: false).Ceiling);
+        Assert.True(Touched.PlanFor(80, 296, 13.7, 11, accepted: true).Ceiling > TimeSpan.FromMinutes(18.5));
+    }
+
     [Fact]
     public void AnEmptySelectionRunsNothingAndSaysSo()
     {

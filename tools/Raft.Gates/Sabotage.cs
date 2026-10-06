@@ -41,6 +41,7 @@ internal static class Sabotage
         var rest = args.ToList();
         var only = Options.Take(rest, "--only")?.Split(',', StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
         var ceiling = TimeSpan.FromMinutes(double.Parse(Options.Take(rest, "--ceiling-minutes") ?? "15", System.Globalization.CultureInfo.InvariantCulture));
+        // (With --touched, the accepted plan's ceiling replaces it below.)
         var summary = Options.Take(rest, "--summary") ?? Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
         var workersOption = Options.Take(rest, "--workers");
         var shardOption = Options.Take(rest, "--shard");
@@ -89,6 +90,7 @@ internal static class Sabotage
             }
 
             specs = specs.Where(s => chosen.Contains(s.Id)).ToList();
+            ceiling = plan.Ceiling;
         }
         if (shardOption is not null && only is null)
         {
