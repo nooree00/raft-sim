@@ -1,0 +1,7 @@
+description: A frame's checksum is computed and never compared: a bit flipped inside a message is delivered as whatever message it decodes to (P9-02)
+mechanism: the checksum not compared
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.FrameTests.ACorruptedBitIsNeverDelivered
+reason: a corrupted frame was delivered
+expect: caught

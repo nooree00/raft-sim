@@ -35,6 +35,7 @@ public sealed class LayeringTests
         ["Raft.Scale.Tests"] = ("tests/Raft.Scale.Tests/Raft.Scale.Tests.csproj", ["Raft.Checker", "Raft.Core", "Raft.Kv", "Raft.Simulation", "Raft.SimRun"], ["xunit.v3.mtp-v2"]),
         ["Raft.Checker.Tests"] = ("tests/Raft.Checker.Tests/Raft.Checker.Tests.csproj", ["Raft.Checker"], ["xunit.v3.mtp-v2"]),
         ["Raft.Gates.Tests"] = ("tests/Raft.Gates.Tests/Raft.Gates.Tests.csproj", ["Raft.Gates"], ["xunit.v3.mtp-v2"]),
+        ["Raft.Host.Tests"] = ("tests/Raft.Host.Tests/Raft.Host.Tests.csproj", ["Raft.Core", "Raft.Host", "Raft.Kv"], ["xunit.v3.mtp-v2"]),
         ["Raft.Architecture.Tests"] = ("tests/Raft.Architecture.Tests/Raft.Architecture.Tests.csproj", ["Raft.Core", "Raft.Simulation"], ["xunit.v3.mtp-v2"]),
     };
 

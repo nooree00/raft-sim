@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Host/Frames.cs b/src/Raft.Host/Frames.cs
+--- a/src/Raft.Host/Frames.cs
++++ b/src/Raft.Host/Frames.cs
+@@ -57,7 +57,7 @@ public static class Frames
+         }
+ 
+         var expected = BinaryPrimitives.ReadUInt32BigEndian(body.AsSpan(4 + length));
+-        if (Crc32C.Compute(body.AsSpan(0, 4 + length)) != expected)
++        if (Crc32C.Compute(body.AsSpan(0, 4 + length)) != expected && length < 0)
+         {
+             throw new InvalidDataException("a frame whose checksum fails");
+         }

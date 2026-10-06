@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The host on real sockets and real files (spec §4's integration project, created at P9-02 with its
+    first real test): the framed transport, the disk executor, hosts in one test process, and the
+    checker on the histories a real client records.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Host/Raft.Host.csproj" />
+  </ItemGroup>
+</Project>

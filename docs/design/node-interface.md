@@ -109,7 +109,10 @@ snapshot's record at an offset, and the bytes the follower holds from its start 
 the snapshot whole) as bytes, through `MessageCodec` in Core: a type byte, fixed-width big-endian integers,
 and a count or length before every variable part. `AppendEntries` and its response carry a read round
 (P8-05): the leader's latest when it sent the request, echoed in the response, so an acknowledgement
-confirms only the reads that arrived before its request left.
+confirms only the reads that arrived before its request left. Between hosts (P9-02, phase 9 decision 2) each message
+travels in a frame: a 4-byte length, the message, and a CRC-32C of both. A frame whose checksum
+fails is refused and its connection closed, which Raft sees as a lost message; this, not canonical
+form, is what makes a corrupted message on a real network visible.
 
 **The canonical rule (P3-02):** every byte string decodes to at most one message, and every
 message has exactly one encoding. Decoding rejects trailing bytes, an unknown type, a boolean other

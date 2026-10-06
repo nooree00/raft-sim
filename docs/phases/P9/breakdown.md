@@ -157,7 +157,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-frame-1
 - **Verifiable here:** yes — loopback sockets in a test
 - **Prediction:** My first reader assumes a read returns a whole frame once the length has arrived, so the largest frame (64 MB) is cut at the socket's buffer. The limit test goes red before any other. **Observable:** the first red test by name.
-- **Outcome:** pending
+- **Outcome:** wrong (forcing) — all five tests passed on their first run, the largest frame (64 entries of 1 MB, 67,109,665 bytes encoded) among them. The reader was written with `ReadAtLeastAsync` for the length and for the body, because the prediction had named the single-read assumption before the code existed. Every single-bit flip of a frame, in its length, its message or its checksum, is refused: none is delivered. S-frame-1 (the checksum not compared) delivers the flipped frames, and the test goes red.
 
 ### P9-03 — The disk executor on real files
 

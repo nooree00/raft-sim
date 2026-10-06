@@ -14,6 +14,7 @@
     <Project Path="tests/Raft.Scale.Tests/Raft.Scale.Tests.csproj" />
     <Project Path="tests/Raft.Core.Tests/Raft.Core.Tests.csproj" />
     <Project Path="tests/Raft.Gates.Tests/Raft.Gates.Tests.csproj" />
+    <Project Path="tests/Raft.Host.Tests/Raft.Host.Tests.csproj" />
     <Project Path="tests/Raft.Simulation.Tests/Raft.Simulation.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
