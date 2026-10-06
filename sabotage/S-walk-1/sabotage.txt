@@ -1,0 +1,8 @@
+description: A README command block that the walk neither runs nor lists with a reason: a person would follow it, and the walk would skip it in silence (P9-09)
+mechanism: a sh block neither walked nor listed
+kind: command
+runner: host
+build: no
+command: scripts/readme-walk.sh
+expect: caught
+message: readme-walk: a sh block neither walked

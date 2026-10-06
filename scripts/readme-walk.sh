@@ -9,6 +9,11 @@ dest="$(mktemp -d)/raft-sim"; mkdir -p "$dest"
 (cd "$here" && git ls-files -z --cached --others --exclude-standard | tar -c --null -T - -f -) | tar -x -C "$dest"
 steps="$(awk '/^```sh cold-walk$/{on=1; next} /^```$/{on=0} on' "$dest/README.md")"
 [ -n "$steps" ] || { echo "readme-walk: no cold-walk steps in README.md"; exit 1; }
+# P9-09: every ```sh block is walked or listed with its reason; a block that is neither would be
+# skipped silently, so the walk refuses it.
+untagged="$(grep -n '^```sh' "$dest/README.md" | grep -v -e '```sh cold-walk$' -e '```sh not-walked: ' || true)"
+[ -z "$untagged" ] || { echo "readme-walk: a sh block neither walked (cold-walk) nor listed (not-walked: reason):"; echo "$untagged"; exit 1; }
+grep '^```sh not-walked: ' "$dest/README.md" | sed 's/^```sh not-walked: /readme-walk: not walked: /' || true
 echo "readme-walk: $(printf '%s\n' "$steps" | grep -c .) step(s) in $dest"
 cd "$dest"
 # Only network plumbing survives the scrub (a person behind a proxy has it too); CI's variables do not.

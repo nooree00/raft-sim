@@ -1,0 +1,16 @@
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -39,6 +39,12 @@ durability; the simulator does.
+ scripts/compose-run.sh
+ ```
+ 
++## Inspecting a node
++
++```sh
++docker compose -f compose/compose.yaml logs n1
++```
++
+ ## The gates
+ 
+ The same checks CI runs, runnable locally:

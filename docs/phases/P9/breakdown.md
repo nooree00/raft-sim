@@ -220,7 +220,7 @@ whenever a phase grows CI.
 - **Sabotage:** S-walk-1
 - **Verifiable here:** partial — the script here; the person's walk is the person's
 - **Prediction:** The README walk's container has no Docker, so every Compose command is unrunnable there, and the script's first version runs the blocks it can and drops the rest silently. **Observable:** the walk's output for the Compose section before the listing is added.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — the walk does not run in a container without Docker: `scripts/readme-walk.sh` runs on the runner host (its CI job is a host job, and `scripts/in-sdk.sh` already needs Docker there), so the Compose section is walked, not skipped. The README now holds it as a `cold-walk` block (`scripts/compose-run.sh`). The local walk took 5.5 minutes in a fresh copy with an empty package cache: build, tests, then a Compose run that killed n3 and was accepted (every guard held; the hardest key at 37,733 states). The one block the walk does not run, the gates, is tagged `not-walked:` with its reason, and the walk prints it. A `sh` block with neither tag stops the walk: S-walk-1, an untagged block, is caught by that. One thing the walk did find: in a git worktree, where the host sabotages run, `scripts/in-sdk.sh` failed before its command, because git refused even `config --global` against a `.git` file naming a directory outside the container's mount. `in-sdk.sh` now tolerates that (folded into P9-08's commit, which needed it for S-compose-1's baseline).
 
 ### P9-10 — The new work's cost in CI
 
