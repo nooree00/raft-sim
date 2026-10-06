@@ -12,7 +12,9 @@ Numbered when a lesson has recurred often enough to be named (reviewer, at phase
    the node reports (phase 6, decision 6); the entries a snapshot covers, recorded at compaction,
    not read from the node (phase 7, decision 5); and a client retry recorded as the operation it
    is, so that "applies once" is judged by the client history, not by a replay that runs the same
-   state machine whose deduplication it checks (phase 8, decision 1).
+   state machine whose deduplication it checks (phase 8, decision 1); and the history's invoke and
+   response times from the real client's one clock, never a node's, so that clock skew between
+   machines cannot change the real-time order the history exists to pin (phase 9, decision 4).
 
 Spec §12: the bugs are less valuable than the reasons the tests did not catch them. One entry per
 finding: what happened, why no existing check caught it, what now catches it.
@@ -915,6 +917,9 @@ finding: what happened, why no existing check caught it, what now catches it.
   to be made mechanical (P9-00): when a push changes a file any patch touches, those entries run
   before it. *Rule:* a target must assert that what its sabotage removes is present, or a protocol
   change that removes it for everyone turns the sabotage into a test of nothing.
+- **The patch-apply stage caught a stale patch before the push** (phase 8's acceptance): an edit to
+  a register row moved S-reg-5's context; `gates patches` in the local run refused it, and it was
+  fixed before anything was pushed. The mechanism working, recorded as such.
 - **A positive control too rare for a floor in the sample.** A leader answering reads from its own
   state is caught in 7 of 3,000 executions (one in the first 300): it needs a deposed leader still
   reached by a client, or a new leader read before its no-op. A sample running to its third catch

@@ -25,6 +25,20 @@ green on the resulting history. In addition, carried forward:
 - phase 7's rule: a local timing within 5% of a deterministic ceiling is a failure on a slower
   runner, and a test that only needs a floor stops at the floor.
 
+**Approved** (reviewer): P9-00 to P9-10, all nine decisions; stop and report after P9-10. P9-00's
+selection by every file the push changes, at the head, is confirmed: S-lin-4 broke at a commit that
+never touched the file its patch changes, so a per-commit selection misses the motivating case. **Two
+additions to P9-00:** the selected count and the estimated time are printed *before* anything runs,
+so that a 94-entry selection is a visible decision and not something learnt mid-run (21.4 minutes
+against an 11-minute local run nearly triples it); and the selected fraction of the manifest is
+reported every time, because a selection that routinely takes most of the manifest is not selecting,
+which is a different problem from its cost. **Decision 7 is the important disclosure:** phase 9's
+crash testing is weaker than the simulator's, which can lose acknowledged writes; the gap is bounded
+by naming what would test it (below), with a register row for what is reachable. **Decision 8** is
+the right control: a leader answering at append is the one bug whose signature needs real processes
+and real timing. **Decision 4** is pattern 1's sixth instance: a node-supplied timestamp would let
+clock skew change the history's real-time order, the one thing the history exists to pin.
+
 ## Ordering
 
 The tooling the reviewer asked for first, because every later commit in the phase is pushed through
@@ -90,8 +104,19 @@ whenever a phase grows CI.
 7. **"Killed" means SIGKILL of the leader's process** (`docker kill`), then a restart from its data
    directory. That tests a process crash and recovery from real files written with `fsync`. It does
    not test durability: a process kill keeps the page cache, so a write the host never synced
-   survives it. Durability under power loss stays the simulator's (spec §8's known limit, the
-   register's phase-10 row). Said plainly in the report, so a green Compose run is not read as more.
+   survives it. **Phase 9's crash testing is therefore weaker than the simulator's**, whose disk
+   loses unsynced writes at a crash and can lose writes the node was told were durable (the
+   positive controls of P3-07 and P4). A green Compose run says the host recovers from what its
+   files hold after a process dies; it says nothing about what a power cut leaves in them. **What
+   would test it, and whether it is reachable:** (a) machine-level power loss: a virtual machine
+   whose power is cut, or a block device that drops its write cache (Linux `dm-log-writes` replayed
+   to each flush point, or `dm-flakey`), with the host's data directory on it. Not reachable here: it
+   needs kernel device-mapper targets and root on a machine this container does not give. (b) fsync
+   failure injection: the host's file-system interface (P9-03) returning an error from a sync, or a
+   simulated crash that discards every write after the last successful sync, run against the real
+   host code. Reachable: P9-03's recording file system is that interface. A register row is opened
+   for (b) (below); (a) is stated as the limit. Said plainly in the report, so a green Compose run is
+   not read as more.
 8. **The positive control, in real processes** (P9-07): a host whose leader answers a write when it
    appends it (`RaftOptions.AnswerAtAppend`, off in every real configuration, as `CompactPastCommit`
    and `ReadsWithoutQuorum` are). With the leader's traffic to its peers held, then the leader killed,
@@ -109,7 +134,7 @@ whenever a phase grows CI.
 
 ### P9-00 — Touched-file sabotage runs before the push
 
-- **Task:** Decision 1. `gates sabotage --touched <since>` selects every entry whose `patch.diff` or `control.diff` names a file that a commit in `<since>..HEAD` changed, and runs those at the head. The local run gains it as a stage (AGENTS.md, the staged sequence), with its time reported; the push's previous head is the range's start, as for the report-at-head check. Gate tests: an entry touching a changed file is selected, one touching none is not, and an entry whose control alone touches the file is selected.
+- **Task:** Decision 1. `gates sabotage --touched <since>` selects every entry whose `patch.diff` or `control.diff` names a file that a commit in `<since>..HEAD` changed, and runs those at the head. Before anything runs it prints the plan: the selected count, the selected fraction of the manifest, and the estimated time, from a per-entry rate recorded in `ci/` (phase 8's 94 entries in 21.4 minutes, 13.7 s each, until a later run measures it again). Above a threshold, the local run's own length (11 minutes, also recorded in `ci/`), it stops without running unless `--accept-estimate` is passed: the person running it decides, and the report records the decision. The local run gains it as a stage (AGENTS.md, the staged sequence), with its time and fraction reported; the push's previous head is the range's start, as for the report-at-head check. Gate tests: an entry touching a changed file is selected, one touching none is not, an entry whose control alone touches the file is selected, and a selection over the threshold runs nothing without the flag.
 - **Vacuity:** A selection that always comes back empty passes every push. Guarded by a gate test on a range known to touch `RaftNode.cs`, and by printing the selection's size. Sabotage: S-gate-1, the selection reads only `patch.diff`: the control-only gate test goes red.
 - **Sabotage:** S-gate-1
 - **Verifiable here:** yes — the gate and its tests run locally
@@ -217,6 +242,8 @@ runs before every push; the shards run in CI.
 ## Register rows
 
 Closed here: message corruption on a real transport (decision 2) and session expiry (decision 5).
-Opened here: none proposed. Network faults between real processes (loss, delay, partition with
+Opened here (at approval): fsync failure injection against the real host's disk executor (decision
+7 (b)), promised to phase 10, the next phase that runs the host; machine-level power loss (decision
+7 (a)) is stated as a limit, not promised, because nothing this project runs on can produce it. Network faults between real processes (loss, delay, partition with
 `tc` or a proxy) are not in spec §11's phase 9; the two networks of decision 9 leave room for them,
 and they are not promised to any phase unless the reviewer asks.
