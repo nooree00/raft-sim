@@ -998,7 +998,9 @@ finding: what happened, why no existing check caught it, what now catches it.
   the next finding, and the port race was its own.
   Ports now come from below the ephemeral range, each handed out once per process. *Rule:* a test
   resource is reserved by the test that uses it, not looked up and hoped for.
-- **A sequential client overlapped itself at the history's resolution.** The checker reads two
+- **An oracle's time resolution is part of its correctness, not a formatting detail.** A
+  sequential client appeared to overlap itself, because the stamp's resolution was coarser than the
+  gap between its own operations. The checker reads two
   operations of one client as overlapping unless one's response is strictly before the other's
   invoke. The real client stamps microseconds, and its next invoke can follow its last response
   within one: each run had a handful of 1 µs gaps, and about one run in ten on a slow machine a
@@ -1009,5 +1011,15 @@ finding: what happened, why no existing check caught it, what now catches it.
   finding again, carried into this phase's breakdown: a representation choice between the client and
   the checker (here the history's unit) made a fact about the run (one client, one operation at a
   time) unreadable to the checker, and the breakdown had listed what is stamped and by which clock,
-  not at what resolution. *Rule:* a recorded order the
-  recorder knows (program order) is stamped so the record keeps it, whatever the clock's resolution.
+  not at what resolution. *Rule:* a history's clock must resolve the shortest real gap the checker
+  relies on, or the recorder must keep the order it knows (program order) some other way. Choosing
+  the unit is choosing what the oracle can see.
+- **A guard that fires twice has not fired twice by chance** (at acceptance; the reviewer counts it
+  the second instance across this project and the one before it). The guard "an operation spanned
+  the kill" fired at 25 s (P9-08), was taken for a flake, and was answered by lengthening the run.
+  It fired again on S-compose-1's baseline, and that time it was investigated: the guard was right
+  that something was wrong, and what was wrong was the kill's timestamp. This is the expensive
+  kind: a correct guard firing on a real problem, dismissed, then rediscovered later, when it had
+  cost a red local run and could have cost a red CI run on the branch. *Rule:* the second firing is
+  the one to investigate. A first firing dismissed as a flake is recorded as such, with what was done
+  about it, so that the second is recognised as a second.
