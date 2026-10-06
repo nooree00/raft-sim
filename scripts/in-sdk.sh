@@ -14,5 +14,7 @@ fi
 # step after a build step finds no packages, and `dotnet test` reports "No test projects were
 # found" and exits 0 (found by the README walk).
 cache="${RAFT_NUGET_VOLUME:-raft-sim-nuget}"
+# In a git worktree (the host sabotages run in one, P9-08) `.git` is a file naming a directory this
+# mount does not hold, and git refuses even `config --global` there; nothing inside needs the repo.
 docker run --rm "${net[@]}" -v "$cache:/root/.nuget/packages" -v "$here:/src" -w /src -e CI=true -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 \
-  "$image" bash -c 'git config --global --add safe.directory /src && "$@"' in-sdk "$@"
+  "$image" bash -c '{ git config --global --add safe.directory /src 2>/dev/null || true; } && "$@"' in-sdk "$@"

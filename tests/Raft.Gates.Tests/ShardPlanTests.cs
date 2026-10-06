@@ -97,7 +97,7 @@ public sealed class ShardPlanTests
 
     [Fact]
     public void BuildPassesWithCoreAndEveryShard() =>
-        Assert.Empty(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures);
+        Assert.Empty(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"), ("compose", "success"))).Failures);
 
     [Fact]
     public void AShardWithNoJobFailsTheBuild() =>
@@ -138,5 +138,15 @@ public sealed class ShardPlanTests
             m => m.Contains("soak-membership: 0 jobs", StringComparison.Ordinal));
         Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "failure"))).Failures,
             m => m.Contains("soak-membership: concluded failure", StringComparison.Ordinal));
+    }
+
+    /// <summary>P9-08: the Compose run is required like the soaks; a run without it, or with it red, fails the build. Sabotage S-compose-2.</summary>
+    [Fact]
+    public void AComposeRunThatDidNotRunOrWentRedFailsTheBuild()
+    {
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"))).Failures,
+            m => m.Contains("compose: 0 jobs", StringComparison.Ordinal));
+        Assert.Contains(Collect("success", Jobs(("sabotage 1/3", "success"), ("sabotage 2/3", "success"), ("sabotage 3/3", "success"), ("soak", "success"), ("soak-membership", "success"), ("compose", "failure"))).Failures,
+            m => m.Contains("compose: concluded failure", StringComparison.Ordinal));
     }
 }

@@ -20,6 +20,9 @@ internal static class BuildCollect
     /// <summary>The soak jobs the build requires, each exactly once and green.</summary>
     internal static readonly string[] Soaks = ["soak", "soak-membership"];
 
+    /// <summary>Every single job the build requires exactly once and green: the soaks, and phase 9's Compose run (P9-08).</summary>
+    internal static readonly string[] Required = [.. Soaks, "compose"];
+
     public static Findings Run(Repo repo, string[] args)
     {
         var rest = args.ToList();
@@ -73,13 +76,14 @@ internal static class BuildCollect
 
         // The soaks (P3-08; the membership soak, its own soak, P6-12): 10,000 executions each, the only
         // place the invariants run at scale. Required, never waived (spec §12): skipping one is a change
-        // to this gate, argued first.
-        foreach (var name in Soaks)
+        // to this gate, argued first. The Compose run (P9-08) is required the same way: spec §11 phase
+        // 9's done criterion, three processes, a killed leader and the checker green, runs only there.
+        foreach (var name in Required)
         {
             var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == name).ToList();
             if (soak.Count != 1)
             {
-                f.Fail($"{name}: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
+                f.Fail($"{name}: {soak.Count} jobs, expected exactly one (required, spec §12)");
             }
             else if (EachCommitMatrix.Conclusion(soak[0]) is var c && c != "success")
             {

@@ -104,9 +104,9 @@ jobs:
 
   build:
     # The required check, name unchanged: build-core, one passing job per harness shard (the shard
-    # list recomputed from the manifest), and the two soaks. It always runs (a skipped required check
-    # counts as passing on GitHub).
-    needs: [each-commit-list, build-core, sabotage, soak, soak-membership]
+    # list recomputed from the manifest), the two soaks and the Compose run (P9-08). It always runs
+    # (a skipped required check counts as passing on GitHub).
+    needs: [each-commit-list, build-core, sabotage, soak, soak-membership, compose]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -212,6 +212,17 @@ jobs:
         run: scripts/host-sabotages.sh
       - name: secret scan
         run: scripts/secret-scan.sh
+
+  compose:
+    # P9-08, spec §11 phase 9: three nodes in Compose, the real client, the leader killed with SIGKILL
+    # and restarted, the checker green on the history. On the runner host: Compose needs docker; the
+    # image is built from the pinned SDK image and the check runs in it (scripts/in-sdk.sh).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Compose run
+        run: scripts/compose-run.sh
 
   readme-walk:
     # The README's cold-walk steps in a fresh copy, scrubbed environment, fresh container.

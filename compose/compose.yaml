@@ -1,0 +1,40 @@
+# P9-08, spec §11 phase 9: three nodes and a real client. Two networks (phase 9 decision 9): the
+# nodes talk to one another on `peers`, and clients reach them on `clients`, so that one can be cut
+# without the other. Run by scripts/compose-run.sh, which also kills the leader.
+name: raft
+x-node: &node
+  image: raft-host:local
+  networks: [peers, clients]
+  environment:
+    # P9-07's positive control, set only for its one measurement (phase 9 decision 8).
+    RAFT_ANSWER_AT_APPEND: ${RAFT_ANSWER_AT_APPEND:-0}
+services:
+  n1:
+    <<: *node
+    build:
+      context: ..
+      dockerfile: compose/Dockerfile
+      args:
+        SDK_IMAGE: ${SDK_IMAGE:?SDK_IMAGE must be ci/image.digest}
+    command: [node, --id, "1", --peers, "1=n1:7000,2=n2:7000,3=n3:7000", --client-port, "7100", --data, /data]
+    volumes: [n1-data:/data]
+  n2:
+    <<: *node
+    command: [node, --id, "2", --peers, "1=n1:7000,2=n2:7000,3=n3:7000", --client-port, "7100", --data, /data]
+    volumes: [n2-data:/data]
+  n3:
+    <<: *node
+    command: [node, --id, "3", --peers, "1=n1:7000,2=n2:7000,3=n3:7000", --client-port, "7100", --data, /data]
+    volumes: [n3-data:/data]
+  client:
+    image: raft-host:local
+    profiles: [client]
+    networks: [clients]
+    volumes: ["${RAFT_OUT:?RAFT_OUT must be the run's output directory}:/out"]
+networks:
+  peers: {}
+  clients: {}
+volumes:
+  n1-data: {}
+  n2-data: {}
+  n3-data: {}

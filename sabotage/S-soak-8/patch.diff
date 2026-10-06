@@ -7,5 +7,5 @@
 -    internal static readonly string[] Soaks = ["soak", "soak-membership"];
 +    internal static readonly string[] Soaks = ["soak"];
  
-     public static Findings Run(Repo repo, string[] args)
-     {
+     /// <summary>Every single job the build requires exactly once and green: the soaks, and phase 9's Compose run (P9-08).</summary>
+     internal static readonly string[] Required = [.. Soaks, "compose"];

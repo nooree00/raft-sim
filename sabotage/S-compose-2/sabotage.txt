@@ -1,0 +1,6 @@
+description: The build no longer requires the Compose job: a push whose Compose run never ran, or went red, passes the required check (P9-08)
+mechanism: compose dropped from the jobs build-collect requires
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AComposeRunThatDidNotRunOrWentRedFailsTheBuild
+expect: caught

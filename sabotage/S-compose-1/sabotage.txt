@@ -1,0 +1,9 @@
+description: The Compose run kills a follower instead of the leader: the cluster keeps its leader, nothing about a leader's death is exercised, and the history is accepted (P9-08)
+mechanism: the orchestration picks a follower to kill
+kind: command
+runner: host
+build: no
+baseline: scripts/compose-run.sh
+command: scripts/compose-run.sh
+expect: caught
+message: FAIL the killed node

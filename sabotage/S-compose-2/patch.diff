@@ -1,0 +1,12 @@
+diff --git a/tools/Raft.Gates/BuildCollect.cs b/tools/Raft.Gates/BuildCollect.cs
+--- a/tools/Raft.Gates/BuildCollect.cs
++++ b/tools/Raft.Gates/BuildCollect.cs
+@@ -21,7 +21,7 @@ internal static class BuildCollect
+     internal static readonly string[] Soaks = ["soak", "soak-membership"];
+ 
+     /// <summary>Every single job the build requires exactly once and green: the soaks, and phase 9's Compose run (P9-08).</summary>
+-    internal static readonly string[] Required = [.. Soaks, "compose"];
++    internal static readonly string[] Required = [.. Soaks];
+ 
+     public static Findings Run(Repo repo, string[] args)
+     {

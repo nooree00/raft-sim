@@ -1,7 +1,7 @@
 --- a/tools/Raft.Gates/BuildCollect.cs
 +++ b/tools/Raft.Gates/BuildCollect.cs
-@@ -77,7 +77,11 @@
-         foreach (var name in Soaks)
+@@ -81,7 +81,11 @@
+         foreach (var name in Required)
          {
              var soak = doc.RootElement.GetProperty("jobs").EnumerateArray().Where(j => j.GetProperty("name").GetString() == name).ToList();
 -            if (soak.Count != 1)
@@ -11,5 +11,5 @@
 +            }
 +            else if (soak.Count != 1)
              {
-                 f.Fail($"{name}: {soak.Count} jobs, expected exactly one (the soak is required, spec §12)");
+                 f.Fail($"{name}: {soak.Count} jobs, expected exactly one (required, spec §12)");
              }

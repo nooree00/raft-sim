@@ -113,6 +113,9 @@ public sealed class NodeHost : IAsyncDisposable
         _tasks.Add(Task.Run(() => AcceptAsync(clientListener, ServeClientAsync)));
         _tasks.Add(Task.Run(TickAsync));
         _tasks.Add(Task.Factory.StartNew(Loop, TaskCreationOptions.LongRunning));
+
+        // The host's own event, not Core's: an incarnation begins (P9-08 reads restarts from it).
+        Emit(new Emit("host-start", []));
     }
 
     /// <summary>

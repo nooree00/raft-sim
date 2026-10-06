@@ -1,12 +1,12 @@
 diff --git a/src/Raft.Host/RealClient.cs b/src/Raft.Host/RealClient.cs
 --- a/src/Raft.Host/RealClient.cs
 +++ b/src/Raft.Host/RealClient.cs
-@@ -74,7 +74,7 @@ public static class RealClient
-             var id = nextId();
+@@ -81,7 +81,7 @@ public static class RealClient
              var invoke = Micros(clock);
+             var wall = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
              var reply = await SendAsync(config.Nodes[target], request, config.Timeout, stop).ConfigureAwait(false);
--            record(new HistoryEntry(client, id, target.Value, request, invoke, reply is null ? null : Micros(clock), reply ?? ""));
-+            record(new HistoryEntry(client, id, target.Value, request, invoke, Micros(clock), reply ?? ""));
+-            record(new HistoryEntry(client, id, target.Value, request, invoke, reply is null ? null : Micros(clock), reply ?? "", wall));
++            record(new HistoryEntry(client, id, target.Value, request, invoke, Micros(clock), reply ?? "", wall));
              return reply;
          }
  

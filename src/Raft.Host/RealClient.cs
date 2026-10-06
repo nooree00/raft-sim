@@ -13,8 +13,13 @@ using Raft.Core;
 
 namespace Raft.Host;
 
-/// <summary>One attempt as the client saw it (P9-06): times in microseconds from the client process's one clock; no response when it gave up.</summary>
-public sealed record HistoryEntry(int Client, long RequestId, int Node, string Request, long Invoke, long? Response, string Reply);
+/// <summary>
+/// One attempt as the client saw it (P9-06): times in microseconds from the client process's one
+/// clock; no response when it gave up. <paramref name="Wall"/> is the client's wall clock at invoke
+/// (Unix milliseconds), for one use only: placing an event outside the client, a kill by the
+/// orchestration (P9-08), on the history's timeline. The checker never reads it.
+/// </summary>
+public sealed record HistoryEntry(int Client, long RequestId, int Node, string Request, long Invoke, long? Response, string Reply, long Wall = 0);
 
 /// <summary>What the real client does (P9-06).</summary>
 /// <param name="Nodes">Each node's client endpoint, by name.</param>
@@ -74,8 +79,9 @@ public static class RealClient
         {
             var id = nextId();
             var invoke = Micros(clock);
+            var wall = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var reply = await SendAsync(config.Nodes[target], request, config.Timeout, stop).ConfigureAwait(false);
-            record(new HistoryEntry(client, id, target.Value, request, invoke, reply is null ? null : Micros(clock), reply ?? ""));
+            record(new HistoryEntry(client, id, target.Value, request, invoke, reply is null ? null : Micros(clock), reply ?? "", wall));
             return reply;
         }
 
@@ -172,7 +178,7 @@ public static class RealClient
     }
 
     /// <summary>One request on a new connection; its reply line, or null if none came within <paramref name="timeout"/>.</summary>
-    private static async Task<string?> SendAsync(DnsEndPoint node, string request, TimeSpan timeout, CancellationToken stop)
+    public static async Task<string?> SendAsync(DnsEndPoint node, string request, TimeSpan timeout, CancellationToken stop)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(stop);
         limit.CancelAfter(timeout);

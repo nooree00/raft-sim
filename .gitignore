@@ -3,3 +3,4 @@ obj/
 TestResults/
 *.trx
 .vs/
+compose-out/

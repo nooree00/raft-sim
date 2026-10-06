@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    P9-08: the check of a Compose run, outside the product (phase 9 decision 3): the real client's
+    history, the nodes' events and the orchestration's kill record, the guards that say the run
+    tested a leader's death, and the WGL checker on the history.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../tests/Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Checker/Raft.Checker.csproj" />
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Host/Raft.Host.csproj" />
+    <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+  </ItemGroup>
+</Project>
