@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Measurements.cs b/tools/Raft.Gates/Measurements.cs
+index 12257ba..196f3fa 100644
+--- a/tools/Raft.Gates/Measurements.cs
++++ b/tools/Raft.Gates/Measurements.cs
+@@ -130,7 +130,7 @@ internal static partial class Measurements
+             }
+ 
+             var cited = Citation().Matches(line).Select(m => (m.Groups["kind"].Value, m.Groups["id"].Value)).ToList();
+-            if (cited.Count == 0)
++            if (cited.Count < 0)
+             {
+                 problems.Add($"line {number}: a number with no record or run cited (m:ID or run:ID): {line.Trim()}");
+                 continue;

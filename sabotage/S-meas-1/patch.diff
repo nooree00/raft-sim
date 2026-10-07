@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Measurements.cs b/tools/Raft.Gates/Measurements.cs
+index 12257ba..8aff1d5 100644
+--- a/tools/Raft.Gates/Measurements.cs
++++ b/tools/Raft.Gates/Measurements.cs
+@@ -86,7 +86,7 @@ internal static partial class Measurements
+             return problems;
+         }
+ 
+-        foreach (var field in ConfigFields)
++        foreach (var field in ConfigFields.Take(0))
+         {
+             if (!config.TryGetProperty(field, out var value) || value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString()))
+             {

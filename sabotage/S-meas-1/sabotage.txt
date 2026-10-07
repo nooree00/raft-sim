@@ -1,0 +1,6 @@
+description: A measurement record missing its build configuration is accepted
+mechanism: no configuration field is checked
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.MeasurementsTests.ARecordMissingAConfigurationFieldFails
+expect: caught

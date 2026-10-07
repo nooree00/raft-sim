@@ -1,0 +1,6 @@
+description: A report number that cites no record or run is accepted
+mechanism: an uncited table row is skipped
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.MeasurementsTests.AReportNumberWithNoCitationFails
+expect: caught

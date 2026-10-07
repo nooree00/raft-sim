@@ -325,3 +325,5 @@ S-shard-5 7.0
 S-shard-6 6.5
 S-shard-7 6.0
 S-shard-8 6.0
+S-meas-1 7.0
+S-meas-2 7.0
