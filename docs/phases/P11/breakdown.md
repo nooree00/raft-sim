@@ -183,9 +183,18 @@ nothing above (P11-07). Then the cost in CI (P11-08).
 - **Prediction:** The move takes the largest-manifest plan under its bound with a margin, not just under it: the slowest modelled shard at 336 entries falls below 570 s (5% under the 600-s bound, phase 7's margin), and S-hostdisk-1's local time falls below half of its 272.7 s, because most of what it paid for was the moved tests running with the persist barrier sabotaged. The `Raft.Host.Tests` run alone falls below 60 s locally. **Observable:** the largest-manifest test's modelled slowest shard, S-hostdisk-1's `--only` time, and the host project's test time, after the move.
 - **Outcome:** pending
 
+### P11-09 — A test entry runs its target's class, not its target's whole project
+
+- **Task:** The reviewer's decision after P11-08's first measurement. The largest-manifest test prices each of its placeholder entries at the costliest recorded entry, and 24 of the 26 `Raft.Scale.Tests` entries cost 139 to 335 s for one structural reason: every test entry runs its target's whole project, and the Scale suite takes about 367 s locally. A patched entry now runs only its target's class (`--filter-class`), in `RunOne` and in a control's run. The arguments are built by one function (`EntryTestArgs`), and a guard (`BeyondClass`) fails an entry whose results include a test outside its target's class. Every test entry's cost is then measured again, the largest-manifest test re-run, and the worst recorded cost reported before and after, since it is the placeholder price the test turns on. **What it costs:** "neighbours also red" now shows siblings in the target's class only; cross-class collateral is no longer seen. It was informative twice: a sabotage failing three tests instead of one showed a guard's real scope, and it made S-lin-4's degradation visible (phase 8).
+- **Vacuity:** The feature creates a new way to under-run: an entry whose filter matches nothing runs no test, and an entry run whole again costs the old price unseen. The first is the existing target-not-run outcome. The second is guarded by `BeyondClass` and by S-harness-5 (the filter dropped from the arguments) and S-harness-6 (the guard disabled).
+- **Sabotage:** S-harness-5, S-harness-6
+- **Verifiable here:** yes — the harness and its tests run locally
+- **Prediction:** The Scale entries' costs fall together, which is the evidence that the class was the cause: at least 20 of the 24 drop to under a third of their recorded cost. The exceptions are entries whose target's class itself runs the soak's sample (`SoakTests`, the linearizability and known-limit classes over the soak's histories), which stay above 100 s, because there the class is most of the suite. The worst recorded cost after the change is one of those, not S-lin-7, and the largest-manifest model falls below 570 s. **Observable:** every test entry's `--only` time before and after, grouped by target class; the worst recorded cost; the model's slowest shard at 336 entries.
+- **Outcome:** pending
+
 ## Sabotage ids
 
-New series: S-cost (P11-01), S-struct (P11-07); S-repl-10..12 follow S-repl-9. Each id's
+New series: S-cost (P11-01), S-struct (P11-07); S-repl-10..12 follow S-repl-9, S-harness-5..6 follow S-harness-4. Each id's
 `sabotage/<id>/` entry lands in the same commit as the check it proves and is run on that commit
 before it is pushed. The touched-file stage runs before every push; the shards run in CI.
 
@@ -195,6 +204,8 @@ before it is pushed. The touched-file stage runs before every push; the shards r
 - **S-repl-11:** the in-flight mark never set (the resends return; P11-01 red).
 - **S-repl-12:** a heartbeat does not re-send an outstanding append (a lost append is never recovered; the lost-append test red).
 - **S-struct-1:** every indeterminate write completes (no undecided histories; the both-classes guard red).
+- **S-harness-5:** an entry's test arguments without the class filter (the whole project runs again; its argument test red).
+- **S-harness-6:** the guard on results outside the target's class never fires (its test red).
 - **S-struct-2:** the width counts completed operations only (the measure differs from the one predicted; its test red).
 
 ## Register rows
