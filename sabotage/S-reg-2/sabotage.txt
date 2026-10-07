@@ -4,4 +4,4 @@ kind: command
 build: no
 command: dotnet "$GATES" register
 expect: caught
-message: no test named 'Raft.Checker.Tests.NoSuchTests.Visualised'
+message: no test named 'Raft.Checker.Tests.NoSuchTests.Walked'

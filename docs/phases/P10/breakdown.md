@@ -228,7 +228,7 @@ blocks nothing.
 - **Sabotage:** S-bench-3
 - **Verifiable here:** yes — in process and in Compose on this container
 - **Prediction:** The barrier is between a third and a half of median commit latency at the target load: the leader's sync and the follower's sync are in series today, and the round trip on loopback is far shorter than a sync, so pipelining the leader's sync with replication would remove about one sync from each commit. By the decision rule that brings it to the reviewer. **Observable:** the measured share, median and spread over five repetitions.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — the barrier is a seventh to a fifth of commit latency, not a third to a half. In process, five runs each: at 300 writes a second the leader's sends wait 534 µs per write behind its own persist (526 to 578), 18% of the mean commit latency (2.9 ms); at 625, 452 µs (443 to 497), 14% of 3.2 ms (records p10-05-local-*). The prediction reasoned from the model, where two syncs and a round trip are the whole commit (367 µs); measured, the commit is about nine times that, and the syncs are a small part of it. The load the task named, P10-04's target load (3,125 a second), completes nothing, so the share was measured below the knee. The vacuity guard held: with every sync delayed 20 ms and nothing else, the barrier measures 21.2 ms per write against 20.2 ms slept. **By the decision rule (under a quarter), the register row is closed: the barrier is kept, with this measurement.** Pipelining the leader's sync with replication would save at most about a sixth of a commit today; the replication resends (P10-04) cost far more. S-bench-3 is caught.
 
 ### P10-06 — Session expiry's cost
 
