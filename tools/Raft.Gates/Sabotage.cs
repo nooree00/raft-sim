@@ -552,6 +552,13 @@ internal static class Sabotage
         }
 
         f.Note($"recorded costs: {timings.Count} entries timed; the furthest from its line is {worstId} at {worst:F2} times its recorded cost (stale beyond {costs.StaleFactor} either way, and {costs.StaleFloor} s)");
+
+        // On GitHub, every entry's time as one notice: the costs are enforced on GitHub's runners, so
+        // they are refreshed from there, and the job log is not always readable (P10-00).
+        if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+        {
+            Console.WriteLine("::notice::sabotage entry times%0A" + string.Join("%0A", timings.OrderBy(t => t.Key, StringComparer.Ordinal).Select(t => FormattableString.Invariant($"{t.Key} {t.Value:F1}"))));
+        }
     }
 
     internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>

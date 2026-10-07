@@ -59,13 +59,13 @@ S-ci-2 10.1
 S-client-1 48.3
 S-client-2 59.0
 S-client-3 53.9
-S-client-4 16.1
+S-client-4 73.3
 S-codec-1 21.9
 S-codec-2 19.7
 S-codec-3 194.8
 S-commit-1 18.4
 S-commit-2 22.2
-S-compact-1 19.8
+S-compact-1 6.5
 S-compact-2 20.5
 S-compact-3 22.2
 S-compact-4 29.5
@@ -93,7 +93,7 @@ S-cov-7 195.7
 S-cov-8 60.1
 S-cov-9 45.0
 S-ctl-1 27.1
-S-ctl-2 20.4
+S-ctl-2 67.4
 S-det-1 55.7
 S-det-2 27.3
 S-det-3 47.7
@@ -123,7 +123,7 @@ S-elect-3 20.7
 S-elect-4 31.5
 S-elect-5 29.6
 S-elect-6 22.7
-S-frame-1 16.7
+S-frame-1 62.1
 S-gate-1 10.4
 S-gen-1 48.5
 S-ghost-1 16.0
@@ -138,7 +138,7 @@ S-hist-5 21.5
 S-hist-6 21.8
 S-hist-7 25.1
 S-host-1 35.5
-S-hostdisk-1 19.0
+S-hostdisk-1 72.2
 S-iface-1 42.3
 S-iface-2 46.1
 S-iface-3 49.9
@@ -159,7 +159,7 @@ S-joint-1 18.5
 S-joint-2 16.6
 S-joint-3 19.6
 S-joint-4 27.4
-S-kill-1 14.3
+S-kill-1 63.7
 S-kl-1 178.1
 S-kl-2 175.0
 S-kl-3 199.9
@@ -265,8 +265,8 @@ S-run-2 8.7
 S-run-3 5.0
 S-run-4 4.2
 S-run-5 4.5
-S-sched-1 23.9
-S-sched-2 22.9
+S-sched-1 76.3
+S-sched-2 81.2
 S-sched-3 24.7
 S-sec-3 8.9
 S-sec-4 4.9
