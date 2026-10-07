@@ -12,9 +12,10 @@ using Raft.Checker;
 using Raft.Core;
 using Raft.Core.Tests;
 using Raft.Host;
+using Raft.Host.Tests;
 using Xunit;
 
-namespace Raft.Host.Tests;
+namespace Raft.Host.Slow.Tests;
 
 /// <summary>
 /// P10-07, phase 10 decision 7 (the register's row from phase 9): fsync failure injected into the

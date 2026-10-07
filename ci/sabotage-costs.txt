@@ -29,6 +29,7 @@ unit test:tests/Raft.Checker.Tests 20
 unit test:tests/Raft.Core.Tests 4
 unit test:tests/Raft.Gates.Tests 6
 unit test:tests/Raft.Host.Tests 13
+unit test:tests/Raft.Host.Slow.Tests 60
 unit test:tests/Raft.Membership.Tests 48
 unit test:tests/Raft.Scale.Tests 141
 unit test:tests/Raft.Simulation.Tests 19

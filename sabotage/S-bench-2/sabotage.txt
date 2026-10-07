@@ -1,6 +1,6 @@
 description: The generator times a write to the moment it gets a connection, not to its reply
 mechanism: a latency insensitive to the system's cost
 kind: test
-project: tests/Raft.Host.Tests
-target: Raft.Host.Tests.BenchControlTests.APlantedSlowdownMovesTheMedianByTheModelsAmount
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.BenchControlTests.APlantedSlowdownMovesTheMedianByTheModelsAmount
 expect: caught

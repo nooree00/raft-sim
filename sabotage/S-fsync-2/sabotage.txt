@@ -1,6 +1,6 @@
 description: The crash discards nothing, so it is a process kill again (phase 9's SIGKILL)
 mechanism: the injected crash keeps every file as written instead of reverting it to its last sync
 kind: test
-project: tests/Raft.Host.Tests
-target: Raft.Host.Tests.FsyncFailureTests.ACrashThatLosesUnsyncedWritesRecoversWithTheHistoryAccepted
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.FsyncFailureTests.ACrashThatLosesUnsyncedWritesRecoversWithTheHistoryAccepted
 expect: caught

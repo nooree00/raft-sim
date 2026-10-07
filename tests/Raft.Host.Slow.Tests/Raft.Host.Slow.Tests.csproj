@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The host's measurement controls and fault injection (P11-08, split from Raft.Host.Tests): the
+    open-loop generator's controls and the barrier's measurement (P10-03, P10-05), and fsync failure
+    and power-cut crashes (P10-07). They run real clusters for ten to twenty seconds each, and every
+    harness entry runs its target's whole project, so in Raft.Host.Tests every host entry paid for
+    them. The host fixture is shared with Raft.Host.Tests by link.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Raft.Core.Tests/ClientHistory.cs" Link="Checkers/ClientHistory.cs" />
+    <Compile Include="../Raft.Host.Tests/HostCluster.cs" Link="Host/HostCluster.cs" />
+    <Compile Include="../Raft.Host.Tests/HostHistory.cs" Link="Host/HostHistory.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Raft.Checker/Raft.Checker.csproj" />
+    <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
+    <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
+    <ProjectReference Include="../../src/Raft.Host/Raft.Host.csproj" />
+  </ItemGroup>
+</Project>

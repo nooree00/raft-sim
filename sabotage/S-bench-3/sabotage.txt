@@ -1,6 +1,6 @@
 description: The persist barrier is measured at a client response, not at the first send
 mechanism: the barrier timed to an effect a leader's append does not have
 kind: test
-project: tests/Raft.Host.Tests
-target: Raft.Host.Tests.BenchControlTests.TheBarrierMeasuredIsTheLeadersOwnSync
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.BenchControlTests.TheBarrierMeasuredIsTheLeadersOwnSync
 expect: caught

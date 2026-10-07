@@ -7,9 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Raft.Core;
 using Raft.Host;
+using Raft.Host.Tests;
 using Xunit;
 
-namespace Raft.Host.Tests;
+namespace Raft.Host.Slow.Tests;
 
 /// <summary>
 /// P10-03: the load generator measures what it claims, shown by two planted effects of known shape on

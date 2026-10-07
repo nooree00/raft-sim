@@ -1,7 +1,7 @@
-diff --git a/tests/Raft.Host.Tests/FsyncFailureTests.cs b/tests/Raft.Host.Tests/FsyncFailureTests.cs
+diff --git a/tests/Raft.Host.Slow.Tests/FsyncFailureTests.cs b/tests/Raft.Host.Slow.Tests/FsyncFailureTests.cs
 index 5805d3c..8470d4e 100644
---- a/tests/Raft.Host.Tests/FsyncFailureTests.cs
-+++ b/tests/Raft.Host.Tests/FsyncFailureTests.cs
+--- a/tests/Raft.Host.Slow.Tests/FsyncFailureTests.cs
++++ b/tests/Raft.Host.Slow.Tests/FsyncFailureTests.cs
 @@ -267,14 +267,14 @@ internal sealed class InjectedFileSystem(IFileSystem inner) : IFileSystem
              foreach (var name in inner.List())
              {
