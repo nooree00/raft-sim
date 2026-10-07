@@ -30,7 +30,31 @@ configuration recorded beside every number. In addition, carried forward:
   anything; a rule tied to a mechanical act holds, a rule naming something to be careful about does
   not. "The build configuration recorded beside every number" is made mechanical (P10-01).
 
-**Status: for review.** Nothing is implemented. P10-00's measurement was made before this breakdown, at the reviewer's request; its numbers are in decision 1, and its change waits for approval like every other.
+**Approved** (reviewer): P10-00 to P10-10; stop and report after the phase. The two corrections to
+the review are accepted (P5's design 2 was a shared whole-suite baseline; the `each-commit-list` row
+is done, so phase 9's four commits are unverifiable by design, not by gap).
+
+- **Decision 1, cost-balanced at 11 shards, across shards and workers.** The ±50% perturbation
+  settles it: 366 against 554 s median under noise matters more than 336 against 519 s at exact
+  costs, because a plan that keeps its advantage when every estimate is wrong is not fitted to
+  today's numbers. **Two conditions**, both in P10-00:
+  - a new entry's recorded cost is a claim, and a wrong one silently unbalances the plan. The
+    harness reports each entry's actual time against its recorded cost, and fails when one is off by
+    more than a stated factor, so the costs cannot rot into a random plan;
+  - the cost file is a tuned value, so spec §10's rule on limits applies: one test that the plan
+    still fits the ceiling at the largest legitimate manifest, not only at today's 296.
+- **Decision 9, the non-root reproduction, approved** as proposed: a container, an unprivileged
+  user, the Docker socket and the proxy certificate read-only. If it reproduces, phase 9's finding
+  becomes explained and the row closes. If not, that is a result: the row stays open with one
+  hypothesis eliminated.
+- **Decision 10, the visualiser: dropped** by a spec amendment. It was a nice-to-have and nothing
+  since has needed it.
+- **P10-04's predicted miss** (the leader syncs once per request) is the right kind of prediction, a
+  mechanism and an observable made before measuring. If it is confirmed, the group-commit row is
+  opened and **not implemented**: spec §2 excludes performance optimisation until there is a
+  measured baseline, and phase 10 produces that baseline.
+- The other decisions as proposed. "Every number cites a record, and a gate refuses one that does
+  not" is the strongest: the measure-on-the-enforcing-machine finding turned into a mechanism.
 
 ## Ordering
 
@@ -154,11 +178,11 @@ blocks nothing.
 
 ### P10-00 — Harness shard assignment
 
-- **Task:** Decision 1. `ShardPlan` assigns entries to shards by cost, not by id: longest first, each to the shard whose modelled time grows least, where a shard's time is its slowest worker's ready time (baseline build plus its baseline units) plus its slowest worker's entries. Inside a shard, entries go to workers the same way, longest first to the least-loaded worker. Ties break by id, so the plan stays deterministic. The costs come from `ci/sabotage-costs.txt` (seeded from `docs/phases/P10/p10-00/entry-costs.txt`), and the per-commit matrix computes each commit's shards from that commit's own file. `gates sabotage-plan` refuses a manifest entry with no cost, and a cost for an entry that does not exist.
-- **Vacuity:** An assignment that leaves an entry out, or puts one in two shards, passes a shard that never ran it. Guarded by `ShardPlan.Problems` (every id in exactly one shard, no shard empty) for any assignment, and by `gates build-collect` requiring every shard. An assignment that reads no costs falls back to an order unrelated to them, and every shard still passes. Guarded by a gate test in which two planted heavy entries must land in different shards (S-shard-4, the costs ignored). A new entry with no cost would get one silently. Guarded by the refusal (S-shard-5, the refusal removed).
-- **Sabotage:** S-shard-4, S-shard-5
+- **Task:** Decision 1. `ShardPlan` assigns entries to shards by cost, not by id: longest first, each to the shard whose modelled time grows least, where a shard's time is its slowest worker's ready time (baseline build plus its baseline units) plus its slowest worker's entries. Inside a shard, entries go to workers the same way, longest first to the least-loaded worker. Ties break by id, so the plan stays deterministic. The costs come from `ci/sabotage-costs.txt` (seeded from `docs/phases/P10/p10-00/entry-costs.txt`), and the per-commit matrix computes each commit's shards from that commit's own file. `gates sabotage-plan` refuses a manifest entry with no cost, and a cost for an entry that does not exist. **The reviewer's conditions:** (a) every harness run prints each entry's actual time beside its recorded cost, and fails when an entry's actual is more than 3 times its recorded cost or less than a third of it (the factor recorded in `ci/sabotage-costs.txt`; GitHub runs 1.1 to 1.5 times slower than this container, and one run's noise reaches ±50%, so 3 leaves room for both and still catches a cost that is wrong). The failure names the entry and both numbers, so a stale cost is corrected by editing one line. (b) A gate test of the largest legitimate manifest: at the shard size's limit for 11 shards (308 entries, the recorded costs plus 12 more at the recorded maximum), the modelled slowest shard stays under 600 local seconds (the 900-s ceiling at GitHub's worst ratio to this container, 1.5), so a growing manifest reaches the next shard before it reaches the ceiling.
+- **Vacuity:** An assignment that leaves an entry out, or puts one in two shards, passes a shard that never ran it. Guarded by `ShardPlan.Problems` (every id in exactly one shard, no shard empty) for any assignment, and by `gates build-collect` requiring every shard. An assignment that reads no costs falls back to an order unrelated to them, and every shard still passes. Guarded by a gate test in which two planted heavy entries must land in different shards (S-shard-4, the costs ignored). A new entry with no cost would get one silently. Guarded by the refusal (S-shard-5, the refusal removed). A stale cost passes every run unless something compares it. Guarded by the staleness check (S-shard-6, the comparison never fails). A test of today's manifest says nothing about tomorrow's. Guarded by the largest-manifest test (S-shard-7, the shards dealt by id again: modelled at 769 s for 308 entries, against 388 s cost-balanced).
+- **Sabotage:** S-shard-4, S-shard-5, S-shard-6, S-shard-7
 - **Verifiable here:** partial — the assignment and its balance locally; the ceiling that matters on GitHub's runners only
-- **Prediction:** On GitHub, the slowest shard's harness step falls under 600 s (two thirds of the 900-s ceiling), and the slowest is within 1.3 times the fastest, against phase 9's 271 to 789 s. The model puts the slowest at 336 local seconds, and phase 9's shard 6 ran 1.45 times slower on GitHub than locally (789 against 544), which gives about 490 s. The 600-s bound leaves room for GitHub's spread. **Observable:** each shard's harness step in the first CI run whose every job completed once.
+- **Prediction:** On GitHub, the slowest shard's harness step falls under 600 s (two thirds of the 900-s ceiling), and the slowest is within 1.3 times the fastest, against phase 9's 271 to 789 s. The model puts the slowest at 336 local seconds, and phase 9's shard 6 ran 1.45 times slower on GitHub than locally (789 against 544), which gives about 490 s. The 600-s bound leaves room for GitHub's spread. On that run no entry trips the staleness check, and the largest actual-to-recorded ratio is under 2, because GitHub's ratio to this container is 1.1 to 1.5. **Observable:** each shard's harness step, and the largest ratio the staleness check prints, in the first CI run whose every job completed once.
 - **Outcome:** pending
 
 ### P10-01 — Measurement records, and the configuration beside every number
