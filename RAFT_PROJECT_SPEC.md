@@ -592,6 +592,18 @@ that phase's whole attention.)
   things a person does. The person's walk cannot be a script; the phase
   report's record of it is required by the report gate.
 
+- **The host jobs run as an unprivileged user on GitHub, and locally as root.**
+  A container started from a host job writes into its bind mount as root: the
+  Compose build leaves `bin/` and `obj/` owned by root in the worktree, and an
+  unprivileged `git worktree remove --force` then fails on them with exit 255
+  (not 128), which `set -e` passes on. So a host script that builds in a
+  container returns ownership of what it mounted before removing it
+  (`host-sabotages.sh` does), and a host-job failure that cannot be read on
+  GitHub is reproduced as an unprivileged user (a container, the Docker socket
+  and the proxy certificate read-only) before it is called fixed or
+  unexplained. Shown by reproduction at phase 10 (P10-08): exit 255 in ten of
+  ten runs at the commit before the fix, none after.
+
 **Enforcement.** Every rule above that can be a script is one, in
 `tools/Raft.Gates`, run by CI: the breakdown gate and prediction-order check,
 the register gate, the sabotage harness, the test-count floor, the
