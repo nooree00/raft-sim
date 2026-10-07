@@ -17,6 +17,36 @@ public sealed class HarnessScopeTests
     private static SabotageSpec Spec(string id, params (string Key, string Value)[] fields) =>
         new(id, fields.ToDictionary(f => f.Key, f => f.Value, StringComparer.Ordinal), "patch.diff", null);
 
+    /// <summary>
+    /// P11-09: a patched test entry runs its target's class, not its target's whole project (which made
+    /// every Scale entry pay for the whole Scale suite). A theory case's arguments are not part of the
+    /// class. Sabotage S-harness-5 (the filter dropped).
+    /// </summary>
+    [Fact]
+    public void ATestEntryRunsItsTargetsClassOnly()
+    {
+        var args = Sabotage.EntryTestArgs(Spec("S-a-1", ("kind", "test"), ("project", "tests/Raft.Scale.Tests"), ("target", "Raft.Scale.Tests.SoakTests.TheSampleHolds(seed: 3)")));
+
+        var at = args.IndexOf("--filter-class");
+        Assert.True(at >= 0, "an entry's test run has no class filter: it runs its whole project");
+        Assert.Equal("Raft.Scale.Tests.SoakTests", args[at + 1]);
+        Assert.Equal("tests/Raft.Scale.Tests", args[args.IndexOf("--project") + 1]);
+    }
+
+    /// <summary>
+    /// P11-09: a result outside the target's class means the entry ran more than its class, and is
+    /// named; siblings in the class, theory cases included, are not. Sabotage S-harness-6 (never fires).
+    /// </summary>
+    [Fact]
+    public void AResultOutsideTheTargetsClassIsNamed()
+    {
+        const string Target = "Raft.Scale.Tests.SoakTests.TheSampleHolds";
+
+        Assert.Null(Sabotage.BeyondClass(["Raft.Scale.Tests.SoakTests.TheSampleHolds", "Raft.Scale.Tests.SoakTests.Other(a: \"x.y\")"], Target));
+        Assert.Equal("Raft.Scale.Tests.KnownLimitTests.Stale", Sabotage.BeyondClass(["Raft.Scale.Tests.SoakTests.TheSampleHolds", "Raft.Scale.Tests.KnownLimitTests.Stale"], Target));
+        Assert.Equal("Raft.Scale.Tests.SoakTestsMore.X", Sabotage.BeyondClass(["Raft.Scale.Tests.SoakTestsMore.X"], Target));
+    }
+
     [Fact]
     public void ATestEntryBuildsItsTargetProjectAndACommandEntryTheSolution()
     {

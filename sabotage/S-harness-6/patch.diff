@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Sabotage.cs b/tools/Raft.Gates/Sabotage.cs
+index 928f439..3ebdc9f 100644
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -521,7 +521,7 @@ internal static class Sabotage
+     internal static string? BeyondClass(IEnumerable<string> names, string target)
+     {
+         var prefix = TargetClass(target) + ".";
+-        return names.FirstOrDefault(n => !n.StartsWith(prefix, StringComparison.Ordinal) || TargetMethod(n[prefix.Length..]).Contains('.', StringComparison.Ordinal));
++        return names.FirstOrDefault(n => n.Length < 0 && (!n.StartsWith(prefix, StringComparison.Ordinal) || TargetMethod(n[prefix.Length..]).Contains('.', StringComparison.Ordinal)));
+     }
+ 
+     private static List<TestResult> RunTestArgs(string wt, List<string> args)

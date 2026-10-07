@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Sabotage.cs b/tools/Raft.Gates/Sabotage.cs
+index 928f439..e45962c 100644
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -504,7 +504,7 @@ internal static class Sabotage
+     /// prices its placeholders at the costliest entry, went over its bound. Sabotage S-harness-5.
+     /// </summary>
+     internal static List<string> EntryTestArgs(SabotageSpec spec) =>
+-        ["test", "--project", spec.Get("project")!, "--no-build", "--report-xunit-trx", "--filter-class", TargetClass(spec.Get("target")!)];
++        ["test", "--project", spec.Get("project")!, "--no-build", "--report-xunit-trx"];
+ 
+     /// <summary>A target's class: its method's full name without the method (and without a theory case's arguments).</summary>
+     internal static string TargetClass(string target)

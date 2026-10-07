@@ -1,0 +1,6 @@
+description: A test entry's patched run loses its class filter, so every entry runs its target's whole project again and pays the old price unseen (P11-09)
+mechanism: the class filter dropped from an entry's test arguments
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.HarnessScopeTests.ATestEntryRunsItsTargetsClassOnly
+expect: caught

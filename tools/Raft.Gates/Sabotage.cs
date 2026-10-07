@@ -343,7 +343,13 @@ internal static class Sabotage
             return Done("not-compiled-in", "the control leaves every assembly byte-identical: it controls for nothing");
         }
 
-        var mine = Matching(RunTests(wt, spec.Get("project")!), spec.Get("target")!);
+        var all = RunEntryTests(wt, spec);
+        if (BeyondClass(all.Select(r => r.Name), spec.Get("target")!) is { } stray)
+        {
+            return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)");
+        }
+
+        var mine = Matching(all, spec.Get("target")!);
         if (mine.Count == 0)
         {
             return Done("target-not-run", spec.Get("target")!);
@@ -431,7 +437,12 @@ internal static class Sabotage
 
         if (spec.Kind == "test")
         {
-            var results = RunTests(wt, spec.Get("project")!);
+            var results = RunEntryTests(wt, spec);
+            if (BeyondClass(results.Select(r => r.Name), spec.Get("target")!) is { } stray)
+            {
+                return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)");
+            }
+
             var mine = Matching(results, spec.Get("target")!);
             if (mine.Count == 0)
             {
@@ -473,19 +484,55 @@ internal static class Sabotage
 
     private static List<TestResult> RunTests(string wt, string project, IReadOnlyList<string>? only = null)
     {
-        var dir = Path.Combine(wt, "TestResults", "sabotage");
-        if (Directory.Exists(dir))
-        {
-            Directory.Delete(dir, recursive: true);
-        }
-
-        var args = new List<string> { "test", "--project", project, "--no-build", "--report-xunit-trx", "--results-directory", dir };
+        var args = new List<string> { "test", "--project", project, "--no-build", "--report-xunit-trx" };
         foreach (var method in only ?? [])
         {
             args.Add("--filter-method");
             args.Add(method);
         }
 
+        return RunTestArgs(wt, args);
+    }
+
+    /// <summary>A patched entry's (or its control's) tests: its target's class only (P11-09).</summary>
+    private static List<TestResult> RunEntryTests(string wt, SabotageSpec spec) => RunTestArgs(wt, EntryTestArgs(spec));
+
+    /// <summary>
+    /// The arguments a test entry's patched run passes to `dotnet test` (P11-09): its project, and a
+    /// filter to its target's class. Every entry used to run its target's whole project, so each of the
+    /// 24 costly Scale entries paid for the whole Scale suite, and the largest-manifest plan, which
+    /// prices its placeholders at the costliest entry, went over its bound. Sabotage S-harness-5.
+    /// </summary>
+    internal static List<string> EntryTestArgs(SabotageSpec spec) =>
+        ["test", "--project", spec.Get("project")!, "--no-build", "--report-xunit-trx", "--filter-class", TargetClass(spec.Get("target")!)];
+
+    /// <summary>A target's class: its method's full name without the method (and without a theory case's arguments).</summary>
+    internal static string TargetClass(string target)
+    {
+        var method = TargetMethod(target);
+        return method[..method.LastIndexOf('.')];
+    }
+
+    /// <summary>
+    /// The first result outside the target's class, or null (P11-09): a patched entry that ran more
+    /// than its class is paying for more than it checks, and the harness says so rather than report a
+    /// verdict at the old price. Sabotage S-harness-6.
+    /// </summary>
+    internal static string? BeyondClass(IEnumerable<string> names, string target)
+    {
+        var prefix = TargetClass(target) + ".";
+        return names.FirstOrDefault(n => !n.StartsWith(prefix, StringComparison.Ordinal) || TargetMethod(n[prefix.Length..]).Contains('.', StringComparison.Ordinal));
+    }
+
+    private static List<TestResult> RunTestArgs(string wt, List<string> args)
+    {
+        var dir = Path.Combine(wt, "TestResults", "sabotage");
+        if (Directory.Exists(dir))
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+
+        args.AddRange(["--results-directory", dir]);
         Proc.Run("dotnet", wt, [.. args]);
         XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
         return Directory.Exists(dir)

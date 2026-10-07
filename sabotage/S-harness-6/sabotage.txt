@@ -1,0 +1,6 @@
+description: The guard on results outside the target's class never fires, so an entry that ran more than its class is reported at the old price as a verdict (P11-09)
+mechanism: the beyond-class guard disabled
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.HarnessScopeTests.AResultOutsideTheTargetsClassIsNamed
+expect: caught
