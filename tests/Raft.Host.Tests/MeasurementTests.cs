@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using Raft.Host;
 using Xunit;
 
@@ -42,6 +43,20 @@ public sealed class MeasurementTests
         Assert.Equal(5, Measurement.Percentile(sorted, 50));
         Assert.Equal(10, Measurement.Percentile(sorted, 99));
         Assert.Equal(1, Measurement.Percentile(sorted, 0));
+    }
+
+    /// <summary>P10-02: a record keeps the count, the mean and nearest-rank percentiles of every sample, in microseconds.</summary>
+    [Fact]
+    public void ABenchSummaryKeepsTheCountTheMeanAndThePercentiles()
+    {
+        var summary = Bench.Summary(Enumerable.Range(1, 1000).Select(i => (double)i));
+
+        Assert.Equal(1000, summary["count"]);
+        Assert.Equal(500.5, summary["mean_us"]);
+        Assert.Equal(500, summary["p50_us"]);
+        Assert.Equal(990, summary["p99_us"]);
+        Assert.Equal(999, summary["p999_us"]);
+        Assert.Equal(1000, summary["max_us"]);
     }
 
     [Fact]

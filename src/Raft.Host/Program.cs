@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,10 +65,53 @@ public static class Program
                 var reply = await RealClient.SendAsync(new DnsEndPoint(at[..colon], int.Parse(at[(colon + 1)..], CultureInfo.InvariantCulture)), options["--line"], TimeSpan.FromSeconds(2), CancellationToken.None).ConfigureAwait(false);
                 await Console.Out.WriteLineAsync(reply ?? "no-reply").ConfigureAwait(false);
                 return reply is null ? 1 : 0;
+            case "bench":
+                return await BenchAsync(args.Length > 1 ? args[1] : "", Options(args[1..])).ConfigureAwait(false);
             default:
                 await Console.Error.WriteLineAsync("unknown mode " + args[0]).ConfigureAwait(false);
                 return 2;
         }
+    }
+
+    /// <summary>
+    /// `bench sync --dir D --count N --bytes B --id ID --out measurements` and `bench rtt --count N
+    /// --bytes B --id ID --out measurements` (P10-02): one record each, its configuration read by
+    /// <see cref="Measurement.Config"/>.
+    /// </summary>
+    private static async Task<int> BenchAsync(string what, Dictionary<string, string> o)
+    {
+        var count = int.Parse(o.GetValueOrDefault("--count", "10000"), CultureInfo.InvariantCulture);
+        var bytes = int.Parse(o.GetValueOrDefault("--bytes", "96"), CultureInfo.InvariantCulture);
+        var dir = o.GetValueOrDefault("--dir", Path.GetTempPath());
+        double[] samples;
+        string measure;
+        switch (what)
+        {
+            case "sync":
+                Directory.CreateDirectory(dir);
+                _ = Bench.Sync(dir, Math.Min(count, 200), bytes); // warm-up, discarded
+                samples = Bench.Sync(dir, count, bytes);
+                measure = $"append of {bytes} bytes and sync, {count} times, in {dir}";
+                break;
+            case "rtt":
+                _ = await Bench.RoundTripAsync(Math.Min(count, 200), bytes, CancellationToken.None).ConfigureAwait(false); // warm-up, discarded
+                samples = await Bench.RoundTripAsync(count, bytes, CancellationToken.None).ConfigureAwait(false);
+                measure = $"loopback round trip of a {bytes}-byte frame, {count} times";
+                break;
+            default:
+                await Console.Error.WriteLineAsync("bench sync|rtt").ConfigureAwait(false);
+                return 2;
+        }
+
+        var record = new MeasurementRecord(
+            o["--id"],
+            o.GetValueOrDefault("--task", "P10-02"),
+            measure,
+            Measurement.Config(Math.Min(count, 200) + " operations, discarded", o.GetValueOrDefault("--repetition", "1"), "none: one operation at a time", dir),
+            Bench.Summary(samples));
+        Measurement.Write(o.GetValueOrDefault("--out", "measurements"), record);
+        await Console.Out.WriteLineAsync($"{record.Id}: " + string.Join(", ", record.Results.Select(r => $"{r.Key} {r.Value}"))).ConfigureAwait(false);
+        return 0;
     }
 
     private static Dictionary<string, string> Options(string[] args)

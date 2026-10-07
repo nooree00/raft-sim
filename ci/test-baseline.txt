@@ -8,4 +8,4 @@ Raft.Core.Tests 845
 Raft.Scale.Tests 23
 Raft.Budget.Tests 3
 Raft.Membership.Tests 3
-Raft.Host.Tests 25
+Raft.Host.Tests 26
