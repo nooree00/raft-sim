@@ -174,13 +174,13 @@ nothing above (P11-07). Then the cost in CI (P11-08).
 - **Prediction:** The width does not separate with a margin of 4. Histories of equal width split between decided and undecided by how the reads constrain the indeterminate writes, so the overlap of indeterminate writes with observing reads is the better separator, and the phase-6 prediction is wrong in its margin. **Observable:** the largest decided width against the smallest undecided width, over the generated set.
 - **Outcome:** pending
 
-### P11-08 — The phase's cost in CI
+### P11-08 — The slow host tests in their own project, then the phase's cost in CI
 
-- **Task:** The harness shards, the soaks, and the per-commit matrix on the phase's first-attempt runs, against phase 10's three runs and its report's run. The per-commit matrix's job count is recorded per push, with whether every job was given a runner (phase 10's report push had 34 that never ran).
-- **Vacuity:** A run with a job that never ran compares less work. Guarded by counting only jobs with steps, and by stating any never-run job.
-- **Sabotage:** ; manual: the comparison checked against each run's job list
-- **Verifiable here:** partial — CI's numbers only in CI
-- **Prediction:** The simulator gets faster per execution after the fix: fewer messages per write means fewer events. The baseline soak's job falls by at least 10% against phase 10's median (591 to 874 s), the first time a phase makes a soak cheaper. **Observable:** the soak jobs' durations in the phase's first-attempt runs.
+- **Task:** First, before the rest of the phase (reviewer, at phase 10's acceptance push): `BenchControlTests` and `FsyncFailureTests` move from `Raft.Host.Tests` into a project of their own, `Raft.Host.Bench.Tests`. Every test entry runs its target's whole project, so each of the ten host entries that targets neither was paying for the bench controls and the fsync tests (phase 10 lengthened the project to about 127 s locally). With S-hostdisk-1 at its true cost (330 s; its recorded 64.2 s was found stale by the per-entry outlier catch), the largest-manifest plan modelled 603 s against its 600-s bound. The move removes that cost at its source, as P4-11 and P5-07 did, rather than redistributing it with a smaller shard size, which P10-00 measured as useless. The five entries that target the moved tests (S-bench-1 to S-bench-3, S-fsync-1, S-fsync-2) move with them; the costs, the layering table, the test baselines and the register's evidence names follow. Then, at the phase's end: the harness shards, the soaks and the per-commit matrix on the phase's first-attempt runs against phase 10's, with the per-commit matrix's job count per push and whether every job was given a runner (phase 10's report push had 34 that never ran).
+- **Vacuity:** A move that drops a test passes with less. Guarded by the test baseline (the two projects' counts summing to the old one, 33) and by every moved entry still caught. For the cost part, a run with a job that never ran compares less work: only jobs with steps are counted, and any never-run job is stated.
+- **Sabotage:** ; shared: S-bench-1, S-bench-2, S-bench-3, S-fsync-1, S-fsync-2, S-hostdisk-1; manual: the comparison checked against each run's job list
+- **Verifiable here:** partial — the move and the local costs here; CI's numbers only in CI
+- **Prediction:** The move takes the largest-manifest plan under its bound with a margin, not just under it: the slowest modelled shard at 336 entries falls below 570 s (5% under the 600-s bound, phase 7's margin), and S-hostdisk-1's local time falls below half of its 272.7 s, because most of what it paid for was the moved tests running with the persist barrier sabotaged. The `Raft.Host.Tests` run alone falls below 60 s locally. **Observable:** the largest-manifest test's modelled slowest shard, S-hostdisk-1's `--only` time, and the host project's test time, after the move.
 - **Outcome:** pending
 
 ## Sabotage ids
