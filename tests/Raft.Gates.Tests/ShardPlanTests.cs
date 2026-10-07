@@ -219,9 +219,10 @@ public sealed class ShardPlanTests
     /// Spec §10's rule on limits, the reviewer's condition on the tuned cost file: at the largest
     /// manifest 11 shards hold (308 entries at 28 a shard; today's entries with their recorded costs
     /// and units, and 12 more at the costliest recorded cost), the modelled slowest shard stays under
-    /// 600 local seconds, the 900-s ceiling at GitHub's worst ratio to this machine (1.5). Dealt by id,
-    /// shards and workers alike (the harness before P10-00), the same manifest models at about 760 s;
-    /// balancing either alone already fits. Sabotage S-shard-7 (both dealt by id again).
+    /// 600 local seconds, the 900-s ceiling at GitHub's worst ratio to this machine (1.5). A capacity
+    /// check, not a proof that balancing matters: since P11-09 (each entry runs its target's class) the
+    /// manifest fits even dealt by id, so S-shard-7 targets a balancing test instead. Its non-vacuity
+    /// was shown by its own failures before P11-09 (603 to 607 s, the placeholders priced at 335 s).
     /// </summary>
     [Fact]
     public void AtTheLargestManifestElevenShardsHoldTheSlowestShardFitsTheCeiling()

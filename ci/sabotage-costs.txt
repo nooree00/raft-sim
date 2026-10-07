@@ -269,7 +269,7 @@ S-repl-7 7.3
 S-repl-8 5.3
 S-repl-9 5.6
 S-restrict-1 7.4
-S-rng-1 61.8
+S-rng-1 16.0
 S-rng-2 8.3
 S-run-1 4.3
 S-run-2 4.8
