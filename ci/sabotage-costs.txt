@@ -146,7 +146,7 @@ S-hist-5 19.2
 S-hist-6 11.9
 S-hist-7 39.5
 S-host-1 94.8
-S-hostdisk-1 64.2
+S-hostdisk-1 330.0
 S-iface-1 36.2
 S-iface-2 46.9
 S-iface-3 30.2
