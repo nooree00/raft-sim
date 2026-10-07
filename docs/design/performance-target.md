@@ -52,7 +52,7 @@ With S = 160 µs (its 99th percentile 410 µs) and R = 47 µs (95 µs):
 |---|---|---|
 | Median commit latency | at most 1.5 × L = **551 µs** | an offered write rate of C_design / 2 = 3,125 a second |
 | 99th-percentile commit latency | at most 3 × 915 µs = **2.75 ms** | the same |
-| Highest sustained write rate (completed within 5% of offered, the 99th percentile under 100 ms) | at least C_disk / 2 = **200,000 a second** | offered rates from a tenth of C_design up past the point where completed falls below offered |
+| Highest sustained write rate (completed within 5% of offered, the 99th percentile under 100 ms) | at least C_disk / 2 = **200,000 a second**; **ungrounded (phase 10 acceptance):** C_disk is the capability of a design whose leader sync carries a 64-entry batch (a group commit), which this design does not have. The design's own comparison is C_design (6,250) | offered rates from a tenth of C_design up past the point where completed falls below offered |
 
 The same figures apply to the in-process cluster (S = 163 µs gives L = 373 µs and C_design = 6,135; the
 difference is inside the repetitions' range, so one target serves both).

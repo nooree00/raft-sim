@@ -1092,3 +1092,25 @@ finding: what happened, why no existing check caught it, what now catches it.
   commits. *Rule:* an exit code is a fact to measure, not to recall; and a failure that cannot be
   read on the CI is reproduced in the CI's conditions (here, its user) before it is called
   unexplained or fixed.
+- **A right guess and a wrong one look the same until they are tested, so flagging a guess is right
+  even when the guess was.** Phase 9's fix for its non-root failures (chown the worktree back before
+  removing it) was applied without the cause shown, and the reviewer had it recorded as unexplained,
+  not fixed. P10-08's reproduction showed the guess was right. Recording it as unexplained was still
+  correct: at the time nothing distinguished it from a fix that happened to coincide with the
+  failure stopping. *Rule:* a fix's status follows the evidence for its cause, not whether it turns
+  out to have been right.
+- **On GitHub, re-running one job re-runs every job it depends on.** Re-running a single job that
+  had never been given a runner (phase 10, the report's first push) started a new attempt of most of
+  the workflow, because the job sat downstream of the matrix: the jobs that had failed for real ran
+  again, which is the "re-run until green" the working agreement forbids. Nothing from that attempt
+  was counted. *Rule:* before re-running a job, check what depends on what in the workflow; in this
+  one, a single job's re-run is a whole-run re-run, and a never-started job is better left recorded
+  as never run.
+- **A target is a claim like any limit, and mine was not grounded in the design.** P10-02's
+  throughput target, 200,000 writes a second, was half of 64 entries per sync over the sync's time:
+  what the disk would allow if the leader's sync carried a follower's batch. The design has no group
+  commit, so the figure described a system that does not exist, and "missed by 200 times" compared
+  the cluster with it. The comparison that means something is with the design's own model, one sync
+  per write (6,250 a second): the cluster reaches a tenth to a sixth of it. Same error as §13.37's
+  tuned limits, applied to a target. *Rule:* a target's every input is a property of the system as
+  built, or it is labelled as the capability of a different design.
