@@ -113,6 +113,35 @@ for the reviewer to close.
 was diagnosed more slowly for the want of one (the list is in P10-09's outcome); the slowest
 diagnoses were phase 9's, whose logs could not be read at all.
 
+## After the report's first push
+
+The report was first pushed at `a1be1d1` (run:37633788104), and that run was red. The causes, and
+what this push does about each:
+- **34 jobs were never started.** GitHub could not acquire a runner in 5 attempts for the build job
+  and for every (commit, shard) of the last three commits (`0e6d526`, `06eed30`, `a745a69`, all
+  documentation); no test ran in them. I re-ran one of them, as the one re-run allowed for a job that
+  died before any test body ran, and **GitHub re-ran with it every job it depends on, which in this
+  workflow is most of the run** (attempt 2): the jobs that had failed for real ran again too. In
+  attempt 2 the same 34 were again never started, and every job that failed in attempt 1 failed
+  again; attempt 2's jobs carry no annotations, so their causes are not read, and nothing in attempt 2
+  is counted as evidence. The cause of the unacquired jobs is not known: this push's matrix was the
+  largest yet (14 commits, about 160 per-commit jobs), and earlier runs of up to 66 were acquired. The
+  three commits and this head's build job are therefore never verified, below.
+- **S-bench-1's baseline at the head:** the stall control's closed run had a 99th percentile of
+  193 ms. A stall holds three closed writes, more than 1% of the closed run's writes on a slow
+  runner. The closed side is now judged at its 95th percentile (`cf0c516`); the open side is
+  unchanged. This is the control's second change for GitHub's runners, and both are in P10-03's
+  outcome.
+- **`KillTests` failed its guard "the killed host was the leader"** on two commits' shard 1, with the
+  history accepted. The test took the leader at the start and killed it two seconds later, and on a
+  loaded runner the office had moved. The guard was right and the test's choice was stale; the
+  leader is now read just before the kill (`e210b0a`). A guard that fired twice was read, not re-run.
+- **S-bench-2's ratio was 5.28 on one commit** (`e94b0a7`), over its upper bound of 5: the sync
+  delay's rise was five times what was slept, on a loaded runner. Not changed: one firing, and the
+  bound is the control's claim. If it fires again it is a finding to read.
+- **The shards with GitHub's costs, 12 of them:** harness steps 320 to 617 s, no staleness failure
+  (run:37633788104).
+
 ## Done criteria
 
 - **A written target before any end-to-end number** (decision 2): P10-02, from the measured sync
@@ -284,7 +313,9 @@ every shard. The causes, read from each job's annotations where the commit's own
 | `eb98d09` | run:37594669723 | shards 7, 10 | S-bench-1's baseline (187 unanswered), S-compact-1 |
 | `2586b5f` (head) | run:37594669723 | sabotage 7/11, 10/11 | S-bench-1's baseline (165 unanswered), S-compact-1 (28.5 s against 6.5) |
 
-Two causes cover all but two: the per-entry staleness check, which judged noise as stale lines
+**From the report's first push** (run:37633788104): `0e6d526`, `06eed30` and `a745a69` (documentation, their jobs never started), the head `a1be1d1` (its build job never started, and S-bench-1's baseline red), and `be00f8e`, `82b4825`, `52ddfa5` and `e94b0a7` (S-bench-1's baseline on two, the kill test's stale leader on two, S-bench-2's bound on one), each cause above.
+
+Of the earlier fourteen, two causes cover all but two: the per-entry staleness check, which judged noise as stale lines
 (changed at `e2ee908`, the costs refreshed from GitHub), and the stall control's load on a shared
 runner (`7b670f6`). The other two: a host test's lost request (fixed in the phase) and `bc24b3d`'s
 unread shard. Every one of them is contained in this report's head, whose run is the check of the
