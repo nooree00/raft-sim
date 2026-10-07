@@ -10,6 +10,8 @@
 #                                           load from a client container on the clients network
 #   scripts/bench.sh barrier [reps]         P10-05: the leader's persist barrier against its commit
 #                                           latency, in process, at rates below the knee
+#   scripts/bench.sh soak-ab [reps]         P10-06: the same 1,000 soak executions at this commit and at
+#                                           phase 8's head (before the last-use set), interleaved
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -27,7 +29,7 @@ volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || t
 scripts/in-sdk.sh dotnet build src/Raft.Host -c Release -nologo -v:q >/dev/null
 sdk="$(scripts/in-sdk.sh dotnet --version | tail -1)"
 run() {
-  docker run --rm --network none -v "$PWD:/src" -v "$volume:/data" -w /src -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" \
+  docker run --rm --network none -v "$PWD:/src" -v "$volume:/data" -w /src -e RAFT_COMMIT="${measured:-$commit}" -e RAFT_IMAGE="$image" \
     -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll "$@"
 }
 case "$what" in
@@ -48,6 +50,28 @@ case "$what" in
     for r in $(seq 1 "$reps"); do
       for rate in 300 625; do
         run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P10-05 --id "p10-05-local-$rate-$r" --repetition "$r" --out measurements
+      done
+    done ;;
+  soak-ab)
+    # Phase 8's head, exported (not checked out: this tree stays as it is), both built in Release.
+    p8="$(mktemp -d)/p8"; mkdir -p "$p8"; git archive 6f5001d | tar -x -C "$p8"
+    for side in "$PWD" "$p8"; do
+      docker run --rm -v "$side:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src ${HTTPS_PROXY:+--network host -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY} \
+        ${SSL_CERT_FILE:+-v "$SSL_CERT_FILE:/etc/ssl/certs/proxy-ca.pem:ro" -e SSL_CERT_FILE=/etc/ssl/certs/proxy-ca.pem} "$image" \
+        dotnet build tests/Raft.Scale.Tests -c Release -nologo -v:q >/dev/null
+    done
+    for r in $(seq 1 "$reps"); do
+      for side in cur p8; do
+        dir="$PWD"; [ "$side" = p8 ] && dir="$p8"
+        start=$(date +%s.%N)
+        # The NuGet cache as for the build: without it, `dotnet test` finds no test projects (in-sdk.sh).
+        docker run --rm --network none -v "$dir:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src -e RAFT_SOAK_COUNT=1000 "$image" \
+          dotnet test --project tests/Raft.Scale.Tests -c Release --no-build --filter-method "*TheGeneratedSampleHoldsEveryInvariant" >/dev/null
+        seconds=$(echo "$(date +%s.%N) - $start" | bc)
+        at=$commit; [ "$side" = p8 ] && at=6f5001d
+        measured=$at run bench record --task P10-06 --id "p10-06-soak-$side-$r" --repetition "$r" --results "wall_seconds=$seconds" \
+          --measure "the wall time of 1,000 soak executions (dotnet test of TheGeneratedSampleHoldsEveryInvariant, test host start included) at $at" \
+          --load "1,000 generated executions, Release, one at a time, no network; this side at $at, interleaved with the other"
       done
     done ;;
   load-compose)

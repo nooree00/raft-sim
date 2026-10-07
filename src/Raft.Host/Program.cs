@@ -100,8 +100,16 @@ public static class Program
                 break;
             case "load":
                 return await LoadAsync(o).ConfigureAwait(false);
+            case "record":
+                // A measurement taken by a script (P10-06's soak timings): the results passed in, the
+                // configuration read here, as for every other record.
+                var timed = o["--results"].Split(',').Select(kv => kv.Split('=')).ToDictionary(kv => kv[0], kv => double.Parse(kv[1], CultureInfo.InvariantCulture), StringComparer.Ordinal);
+                var taken = new MeasurementRecord(o["--id"], o.GetValueOrDefault("--task", "P10-06"), o["--measure"], Measurement.Config(o.GetValueOrDefault("--warmup", "none"), o.GetValueOrDefault("--repetition", "1"), o["--load"], o.GetValueOrDefault("--data", Path.GetTempPath())), timed);
+                Measurement.Write(o.GetValueOrDefault("--out", "measurements"), taken);
+                await Console.Out.WriteLineAsync($"{taken.Id}: " + string.Join(", ", timed.Select(x => $"{x.Key} {x.Value}"))).ConfigureAwait(false);
+                return 0;
             default:
-                await Console.Error.WriteLineAsync("bench sync|rtt|load").ConfigureAwait(false);
+                await Console.Error.WriteLineAsync("bench sync|rtt|load|record").ConfigureAwait(false);
                 return 2;
         }
 
