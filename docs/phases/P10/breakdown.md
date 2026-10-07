@@ -237,7 +237,7 @@ blocks nothing.
 - **Sabotage:** ; manual: a planted cost of known size (a busy wait of 1 µs per session command at the phase-9 head) must show as that many microseconds per command in the micro-measurement
 - **Verifiable here:** partial — one machine, one session here; a GitHub runner's spread is not measured
 - **Prediction:** The last-use set costs under 5% of a soak execution's time, and the difference across the two commits is inside the spread of the five repetitions. A sorted-set update is a few hundred nanoseconds, and an execution spends its time in the simulator and the checkers. **Observable:** the difference and its spread; the micro-measurement's cost per command.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — on the soak, and the micro-measurement was not made. Five interleaved runs of 1,000 soak executions on each side, in Release, on this container: 63.6 s at the phase-9 head (62.5 to 65.0) and 63.0 s at phase 8's head (61.6 to 64.6), a difference of 0.6 s (about 1%), with the five paired differences from −1.6 to +1.9 s: inside the spread (records p10-06-soak-*). Between the commits, Core and Kv differ only in the last-use set and the answer-at-append check (one branch per client request, off). What this shows is a bound, not a figure: the set costs less than about 3% of a soak execution, which is the smallest difference these runs can see. **Not done, a deviation:** the per-command micro-measurement of `KvStateMachine.Apply` and its planted 1-µs cost, so the measurement's sensitivity below that bound was not shown. The register row is closed on the bound: measured as under about 3% on one machine, where phase 9 could only say unmeasured.
 
 ### P10-07 — fsync failure injection against the real host
 

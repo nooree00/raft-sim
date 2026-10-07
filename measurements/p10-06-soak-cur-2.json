@@ -1,0 +1,28 @@
+{
+  "id": "p10-06-soak-cur-2",
+  "task": "P10-06",
+  "measure": "the wall time of 1,000 soak executions (dotnet test of TheGeneratedSampleHoldsEveryInvariant, test host start included) at 306caed805d5012d34a92d6506c49b9827b00fe9",
+  "config": {
+    "commit": "306caed805d5012d34a92d6506c49b9827b00fe9",
+    "configuration": "Release",
+    "sdk": "10.0.401",
+    "runtime": ".NET 10.0.12",
+    "image": "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29",
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.18.44-fc-v77",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": "4",
+    "cpuLimit": "none",
+    "dotnetProcessorCount": "4",
+    "gc": "workstation, concurrent",
+    "tieredCompilation": "default (on)",
+    "tieredPgo": "default (on)",
+    "dataFileSystem": "overlay (/)",
+    "warmup": "none",
+    "repetition": "2",
+    "load": "1,000 generated executions, Release, one at a time, no network; this side at 306caed805d5012d34a92d6506c49b9827b00fe9, interleaved with the other"
+  },
+  "results": {
+    "wall_seconds": 65.003154022
+  }
+}
