@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+index 7b6cbfb..1597dbc 100644
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -46,7 +46,7 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+         var released = false;
+         for (var i = 0; i < effects.Count; i++)
+         {
+-            if (!released && persisted && effects[i] is Send)
++            if (!released && persisted && effects[i] is ClientResponse)
+             {
+                 released = true;
+                 Interlocked.Add(ref _barrierTicks, Stopwatch.GetTimestamp() - start);

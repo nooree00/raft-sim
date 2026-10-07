@@ -338,3 +338,4 @@ S-meas-1 5.6
 S-meas-2 7.0
 S-bench-1 90.0
 S-bench-2 61.3
+S-bench-3 90.0

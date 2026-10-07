@@ -8,6 +8,8 @@
 #                                           process (the container's /tmp), each rate repeated
 #   scripts/bench.sh load-compose [reps]    P10-04: the same curve against the Compose cluster, the
 #                                           load from a client container on the clients network
+#   scripts/bench.sh barrier [reps]         P10-05: the leader's persist barrier against its commit
+#                                           latency, in process, at rates below the knee
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -39,6 +41,13 @@ case "$what" in
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
         run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --id "p10-04-local-$rate-$r" --repetition "$r" --out measurements
+      done
+    done ;;
+  barrier)
+    # Below the knee P10-04 found (past it nothing completes, so a share of latency means nothing).
+    for r in $(seq 1 "$reps"); do
+      for rate in 300 625; do
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P10-05 --id "p10-05-local-$rate-$r" --repetition "$r" --out measurements
       done
     done ;;
   load-compose)

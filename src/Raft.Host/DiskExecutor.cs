@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using Raft.Core;
 
 namespace Raft.Host;
@@ -12,6 +14,17 @@ namespace Raft.Host;
 /// </summary>
 public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<ClientResponse> respond, Action<Emit> emit)
 {
+    private long _barrierTicks;
+    private long _barrierLists;
+
+    /// <summary>
+    /// The persist barrier's cost (P10-05, decision 6): over every effect list in which a send
+    /// followed one or more persists, how many such lists, and the time those persists took before the
+    /// first send was released. A leader's client write is one such list (its append, then its sends),
+    /// so the leader's mean is what the barrier adds to each commit.
+    /// </summary>
+    public (long Lists, double Micros) Barrier => (Interlocked.Read(ref _barrierLists), Bench.Micros(Interlocked.Read(ref _barrierTicks)));
+
     /// <summary>The files a node starts from: every file in the directory, by name.</summary>
     public static Dictionary<string, ReadOnlyMemory<byte>> Load(IFileSystem files)
     {
@@ -28,8 +41,19 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
     public void Execute(IReadOnlyList<Effect> effects)
     {
         ArgumentNullException.ThrowIfNull(effects);
+        var start = Stopwatch.GetTimestamp();
+        var persisted = false;
+        var released = false;
         for (var i = 0; i < effects.Count; i++)
         {
+            if (!released && persisted && effects[i] is Send)
+            {
+                released = true;
+                Interlocked.Add(ref _barrierTicks, Stopwatch.GetTimestamp() - start);
+                Interlocked.Increment(ref _barrierLists);
+            }
+
+            persisted |= effects[i] is PersistAppend or PersistWriteAt or PersistTruncate or PersistRename or PersistDelete;
             switch (effects[i])
             {
                 case PersistAppend a:

@@ -89,6 +89,9 @@ public sealed class NodeHost : IAsyncDisposable
         _stallPause = pause.Ticks;
     }
 
+    /// <summary>The persist barrier's cost so far (P10-05): see <see cref="DiskExecutor.Barrier"/>.</summary>
+    public (long Lists, double Micros) Barrier => _executor?.Barrier ?? (0, 0);
+
     /// <summary>The messages and bytes this host has sent its peers (P10-04: the replication cost per write, against the offered rate).</summary>
     public (long Messages, long Bytes) Sent => (Interlocked.Read(ref _sentMessages), Interlocked.Read(ref _sentBytes));
 

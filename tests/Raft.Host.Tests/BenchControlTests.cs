@@ -94,6 +94,30 @@ public sealed class BenchControlTests
         // (S-bench-2). The upper bound only catches a rise counted twice.
         Assert.InRange(rise / slept, 1.5, 5.0);
     }
+
+    /// <summary>
+    /// P10-05's vacuity guard: with every sync delayed and no other delay, the leader's barrier per
+    /// client write is about one delayed sync (its append's), so the measurement reads what it claims.
+    /// Sabotage S-bench-3 (the barrier counted at a client response, which a leader's append has none of).
+    /// </summary>
+    [Fact]
+    public async Task TheBarrierMeasuredIsTheLeadersOwnSync()
+    {
+        var delay = new SyncDelay { Value = TimeSpan.FromMilliseconds(20) };
+        await using var c = new HostCluster(RaftOptions.Default with { ElectionTimeoutMin = 1_000, ElectionTimeoutMax = 2_000 }, files: dir => new SlowSyncFileSystem(new DirectoryFileSystem(dir), delay));
+        c.StartAll();
+        var leader = (await c.LeaderAsync(TimeSpan.FromSeconds(15), Ct))!.Value;
+        var before = c.Host(leader)!.Barrier;
+
+        var r = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 10, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1)), Ct);
+
+        var after = c.Host(leader)!.Barrier;
+        var lists = after.Lists - before.Lists;
+        var perList = lists == 0 ? 0 : (after.Micros - before.Micros) / lists;
+        Report("bench-barrier.txt", FormattableString.Invariant($"{lists} barrier lists for {r.Answered} writes, {perList:F0} us each; a delayed sync slept {delay.MeanSleptMicros:F0} us"));
+        Assert.True(lists >= r.Answered, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered");
+        Assert.InRange(perList / delay.MeanSleptMicros, 0.9, 2.5);
+    }
 }
 
 /// <summary>

@@ -149,6 +149,7 @@ public static class Program
         {
             var before = local is null ? [] : local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1))).ToArray();
             var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
+            var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients);
             var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
             var results = Bench.Summary(r.Latencies);
@@ -169,6 +170,17 @@ public static class Program
                 var sent = local.Hosts[leader.Value - 1].Sent;
                 results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
                 results["leader_bytes_per_write"] = Math.Round((double)(sent.Bytes - sentBefore[leader.Value - 1].Bytes) / r.Answered, 0);
+
+                // P10-05: the time the leader's sends waited behind its own persists, per such effect list,
+                // and as a share of the run's mean commit latency.
+                var barrier = local.Hosts[leader.Value - 1].Barrier;
+                var lists = barrier.Lists - barrierBefore[leader.Value - 1].Lists;
+                if (lists > 0 && r.Latencies.Count > 0)
+                {
+                    var perList = (barrier.Micros - barrierBefore[leader.Value - 1].Micros) / lists;
+                    results["leader_barrier_us"] = Math.Round(perList, 1);
+                    results["leader_barrier_share_of_mean"] = Math.Round(perList / r.Latencies.Average(), 3);
+                }
             }
 
             var load = clients is null
