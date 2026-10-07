@@ -1083,3 +1083,12 @@ finding: what happened, why no existing check caught it, what now catches it.
   measurement record had an empty CPU limit: the writer read cgroup v2 and this machine has v1. And
   a nearest-rank percentile computed 99.9 / 100 × 1000 as 999.0000000000001, whose ceiling is the
   last sample. Both were caught by checks on the record before any number was believed (P10-01).
+- **Phase 9's unexplained failure was the guess it was given, and the guess's own reasoning about
+  exit codes was wrong.** Reproduced as an unprivileged user (P10-08), the host sabotages' exit 255
+  is git's: `git worktree remove --force` exits 255, not 128, on a file it cannot delete, and the
+  Compose build had left root-owned `bin/` and `obj/` in the worktree. I had predicted 128 and so
+  that the guess could not produce 255; the prediction rested on an exit code I had not looked up.
+  The walk's exit 1 was the kill-stamp guard, which fails about one Compose run in ten at those
+  commits. *Rule:* an exit code is a fact to measure, not to recall; and a failure that cannot be
+  read on the CI is reproduced in the CI's conditions (here, its user) before it is called
+  unexplained or fixed.
