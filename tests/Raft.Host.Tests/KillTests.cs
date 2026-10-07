@@ -54,6 +54,9 @@ public sealed class KillTests
         var load = RealClient.RunAsync(config, entries.Add, Ct, clock);
 
         await Task.Delay(TimeSpan.FromSeconds(2), Ct);
+        // The leader at the kill, not at the start: on a loaded runner the office can move in the two
+        // seconds of load (CI, P10), and the guard below then failed on a correct run.
+        leader = (await c.LeaderAsync(Wait, Ct))!.Value;
         var victim = Victim(c, leader);
         var victimLed = c.Host(victim)!.Role == Role.Leader;
         var victimTerm = c.Host(victim)!.Term;
@@ -69,7 +72,7 @@ public sealed class KillTests
 
         // The guards, before the verdict.
         var after = c.Events.Lines.Skip(eventsAtKill).Select(Parse).ToList();
-        Assert.True(victimLed, $"the killed host {victim} was not the leader ({leader} was)");
+        Assert.True(victimLed, $"the killed host {victim} was not the leader at the kill ({leader} was found leading just before it)");
         Assert.True(after.Any(e => e.Event == "leader" && e.Node != victim.ToString() && long.Parse(e.Fields["term"], CultureInfo.InvariantCulture) > victimTerm),
             $"no other host led a term after {victimTerm} once {victim} was killed");
         bool Write(HistoryEntry e) => e.Request.StartsWith("Session|", StringComparison.Ordinal) && e.Response is not null && e.Reply == "ok";
