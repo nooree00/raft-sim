@@ -3,8 +3,13 @@
 # A new entry adds its line in the commit that adds it. Every harness run compares each entry's
 # time with its line and fails beyond stale-factor either way, when it is also off by more than
 # stale-floor seconds (a short entry's noise is not a claim): a wrong line is corrected, not kept.
-stale-factor 3
-stale-floor 10
+# It also fails when the shard's total is beyond shard-stale-factor of its recorded sum. The
+# factors are from GitHub's run of 2586b5f (findings, phase 10): entries ranged 0.33 to 4.4 times
+# their lines, up to 59 s off, and shard totals 0.78 to 1.61; factor 3 and floor 10 failed four
+# shards there on noise.
+stale-factor 5
+stale-floor 30
+shard-stale-factor 2
 build 63.5
 unit command:dotnet "$GATES" breakdown 3
 unit command:dotnet "$GATES" patches 2
@@ -137,7 +142,7 @@ S-hist-4 8.8
 S-hist-5 21.5
 S-hist-6 21.8
 S-hist-7 25.1
-S-host-1 35.5
+S-host-1 94.8
 S-hostdisk-1 72.2
 S-iface-1 42.3
 S-iface-2 46.1
@@ -325,6 +330,7 @@ S-shard-5 7.0
 S-shard-6 6.5
 S-shard-7 6.0
 S-shard-8 6.0
+S-shard-9 16.0
 S-meas-1 7.0
 S-meas-2 7.0
 S-bench-1 40.0

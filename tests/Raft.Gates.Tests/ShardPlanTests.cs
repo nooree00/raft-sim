@@ -180,20 +180,36 @@ public sealed class ShardPlanTests
     {
         var f = new Findings();
 
-        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 12, ["S-a-2"] = 95 }, Costs(("S-a-1", 10), ("S-a-2", 20)), f);
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 12, ["S-a-2"] = 95, ["S-a-3"] = 60 }, Costs(("S-a-1", 10), ("S-a-2", 20), ("S-a-3", 100)), f);
 
         var failure = Assert.Single(f.Failures);
         Assert.Contains("S-a-2: took 95.0s against 20.0s recorded", failure, StringComparison.Ordinal);
         Assert.Contains(f.Notes, n => n.Contains("the furthest from its line is S-a-2 at 4.75", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The file-level condition: no entry beyond its own factor, but the shard's total beyond the
+    /// shard factor of its recorded sum, fails the run. Sabotage S-shard-9 (the total never compared).
+    /// </summary>
+    [Fact]
+    public void AShardWhoseTotalIsFarFromItsRecordedSumFailsTheRun()
+    {
+        var f = new Findings();
+
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 25, ["S-a-2"] = 25, ["S-a-3"] = 25 }, Costs(("S-a-1", 10), ("S-a-2", 10), ("S-a-3", 10)) with { StaleFactor = 5, StaleFloor = 30 }, f);
+
+        var failure = Assert.Single(f.Failures);
+        Assert.Contains("this shard's entries took 75s against 30s recorded", failure, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TheCostFileIsParsed()
     {
-        var costs = ShardCosts.Parse("# c\nstale-factor 3\nstale-floor 10\nbuild 63.5\nunit command:dotnet \"$GATES\" preflight --allow-dirty 17\nS-a-1 12.5\n");
+        var costs = ShardCosts.Parse("# c\nstale-factor 3\nstale-floor 10\nshard-stale-factor 2\nbuild 63.5\nunit command:dotnet \"$GATES\" preflight --allow-dirty 17\nS-a-1 12.5\n");
 
         Assert.Equal(3, costs.StaleFactor);
         Assert.Equal(10, costs.StaleFloor);
+        Assert.Equal(2, costs.ShardStaleFactor);
         Assert.Equal(63.5, costs.Build);
         Assert.Equal(17, costs.Unit("command:dotnet \"$GATES\" preflight --allow-dirty"));
         Assert.Equal(12.5, costs.Entry("S-a-1"));

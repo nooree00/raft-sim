@@ -1,0 +1,6 @@
+description: A shard's total is never compared with its recorded sum, so a stale cost file passes while every entry is within its own factor
+mechanism: the shard-total staleness check never fails
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AShardWhoseTotalIsFarFromItsRecordedSumFailsTheRun
+expect: caught

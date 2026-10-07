@@ -13,7 +13,7 @@ internal sealed record PlanEntry(string Id, string Unit);
 /// seconds, each baseline unit's, a worker's baseline build, and the factor beyond which an entry's
 /// measured time says its recorded cost is wrong.
 /// </summary>
-internal sealed record ShardCosts(double Build, double StaleFactor, IReadOnlyDictionary<string, double> Units, IReadOnlyDictionary<string, double> Entries, double StaleFloor = 10)
+internal sealed record ShardCosts(double Build, double StaleFactor, IReadOnlyDictionary<string, double> Units, IReadOnlyDictionary<string, double> Entries, double StaleFloor = 10, double ShardStaleFactor = 2)
 {
     /// <summary>A baseline unit with no recorded cost: a new project or command, until its line is added.</summary>
     public const double DefaultUnit = 30;
@@ -22,10 +22,10 @@ internal sealed record ShardCosts(double Build, double StaleFactor, IReadOnlyDic
 
     public double Entry(string id) => Entries.TryGetValue(id, out var c) ? c : 0;
 
-    /// <summary>Lines "stale-factor F", "stale-floor S", "build B", "unit KEY SECONDS" and "ID SECONDS"; '#' comments.</summary>
+    /// <summary>Lines "stale-factor F", "stale-floor S", "shard-stale-factor G", "build B", "unit KEY SECONDS" and "ID SECONDS"; '#' comments.</summary>
     public static ShardCosts Parse(string text)
     {
-        double? build = null, factor = null, floor = null;
+        double? build = null, factor = null, floor = null, shardFactor = null;
         var units = new Dictionary<string, double>(StringComparer.Ordinal);
         var entries = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var raw in text.Split('\n'))
@@ -47,6 +47,10 @@ internal sealed record ShardCosts(double Build, double StaleFactor, IReadOnlyDic
             {
                 floor = value;
             }
+            else if (key == "shard-stale-factor")
+            {
+                shardFactor = value;
+            }
             else if (key == "build")
             {
                 build = value;
@@ -61,7 +65,7 @@ internal sealed record ShardCosts(double Build, double StaleFactor, IReadOnlyDic
             }
         }
 
-        return new ShardCosts(build ?? throw new FormatException($"{ShardPlan.CostFile}: no build"), factor ?? throw new FormatException($"{ShardPlan.CostFile}: no stale-factor"), units, entries, floor ?? throw new FormatException($"{ShardPlan.CostFile}: no stale-floor"));
+        return new ShardCosts(build ?? throw new FormatException($"{ShardPlan.CostFile}: no build"), factor ?? throw new FormatException($"{ShardPlan.CostFile}: no stale-factor"), units, entries, floor ?? throw new FormatException($"{ShardPlan.CostFile}: no stale-floor"), shardFactor ?? throw new FormatException($"{ShardPlan.CostFile}: no shard-stale-factor"));
     }
 
     /// <summary>Equal costs for every entry (tests).</summary>

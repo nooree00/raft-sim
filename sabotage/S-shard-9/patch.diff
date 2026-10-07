@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Sabotage.cs b/tools/Raft.Gates/Sabotage.cs
+index ce5c777..385c2a1 100644
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -559,7 +559,7 @@ internal static class Sabotage
+         var actualTotal = timings.Values.Sum();
+         var recordedTotal = timings.Keys.Sum(costs.Entry);
+         f.Note($"recorded costs: this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded, {(recordedTotal > 0 ? actualTotal / recordedTotal : 0):F2} times (stale beyond {costs.ShardStaleFactor} either way)");
+-        if (ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor))
++        if (actualTotal < 0 && ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor))
+         {
+             f.Fail($"this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded in {ShardPlan.CostFile}, beyond the shard stale factor {costs.ShardStaleFactor}: the file is stale, refresh it from this run's entry times");
+         }

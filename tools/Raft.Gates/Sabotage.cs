@@ -553,6 +553,17 @@ internal static class Sabotage
 
         f.Note($"recorded costs: {timings.Count} entries timed; the furthest from its line is {worstId} at {worst:F2} times its recorded cost (stale beyond {costs.StaleFactor} either way, and {costs.StaleFloor} s)");
 
+        // The file's claim the plan rests on is each shard's total (P10-00, from GitHub's run of
+        // 2586b5f): one entry's time swings up to 4.4 times between runs with what its worker built
+        // before it, while the shards' totals stayed within 0.78 and 1.61 of their recorded sums.
+        var actualTotal = timings.Values.Sum();
+        var recordedTotal = timings.Keys.Sum(costs.Entry);
+        f.Note($"recorded costs: this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded, {(recordedTotal > 0 ? actualTotal / recordedTotal : 0):F2} times (stale beyond {costs.ShardStaleFactor} either way)");
+        if (ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor))
+        {
+            f.Fail($"this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded in {ShardPlan.CostFile}, beyond the shard stale factor {costs.ShardStaleFactor}: the file is stale, refresh it from this run's entry times");
+        }
+
         // On GitHub, every entry's time as one notice: the costs are enforced on GitHub's runners, so
         // they are refreshed from there, and the job log is not always readable (P10-00).
         if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
