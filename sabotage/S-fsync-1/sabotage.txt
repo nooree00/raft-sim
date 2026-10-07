@@ -1,0 +1,6 @@
+description: A failed sync is caught and the host goes on, as a host that retries fsync does
+mechanism: the loop swallows the IOException and handles the next input
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.FsyncFailureTests.ANodeWhoseSyncFailsStopsAndAnswersNothingAfter
+expect: caught

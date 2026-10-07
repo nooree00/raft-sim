@@ -52,6 +52,8 @@ public sealed class NodeHost : IAsyncDisposable
     private DiskExecutor? _executor;
     private long _requests;
     private volatile bool _holdOutbound;
+    private readonly TaskCompletionSource<Exception> _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private volatile Exception? _failure;
     private long _sentMessages;
     private long _sentBytes;
     private long _stallPeriod;
@@ -94,6 +96,12 @@ public sealed class NodeHost : IAsyncDisposable
 
     /// <summary>The messages and bytes this host has sent its peers (P10-04: the replication cost per write, against the offered rate).</summary>
     public (long Messages, long Bytes) Sent => (Interlocked.Read(ref _sentMessages), Interlocked.Read(ref _sentBytes));
+
+    /// <summary>Why the host stopped itself (a failed write or sync, P10-07), or null while it runs.</summary>
+    public Exception? Failure => _failure;
+
+    /// <summary>Completes, with the failure, when the host stops itself (P10-07).</summary>
+    public Task<Exception> Stopped => _stopped.Task;
 
     /// <summary>The node's role after the last input it handled.</summary>
     public Role Role => (Role)_role;
@@ -194,9 +202,45 @@ public sealed class NodeHost : IAsyncDisposable
             }
 
             Stall();
-            _executor!.Execute(_node!.Handle(input));
+            try
+            {
+                _executor!.Execute(_node!.Handle(input));
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
+                // report success over lost pages), so the host stops at once. The failed list's remaining
+                // effects are not executed, so nothing is sent or answered after the failure.
+                FailStop(e);
+                return;
+            }
+
             _role = (int)_node.Role;
         }
+    }
+
+    /// <summary>
+    /// Stops the host after a failed write or sync (P10-07): records why, stops accepting peers and
+    /// clients, closes every connection, and lets <see cref="Stopped"/> complete. Called on the loop's
+    /// own thread, so it waits for nothing.
+    /// </summary>
+    private void FailStop(Exception failure)
+    {
+        _failure = failure;
+        Emit(new Emit("host-stop", [new("reason", failure.Message)]));
+        _stop.Cancel();
+        _inputs.Writer.TryComplete();
+        foreach (var l in _listeners)
+        {
+            l.Stop();
+        }
+
+        foreach (var c in _connections)
+        {
+            c.Dispose();
+        }
+
+        _stopped.TrySetResult(failure);
     }
 
     /// <summary>The planted stall (<see cref="StallEvery"/>): once per period, the loop sleeps out the pause.</summary>

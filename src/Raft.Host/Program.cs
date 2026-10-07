@@ -12,7 +12,7 @@ namespace Raft.Host;
 
 /// <summary>
 /// `Raft.Host node --id 1 --peers 1=n1:7000,2=n2:7000,3=n3:7000 --client-port 7100 --data /data`
-/// runs one node until it is killed. `Raft.Host client --nodes 1=n1:7100,... --clients 3 --seconds 60
+/// runs one node until it is killed, or until a write or sync fails (exit code 3, P10-07). `Raft.Host client --nodes 1=n1:7100,... --clients 3 --seconds 60
 /// --timeout-ms 1000 --history /out/history.jsonl` runs the real client and writes its history.
 /// `Raft.Host request --node n1:7100 --line Status|` sends one line and prints the reply (the
 /// orchestration asks each node its role this way).
@@ -41,10 +41,13 @@ public static class Program
                 await using (host.ConfigureAwait(false))
                 {
                     host.Start();
-                    await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+                    // P10-07: a failed write or sync stops the host, and the process exits with code 3 so an
+                    // orchestrator sees a stopped node rather than a silent one.
+                    var failure = await host.Stopped.ConfigureAwait(false);
+                    await Console.Error.WriteLineAsync("raft-host: stopped after a failed write or sync: " + failure.Message).ConfigureAwait(false);
                 }
 
-                return 0;
+                return 3;
             case "client":
                 var client = new ClientConfig(
                     Endpoints(options["--nodes"]),

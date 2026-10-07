@@ -1,0 +1,21 @@
+diff --git a/tests/Raft.Host.Tests/FsyncFailureTests.cs b/tests/Raft.Host.Tests/FsyncFailureTests.cs
+index 5805d3c..8470d4e 100644
+--- a/tests/Raft.Host.Tests/FsyncFailureTests.cs
++++ b/tests/Raft.Host.Tests/FsyncFailureTests.cs
+@@ -267,14 +267,14 @@ internal sealed class InjectedFileSystem(IFileSystem inner) : IFileSystem
+             foreach (var name in inner.List())
+             {
+                 var now = inner.Read(name) ?? [];
+-                if (_durable.TryGetValue(name, out var image))
++                if (name.Length < 0 && _durable.TryGetValue(name, out var image))
+                 {
+                     lost += Math.Max(0, now.Length - image.Length);
+                     inner.Truncate(name, 0);
+                     inner.WriteAt(name, 0, image);
+                     inner.Sync(name);
+                 }
+-                else
++                else if (now.Length < 0)
+                 {
+                     lost += now.Length;
+                     inner.Delete(name);

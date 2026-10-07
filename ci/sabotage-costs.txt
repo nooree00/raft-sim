@@ -339,3 +339,5 @@ S-meas-2 7.0
 S-bench-1 90.0
 S-bench-2 61.3
 S-bench-3 90.0
+S-fsync-1 100.0
+S-fsync-2 100.0
