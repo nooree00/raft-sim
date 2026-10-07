@@ -30,9 +30,7 @@ configuration recorded beside every number. In addition, carried forward:
   anything; a rule tied to a mechanical act holds, a rule naming something to be careful about does
   not. "The build configuration recorded beside every number" is made mechanical (P10-01).
 
-**Status: for review.** Nothing is implemented. P10-00's measurement was made before this
-breakdown, at the reviewer's request; its numbers are in the task, and its change waits for
-approval like every other.
+**Status: for review.** Nothing is implemented. P10-00's measurement was made before this breakdown, at the reviewer's request; its numbers are in decision 1, and its change waits for approval like every other.
 
 ## Ordering
 
@@ -51,8 +49,40 @@ blocks nothing.
 
 ## Decisions for review
 
-1. **Shard assignment** (P10-00): see the task; the measurement decides between round-robin at 25
-   and cost-balanced assignment, and the recommendation is stated there with its numbers.
+1. **Shard assignment: cost-balanced, at 11 shards, not round-robin at 25** (P10-00, measured).
+   - **The measurement.** All 11 shards were run locally at `e48b7cd`, 4 workers each, as one
+     sample. That gives every entry's cost (296 entries, 10,207 s in all) and every baseline unit's.
+     A model of a shard's time was then fitted: the slowest worker's ready time (its baseline build
+     plus its baseline units), then the slowest worker's entries, after the two-way barrier. It
+     lands within 9% of the measured time on all 11 shards (from 8.5% under to 6% over).
+   - **What the model says, slowest shard in local seconds:**
+
+     | Assignment | Shards | Slowest | Fastest |
+     |---|---|---|---|
+     | Round-robin by id (today) | 11 | 520 (measured 544) | 312 |
+     | Round-robin by id (size 25) | 12 | 519 | 297 |
+     | Round-robin by id | 13 | 520 | 263 |
+     | Cost-balanced across shards | 11 | 406 | 347 |
+     | Cost-balanced across shards and workers | 11 | 336 | 321 |
+     | Cost-balanced across shards and workers | 9 | 375 | 364 |
+
+   - **Size 25 does not help.** The slowest shard is the one that happens to collect several of the
+     costliest entries (`S-lin-7` 247 s, `S-kl-3` 200 s, `S-cov-7` 196 s, `S-codec-3` 195 s), and
+     another deal by id collects a different such set. A 12th shard adds a job and its fixed cost
+     (about 64 s of baseline build per worker) and leaves the maximum where it was.
+   - **The worker deal matters as much as the shard deal.** Balancing shards alone takes the slowest
+     to 406 s. Balancing the four workers inside each shard as well takes it to 336 s, because a
+     shard's time is its slowest worker's.
+   - **Robust to stale costs.** The costs come from one run, and runners differ. So the plan made
+     from these costs was scored again under random errors in every entry's cost, 200 trials:
+     with each cost off by up to ±50%, it has a median slowest shard of 366 s (95th percentile
+     433 s), against round-robin's 554 s (636 s).
+   - **Recommended:** cost-balanced across shards and workers, at 11 shards. The costs live in
+     `ci/sabotage-costs.txt`, one line per entry, and a new entry adds its cost in the commit that
+     adds it, from its own `--only` run (as a changed test count edits `ci/test-baseline.txt`). 9
+     shards would also be faster than today, but the job count is left alone, so the gain is room
+     under the ceiling, not fewer jobs. Taking 25 because it is the available knob is not
+     recommended. The data and the model are in `docs/phases/P10/p10-00/`.
 2. **The target is written before any end-to-end number, from a model** (P10-02). An absolute target
    borrowed from elsewhere (another system's published numbers) describes other hardware. The
    target is instead what this design should achieve on the machine it runs on: a commit costs the
@@ -124,11 +154,11 @@ blocks nothing.
 
 ### P10-00 — Harness shard assignment
 
-- **Task:** Phase 9's acceptance, decision 1. Measured before this breakdown (below); the change follows the measurement.
-- **Vacuity:** An assignment that leaves an entry out, or puts one in two shards, passes a shard that never ran it. Guarded by `ShardPlan.Problems` (every id in exactly one shard, no shard empty) for any assignment, and by `gates build-collect` requiring every shard.
-- **Sabotage:** S-shard-4
+- **Task:** Decision 1. `ShardPlan` assigns entries to shards by cost, not by id: longest first, each to the shard whose modelled time grows least, where a shard's time is its slowest worker's ready time (baseline build plus its baseline units) plus its slowest worker's entries. Inside a shard, entries go to workers the same way, longest first to the least-loaded worker. Ties break by id, so the plan stays deterministic. The costs come from `ci/sabotage-costs.txt` (seeded from `docs/phases/P10/p10-00/entry-costs.txt`), and the per-commit matrix computes each commit's shards from that commit's own file. `gates sabotage-plan` refuses a manifest entry with no cost, and a cost for an entry that does not exist.
+- **Vacuity:** An assignment that leaves an entry out, or puts one in two shards, passes a shard that never ran it. Guarded by `ShardPlan.Problems` (every id in exactly one shard, no shard empty) for any assignment, and by `gates build-collect` requiring every shard. An assignment that reads no costs falls back to an order unrelated to them, and every shard still passes. Guarded by a gate test in which two planted heavy entries must land in different shards (S-shard-4, the costs ignored). A new entry with no cost would get one silently. Guarded by the refusal (S-shard-5, the refusal removed).
+- **Sabotage:** S-shard-4, S-shard-5
 - **Verifiable here:** partial — the assignment and its balance locally; the ceiling that matters on GitHub's runners only
-- **Prediction:** pending the measurement. **Observable:** the slowest shard of the first CI run under the new assignment.
+- **Prediction:** On GitHub, the slowest shard's harness step falls under 600 s (two thirds of the 900-s ceiling), and the slowest is within 1.3 times the fastest, against phase 9's 271 to 789 s. The model puts the slowest at 336 local seconds, and phase 9's shard 6 ran 1.45 times slower on GitHub than locally (789 against 544), which gives about 490 s. The 600-s bound leaves room for GitHub's spread. **Observable:** each shard's harness step in the first CI run whose every job completed once.
 - **Outcome:** pending
 
 ### P10-01 — Measurement records, and the configuration beside every number
@@ -218,13 +248,13 @@ blocks nothing.
 - **Vacuity:** A measurement on a run with re-run jobs compares different work. Guarded by using only first attempts.
 - **Sabotage:** ; manual: the comparison is checked against run attempts, every one a first
 - **Verifiable here:** partial — CI's numbers only in CI
-- **Prediction:** pending P10-00's choice. **Observable:** each shard's harness step in the first run whose every job completed once.
+- **Prediction:** The build job grows by under 10 s (the measurement gate reads a few files), and the harness shards stay inside P10-00's prediction across every run of the phase, the new entries with their recorded costs included. **Observable:** the build job's gate step and each shard's harness step in each first-attempt run.
 
 - **Outcome:** pending
 
 ## Sabotage ids
 
-New series: S-meas (P10-01), S-bench (P10-03, P10-05), S-fsync (P10-07). S-shard-4 follows S-shard-3.
+New series: S-meas (P10-01), S-bench (P10-03, P10-05), S-fsync (P10-07). S-shard-4..5 follow S-shard-3.
 Each id's `sabotage/<id>/` entry lands in the same commit as the check it proves and is run on that
 commit before it is pushed; the touched-file stage runs before every push; the shards run in CI.
 

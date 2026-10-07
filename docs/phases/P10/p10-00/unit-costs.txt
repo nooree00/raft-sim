@@ -1,0 +1,20 @@
+# P10-00: each baseline unit's measured seconds (the largest seen across shards), and the median per-worker baseline build
+build 63.5
+'dotnet "$GATES" breakdown' 3
+'dotnet "$GATES" patches' 2
+'dotnet "$GATES" preflight --allow-dirty' 17
+'dotnet "$GATES" register' 0
+'rm -rf /tmp/sab-full && git clone -q "file://$PWD" /tmp/sab-full && dotnet "$GATES" preflight --allow-dirty --root /tmp/sab-full' 20
+'scripts/ci-build.sh' 5
+'scripts/ci-test.sh Raft.Architecture.Tests' 40
+'scripts/ci-test.sh Raft.Core.Tests' 14
+'scripts/ci-test.sh Raft.Gates.Tests' 8
+Raft.Architecture.Tests 20
+Raft.Budget.Tests 2
+Raft.Checker.Tests 20
+Raft.Core.Tests 4
+Raft.Gates.Tests 6
+Raft.Host.Tests 13
+Raft.Membership.Tests 48
+Raft.Scale.Tests 141
+Raft.Simulation.Tests 19
