@@ -1023,3 +1023,63 @@ finding: what happened, why no existing check caught it, what now catches it.
   cost a red local run and could have cost a red CI run on the branch. *Rule:* the second firing is
   the one to investigate. A first firing dismissed as a flake is recorded as such, with what was done
   about it, so that the second is recognised as a second.
+
+## Phase 10
+
+- **The cluster gets slower in total as more writes are outstanding, so a backlog never drains.**
+  One closed-loop client completes about 1,080 writes a second, eight about 1,380, thirty-two about
+  410 (P10-03's probe). The mechanism (P10-04): `RaftNode.SendAppend` does not advance a follower's
+  next index when it sends, so every client write resends every unacknowledged entry to every
+  follower: 3.4 messages and about 300 bytes per committed write below the knee, about 200 messages
+  and 170 KB past it. A burst (a stall, a slow sync, a busy runner) creates a backlog, the backlog
+  makes each write dearer, and the cluster completes almost nothing: a metastable failure, with the
+  knee at about 625 to 1,000 writes a second against a design capacity of 6,250. The simulator never
+  showed it, because it measures correctness per event, not cost per write. *Rule:* a protocol
+  whose per-operation cost depends on the backlog has a second stable state; find the knee with an
+  open-loop load before quoting a capacity. Recorded as a provisional phase-11 row, not fixed (§2).
+- **A throughput figure that divides every answer by the window reports an overloaded system as
+  keeping up.** The load generator's first throughput was all answers over the window; at 3,125 a
+  second it reported 3,125 completed a second, with latencies of a minute, because answers kept
+  arriving long after the schedule ended. It now counts only answers within the window, and a run
+  ends ten seconds after its schedule. *Rule:* a rate is events in a window, and the window's end
+  is part of the measurement.
+- **A planted stall longer than the election timeout measures an election.** The first stall
+  control stalled the leader 200 ms against a 150-ms minimum election timeout; the followers elected
+  another leader and the stalled one's pending writes were dropped. The control's numbers matched
+  the prediction (the open-loop tail long, the closed-loop one short) for the wrong reason, and the
+  open-loop median of 5.6 s gave it away. *Rule:* a planted fault in a system with timeouts must sit
+  inside every timeout it is not meant to trip, and the control must check that it did (the leader
+  kept, nothing unanswered).
+- **Controls calibrated on an idle machine fail on a shared one, each in its own way.** Under the
+  harness's four test processes, `Thread.Sleep` overslept, so the sleep is measured; a 2-ms sync
+  delay showed at 0.47 of its size (a short sleep overlaps a wait for a processor that happens
+  anyway), so the delay is 20 ms; and on GitHub's runner, the stall control at 200 writes a second
+  collapsed (above) and left writes unanswered. *Rule:* a timing control's planted size must be
+  large against the machine's scheduling noise, and its load low against the knee, on the slowest
+  machine that runs it.
+- **One entry's time is not a property of the entry.** The cost-balanced plan records a cost per
+  harness entry; on GitHub an entry ran from 0.33 to 4.4 times its line (S-compact-1: 6.3, 6.5 and
+  28.5 s on three runs), because what it rebuilds depends on what its worker built before it, while
+  each shard's total stayed within 0.78 and 1.61 of its recorded sum. The per-entry staleness check
+  failed four shards on noise. *Rule:* check a tuned value at the level the decision uses it (here
+  the shard's total), and a part only for gross error.
+- **Fixes that land later in a push leave its earlier commits red for good.** Cost lines corrected
+  in a later commit of the same push could not make the commits before it pass the staleness check
+  in the per-commit matrix; pushed history is not rewritten, so those commits are recorded as never
+  verified. *Rule:* a check that compares a commit with a file the same push corrects belongs in the
+  commit that makes the file wrong, or the push should be split before it.
+- **A test's teardown error hides its assertion.** P10-07's prediction named the failure message
+  the first test would give; the test instead failed on the `IOException` rethrown when the cluster
+  was disposed, from the host's dead loop task. A probe showed the predicted state underneath.
+  *Rule:* when the system under test can fail in the background, its failure must be observable as
+  state (here `NodeHost.Failure` and an exit code), not as an exception at disposal.
+- **A crash after a clean kill is a kill again.** The first discard-crash test reverted each file
+  to its last sync after killing the host, and lost nothing: the kill waits for the effect list in
+  flight, and that list's sync completes. The power has to fail before the process does: the
+  injected file system now ignores every write and sync from a point just after a write, then the
+  kill, then the revert. *Rule:* a simulated power cut must stop the disk before the process, or the
+  process's shutdown makes everything durable.
+- **The configuration a number is recorded under has to be read, not assumed.** The first
+  measurement record had an empty CPU limit: the writer read cgroup v2 and this machine has v1. And
+  a nearest-rank percentile computed 99.9 / 100 × 1000 as 999.0000000000001, whose ceiling is the
+  last sample. Both were caught by checks on the record before any number was believed (P10-01).
