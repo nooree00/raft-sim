@@ -192,7 +192,7 @@ blocks nothing.
 - **Sabotage:** S-meas-1, S-meas-2
 - **Verifiable here:** yes — the gate and its tests run locally
 - **Prediction:** The first records written by the tool fail the gate on the container CPU limit: .NET reports the host's processor count, not the container's quota, unless the limit is read from the cgroup, and my first writer will take `Environment.ProcessorCount`. **Observable:** the gate's verdict on the first record written inside a container started with `--cpus`.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the first record did fail the gate on the CPU limit: `cpuLimit` came out empty. The reason was not the one predicted, and the premise was wrong. My writer read the cgroup, not `Environment.ProcessorCount` (the prediction had named that mistake, so that half was forcing); it read cgroup v2's `cpu.max`, and this machine has cgroup v1, where the quota is in `cpu/cpu.cfs_quota_us`. And .NET does honour the quota: a container started with `--cpus=1.5` on this 4-processor machine reports 2 processors (the quota rounded up). The writer now reads v2, then v1, and records the machine's processor count, the quota and .NET's count as three fields, because in a container they differ. A test of the record's percentiles found a second fault before any number was recorded: nearest rank computed 99.9 / 100 × 1000 as 999.0000000000001, whose ceiling is the 1,000th sample. S-meas-1 and S-meas-2 are caught.
 
 ### P10-02 — The written target, from a model with measured inputs
 
@@ -201,7 +201,7 @@ blocks nothing.
 - **Sabotage:** ; manual: the target document is checked against the record ids it cites, and the first end-to-end record's commit is shown to descend from the target's
 - **Verifiable here:** partial — the inputs locally; a GitHub runner's for the record only
 - **Prediction:** The data volume's median sync is under 1 ms on this machine, and its 99th percentile more than ten times the median. Phase 9's 900 operations a second with three closed-loop clients, about four in five of them writes each needing a leader sync and a follower sync in series, are only possible if a sync takes well under a millisecond. **Observable:** the sync record's median and 99th percentile.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the median was right and the tail wrong. Over five repetitions of 10,000 syncs each, the data volume's median sync is 160 µs (154 to 171), under 1 ms as predicted. Its 99th percentile is 410 µs (361 to 539), 2.3 to 3.3 times the median, not more than ten. The container's `/tmp` measures the same (163 µs, 421 µs): it is the same disk under another mount. The loopback round trip is 47 µs (95 µs at the 99th percentile). The target, written from these before any end-to-end record (`docs/design/performance-target.md`): L = 2S + R = 367 µs, a median of at most 551 µs and a 99th percentile of at most 2.75 ms at 3,125 writes a second, and a sustained rate of at least 200,000. **A gap the breakdown left, filled before measuring:** decision 2 says "the model's capacity" without saying what one sync carries. The document defines two: the design's (one leader sync per write, 1/S = 6,250 a second), whose half is the load for the latency criterion, and the disk's (64 entries a sync, 400,000 a second), whose half is the throughput criterion. The latter is where P10-04 predicts the miss.
 
 ### P10-03 — The open-loop load generator, and the controls that prove it measures
 
