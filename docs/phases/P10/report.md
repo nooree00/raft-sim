@@ -1,6 +1,18 @@
 # Phase 10 — report
 
-**Status: awaiting review.**
+**Status: accepted** (reviewer, on run 37651218372, the report's head `ec225e1`). Edits at
+acceptance, by the reviewer's direction:
+- the result leads with the design's own model (C_design, L), not with a ratio to the 200,000
+  figure, and says plainly that the figure was ungrounded: mine, written at P10-02, the capability of
+  a design with a group commit;
+- the never-verified table distinguishes commits that failed from commits that never ran;
+- P10-08 is closed by a spec change (§12), and phase 9's guessed fix is recorded as right, its
+  flagging as still right;
+- three findings: the guess, GitHub's dependent re-runs, and the ungrounded target.
+
+Decisions at acceptance: both phase-11 rows in, **the resend fix first**, then a re-measurement, and
+a group commit only if the new curve shows the sync still caps the cluster; the staleness check's
+redesign is kept; the never-verified commits are accepted and tabled; S-bench-2's bound stays.
 
 Performance, measured (spec §11 phase 10, and the register rows promised to it): P10-00 to P10-10,
 as approved, in the breakdown's order. The first numbers the project has ever recorded about its own
@@ -13,13 +25,34 @@ the next push.
 
 ## The result of the phase
 
-### The throughput target is missed by more than two hundred times, and the cause is not the disk
+### Against the design's own model, the cluster reaches a tenth to a sixth of its capacity, and the cause is a replication defect that no invariant could see
 
-The written target (P10-02, `docs/design/performance-target.md`), set from measured inputs before any
-end-to-end number: one sync S = 160 µs, a loopback round trip R = 47 µs, so a commit L = 2S + R =
-367 µs. At half the design's capacity (one leader sync per write, 6,250 a second), a median of at most
-551 µs and a 99th percentile of at most 2.75 ms; and a sustained rate of at least 200,000 writes a
-second, half the disk's capacity with 64 entries a sync.
+**The model** (P10-02, `docs/design/performance-target.md`), set from measured inputs before any
+end-to-end number: one sync S = 160 µs, a loopback round trip R = 47 µs, so a commit takes L = 2S + R
+= 367 µs, and a leader that syncs once per write, as this design does, allows **C_design = 1 / S =
+6,250 writes a second**. Measured against it:
+- **Capacity:** the highest sustained rate is about 625 to 1,000 writes a second in process and
+  about 600 in Compose: **a tenth to a sixth of C_design**.
+- **Latency below the knee:** the in-process median at 625 a second is 3.2 ms, **about nine times
+  L** (the target allowed 1.5 times, 551 µs).
+- **At half of C_design (3,125 a second), the latency criterion's load,** no write scheduled after
+  the warm-up completed within the run, in process or in Compose.
+
+**The cause is a design defect that eight phases of correctness work could not see, because it
+breaks no invariant.** `RaftNode.SendAppend` sends from a follower's next index without advancing
+it, so every client write resends every unacknowledged entry to every follower: 3.4 messages per
+committed write below the knee, about 200 past it. Every replica agrees, every history is
+linearizable, and the cluster completes almost nothing (below). It is phase 11's first task.
+
+**The 200,000 figure, and why it is not the comparison.** P10-02's target also set a throughput of
+at least 200,000 writes a second, and this report first led with "missed by more than two hundred
+times". That figure was mine, written at P10-02, not in the spec or in phase 0: half of C_disk, 64
+entries per sync over S, what the disk would allow **if the leader's sync carried a follower's
+64-entry batch**. The design has no group commit, so the figure described a different system; it
+looked like a requirement and was a guess about a design not built. That is §13.37's error applied
+to a target rather than a limit (findings, phase 10). The comparison that tests something is with
+C_design, above. C_disk stays in the target document as the capability a group commit would reach,
+labelled as such.
 
 Measured (P10-04), the open-loop generator at each rate for 10 s after a 2-s warm-up, five
 repetitions each, in one process (three hosts on loopback) and in Compose (three containers):
@@ -34,7 +67,7 @@ repetitions each, in one process (three hosts on loopback) and in Compose (three
 | 3,125 (the latency criterion's load) | 0 in all five | not finite | 0 in all five | m:p10-04-local-3125-1 to -5, m:p10-04-compose-3125-1 to -5 |
 
 - **Throughput:** the highest sustained rate is about 625 to 1,000 writes a second in process and
-  about 600 in Compose, against 200,000. Missed, as predicted; but not for the predicted reason.
+  about 600 in Compose, a tenth to a sixth of C_design (6,250).
 - **The disk is not the cap.** The leader syncs once per committed write at every rate (1.00 to 1.01),
   which would allow 6,250 a second. What caps it is replication's cost per write growing with the
   backlog: below the knee the leader sends 3.4 messages and about 300 bytes to its peers per committed
@@ -46,13 +79,14 @@ repetitions each, in one process (three hosts on loopback) and in Compose (three
 - **Latency:** at the criterion's load, 3,125 a second, no write scheduled after the warm-up completed
   within the run, in either construction, so the target's median and 99th percentile are not finite
   there. Below the knee, at 625 a second, the in-process median is 3.2 ms and the 99th percentile
-  6.9 ms: about six times the model's. Compose's median at 625 a second ranges from 4 ms to 362 ms
+  6.9 ms: about nine times the model's 367 µs, and about six times the target's 551 µs. Compose's median at 625 a second ranges from 4 ms to 362 ms
   across runs (each node writes every Core event to standard output).
 
-Two provisional phase-11 register rows record this, **not built** (spec §2 excludes optimisation
-until there is a baseline; this is the baseline): replication that resends unacknowledged entries on
-every write (the cap measured here), and a group commit on the leader (the next cap, at the design's
-6,250). Whether either goes into phase 11 is the reviewer's.
+Two register rows record this, **not built in phase 10** (spec §2 excludes optimisation until there
+is a baseline; this is the baseline). **Both are in phase 11, the resends first** (reviewer, at
+acceptance): fix them, re-measure the curve, and only then decide whether a group commit on the
+leader is still worth doing. At about 200 messages per committed write, batching the sync would
+optimise the wrong path; whether it is worth doing is decided from the new curve, not assumed.
 
 ### The persist barrier costs a seventh to a fifth of a commit: kept (P10-05)
 
@@ -103,9 +137,11 @@ each commit, as uid 1001:
   returned, the defect phase 9 fixed at `634c87a`, which neither commit contains. The same code ran
   at `47d6ecd`, so that is the likely cause of GitHub's exit 1; GitHub's own log stays unread.
 
-So P9's finding changes from unexplained to explained. **For the reviewer:** the register closes a
-row with a test or a spec change, and an explanation is neither, so the row is re-promised to P11,
-for the reviewer to close.
+So P9's finding changes from unexplained to explained, and **phase 9's guessed fix was right**.
+Flagging it as unexplained was right too: nothing at the time distinguished a right guess from a
+wrong one (findings). **Closed at acceptance** by writing the behaviour into spec §12 (`780f4b4`): the
+host jobs run unprivileged on GitHub, a container's build leaves root-owned output in the worktree,
+and git exits 255 removing it. An explanation left in a report is one the next person won't find.
 
 ### The visualiser is dropped (P10-09)
 
@@ -264,9 +300,10 @@ Measured on the phase's three pushed runs, every job a first attempt: `bc24b3d` 
 
 - **Closed:** disk acknowledgements (P10-05, kept, with the measurement); session expiry's cost
   (P10-06, a bound); fsync failure injection (P10-07); the visualiser (P10-09, dropped by `e94b0a7`).
-  The non-root failures are explained (P10-08) and re-promised to P11, for the reviewer to close.
-- **Opened, provisional, for phase 11 (the reviewer's):** replication that resends every
-  unacknowledged entry on every write; a group commit on the leader.
+  The non-root failures (P10-08), explained and closed at acceptance by spec §12 (`780f4b4`).
+- **Opened, in phase 11 (reviewer, at acceptance):** replication that resends every unacknowledged
+  entry on every write, first; a group commit on the leader, only if the curve after the resend fix
+  shows the sync still caps the cluster.
 
 ## Findings added this phase
 
@@ -280,7 +317,12 @@ In `docs/findings.md` under Phase 10:
 - a test's teardown error hides its assertion;
 - a crash after a clean kill is a kill again;
 - the configuration a number is recorded under has to be read;
-- phase 9's unexplained failure was its guess, and an exit code is measured, not recalled.
+- phase 9's unexplained failure was its guess, and an exit code is measured, not recalled;
+- at acceptance: a right guess and a wrong one look the same until tested, so flagging a guess is
+  right even when the guess was;
+- at acceptance: on GitHub, re-running one job re-runs every job it depends on;
+- at acceptance: a target is a claim like any limit, and the 200,000 figure was not grounded in the
+  design.
 
 ## Still the person's
 
@@ -288,37 +330,45 @@ In `docs/findings.md` under Phase 10:
 - Deleting `prerewrite-b96fc4b`, the probe branches and the sabotage branch.
 - The cold walk of the README.
 - P0.
-- Whether the two provisional phase-11 rows go into phase 11.
 
 ## Commits never verified in CI
 
-Fourteen pushed commits never had a green verdict of their own: the three push heads, each of
-whose runs was red, and eleven commits the per-commit matrix failed. One more, `05eb9b8`, passed on
-every shard. The causes, read from each job's annotations where the commit's own scripts emit them:
+Twenty-two pushed commits of the phase never had a green verdict of their own. **They are of two
+kinds, and the table says which:** *failed* (a job ran and a check went red) and *never ran* (GitHub
+gave the job no runner, so no check ran at all, and nothing is known about the commit from CI). One
+more commit, `05eb9b8`, passed on every shard. **Accepted as never verified** (reviewer, at
+acceptance), as in phases 7 and 9: rewriting them would force-push, which `each-commit-list` refuses
+by design. The causes, read from each job's annotations where the commit's own scripts emit them:
 
-| Commit | Run | Red (commit, shard) or job | Cause |
-|---|---|---|---|
-| `28a3b49` | run:37569743638 | shard 1 | `HostTests.ClientWritesCommitAndAReadSeesThem` got no reply (a request lost at an election), fixed at `b29dc63` by retrying as a client does |
-| `bc24b3d` (head) | run:37569743638 | sabotage 5/11 | not read: no annotation (the annotations came at `6f48523`) and the job log is not readable from here |
-| `a1cae8c` | run:37584673088 | shard 4 | no annotation (before `6f48523`); the head's red shards in the same run were the staleness check |
-| `9dd948c` | run:37584673088 | shard 5 | the same |
-| `b076bb9` | run:37584673088 | shards 4, 5, 6 | the same |
-| `e405319` | run:37584673088 | shards 2, 4, 6, 7, 8, 9 | the same |
-| `b29dc63` | run:37584673088 | shards 2, 4, 6, 9, 10 | the same |
-| `6f48523` (head) | run:37584673088 | sabotage 1, 2, 4, 6, 9 of 11 | the per-entry staleness check: the host entries' lines (about 15 to 20 s recorded, 62 to 75 s on GitHub), S-sched-1 and S-sched-2, S-compact-1 |
-| `f715910` | run:37594669723 | shards 2, 4, 6, 9 | the per-entry staleness check: the host entries' lines, corrected later in the push, and S-compact-1 |
-| `474d103` | run:37594669723 | shards 1, 2, 6, 7, 9, 10 | the same, and S-bench-1's baseline (67 writes unanswered) |
-| `f23f43f` | run:37594669723 | shards 5, 6 | the per-entry staleness check on noise (S-commit-1, S-compact-3, S-dur-3: 0.27 to 0.32 of their lines) |
-| `1dbc998` | run:37594669723 | shards 6, 7, 10 | the same, and S-bench-1's baseline (the closed run's 99th percentile 390 ms) |
-| `eb98d09` | run:37594669723 | shards 7, 10 | S-bench-1's baseline (187 unanswered), S-compact-1 |
-| `2586b5f` (head) | run:37594669723 | sabotage 7/11, 10/11 | S-bench-1's baseline (165 unanswered), S-compact-1 (28.5 s against 6.5) |
+| Commit | Run | Result | Jobs | Cause |
+|---|---|---|---|---|
+| `28a3b49` | run:37569743638 | failed | shard 1 | `HostTests.ClientWritesCommitAndAReadSeesThem` got no reply (a request lost at an election), fixed at `b29dc63` by retrying as a client does |
+| `bc24b3d` (head) | run:37569743638 | failed | sabotage 5/11 | not read: no annotation (the annotations came at `6f48523`) and the job log is not readable from here |
+| `a1cae8c` | run:37584673088 | failed | shard 4 | no annotation (before `6f48523`); the head's red shards in the same run were the staleness check |
+| `9dd948c` | run:37584673088 | failed | shard 5 | the same |
+| `b076bb9` | run:37584673088 | failed | shards 4, 5, 6 | the same |
+| `e405319` | run:37584673088 | failed | shards 2, 4, 6, 7, 8, 9 | the same |
+| `b29dc63` | run:37584673088 | failed | shards 2, 4, 6, 9, 10 | the same |
+| `6f48523` (head) | run:37584673088 | failed | sabotage 1, 2, 4, 6, 9 of 11 | the per-entry staleness check: the host entries' lines (about 15 to 20 s recorded, 62 to 75 s on GitHub), S-sched-1 and S-sched-2, S-compact-1 |
+| `f715910` | run:37594669723 | failed | shards 2, 4, 6, 9 | the per-entry staleness check: the host entries' lines, corrected later in the push, and S-compact-1 |
+| `474d103` | run:37594669723 | failed | shards 1, 2, 6, 7, 9, 10 | the same, and S-bench-1's baseline (67 writes unanswered) |
+| `f23f43f` | run:37594669723 | failed | shards 5, 6 | the per-entry staleness check on noise (S-commit-1, S-compact-3, S-dur-3: 0.27 to 0.32 of their lines) |
+| `1dbc998` | run:37594669723 | failed | shards 6, 7, 10 | the same, and S-bench-1's baseline (the closed run's 99th percentile 390 ms) |
+| `eb98d09` | run:37594669723 | failed | shards 7, 10 | S-bench-1's baseline (187 unanswered), S-compact-1 |
+| `2586b5f` (head) | run:37594669723 | failed | sabotage 7/11, 10/11 | S-bench-1's baseline (165 unanswered), S-compact-1 (28.5 s against 6.5) |
+| `be00f8e` | run:37633788104 | failed | shard 11 | S-bench-1's baseline (the stall control on GitHub's runner) |
+| `82b4825` | run:37633788104 | failed | shards 1, 10 | the kill test's stale leader (fixed at `e210b0a`); S-bench-1's baseline |
+| `52ddfa5` | run:37633788104 | failed | shard 1 | the kill test's stale leader |
+| `e94b0a7` | run:37633788104 | failed | shard 5 | S-bench-2's upper bound (5.28 against 5), left unchanged |
+| `0e6d526` | run:37633788104 | **never ran** | all 12 shards | no runner acquired in 5 attempts, twice (attempts 1 and 2); documentation only |
+| `06eed30` | run:37633788104 | **never ran** | all 12 shards | the same; documentation only |
+| `a745a69` | run:37633788104 | **never ran** | all 12 shards | the same; documentation only |
+| `a1be1d1` (head) | run:37633788104 | failed, and part **never ran** | sabotage 10/12 failed; the build job never ran | S-bench-1's baseline (the closed run's 99th percentile 193 ms, fixed at `cf0c516`); the build job, which collects every shard, was never given a runner |
 
-**From the report's first push** (run:37633788104): `0e6d526`, `06eed30` and `a745a69` (documentation, their jobs never started), the head `a1be1d1` (its build job never started, and S-bench-1's baseline red), and `be00f8e`, `82b4825`, `52ddfa5` and `e94b0a7` (S-bench-1's baseline on two, the kill test's stale leader on two, S-bench-2's bound on one), each cause above.
-
-Of the earlier fourteen, two causes cover all but two: the per-entry staleness check, which judged noise as stale lines
-(changed at `e2ee908`, the costs refreshed from GitHub), and the stall control's load on a shared
-runner (`7b670f6`). The other two: a host test's lost request (fixed in the phase) and `bc24b3d`'s
-unread shard. Every one of them is contained in this report's head, whose run is the check of the
-fixes. That does not make them green on their own: the staleness failures would recur on each
-commit's own scripts. **For the reviewer:** accept them as never verified, as in phases 7 and 9;
-rewriting them would force-push, which `each-commit-list` refuses by design.
+Of the failures, three causes cover all but two: the per-entry staleness check, which judged noise
+as stale lines (changed at `be00f8e`, the costs refreshed from GitHub at `82b4825`); the stall
+control on a shared runner (`c449c82`, then `cf0c516`); and the kill test's stale leader
+(`e210b0a`). The other two: a host test's lost request (fixed in the phase) and `bc24b3d`'s unread
+shard. S-bench-2's one firing is recorded and its bound kept. Every commit above is contained in
+`ec225e1`, whose run (run:37651218372) is green in full; that does not make them green on their own,
+and the three that never ran say nothing either way.
