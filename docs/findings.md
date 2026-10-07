@@ -1114,3 +1114,17 @@ finding: what happened, why no existing check caught it, what now catches it.
   per write (6,250 a second): the cluster reaches a tenth to a sixth of it. Same error as §13.37's
   tuned limits, applied to a target. *Rule:* a target's every input is a property of the system as
   built, or it is labelled as the capability of a different design.
+- **The staleness check's redesign earned itself on its first real outlier.** After the per-entry
+  check was widened to factor 5 and 30 s (phase 10), it failed one shard on S-hostdisk-1: recorded at
+  64.2 s, it took 389.7 s on GitHub, because it ran its whole project and phase 10 had lengthened the
+  project. The wide catch let noise through and still caught a line five times wrong.
+- **A worst-case test's load scales with the worst entry, so the worst entries are the lever, and the
+  worst entries were a class.** The largest-manifest test prices each placeholder at the costliest
+  recorded entry. I first blamed one entry (S-hostdisk-1); it only tipped a margin that 27
+  placeholders at S-lin-7's 335 s had already used up. Asked what the four costliest had in common,
+  the answer was every test entry running its target's whole project: 24 of 26 Scale entries cost
+  139 to 335 s for that one reason. Moving two slow test classes into their own project (P11-08)
+  moved cost between entries and left the model at 605 s; running each entry's class only (P11-09)
+  took it to 250 s, and the worst entry from 335 to 92 s. *Rule:* when several entries are expensive,
+  ask what they share before narrowing any of them; and a change that moves cost is not one that
+  removes it.
