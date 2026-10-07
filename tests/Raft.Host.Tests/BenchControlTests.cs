@@ -46,8 +46,12 @@ public sealed class BenchControlTests
         var leader = (await c.LeaderAsync(TimeSpan.FromSeconds(15), Ct))!.Value;
         c.Host(leader)!.StallEvery(TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(300));
 
-        var open = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 200, Duration: TimeSpan.FromSeconds(10), Warmup: TimeSpan.FromSeconds(2)), Ct);
-        var closed = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 0, Duration: TimeSpan.FromSeconds(10), Warmup: TimeSpan.FromSeconds(2), ClosedClients: 3), Ct);
+        // 50 writes a second, not 200: on GitHub's runners, with other workers on the machine, a stall's
+        // backlog at 200/s did not drain (the phase-10 collapse) and writes went unanswered. The share of
+        // writes a stall delays past 150 ms (its first half, 7.5% of the time) does not depend on the rate;
+        // the closed run is 20 s so the three writes each stall holds stay well under 1% of its writes.
+        var open = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 50, Duration: TimeSpan.FromSeconds(10), Warmup: TimeSpan.FromSeconds(2)), Ct);
+        var closed = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 0, Duration: TimeSpan.FromSeconds(20), Warmup: TimeSpan.FromSeconds(2), ClosedClients: 3), Ct);
 
         Report("bench-stall.txt", FormattableString.Invariant($"open: {open.Latencies.Count} writes, {open.Incomplete} incomplete, p50 {P(open, 50):F0} us, p99 {P(open, 99):F0} us; closed: {closed.Latencies.Count} writes, p50 {P(closed, 50):F0} us, p99 {P(closed, 99):F0} us"));
         Assert.True(c.Host(leader)!.Role == Role.Leader && open.Incomplete == 0, $"the stalled host lost its office or writes went unanswered ({open.Incomplete}): the stall was not measured on a stalled leader");
