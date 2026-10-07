@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Raft.Gates;
 using Xunit;
@@ -57,7 +58,7 @@ public sealed class ShardPlanTests
     {
         var f = new Findings();
 
-        var share = ShardPlan.Select(Ids, "2/2", 28, f);
+        var share = ShardPlan.Select(Entries(Ids), "2/2", 28, ShardCosts.Uniform(Ids), f);
 
         Assert.Null(share);
         Assert.Contains(f.Failures, m => m.Contains("which is 3 shard(s) of 28, not 2", StringComparison.Ordinal));
@@ -68,11 +69,177 @@ public sealed class ShardPlanTests
     {
         var f = new Findings();
 
-        var share = ShardPlan.Select(Ids, "2/3", 28, f);
+        var share = ShardPlan.Select(Entries(Ids), "2/3", 28, ShardCosts.Uniform(Ids), f);
 
         Assert.Empty(f.Failures);
-        Assert.Equal(28, share!.Count);
-        Assert.Equal("S-x-002", share[0]);
+        Assert.Equal(ShardPlan.Balance(Entries(Ids), 3, ShardCosts.Uniform(Ids))[1], share);
+    }
+
+    private static List<PlanEntry> Entries(IEnumerable<string> ids, string unit = "test:tests/X") => ids.Select(id => new PlanEntry(id, unit)).ToList();
+
+    private static ShardCosts Costs(params (string Id, double Seconds)[] entries) =>
+        new(60, 3, new Dictionary<string, double>(StringComparer.Ordinal), entries.ToDictionary(e => e.Id, e => e.Seconds, StringComparer.Ordinal));
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(11)]
+    public void TheCostPlanPutsEveryEntryInExactlyOneShardAndLeavesNoneEmpty(int n)
+    {
+        var costs = new ShardCosts(60, 3, new Dictionary<string, double>(StringComparer.Ordinal), Ids.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => 5.0 + (x.i * 37 % 101), StringComparer.Ordinal));
+
+        var shards = ShardPlan.Balance(Entries(Ids), n, costs);
+
+        Assert.Equal(n, shards.Count);
+        Assert.Empty(ShardPlan.Problems(Ids, shards));
+    }
+
+    [Fact]
+    public void TheCostPlanDoesNotDependOnInputOrder()
+    {
+        var costs = Costs([.. Ids.Select((id, i) => (id, 5.0 + (i % 7)))]);
+        Assert.Equal(ShardPlan.Balance(Entries(Ids), 3, costs).Select(s => string.Join(",", s)), ShardPlan.Balance(Entries(Ids.Reverse()), 3, costs).Select(s => string.Join(",", s)));
+    }
+
+    /// <summary>
+    /// A shard's modelled time is its slowest worker's: the baseline build, the worker's units, then its
+    /// entries, the longest first to the worker that would finish soonest.
+    /// </summary>
+    [Fact]
+    public void AShardsModelledTimeIsItsSlowestWorkers()
+    {
+        var costs = new ShardCosts(60, 3, new Dictionary<string, double>(StringComparer.Ordinal) { ["test:tests/A"] = 40, ["test:tests/B"] = 5 }, new Dictionary<string, double>(StringComparer.Ordinal) { ["S-a-1"] = 100, ["S-b-1"] = 30, ["S-b-2"] = 20 });
+        List<PlanEntry> entries = [new("S-a-1", "test:tests/A"), new("S-b-1", "test:tests/B"), new("S-b-2", "test:tests/B")];
+
+        // Workers 0..2 hold units A, B and none (ready at 100, 65, 60); S-a-1 goes to worker 2 (160),
+        // S-b-1 to worker 1 (95), S-b-2 to worker 1 (115): the slowest is worker 2, at 160.
+        Assert.Equal(160, ShardPlan.ModelledTime(entries, costs));
+    }
+
+    /// <summary>
+    /// The plan reads the costs: dealt by id over 2 shards, the five heavy entries (the odd ids) all
+    /// land in shard 1, where four workers leave one worker two of them; by cost no shard holds more
+    /// than three. Sabotage S-shard-4 (the costs ignored).
+    /// </summary>
+    [Fact]
+    public void FiveHeavyEntriesAreNotPutInOneShard()
+    {
+        var ids = Enumerable.Range(1, 10).Select(i => $"S-a-{i:D2}").ToArray();
+        var costs = Costs([.. ids.Select((id, i) => (id, i % 2 == 0 ? 300.0 : 10.0))]);
+
+        var shards = ShardPlan.Balance(Entries(ids), 2, costs);
+
+        Assert.All(shards, s => Assert.True(s.Count(id => costs.Entry(id) == 300) <= 3, $"a shard holds {s.Count(id => costs.Entry(id) == 300)} of the five heavy entries"));
+    }
+
+    /// <summary>
+    /// Inside a shard the workers are balanced too: the four heaviest entries go to four workers.
+    /// Dealt by id over four workers, three of them (the 1st, 5th and 9th) would share worker 1.
+    /// Sabotage S-shard-8 (the workers dealt by id).
+    /// </summary>
+    [Fact]
+    public void TheFourHeaviestEntriesOfAShardGoToFourWorkers()
+    {
+        var ids = Enumerable.Range(1, 12).Select(i => $"S-w-{i:D2}").ToArray();
+        var costs = Costs([.. ids.Select((id, i) => (id, i is 0 or 1 or 4 or 8 ? 200.0 : 5.0))]);
+
+        var shares = ShardPlan.WorkerShares(Entries(ids), 4, costs);
+
+        Assert.All(shares, share => Assert.Single(share, e => costs.Entry(e.Id) == 200));
+    }
+
+    /// <summary>A manifest entry with no recorded cost, and a cost for no entry, are refused. Sabotage S-shard-5.</summary>
+    [Fact]
+    public void AnEntryWithNoCostAndACostWithNoEntryAreRefused()
+    {
+        var f = new Findings();
+
+        var share = ShardPlan.Select(Entries(["S-a-1", "S-a-2"]), "1/1", 28, Costs(("S-a-1", 10), ("S-gone-1", 10)), f);
+
+        Assert.Null(share);
+        Assert.Contains(f.Failures, m => m.Contains("S-a-2 has no cost", StringComparison.Ordinal));
+        Assert.Contains(f.Failures, m => m.Contains("a cost for S-gone-1", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The reviewer's condition: a recorded cost is a claim, checked against every run's time; off by
+    /// more than the stale factor either way, it fails. Sabotage S-shard-6 (the comparison never fails).
+    /// </summary>
+    [Theory]
+    [InlineData(31, 10, true)]
+    [InlineData(29, 10, false)]
+    [InlineData(13, 40, true)]
+    [InlineData(14, 40, false)]
+    [InlineData(6, 1.8, false)]
+    [InlineData(12, 1.8, true)]
+    public void AnEntryFarFromItsRecordedCostIsStale(double actual, double recorded, bool stale) =>
+        Assert.Equal(stale, ShardPlan.Stale(actual, recorded, 3, 10));
+
+    [Fact]
+    public void AStaleEntryFailsTheRunAndNamesBothNumbers()
+    {
+        var f = new Findings();
+
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 12, ["S-a-2"] = 95 }, Costs(("S-a-1", 10), ("S-a-2", 20)), f);
+
+        var failure = Assert.Single(f.Failures);
+        Assert.Contains("S-a-2: took 95.0s against 20.0s recorded", failure, StringComparison.Ordinal);
+        Assert.Contains(f.Notes, n => n.Contains("the furthest from its line is S-a-2 at 4.75", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TheCostFileIsParsed()
+    {
+        var costs = ShardCosts.Parse("# c\nstale-factor 3\nstale-floor 10\nbuild 63.5\nunit command:dotnet \"$GATES\" preflight --allow-dirty 17\nS-a-1 12.5\n");
+
+        Assert.Equal(3, costs.StaleFactor);
+        Assert.Equal(10, costs.StaleFloor);
+        Assert.Equal(63.5, costs.Build);
+        Assert.Equal(17, costs.Unit("command:dotnet \"$GATES\" preflight --allow-dirty"));
+        Assert.Equal(12.5, costs.Entry("S-a-1"));
+    }
+
+    /// <summary>
+    /// Spec §10's rule on limits, the reviewer's condition on the tuned cost file: at the largest
+    /// manifest 11 shards hold (308 entries at 28 a shard; today's entries with their recorded costs
+    /// and units, and 12 more at the costliest recorded cost), the modelled slowest shard stays under
+    /// 600 local seconds, the 900-s ceiling at GitHub's worst ratio to this machine (1.5). Dealt by id,
+    /// shards and workers alike (the harness before P10-00), the same manifest models at about 760 s;
+    /// balancing either alone already fits. Sabotage S-shard-7 (both dealt by id again).
+    /// </summary>
+    [Fact]
+    public void AtTheLargestManifestElevenShardsHoldTheSlowestShardFitsTheCeiling()
+    {
+        var root = RepoRoot();
+        var repo = Repo.Locate(root);
+        var costs = ShardCosts.Parse(File.ReadAllText(Path.Combine(root, ShardPlan.CostFile)));
+        var entries = SabotageSpec.LoadAll(repo, new Findings()).Where(s => !s.RunsOnHost).Select(s => new PlanEntry(s.Id, Sabotage.UnitKey(s))).ToList();
+        var size = ShardPlan.ParseSize(File.ReadAllText(Path.Combine(root, ShardPlan.SizeFile)));
+        var largest = (ShardPlan.Count(entries.Count, size) * size) - entries.Count;
+        var heaviest = costs.Entries.Values.Max();
+        var extra = Enumerable.Range(1, largest).Select(i => new PlanEntry($"S-zz-{i}", "test:tests/Raft.Core.Tests")).ToList();
+        var all = entries.Concat(extra).ToList();
+        var withExtra = costs with { Entries = costs.Entries.Concat(extra.Select(e => KeyValuePair.Create(e.Id, heaviest))).ToDictionary(StringComparer.Ordinal) };
+        var n = ShardPlan.Count(all.Count, size);
+
+        var byId = all.ToDictionary(e => e.Id, StringComparer.Ordinal);
+        var slowest = ShardPlan.Balance(all, n, withExtra).Max(s => ShardPlan.ModelledTime([.. s.Select(id => byId[id])], withExtra));
+
+        Assert.Equal(ShardPlan.Count(entries.Count, size), n);
+        Assert.True(slowest < 600, $"at {all.Count} entries in {n} shards the slowest shard models at {slowest:F0} s, over 600 (the 900-s ceiling at GitHub's 1.5 ratio)");
+    }
+
+    private static string RepoRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "Raft.slnx")))
+            {
+                return dir.FullName;
+            }
+        }
+
+        throw new InvalidOperationException("Raft.slnx not found above " + AppContext.BaseDirectory);
     }
 
     [Theory]

@@ -1,0 +1,6 @@
+description: The shard plan ignores the recorded costs
+mechanism: every entry planned at the same cost, so heavy entries share a shard
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.FiveHeavyEntriesAreNotPutInOneShard
+expect: caught

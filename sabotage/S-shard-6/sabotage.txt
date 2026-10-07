@@ -1,0 +1,6 @@
+description: A recorded cost is never found stale, however far an entry's time is from it
+mechanism: the staleness comparison always says fresh
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AnEntryFarFromItsRecordedCostIsStale
+expect: caught

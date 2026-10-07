@@ -1,0 +1,6 @@
+description: An entry with no recorded cost, or a cost with no entry, is accepted
+mechanism: the cost refusal returns nothing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AnEntryWithNoCostAndACostWithNoEntryAreRefused
+expect: caught

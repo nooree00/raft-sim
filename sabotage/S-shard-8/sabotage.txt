@@ -1,0 +1,6 @@
+description: The workers inside a shard are dealt by id, the costs unread
+mechanism: each shard's entries round-robin over its workers in id order
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.TheFourHeaviestEntriesOfAShardGoToFourWorkers
+expect: caught

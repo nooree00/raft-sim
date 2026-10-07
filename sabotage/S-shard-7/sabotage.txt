@@ -1,0 +1,6 @@
+description: The shards and the workers are both dealt by id again (the harness before P10-00)
+mechanism: the plan returns the round-robin deal by id, and each shard's workers are dealt by id
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AtTheLargestManifestElevenShardsHoldTheSlowestShardFitsTheCeiling
+expect: caught

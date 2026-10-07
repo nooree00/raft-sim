@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 
@@ -105,6 +106,24 @@ internal static class SabotagePlan
         var f = new Findings();
         var shards = EachCommitMatrix.HeadShards(repo, f);
         f.Note($"count={shards.Count}");
+
+        // P10-00: the plan's costs, refused when an entry has none or a cost names no entry, and
+        // each shard's modelled time, so a plan near the ceiling is visible before a shard runs.
+        var specs = SabotageSpec.LoadAll(repo, f).Where(s => !s.RunsOnHost).ToList();
+        var costs = ShardCosts.Parse(File.ReadAllText(repo.PathOf(ShardPlan.CostFile)));
+        foreach (var problem in ShardPlan.CostProblems(specs.Select(s => s.Id), costs))
+        {
+            f.Fail(problem);
+        }
+
+        if (f.Failures.Count == 0)
+        {
+            var entries = specs.Select(s => new PlanEntry(s.Id, Sabotage.UnitKey(s))).ToList();
+            var byId = entries.ToDictionary(e => e.Id, StringComparer.Ordinal);
+            var times = ShardPlan.Balance(entries, shards.Count, costs).Select(s => ShardPlan.ModelledTime([.. s.Select(id => byId[id])], costs)).ToList();
+            f.Note($"modelled shard times (local seconds): {string.Join(", ", times.Select(t => t.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)))}; slowest {times.Max():F0}");
+        }
+
         return f;
     }
 }

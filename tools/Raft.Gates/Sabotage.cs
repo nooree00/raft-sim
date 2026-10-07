@@ -97,7 +97,7 @@ internal static class Sabotage
             // The plan is recomputed here from the committed manifest: a shard job started with a
             // stale count (entries added since the plan was made) fails rather than skipping entries.
             var size = ShardPlan.ParseSize(File.ReadAllText(repo.PathOf(ShardPlan.SizeFile)));
-            var mine = ShardPlan.Select(specs.Select(s => s.Id).ToList(), shardOption, size, f);
+            var mine = ShardPlan.Select(specs.Select(PlanEntryOf).ToList(), shardOption, size, LoadCosts(repo), f);
             if (mine is null)
             {
                 return f;
@@ -118,7 +118,12 @@ internal static class Sabotage
         // valid) and its own baseline. Entries are dealt round-robin in id order: deterministic.
         var workers = Math.Clamp(workersOption is null ? Environment.ProcessorCount : int.Parse(workersOption, System.Globalization.CultureInfo.InvariantCulture), 1, 4);
         workers = Math.Min(workers, specs.Count);
-        var shares = Enumerable.Range(0, workers).Select(k => specs.Where((_, i) => i % workers == k).ToList()).ToList();
+        // P10-00: the longest entry first to the worker that would finish soonest, its baseline build
+        // and units counted; the plan models the same deal, so a shard's modelled time is this run's.
+        var costs = LoadCosts(repo);
+        var byId = specs.ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var shares = ShardPlan.WorkerShares(specs.Select(PlanEntryOf).ToList(), workers, costs).Select(share => share.Select(e => byId[e.Id]).ToList()).ToList();
+        var timings = new System.Collections.Concurrent.ConcurrentDictionary<string, double>(StringComparer.Ordinal);
 
         // Baseline checks once per shard (P4-12): each target project, and each command group, is
         // checked by one worker, against all of the shard's targets in it.
@@ -165,7 +170,7 @@ internal static class Sabotage
             {
                 results[k] = new Findings();
                 var mineUnits = baselineShares[k].Select(key => units[key]).ToList();
-                ready[k] = RunAll(trees[k], shares[k], mineUnits, results[k], clock, barrier);
+                ready[k] = RunAll(trees[k], shares[k], mineUnits, results[k], clock, barrier, timings);
             });
         }
         finally
@@ -189,6 +194,13 @@ internal static class Sabotage
             }
         }
 
+        // The reviewer's condition on recorded costs (P10-00): in a shard run, every entry's time
+        // beside its recorded cost, and a failure when one is off by more than the stale factor.
+        if (shardOption is not null)
+        {
+            CheckCosts(timings, costs, f);
+        }
+
         // Fixed cost: worktrees, baseline builds and baseline checks, until the slowest worker is
         // ready to run its first entry (P2-01's prediction is about this number).
         f.Note($"fixed cost {ready.Max().TotalSeconds:F0}s (worktrees, baseline builds, baseline checks; slowest worker), of which setup (manifest, worktrees) {worktrees.TotalSeconds:F0}s");
@@ -203,7 +215,7 @@ internal static class Sabotage
     }
 
     /// <summary>Runs one worker's share; returns the harness clock when the worker was ready for its first entry.</summary>
-    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyList<IReadOnlyList<SabotageSpec>> baselineUnits, Findings f, Stopwatch clock, System.Threading.Barrier? barrier)
+    private static TimeSpan RunAll(string wt, IReadOnlyList<SabotageSpec> specs, IReadOnlyList<IReadOnlyList<SabotageSpec>> baselineUnits, Findings f, Stopwatch clock, System.Threading.Barrier? barrier, System.Collections.Concurrent.ConcurrentDictionary<string, double> entryTimes)
     {
         var env = new Dictionary<string, string> { ["GATES"] = typeof(Sabotage).Assembly.Location };
         var projects = Repo.Locate(wt).ProjectFiles();
@@ -247,6 +259,7 @@ internal static class Sabotage
         foreach (var spec in specs)
         {
             var outcome = RunOne(wt, spec, baseline, projects, env);
+            entryTimes.AddOrUpdate(spec.Id, outcome.Elapsed.TotalSeconds, (_, t) => t + outcome.Elapsed.TotalSeconds);
             var ok = outcome.Result == spec.Expect;
             var line = $"{spec.Id,-11} {outcome.Result,-15} expected {spec.Expect,-15} {outcome.Elapsed.TotalSeconds,5:F1}s  {outcome.Detail}";
             if (ok)
@@ -266,6 +279,7 @@ internal static class Sabotage
             if (spec.ControlPath is { } control)
             {
                 var c = RunControl(wt, spec, control, baseline, projects);
+                entryTimes.AddOrUpdate(spec.Id, c.Elapsed.TotalSeconds, (_, t) => t + c.Elapsed.TotalSeconds);
                 var line2 = $"{spec.Id,-11} control {c.Result,-7} expected {spec.ControlExpect,-7} {c.Elapsed.TotalSeconds,5:F1}s  {c.Detail}";
                 if (c.Result == spec.ControlExpect)
                 {
@@ -508,8 +522,40 @@ internal static class Sabotage
     internal static string TargetMethod(string target) => target.Contains('(', StringComparison.Ordinal) ? target[..target.IndexOf('(', StringComparison.Ordinal)] : target;
 
     /// <summary>The shard's baseline checks: one unit per target project (test entries), one per baseline command (command entries).</summary>
+    /// <summary>The baseline unit an entry belongs to: its test project, or its baseline (else its) command.</summary>
+    internal static string UnitKey(SabotageSpec s) => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command"));
+
+    private static PlanEntry PlanEntryOf(SabotageSpec s) => new(s.Id, UnitKey(s));
+
+    /// <summary>The recorded costs (P10-00); an absent file is a refusal, not equal costs.</summary>
+    private static ShardCosts LoadCosts(Repo repo) => ShardCosts.Parse(File.ReadAllText(repo.PathOf(ShardPlan.CostFile)));
+
+    /// <summary>Each entry's time beside its recorded cost; a failure for each beyond the stale factor (P10-00).</summary>
+    internal static void CheckCosts(IReadOnlyDictionary<string, double> timings, ShardCosts costs, Findings f)
+    {
+        // The furthest from its line either way: a ratio of 0.4 is further than one of 2.
+        var (worst, worstId, worstDistance) = (1.0, "none", 1.0);
+        foreach (var (id, actual) in timings.OrderBy(t => t.Key, StringComparer.Ordinal))
+        {
+            var recorded = costs.Entry(id);
+            var ratio = recorded > 0 && actual > 0 ? actual / recorded : double.PositiveInfinity;
+            var distance = Math.Max(ratio, 1 / ratio);
+            if (distance > worstDistance)
+            {
+                (worst, worstId, worstDistance) = (ratio, id, distance);
+            }
+
+            if (ShardPlan.Stale(actual, recorded, costs.StaleFactor, costs.StaleFloor))
+            {
+                f.Fail($"{id}: took {actual:F1}s against {recorded:F1}s recorded in {ShardPlan.CostFile}, beyond the stale factor {costs.StaleFactor} (and the {costs.StaleFloor}-s floor): correct its line");
+            }
+        }
+
+        f.Note($"recorded costs: {timings.Count} entries timed; the furthest from its line is {worstId} at {worst:F2} times its recorded cost (stale beyond {costs.StaleFactor} either way, and {costs.StaleFloor} s)");
+    }
+
     internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>
-        specs.GroupBy(s => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command")), StringComparer.Ordinal)
+        specs.GroupBy(UnitKey, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.ToList(), StringComparer.Ordinal);
 
     /// <summary>The entries no baseline unit holds (P7-12): each target must be shown to pass unpatched by some unit.</summary>

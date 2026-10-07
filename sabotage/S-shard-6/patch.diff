@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/ShardPlan.cs b/tools/Raft.Gates/ShardPlan.cs
+index 0862cee..8bd73d9 100644
+--- a/tools/Raft.Gates/ShardPlan.cs
++++ b/tools/Raft.Gates/ShardPlan.cs
+@@ -171,7 +171,7 @@ internal static class ShardPlan
+     /// it is also off by more than the floor in seconds: a 2-s entry taking 7 s is noise, not a claim.
+     /// </summary>
+     public static bool Stale(double actual, double recorded, double factor, double floor) =>
+-        recorded > 0 && Math.Abs(actual - recorded) > floor && (actual > recorded * factor || actual < recorded / factor);
++        false;
+ 
+     public static int Count(int entries, int size)
+     {

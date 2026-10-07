@@ -1,9 +1,9 @@
 diff --git a/tools/Raft.Gates/ShardPlan.cs b/tools/Raft.Gates/ShardPlan.cs
-index 95c5f0e..b3f7c6b 100644
+index fa45bdf..cc764f5 100644
 --- a/tools/Raft.Gates/ShardPlan.cs
 +++ b/tools/Raft.Gates/ShardPlan.cs
-@@ -77,7 +77,7 @@ internal static class ShardPlan
-     {
+@@ -227,7 +227,7 @@ internal static class ShardPlan
+         var ids = entries.Select(e => e.Id).ToList();
          var (index, of) = Parse(shard);
          var expected = Count(ids.Count, size);
 -        if (of != expected)

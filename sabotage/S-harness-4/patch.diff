@@ -1,9 +1,11 @@
+diff --git a/tools/Raft.Gates/Sabotage.cs b/tools/Raft.Gates/Sabotage.cs
+index d25f666..cdc7d89 100644
 --- a/tools/Raft.Gates/Sabotage.cs
 +++ b/tools/Raft.Gates/Sabotage.cs
-@@ -481,7 +481,7 @@
-     /// <summary>The shard's baseline checks: one unit per target project (test entries), one per baseline command (command entries).</summary>
+@@ -556,7 +556,7 @@ internal static class Sabotage
+ 
      internal static Dictionary<string, IReadOnlyList<SabotageSpec>> BaselineUnits(IReadOnlyList<SabotageSpec> specs) =>
-         specs.GroupBy(s => s.Kind == "test" ? "test:" + s.Get("project") : "command:" + (s.Get("baseline") ?? s.Get("command")), StringComparer.Ordinal)
+         specs.GroupBy(UnitKey, StringComparer.Ordinal)
 -            .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.ToList(), StringComparer.Ordinal);
 +            .ToDictionary(g => g.Key, g => (IReadOnlyList<SabotageSpec>)g.Skip(g.Count() > 1 ? 1 : 0).ToList(), StringComparer.Ordinal);
  

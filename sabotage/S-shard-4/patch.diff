@@ -1,0 +1,12 @@
+diff --git a/tools/Raft.Gates/ShardPlan.cs b/tools/Raft.Gates/ShardPlan.cs
+index fa45bdf..12cf2ce 100644
+--- a/tools/Raft.Gates/ShardPlan.cs
++++ b/tools/Raft.Gates/ShardPlan.cs
+@@ -93,6 +93,7 @@ internal static class ShardPlan
+     /// </summary>
+     public static IReadOnlyList<IReadOnlyList<string>> Balance(IReadOnlyList<PlanEntry> entries, int n, ShardCosts costs)
+     {
++        costs = ShardCosts.Uniform(entries.Select(e => e.Id));
+         var shards = Enumerable.Range(0, n).Select(_ => new List<PlanEntry>()).ToList();
+         foreach (var e in entries.OrderByDescending(e => costs.Entry(e.Id)).ThenBy(e => e.Id, StringComparer.Ordinal))
+         {
