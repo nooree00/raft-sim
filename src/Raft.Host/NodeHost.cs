@@ -52,6 +52,8 @@ public sealed class NodeHost : IAsyncDisposable
     private DiskExecutor? _executor;
     private long _requests;
     private volatile bool _holdOutbound;
+    private long _sentMessages;
+    private long _sentBytes;
     private long _stallPeriod;
     private long _stallPause;
     private long _stalledWindow = -1;
@@ -86,6 +88,9 @@ public sealed class NodeHost : IAsyncDisposable
         _stallPeriod = period.Ticks;
         _stallPause = pause.Ticks;
     }
+
+    /// <summary>The messages and bytes this host has sent its peers (P10-04: the replication cost per write, against the offered rate).</summary>
+    public (long Messages, long Bytes) Sent => (Interlocked.Read(ref _sentMessages), Interlocked.Read(ref _sentBytes));
 
     /// <summary>The node's role after the last input it handled.</summary>
     public Role Role => (Role)_role;
@@ -233,6 +238,8 @@ public sealed class NodeHost : IAsyncDisposable
 
     private void Send(Send s)
     {
+        Interlocked.Increment(ref _sentMessages);
+        Interlocked.Add(ref _sentBytes, s.Payload.Length);
         if (!_holdOutbound && _outbound.TryGetValue(s.To, out var queue))
         {
             queue.Writer.TryWrite(Frames.Encode(s.Payload.Span));

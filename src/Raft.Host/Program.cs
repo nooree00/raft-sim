@@ -148,6 +148,7 @@ public static class Program
         try
         {
             var before = local is null ? [] : local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1))).ToArray();
+            var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients);
             var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
             var results = Bench.Summary(r.Latencies);
@@ -165,6 +166,9 @@ public static class Program
                 var syncs = local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1)) - before[i]).ToArray();
                 results["leader_syncs_per_write"] = Math.Round((double)syncs[leader.Value - 1] / r.Answered, 3);
                 results["follower_syncs_per_write"] = Math.Round(syncs.Where((_, i) => i != leader.Value - 1).Average() / r.Answered, 3);
+                var sent = local.Hosts[leader.Value - 1].Sent;
+                results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
+                results["leader_bytes_per_write"] = Math.Round((double)(sent.Bytes - sentBefore[leader.Value - 1].Bytes) / r.Answered, 0);
             }
 
             var load = clients is null
