@@ -462,8 +462,12 @@ Not deferred. The simulator's failures are unreadable without it.
   the effect happened. Prefer a reading computed from the log and the state
   over an incrementing counter wherever one is possible, and say explicitly
   which counters have no state to derive from.
-- A visualiser for a failing execution would be worth a day, late: a timeline
-  of nodes, terms, and messages. Optional, and only after §11's phase 8.
+- No visualiser. One was optional here (a timeline of nodes, terms, and
+  messages, after §11's phase 8) and was dropped at phase 10 (P10-09): no
+  failure of phases 1 to 9 was diagnosed more slowly for the want of one. The
+  shrinker's minimal schedule and the structured trace diagnosed every failing
+  execution, and the slowest diagnoses (phase 9's, on GitHub) were slow
+  because the logs could not be read at all, which a timeline does not fix.
 
 ## 10. What will go wrong, stated in advance
 
