@@ -122,7 +122,7 @@ nothing above (P11-07). Then the cost in CI (P11-08).
 - **Sabotage:** ; manual: the reviewer reads the amended row against this breakdown's done criterion
 - **Verifiable here:** partial — the text here, its approval the reviewer's
 - **Prediction:** The amendment needs a second change beyond §11 and §2: spec §8's known limit on the barrier, or §4's description of the leader's sends, describes "a send per write" in words the fix makes false. **Observable:** a sentence in §4 or §8 that the fix contradicts, found when the amendment is written.
-- **Outcome:** pending
+- **Outcome:** wrong (evidence) — no sentence in §4, §5 or §8 describes a send per write; the amendment needed no change to the replication text. Two changes beyond the phase-11 row were needed, neither the one predicted: §2 already allowed batching and pipelining "until §11's final phase, and only against a measured baseline", so the exclusion was not lifted but noted as reached (phase 10's baseline, a group commit only by the rule, leader leases still out); and §8's rename-barrier limit still pointed at "the register's phase-10 row" for disk acknowledgements, a row phase 10 closed with a measurement, so the sentence now says the limit stands by that decision. The phase-11 row's done criterion now leads with the resend fix (bounded entries per committed entry, shown failing before the fix), the soaks, the re-measured curve and the group-commit rule, and keeps the structural measure after them. The register's two rows cite it.
 
 ### P11-01 — The check that would have seen the defect, red on today's code
 

@@ -32,7 +32,9 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
 - A user-facing application. The state machine is a key-value store because it
   is the simplest thing a linearizability checker can reason about.
 - Performance optimisation (batching, pipelining, leader leases) until §11's
-  final phase, and only against a measured baseline.
+  final phase, and only against a measured baseline. Phase 10 measured it, and
+  phase 11 works from it: replication's resends first, then a group commit only
+  by a rule written before the re-measurement (P11-00). Leader leases stay out.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
@@ -440,7 +442,8 @@ the node issues after a rename until the rename is durable (P7-05). The simulate
 disk models a rename whose source data was lost as leaving an empty file under the real name. A
 real file system can make a rename durable without the data; the barrier assumes the I/O layer
 prevents that, which the node cannot check. It is not solved: disk acknowledgements as inputs to
-Core, the register's phase-10 row, are what would let the node order its own writes.
+Core are what would let the node order its own writes, and phase 10 decided against them with a
+measurement (P10-05: the barrier costs 14 to 18% of a commit), so the limit stands.
 
 **Anything that removes data participates in every invariant the data
 participated in.** Log compaction discards entries the snapshot covers. Before
@@ -519,7 +522,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 8 | Client sessions + read-only queries | A retried `Append` applies once; the checker accepts every history that includes reads |
 | 9 | Real sockets, multi-process | Three processes in Compose, a real client, a killed leader, and the checker green on the resulting history |
 | 10 | Measurement | Throughput and latency against a written target, with the build configuration recorded beside every number |
-| 11 | Linearizability-checking cost | A structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
+| 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
@@ -534,7 +537,9 @@ for Raft.
 membership and compaction split in two. Phase numbers elsewhere refer to it.
 Phase 11 was added at phase 6's approval: a research question with a first-time
 candidate measure, kept out of the membership phase so that joint consensus has
-that phase's whole attention.)
+that phase's whole attention. Replication's cost was put first in it at phase
+10's acceptance: the resend defect broke no invariant and capped the cluster at
+a tenth to a sixth of the design's capacity.)
 
 ## 12. Working agreement
 
