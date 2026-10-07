@@ -35,20 +35,39 @@ public sealed class HostTests
             && JsonDocument.Parse(l).RootElement.GetProperty("Node").GetString() == leader!.Value.ToString());
     }
 
-    /// <summary>A client registers, writes in its session, reads by ReadIndex, and is redirected by a follower.</summary>
+    /// <summary>
+    /// A client registers, writes in its session, reads by ReadIndex, and is redirected by a follower.
+    /// Each request is sent as a client must send it: to the node that leads now, and again if no reply
+    /// comes, because a leader that loses its office drops its pending requests unanswered (P10, CI run
+    /// 37569743638: a `Register|` waited out its 10 s on a runner, not reproduced here). A session's
+    /// write sent twice is applied once (phase 8), so the retry asserts nothing weaker.
+    /// </summary>
     [Fact]
     public async Task ClientWritesCommitAndAReadSeesThem()
     {
         await using var c = new HostCluster();
         c.StartAll();
-        var leader = (await c.LeaderAsync(Wait, Ct))!.Value;
-        var register = await c.RequestAsync(leader, "Register|", Wait, Ct);
+        async Task<string?> AskAsync(string line)
+        {
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                if (await c.LeaderAsync(Wait, Ct) is { } now && await c.RequestAsync(now, line, TimeSpan.FromSeconds(3), Ct) is { } reply && !reply.StartsWith("redirect|", StringComparison.Ordinal))
+                {
+                    return reply;
+                }
+            }
+
+            return null;
+        }
+
+        var register = await AskAsync("Register|");
         Assert.StartsWith("ok|", register, StringComparison.Ordinal);
         var session = register![3..];
-        Assert.Equal("ok", await c.RequestAsync(leader, $"Session|{session}|1|Append|k|a", Wait, Ct));
-        Assert.Equal("ok", await c.RequestAsync(leader, $"Session|{session}|2|Append|k|b", Wait, Ct));
-        Assert.Equal("ok|ab", await c.RequestAsync(leader, "Get|k", Wait, Ct));
+        Assert.Equal("ok", await AskAsync($"Session|{session}|1|Append|k|a"));
+        Assert.Equal("ok", await AskAsync($"Session|{session}|2|Append|k|b"));
+        Assert.Equal("ok|ab", await AskAsync("Get|k"));
 
+        var leader = (await c.LeaderAsync(Wait, Ct))!.Value;
         var follower = c.Nodes.First(n => n != leader);
         Assert.Equal("redirect|" + leader, await c.RequestAsync(follower, "Get|k", Wait, Ct));
         Assert.StartsWith("ok|Leader|", await c.RequestAsync(leader, "Status|", Wait, Ct), StringComparison.Ordinal);
