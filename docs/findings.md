@@ -1128,3 +1128,10 @@ finding: what happened, why no existing check caught it, what now catches it.
   took it to 250 s, and the worst entry from 335 to 92 s. *Rule:* when several entries are expensive,
   ask what they share before narrowing any of them; and a change that moves cost is not one that
   removes it.
+- **A push's commits are checked with their own tooling, so a refresh must precede what makes it
+  stale.** At P11-09 the harness change (every entry runs its target's class) landed two commits
+  before the cost lines it made stale; every commit in between ran the new harness against the old
+  costs on GitHub's per-commit matrix and failed the staleness check, and the previous commits ran
+  the old harness against nothing wrong. The same shape as phase 10's cost lines corrected later in
+  their push, so the second instance. *Rule:* in a push, a data file a code change invalidates is
+  regenerated in the same commit as the change, or before it, never after.

@@ -4,9 +4,22 @@ Replication's cost, and linearizability-checking cost (spec §11 phase 11, amend
 as in `docs/phases/P10/breakdown.md`, parsed by `gates breakdown`; outcomes will say `(evidence)` or
 `(forcing)`.
 
-**Status: proposed, for review.** Nothing below is implemented.
+**Approved** (reviewer), with decision 3 as recommended (one append in flight per follower);
+stop and report after the phase. P11-08's first half and P11-09 were done before approval, at the
+reviewer's direction. From the approval:
+- **P11-01 is the phase's most important task**: the check written and shown failing on today's code
+  before the fix turns the miss from something fixed into something that cannot recur silently. Its
+  outcome states the class it covers: a bound on entries sent per committed entry catches
+  amplification, and not other performance pathologies with no invariant signature.
+- P11-02's prediction (a read test fails before any replication test) and P11-06's 80% gate stand
+  as written; the gate is stated before measuring so a group commit cannot be justified after it.
+- The largest-manifest test is a capacity check only (accepted): its ability to fail was shown for
+  real at 603 to 607 s.
+- P11-09's remaining 2.3 times between fastest and slowest shard is run noise; not chased.
+- The never-verified commits of the last two pushes are tabled in this phase's report, failed
+  separated from never ran.
 
-**Done when** (spec §11, as P11-00 proposes to amend it):
+**Done when** (spec §11, as P11-00 amends it):
 - **the resend defect fixed and the curve re-measured:** the leader sends each entry to each follower
   a bounded number of times whatever the backlog, every invariant and both soaks still hold, and the
   offered-load curve of phase 10 is measured again on the same machine against the design's own model
