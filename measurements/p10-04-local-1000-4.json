@@ -1,0 +1,42 @@
+{
+  "id": "p10-04-local-1000-4",
+  "task": "P10-04",
+  "measure": "commit latency and throughput",
+  "config": {
+    "commit": "eb98d099a183c715e7458d0cd045ed7fcf44e386",
+    "configuration": "Release",
+    "sdk": "10.0.401",
+    "runtime": ".NET 10.0.12",
+    "image": "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29",
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.18.44-fc-v77",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": "4",
+    "cpuLimit": "none",
+    "dotnetProcessorCount": "4",
+    "gc": "workstation, concurrent",
+    "tieredCompilation": "default (on)",
+    "tieredPgo": "default (on)",
+    "dataFileSystem": "overlay (/)",
+    "warmup": "3 s, discarded",
+    "repetition": "4",
+    "load": "open loop, 1000 writes a second for 10 s, 64 connections, a write given up after 5 s, plain Put over 64 keys; in-process cluster of 3 hosts on loopback, data in /tmp/cluster, events discarded"
+  },
+  "results": {
+    "count": 3803,
+    "mean_us": 7286781.4,
+    "p50_us": 6968266.5,
+    "p90_us": 11684485.6,
+    "p99_us": 13099756.1,
+    "p999_us": 13111510.8,
+    "max_us": 13114519.9,
+    "offered_per_s": 1000,
+    "completed_per_s": 201.6,
+    "incomplete": 3197,
+    "redirects": 0,
+    "leader_syncs_per_write": 1.011,
+    "follower_syncs_per_write": 1.011,
+    "leader_messages_per_write": 184.43,
+    "leader_bytes_per_write": 156550
+  }
+}
