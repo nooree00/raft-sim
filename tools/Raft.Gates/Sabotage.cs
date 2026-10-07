@@ -373,7 +373,7 @@ internal static class Sabotage
                 }
                 else if (mine.Any(r => r.Outcome != "Passed"))
                 {
-                    failures.Add($"{spec.Id}: target {spec.Get("target")} does not pass unpatched");
+                    failures.Add($"{spec.Id}: target {spec.Get("target")} does not pass unpatched: {Short(string.Join(" | ", mine.Where(r => r.Outcome != "Passed").Select(r => r.Message)))}");
                 }
             }
 

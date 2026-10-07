@@ -327,3 +327,5 @@ S-shard-7 6.0
 S-shard-8 6.0
 S-meas-1 7.0
 S-meas-2 7.0
+S-bench-1 40.0
+S-bench-2 40.0

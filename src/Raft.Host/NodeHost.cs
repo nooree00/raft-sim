@@ -21,7 +21,8 @@ namespace Raft.Host;
 /// <param name="PeerListen">Where this host accepts its peers.</param>
 /// <param name="Client">Where this host accepts clients.</param>
 /// <param name="TickMilliseconds">How often the clock's tick is delivered; one tick unit is one millisecond.</param>
-public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10);
+/// <param name="FileSystem">The data directory as files, for a test or a measurement to wrap (a slowed sync, P10-03; a failing one, P10-07); the real directory when absent.</param>
+public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null);
 
 /// <summary>
 /// One Raft node in a process (P9-04, spec §4's host): a single thread runs the node, fed by a
@@ -51,6 +52,9 @@ public sealed class NodeHost : IAsyncDisposable
     private DiskExecutor? _executor;
     private long _requests;
     private volatile bool _holdOutbound;
+    private long _stallPeriod;
+    private long _stallPause;
+    private long _stalledWindow = -1;
     private volatile int _role;
     private long _term;
 
@@ -72,6 +76,17 @@ public sealed class NodeHost : IAsyncDisposable
         set => _holdOutbound = value;
     }
 
+    /// <summary>
+    /// A measurement's hook (P10-03, the planted stall): the loop stops handling inputs for
+    /// <paramref name="pause"/> at the start of every <paramref name="period"/>, as a long collection
+    /// or a descheduled thread would stop it. Inputs queue meanwhile; nothing is lost.
+    /// </summary>
+    public void StallEvery(TimeSpan period, TimeSpan pause)
+    {
+        _stallPeriod = period.Ticks;
+        _stallPause = pause.Ticks;
+    }
+
     /// <summary>The node's role after the last input it handled.</summary>
     public Role Role => (Role)_role;
 
@@ -80,7 +95,7 @@ public sealed class NodeHost : IAsyncDisposable
 
     public void Start()
     {
-        var files = new DirectoryFileSystem(_config.DataDirectory);
+        var files = _config.FileSystem?.Invoke(_config.DataDirectory) ?? new DirectoryFileSystem(_config.DataDirectory);
         var peers = new List<NodeId>();
         var members = new List<NodeId>();
         foreach (var id in _config.Peers.Keys)
@@ -170,8 +185,28 @@ public sealed class NodeHost : IAsyncDisposable
                 return;
             }
 
+            Stall();
             _executor!.Execute(_node!.Handle(input));
             _role = (int)_node.Role;
+        }
+    }
+
+    /// <summary>The planted stall (<see cref="StallEvery"/>): once per period, the loop sleeps out the pause.</summary>
+    private void Stall()
+    {
+        var period = Interlocked.Read(ref _stallPeriod);
+        if (period <= 0)
+        {
+            return;
+        }
+
+        var now = _clock.Elapsed.Ticks;
+        var window = now / period;
+        var into = now % period;
+        if (window > _stalledWindow && into < Interlocked.Read(ref _stallPause))
+        {
+            _stalledWindow = window;
+            Thread.Sleep(TimeSpan.FromTicks(Interlocked.Read(ref _stallPause) - into));
         }
     }
 

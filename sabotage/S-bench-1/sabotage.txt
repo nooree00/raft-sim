@@ -1,0 +1,6 @@
+description: The open-loop generator waits for each reply on one connection and times each write from its own send
+mechanism: coordinated omission: one connection, the clock started at the send
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.BenchControlTests.APlantedStallShowsOpenLoopAndHidesClosedLoop
+expect: caught

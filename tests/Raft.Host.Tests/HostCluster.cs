@@ -24,10 +24,12 @@ internal sealed class HostCluster : IAsyncDisposable
     private readonly Dictionary<NodeId, IPEndPoint> _clients = [];
     private readonly Dictionary<NodeId, NodeHost?> _hosts = [];
     private readonly RaftOptions _options;
+    private readonly Func<string, IFileSystem>? _files;
 
-    public HostCluster(RaftOptions? options = null, int size = 3)
+    public HostCluster(RaftOptions? options = null, int size = 3, Func<string, IFileSystem>? files = null)
     {
         _options = options ?? RaftOptions.Default;
+        _files = files;
         for (var i = 1; i <= size; i++)
         {
             var id = new NodeId(i);
@@ -48,7 +50,7 @@ internal sealed class HostCluster : IAsyncDisposable
     public void Start(NodeId n)
     {
         var peers = _peers.ToDictionary(p => p.Key, p => new DnsEndPoint("127.0.0.1", p.Value.Port));
-        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options), Events);
+        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options, FileSystem: _files), Events);
         host.Start();
         _hosts[n] = host;
     }
@@ -125,15 +127,40 @@ internal sealed class HostCluster : IAsyncDisposable
     // Below Linux's ephemeral range (32768 to 60999), so no outgoing connection can take a port
     // between its choice and the host's bind: a port asked of the system (bind to 0, release, bind
     // again later) was taken in that gap by a parallel test's client socket (P9-09, "Address already
-    // in use"). Each port is handed out once per process; the start varies by process, and a port in
-    // use is skipped, for test processes running side by side (the harness's workers).
-    private static int _nextPort = 20_000 + (Environment.ProcessId * 97 % 1_000 * 12);
+    // in use"). Each test process holds its own block of 100 ports, claimed by an exclusive lock on a
+    // file in the temporary directory (released by the system when the process exits): a node killed
+    // by one process's test frees its ports while its peers keep redialling them, and without the
+    // block another process could take one and receive another cluster's frames (P10-03: controls
+    // failed in the harness only beside S-kill-1's process). Inside the block each port is handed out
+    // once, and one in use is skipped.
+    private static readonly List<FileStream> Locks = [];
+    private static readonly int Block = ClaimBlock();
+    private static int _nextPort = -1;
+
+    private static int ClaimBlock()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "raft-host-ports");
+        Directory.CreateDirectory(dir);
+        for (var b = 0; b < 120; b++)
+        {
+            try
+            {
+                Locks.Add(new FileStream(Path.Combine(dir, b.ToString(System.Globalization.CultureInfo.InvariantCulture)), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
+                return 20_000 + (b * 100);
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        throw new InvalidOperationException("no free block of test ports: 120 test processes hold one each");
+    }
 
     private static int FreePort()
     {
-        for (var tries = 0; tries < 1_000; tries++)
+        for (var tries = 0; tries < 100; tries++)
         {
-            var port = 20_000 + ((Interlocked.Increment(ref _nextPort) - 20_000) % 12_000);
+            var port = Block + (Interlocked.Increment(ref _nextPort) % 100);
             try
             {
                 using var l = new TcpListener(IPAddress.Loopback, port);
@@ -145,7 +172,7 @@ internal sealed class HostCluster : IAsyncDisposable
             }
         }
 
-        throw new InvalidOperationException("no free port below the ephemeral range");
+        throw new InvalidOperationException($"no free port in this process's block from {Block}");
     }
 }
 
