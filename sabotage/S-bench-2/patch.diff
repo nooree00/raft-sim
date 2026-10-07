@@ -1,21 +1,21 @@
 diff --git a/src/Raft.Host/LoadGenerator.cs b/src/Raft.Host/LoadGenerator.cs
-index 81a3321..4002fba 100644
+index 162321c..8e917fb 100644
 --- a/src/Raft.Host/LoadGenerator.cs
 +++ b/src/Raft.Host/LoadGenerator.cs
-@@ -91,6 +91,7 @@ public static class LoadGenerator
-                     async () =>
-                     {
-                         var c = await pool.Reader.ReadAsync(cancel).ConfigureAwait(false);
+@@ -122,6 +122,7 @@ public static class LoadGenerator
+                             return;
+                         }
+ 
 +                        var acquired = clock.ElapsedTicks;
                          try
                          {
-                             var (ok, followed) = await c.PutAsync(n, cancel).ConfigureAwait(false);
-@@ -102,7 +103,7 @@ public static class LoadGenerator
- 
+                             bool ok;
+@@ -151,7 +152,7 @@ public static class LoadGenerator
                              if (ok)
                              {
--                                latencies.Add(Bench.Micros(clock.ElapsedTicks - due));
+                                 var done = clock.ElapsedTicks;
+-                                latencies.Add(Bench.Micros(done - due));
 +                                latencies.Add(Bench.Micros(acquired - due));
-                             }
-                             else
-                             {
+                                 if (done >= windowStart && done <= windowEnd)
+                                 {
+                                     Interlocked.Increment(ref inWindow);

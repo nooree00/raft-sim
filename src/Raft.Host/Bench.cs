@@ -93,6 +93,12 @@ public static class Bench
     public static Dictionary<string, double> Summary(IEnumerable<double> samples)
     {
         var sorted = samples.Order().ToArray();
+        if (sorted.Length == 0)
+        {
+            // Nothing answered: a count of none, and no percentile of nothing (JSON has no NaN).
+            return new Dictionary<string, double>(StringComparer.Ordinal) { ["count"] = 0 };
+        }
+
         return new Dictionary<string, double>(StringComparer.Ordinal)
         {
             ["count"] = sorted.Length,

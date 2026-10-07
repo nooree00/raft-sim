@@ -98,8 +98,10 @@ public static class Program
                 samples = await Bench.RoundTripAsync(count, bytes, CancellationToken.None).ConfigureAwait(false);
                 measure = $"loopback round trip of a {bytes}-byte frame, {count} times";
                 break;
+            case "load":
+                return await LoadAsync(o).ConfigureAwait(false);
             default:
-                await Console.Error.WriteLineAsync("bench sync|rtt").ConfigureAwait(false);
+                await Console.Error.WriteLineAsync("bench sync|rtt|load").ConfigureAwait(false);
                 return 2;
         }
 
@@ -112,6 +114,81 @@ public static class Program
         Measurement.Write(o.GetValueOrDefault("--out", "measurements"), record);
         await Console.Out.WriteLineAsync($"{record.Id}: " + string.Join(", ", record.Results.Select(r => $"{r.Key} {r.Value}"))).ConfigureAwait(false);
         return 0;
+    }
+
+    /// <summary>
+    /// `bench load --rate R --seconds S --warmup W [--clients N] (--nodes 1=n1:7100,... | --local DIR)
+    /// --id ID --out measurements` (P10-04): one load run, open loop (or closed with --clients) against
+    /// a Compose cluster by its client addresses, or against three hosts this process starts on
+    /// loopback, whose syncs it counts.
+    /// </summary>
+    private static async Task<int> LoadAsync(Dictionary<string, string> o)
+    {
+        var rate = double.Parse(o.GetValueOrDefault("--rate", "0"), CultureInfo.InvariantCulture);
+        var seconds = double.Parse(o.GetValueOrDefault("--seconds", "10"), CultureInfo.InvariantCulture);
+        var warmup = double.Parse(o.GetValueOrDefault("--warmup", "3"), CultureInfo.InvariantCulture);
+        int? clients = o.TryGetValue("--clients", out var cl) ? int.Parse(cl, CultureInfo.InvariantCulture) : null;
+        LocalCluster? local = null;
+        IReadOnlyDictionary<NodeId, DnsEndPoint> nodes;
+        string where;
+        if (o.TryGetValue("--local", out var root))
+        {
+            local = new LocalCluster(root);
+            local.Start();
+            await local.LeaderAsync(TimeSpan.FromSeconds(15), CancellationToken.None).ConfigureAwait(false);
+            nodes = local.Clients;
+            where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded";
+        }
+        else
+        {
+            nodes = Endpoints(o["--nodes"]);
+            where = "Compose cluster " + o["--nodes"] + ", events to each node's standard output";
+        }
+
+        try
+        {
+            var before = local is null ? [] : local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1))).ToArray();
+            var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients);
+            var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
+            var results = Bench.Summary(r.Latencies);
+            if (clients is null)
+            {
+                results["offered_per_s"] = rate;
+            }
+
+            results["completed_per_s"] = Math.Round(r.CompletedPerSecond, 1);
+            results["incomplete"] = r.Incomplete;
+            results["redirects"] = r.Redirects;
+            if (local is not null && r.Answered > 0)
+            {
+                var leader = await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
+                var syncs = local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1)) - before[i]).ToArray();
+                results["leader_syncs_per_write"] = Math.Round((double)syncs[leader.Value - 1] / r.Answered, 3);
+                results["follower_syncs_per_write"] = Math.Round(syncs.Where((_, i) => i != leader.Value - 1).Average() / r.Answered, 3);
+            }
+
+            var load = clients is null
+                ? $"open loop, {rate} writes a second for {seconds} s, 64 connections, a write given up after 5 s, plain Put over 64 keys; {where}"
+                : $"closed loop, {clients} clients for {seconds} s, plain Put over 64 keys; {where}";
+            var recordConfig = Measurement.Config($"{warmup} s, discarded", o.GetValueOrDefault("--repetition", "1"), load, root ?? "/data");
+            if (o.TryGetValue("--data-fs", out var dataFs))
+            {
+                // Measured from a client container, which does not mount the nodes' data: the script states it.
+                recordConfig["dataFileSystem"] = dataFs;
+            }
+
+            var record = new MeasurementRecord(o["--id"], o.GetValueOrDefault("--task", "P10-04"), "commit latency and throughput", recordConfig, results);
+            Measurement.Write(o.GetValueOrDefault("--out", "measurements"), record);
+            await Console.Out.WriteLineAsync($"{record.Id}: " + string.Join(", ", record.Results.Select(x => $"{x.Key} {x.Value}"))).ConfigureAwait(false);
+            return 0;
+        }
+        finally
+        {
+            if (local is not null)
+            {
+                await local.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     private static Dictionary<string, string> Options(string[] args)

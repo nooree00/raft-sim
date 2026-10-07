@@ -24,9 +24,16 @@ namespace Raft.Host;
 public sealed record LoadConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes, double Rate, TimeSpan Duration, TimeSpan Warmup, int Connections = 64, int? ClosedClients = null, TimeSpan? Timeout = null);
 
 /// <summary>A load run's result: each counted write's latency in microseconds, and what did not complete.</summary>
-public sealed record LoadResult(IReadOnlyList<double> Latencies, int Scheduled, int Incomplete, int Redirects, TimeSpan Counted)
+/// <param name="Answered">Every write answered `ok`, the warm-up's included (the denominator for syncs per write).</param>
+/// <param name="InWindow">Writes answered within the counted window (after the warm-up, before the schedule ended): the throughput's numerator. A write answered after the window is counted in the latencies, not here.</param>
+public sealed record LoadResult(IReadOnlyList<double> Latencies, int Scheduled, int Incomplete, int Redirects, TimeSpan Counted, int Answered = 0, int InWindow = 0)
 {
-    public double CompletedPerSecond => Latencies.Count / Counted.TotalSeconds;
+    /// <summary>
+    /// Writes answered within the window, a second. Dividing every answer by the window instead (as
+    /// first written) reported an overloaded cluster as keeping up: at 3,125 offered it gave 3,125
+    /// completed, with latencies of a minute (P10-04).
+    /// </summary>
+    public double CompletedPerSecond => InWindow / Counted.TotalSeconds;
 }
 
 /// <summary>
@@ -64,11 +71,20 @@ public static class LoadGenerator
         var latencies = new ConcurrentBag<double>();
         var redirects = 0;
         var incomplete = 0;
+        var answered = 0;
         var total = (int)(config.Rate * config.Duration.TotalSeconds);
         var counted = 0;
+        var inWindow = 0;
         var clock = Stopwatch.StartNew();
         var interval = Stopwatch.Frequency / config.Rate;
+        var windowStart = (long)(config.Warmup.TotalSeconds * Stopwatch.Frequency);
+        var windowEnd = (long)(config.Duration.TotalSeconds * Stopwatch.Frequency);
         var inflight = new List<Task>(total);
+
+        // A run ends a grace period after its schedule: what is not answered by then is incomplete.
+        // Without the bound an overloaded run drained for minutes after its ten seconds (P10-04).
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        deadline.CancelAfter(config.Duration + Grace);
         try
         {
             for (var i = 0; i < total; i++)
@@ -90,11 +106,43 @@ public static class LoadGenerator
                 inflight.Add(Task.Run(
                     async () =>
                     {
-                        var c = await pool.Reader.ReadAsync(cancel).ConfigureAwait(false);
+                        Connection c;
                         try
                         {
-                            var (ok, followed) = await c.PutAsync(n, cancel).ConfigureAwait(false);
+                            c = await pool.Reader.ReadAsync(deadline.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
+                        {
+                            // Still waiting for a connection when the run ended: never sent, incomplete.
+                            if (count)
+                            {
+                                Interlocked.Increment(ref incomplete);
+                            }
+
+                            return;
+                        }
+
+                        try
+                        {
+                            bool ok;
+                            int followed;
+                            try
+                            {
+                                (ok, followed) = await c.PutAsync(n, deadline.Token).ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
+                            {
+                                // Sent, not answered when the run ended: incomplete. The connection's stream
+                                // is left mid-reply, but the run is over and every connection is closed.
+                                (ok, followed) = (false, 0);
+                            }
+
                             Interlocked.Add(ref redirects, followed);
+                            if (ok)
+                            {
+                                Interlocked.Increment(ref answered);
+                            }
+
                             if (!count)
                             {
                                 return;
@@ -102,7 +150,12 @@ public static class LoadGenerator
 
                             if (ok)
                             {
-                                latencies.Add(Bench.Micros(clock.ElapsedTicks - due));
+                                var done = clock.ElapsedTicks;
+                                latencies.Add(Bench.Micros(done - due));
+                                if (done >= windowStart && done <= windowEnd)
+                                {
+                                    Interlocked.Increment(ref inWindow);
+                                }
                             }
                             else
                             {
@@ -127,8 +180,11 @@ public static class LoadGenerator
             }
         }
 
-        return new LoadResult([.. latencies], counted, incomplete, redirects, config.Duration - config.Warmup);
+        return new LoadResult([.. latencies], counted, incomplete, redirects, config.Duration - config.Warmup, answered, inWindow);
     }
+
+    /// <summary>How long a run waits past its schedule for the replies still outstanding.</summary>
+    private static readonly TimeSpan Grace = TimeSpan.FromSeconds(10);
 
     private static async Task<LoadResult> ClosedAsync(LoadConfig config, NodeId leader, int clients, CancellationToken cancel)
     {
@@ -136,6 +192,7 @@ public static class LoadGenerator
         var redirects = 0;
         var incomplete = 0;
         var scheduled = 0;
+        var answered = 0;
         var clock = Stopwatch.StartNew();
         var end = (long)(config.Duration.TotalSeconds * Stopwatch.Frequency);
         var warm = (long)(config.Warmup.TotalSeconds * Stopwatch.Frequency);
@@ -149,6 +206,11 @@ public static class LoadGenerator
                     var sent = clock.ElapsedTicks;
                     var (ok, followed) = await c.PutAsync(n, cancel).ConfigureAwait(false);
                     Interlocked.Add(ref redirects, followed);
+                    if (ok)
+                    {
+                        Interlocked.Increment(ref answered);
+                    }
+
                     if (sent < warm)
                     {
                         continue;
@@ -167,7 +229,7 @@ public static class LoadGenerator
             },
             cancel)).ToList();
         await Task.WhenAll(tasks).ConfigureAwait(false);
-        return new LoadResult([.. latencies], scheduled, incomplete, redirects, config.Duration - config.Warmup);
+        return new LoadResult([.. latencies], scheduled, incomplete, redirects, config.Duration - config.Warmup, answered, latencies.Count);
     }
 
     /// <summary>The node that says it leads, asked with `Status|`; waits up to ten seconds for one.</summary>
