@@ -368,6 +368,8 @@ by design. The causes, read from each job's annotations where the commit's own s
 
 **The staleness check's first real outlier.** That red job is the redesigned check (above) earning itself: S-hostdisk-1's line said 64.2 s and the entry took 389.7 s, because it ran its whole project and phase 10 had lengthened the project. The wide per-entry catch (factor 5 and 30 s) let three runs of noise through and caught a line five times wrong. Correcting it then showed the harness's real problem, every test entry running its target's whole project, fixed before phase 11's other work (P11-08, P11-09).
 
+**And moved again.** The next push's run (run:37693717232) was red at its head too: S-shard-7 survived, because after P11-09 the largest manifest fits even dealt by id, so it was retargeted to a balancing test; and S-rng-1's new cost line came from an outlier local run. Its intermediate commits, phase 11's, failed on cost lines a later commit of the same push refreshed, an ordering of mine; they are phase 11's report's to table. The report is re-committed at the head that fixes both.
+
 **This report's commit moved.** The acceptance push's run (run:37673929874) was red on that one job, so the commit carrying the accepted report was not certified by a green run; the report is re-committed at the next push's head with this row, and that push's run certifies it.
 
 Of the failures, three causes cover all but two: the per-entry staleness check, which judged noise
