@@ -274,7 +274,7 @@ blocks nothing.
 - **Verifiable here:** partial — CI's numbers only in CI
 - **Prediction:** The build job grows by under 10 s (the measurement gate reads a few files), and the harness shards stay inside P10-00's prediction across every run of the phase, the new entries with their recorded costs included. **Observable:** the build job's gate step and each shard's harness step in each first-attempt run.
 
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the gate's cost was right and the shards' was wrong. The gates step of the build-core job took 3 to 4 s in the phase's three runs (run:37569743638, run:37584673088, run:37594669723) against 3 s in phase 9's (run:37557274882): under 10 s more, as predicted. The harness shards did not stay inside P10-00's prediction in every run: the slowest step was 580, 590 and 634 s, the last over 600 s, with every shard inside its 900-s ceiling; and the new entries' recorded costs were wrong for the host project (recorded at about 15 to 20 s from a local run before the bench controls lengthened `Raft.Host.Tests`, about 62 to 95 s on GitHub), which failed the staleness check (P10-00's outcome). Every job used was a first attempt (no run of the phase re-ran a job). The tests step grew from 183 s at phase 9's head to 192 to 288 s (the bench controls, then the fsync tests), and the longest per-commit job from 791 s to 716, 848 and 949 s. This report's own push is not in these numbers; its run is the next push's to read.
 
 ## Sabotage ids
 
