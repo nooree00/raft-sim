@@ -333,7 +333,7 @@ In `docs/findings.md` under Phase 10:
 
 ## Commits never verified in CI
 
-Twenty-two pushed commits of the phase never had a green verdict of their own. **They are of two
+Twenty-three pushed commits of the phase never had a green verdict of their own. **They are of two
 kinds, and the table says which:** *failed* (a job ran and a check went red) and *never ran* (GitHub
 gave the job no runner, so no check ran at all, and nothing is known about the commit from CI). One
 more commit, `05eb9b8`, passed on every shard. **Accepted as never verified** (reviewer, at
@@ -363,7 +363,12 @@ by design. The causes, read from each job's annotations where the commit's own s
 | `0e6d526` | run:37633788104 | **never ran** | all 12 shards | no runner acquired in 5 attempts, twice (attempts 1 and 2); documentation only |
 | `06eed30` | run:37633788104 | **never ran** | all 12 shards | the same; documentation only |
 | `a745a69` | run:37633788104 | **never ran** | all 12 shards | the same; documentation only |
+| `780f4b4` | run:37673929874 | failed | shard 10 | S-hostdisk-1's recorded cost (64.2 s) was stale: it runs `Raft.Host.Tests` whole, which phase 10 lengthened, and took 389.7 s; the outlier catch failed it as designed, the line corrected at the next push (the acceptance push; documentation only) |
 | `a1be1d1` (head) | run:37633788104 | failed, and part **never ran** | sabotage 10/12 failed; the build job never ran | S-bench-1's baseline (the closed run's 99th percentile 193 ms, fixed at `cf0c516`); the build job, which collects every shard, was never given a runner |
+
+**The staleness check's first real outlier.** That red job is the redesigned check (above) earning itself: S-hostdisk-1's line said 64.2 s and the entry took 389.7 s, because it ran its whole project and phase 10 had lengthened the project. The wide per-entry catch (factor 5 and 30 s) let three runs of noise through and caught a line five times wrong. Correcting it then showed the harness's real problem, every test entry running its target's whole project, fixed before phase 11's other work (P11-08, P11-09).
+
+**This report's commit moved.** The acceptance push's run (run:37673929874) was red on that one job, so the commit carrying the accepted report was not certified by a green run; the report is re-committed at the next push's head with this row, and that push's run certifies it.
 
 Of the failures, three causes cover all but two: the per-entry staleness check, which judged noise
 as stale lines (changed at `be00f8e`, the costs refreshed from GitHub at `82b4825`); the stall
