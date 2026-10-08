@@ -1132,16 +1132,16 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   took it to 250 s, and the worst entry from 335 to 92 s. *Rule:* when several entries are expensive,
   ask what they share before narrowing any of them; and a change that moves cost is not one that
   removes it.
-- **A push's commits are checked with their own tooling, so a refresh must precede what makes it
-  stale.** At P11-09 the harness change (every entry runs its target's class) landed two commits
+- **A change and the refresh it makes necessary are one commit.** (First titled "a push's commits
+  are checked with their own tooling, so a refresh must precede what makes it stale"; at acceptance
+  the reviewer kept the wording below.) At P11-09 the harness change (every entry runs its target's class) landed two commits
   before the cost lines it made stale; every commit in between ran the new harness against the old
   costs on GitHub's per-commit matrix and failed the staleness check, and the previous commits ran
   the old harness against nothing wrong. The same shape as phase 10's cost lines corrected later in
   their push, so the second instance. *Rule:* in a push, a data file a code change invalidates is
-  regenerated in the same commit as the change. **Corrected at the phase's report:** not "or before
-  it". A refresh before a change of more than the staleness factor is stale against the old harness
-  by the same factor, so the change and its refresh must be one commit (the phase's never-verified
-  table has the instances).
+  regenerated in the same commit as the change, not before it either: a refresh before a change of
+  more than the staleness factor is stale against the old harness by the same factor (the phase's
+  never-verified table has the instances).
 - **A fix that changes when messages are sent breaks constructions, not invariants, and each one has
   to be named.** One append in flight per follower (P11-02) broke no invariant and seven checks: three
   Core tests that wrote right after an election, or several times in a row, and relied on each write
@@ -1163,7 +1163,13 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   67% busy, so nothing was built, as the rule says; at the rate where the tail breaks it was 75 to
   80%, and the sync was the cap. *Rule:* when a rule is written before a measurement, write its
   premise as its own prediction, so the measurement can contradict the premise without being read
-  as overriding the rule.
+  as overriding the rule. **How the premise was wrong** (the reviewer, at acceptance): the gate
+  measured at the wrong operating point. The highest sustained rate is where the system is
+  comfortable; the interesting behaviour is at the breaking point, where the tail goes, and there
+  the sync was at the gate, not under it. The rule was corrected, not its answer (spec §2): the
+  gate is read at the lowest rate whose tail breaks. *Rule:* a gate on a resource's utilisation is
+  read where the system breaks, not where it holds, because a resource that is not the cap where
+  everything holds can be the cap one step further.
 - **The checker's budget is memory, and a state's size grows with the history.** The search keys
   each state by a character per operation, so the soak's 32,000,000 states, 7 to 12.5 GB on its
   keys of a few dozen operations, did not fit in 16 GB for a 240-operation history, and killed the
@@ -1194,4 +1200,14 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   and 4 against 12). The barrier control's 90% guard was the same error from the other side: a threshold
   read off one local run where the design's premise (a barrier list per write) had stopped holding;
   GitHub gave 70%. It is now one list per write by construction (one closed-loop client). A guard
-  that can be made exact by construction should not be a measured share.
+  that can be made exact by construction should not be a measured share. The reviewer named it the
+  CRDT project's §13.38 again: a remembered figure with no boundary attached. Of the phase's two
+  new findings this is the one the reviewer chose; P12-08 checks the other controls' margins on both
+  sides rather than waiting for one to survive.
+- **A gate that reads a hand-kept file goes silent when the file is not kept.** `gates register`
+  fails an open row promised to a completed phase, and learns which phases are complete from
+  `docs/phases/status.md`. Nobody marked a phase complete after phase 7, so for phases 8 to 11 the
+  check could not fire, and it did not: the resends row stayed open after the phase 11 report said
+  it had closed. Found at phase 11's acceptance, when opening a row for phase 12 needed the gate to
+  know the phases. *Rule:* a gate's inputs are derived from the artefacts they describe, or checked
+  against them; P12-01 checks the file against the reports' status lines.

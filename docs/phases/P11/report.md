@@ -1,6 +1,32 @@
 # Phase 11 — report
 
-**Status: for review.** Replication's cost, then linearizability-checking cost (spec §11 phase 11,
+**Status: accepted** (reviewer, on run 37741556031, the report's head `47a9d91`). Edits at
+acceptance, by the reviewer's direction:
+- **the group-commit gate corrected, not its answer:** the rule measured at the highest sustained
+  rate, and the behaviour that matters is at the rate where the tail breaks. Read there, the sync
+  is at the gate (75 to 80%), not under it. Still not built: a group commit trades latency for
+  throughput, and latency is about ten times its target with nothing yet aimed at it. Latency comes
+  first; the corrected gate is then applied to the new curve (spec §2, the register's new row,
+  spec §11's phase 12). That the premise was wrong, and how, is recorded in the findings, as more
+  reusable than the decision;
+- **P11-07's negative close is the answer,** and spec §6 now says plainly that a budget in states
+  is not a budget in memory, since every known limit's curve was quoted in states;
+- `install-kept-the-suffix`'s declaration is recorded as a consequence of the fix, which made a
+  rare path rarer, not a property of the generator;
+- the refresh rule keeps my wording (a change and its refresh are one commit), and the 90% barrier
+  guard is the CRDT project's §13.38 again: a remembered figure with no boundary attached;
+- **found at acceptance:** `docs/phases/status.md` had not been kept since phase 7, so the register
+  gate's check on rows promised to completed phases could not fire, and the resends row was still
+  marked open although this report says it closed. Both corrected; P12-01 makes the check
+  mechanical.
+
+Decisions at acceptance: `install-kept-the-suffix` below the soak floor, accepted (the fix's
+consequence); `retry-deduplicated-by-a-restored-table` rare in the sample only, accepted, as at
+phase 6; no group commit, latency first; both bench controls accepted, stricter being the right
+direction, and every other control's margin to be checked rather than waiting for one to survive
+(P12-08). Phase 12 is latency.
+
+Replication's cost, then linearizability-checking cost (spec §11 phase 11,
 as P11-00 amends it): P11-00 to P11-09, as approved, with decision 3 as recommended (one append in
 flight per follower). P11-08's first half and P11-09 were done before the rest, at the reviewer's
 direction. Every number in this report's tables cites its record (`m:`) or its CI run (`run:`),
@@ -104,6 +130,9 @@ rule said that under 80% the cap would be elsewhere; at 4,000, where the tail br
 near 80% utilisation is where a queue's tail explodes: the sync is the binding resource. The spec
 and the register say so. **Put to the reviewer:** the rule decided "not in phase 11" correctly by its
 own terms; a group commit is what would move this cap, and whether a later phase builds it is yours.
+**Corrected at acceptance** (reviewer): the rule, not the answer. The gate is read at the rate where
+the tail breaks, here 4,000 writes a second, where the sync is at it (75 to 80%). The group commit
+waits behind latency (phase 12), and the corrected gate is applied to the curve phase 12 produces.
 
 ### Correctness at scale after the fix (P11-03)
 
@@ -319,7 +348,9 @@ run:37569743638, run:37584673088 and run:37594669723. This report's own push is 
 - **Closed:** replication resends (P11-02, `ReplicationCostTests`); the group commit (P11-06, by
   `4b2a4ee`, not selected by its rule, the sync named as the cap); the structural measure (P11-07,
   done, no threshold; the limit stated in §6).
-- **Opened:** none. Whether a group commit is built later is the reviewer's.
+- **Opened at acceptance:** commit latency, then the group commit by the corrected gate (phase 12).
+  The resends row, still marked open when this report said it closed, was closed at acceptance with
+  its test.
 
 ## Findings added this phase
 
@@ -337,7 +368,10 @@ lever being a class of entries, a push's commits checked with their own tooling)
   line keeps the reviewer's wording, "a refresh must precede what makes it stale", as its title;
 - a change to the node moves facts derived from the soak in entries that never name the node (the
   third instance of the ordering finding: S-soak-6's seed and S-sess-3's cost);
-- a sabotage whose effect sits at its check's threshold is caught by chance.
+- a sabotage whose effect sits at its check's threshold is caught by chance;
+- at acceptance: the gate's premise, and how it was wrong (read where the system breaks, not where
+  it holds); the 90% guard as §13.38; a gate that reads a hand-kept file goes silent when the file
+  is not kept.
 
 ## Still the person's
 
