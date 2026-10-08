@@ -2,3 +2,5 @@
 # handoff-high-observed (1.40 in GitHub's harness, run 37785921243, and 1.22 and -0.03 in the local harness) measured the hand-off control's median over the delay spun, which e098dc6 replaced with its 5th percentile over the delay set: not a row of the current check.
 slowdown-low-observed	0.75	above	ratio	1.497	-	the slowdown control's ratio once on GitHub (phase 11's finding)
 lateness-median-observed	5000	below	timing	568.6	-	the generator's median lateness in GitHub's harness (run 37785921243, sabotage 11/12), four workers on four processors
+slowdown-high-observed	5.0	below	ratio	13.4862	-	the slowdown control's ratio once on GitHub, in a test step (run 37830104156, 88512a6's shard 1): beyond its upper bound, which no sabotage crosses; left for the reviewer
+# S-bench-1 survived once on GitHub (run 37830104156, c458641's shard 6): the stall control's patched 97th percentile reached its bound of 150 ms there (locally 2 to 32 ms over 15 runs); the harness prints no value for a survivor, so it is not a row. Left for the reviewer.
