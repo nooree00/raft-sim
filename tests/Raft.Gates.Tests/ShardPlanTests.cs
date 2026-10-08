@@ -196,10 +196,12 @@ public sealed class ShardPlanTests
     {
         var f = new Findings();
 
-        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 25, ["S-a-2"] = 25, ["S-a-3"] = 25 }, Costs(("S-a-1", 10), ("S-a-2", 10), ("S-a-3", 10)) with { StaleFactor = 5, StaleFloor = 30 }, f);
+        // Five times its recorded sum against the file's shard factor of 3 (P12-08: a factor of 1.5 beyond it),
+        // each entry within its own factor of 5.
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 50, ["S-a-2"] = 50, ["S-a-3"] = 50 }, Costs(("S-a-1", 10), ("S-a-2", 10), ("S-a-3", 10)) with { StaleFactor = 5, StaleFloor = 30, ShardStaleFactor = 3 }, f);
 
         var failure = Assert.Single(f.Failures);
-        Assert.Contains("this shard's entries took 75s against 30s recorded", failure, StringComparison.Ordinal);
+        Assert.Contains("this shard's entries took 150s against 30s recorded", failure, StringComparison.Ordinal);
     }
 
     [Fact]
