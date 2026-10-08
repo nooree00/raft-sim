@@ -16,7 +16,7 @@ namespace Raft.Host.Slow.Tests;
 /// P10-03: the load generator measures what it claims, shown by two planted effects of known shape on
 /// the in-process cluster. (a) A stall of the leader's loop, 300 ms every 2 s, in a cluster whose
 /// election timeout is 1 to 2 s (with the default 150 to 300 ms, the breakdown's 200-ms stall cost the
-/// leader its office, and the stall was measured on a leader no longer stalled): the open-loop 99th
+/// leader its office, and the stall was measured on a leader no longer stalled): the open-loop 97th
 /// percentile must show it, and a closed-loop run of the same cluster must not (the representation
 /// matters, decision 3). (b) Every sync slowed by about 20 ms: the median commit latency must rise by
 /// about two of the delays actually slept, the model's amount (the leader's sync and a follower's, in
@@ -52,13 +52,18 @@ public sealed class BenchControlTests
         // writes a stall delays past 150 ms (its first half, 7.5% of the time) does not depend on the rate;
         // the closed side is judged at its 95th percentile: a stall holds three closed writes, which on
         // GitHub's runner came to over 1% of the closed run's writes (its 99th percentile 193 ms) and
-        // stay under 5% down to about 30 writes a second.
+        // stay under 5% down to about 30 writes a second. The open side is judged at its 97th percentile,
+        // not its 99th: S-bench-1's coordinated omission leaves one delayed write per stall, 4 or 5 of
+        // about 400 (one per stall in the window), so at the 99th percentile whether it was caught turned
+        // on how the stalls fell in the window, and it survived 2 of 13 times on GitHub (run 37720359149).
+        // Measured locally, 4 runs and 6: unpatched 31 to 32 writes over 150 ms and a 97th percentile of
+        // 235 to 248 ms; with S-bench-1, 4 writes and 3.0 to 3.9 ms.
         var open = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 50, Duration: TimeSpan.FromSeconds(10), Warmup: TimeSpan.FromSeconds(2)), Ct);
         var closed = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 0, Duration: TimeSpan.FromSeconds(20), Warmup: TimeSpan.FromSeconds(2), ClosedClients: 3), Ct);
 
-        Report("bench-stall.txt", FormattableString.Invariant($"open: {open.Latencies.Count} writes, {open.Incomplete} incomplete, p50 {P(open, 50):F0} us, p99 {P(open, 99):F0} us; closed: {closed.Latencies.Count} writes, p50 {P(closed, 50):F0} us, p95 {P(closed, 95):F0} us, p99 {P(closed, 99):F0} us"));
+        Report("bench-stall.txt", FormattableString.Invariant($"open: {open.Latencies.Count} writes, {open.Incomplete} incomplete, p50 {P(open, 50):F0} us, p97 {P(open, 97):F0} us, p99 {P(open, 99):F0} us, over 150 ms {open.Latencies.Count(l => l > 150_000)}; closed: {closed.Latencies.Count} writes, p50 {P(closed, 50):F0} us, p95 {P(closed, 95):F0} us, p99 {P(closed, 99):F0} us"));
         Assert.True(c.Host(leader)!.Role == Role.Leader && open.Incomplete == 0, $"the stalled host lost its office or writes went unanswered ({open.Incomplete}): the stall was not measured on a stalled leader");
-        Assert.True(P(open, 99) > 150_000, FormattableString.Invariant($"open loop's 99th percentile {P(open, 99):F0} us does not show a 300-ms stall"));
+        Assert.True(P(open, 97) > 150_000, FormattableString.Invariant($"open loop's 97th percentile {P(open, 97):F0} us does not show a 300-ms stall"));
         Assert.True(P(closed, 95) < 75_000, FormattableString.Invariant($"closed loop's 95th percentile {P(closed, 95):F0} us: the comparison is not closed-loop"));
     }
 
