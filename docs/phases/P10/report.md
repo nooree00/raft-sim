@@ -27,6 +27,13 @@ the next push.
 
 ### Against the design's own model, the cluster reaches a tenth to a sixth of its capacity, and the cause is a replication defect that no invariant could see
 
+**Superseded at phase 12's acceptance:** the latencies in this section were measured with a load
+generator that waited with `Task.Delay`, sending some writes early and the rest in bursts. Fixing it
+cut the median by 62% at 625 writes a second and 74% at 3,125, interleaved on phase 12's code
+(P12-04), so these figures measured the instrument as much as the system. The curve measured again
+with a generator that dispatches each write at its time, and the target restated from the measured
+floors, are in `docs/phases/P12/report.md` and `docs/design/performance-target.md`.
+
 **The model** (P10-02, `docs/design/performance-target.md`), set from measured inputs before any
 end-to-end number: one sync S = 160 µs, a loopback round trip R = 47 µs, so a commit takes L = 2S + R
 = 367 µs, and a leader that syncs once per write, as this design does, allows **C_design = 1 / S =

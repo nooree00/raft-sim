@@ -1337,3 +1337,28 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   (S-shard-10), and a shard of one entry is judged as that entry (S-shard-11).
   *Rule:* a cost measured beside neighbours is a cost with those neighbours; a check that
   compares it with a run in another arrangement compares two arrangements.
+- **The number had the right name and measured the instrument: §13.30 in the benchmark** (the
+  reviewer, at phase 12's acceptance). Fixing the generator cut the median by 62% at 625 writes a
+  second and 74% at 3,125 (P12-04), so phases 10 and 11 measured `Task.Delay`'s granularity and
+  bursts as much as the system, and the "ten times the target" that set phase 12's agenda was partly
+  the instrument's. Every figure was labelled commit latency, and every record carried its
+  configuration; none carried the instrument's own error, so nothing in them could show it. Their
+  latency sections now say they are superseded, where they sit. *Rule:* an instrument's error is
+  measured and recorded beside every number it produces before any number is judged; the generator's
+  lateness is now in every load record.
+- **A target set by hand before measuring proved ungrounded a second time.** Phase 10's slack
+  factors (1.5 on the median, 3 on the tail) put the median criterion, 543 µs, under the floor P12-06
+  measured along a commit's path (524 to 939 µs), after phase 10's 200,000 a second fell for naming
+  a capacity the design lacks. Restated as the measured floor plus the queue the design's own serial
+  loop forms at the criterion's load (`docs/design/performance-target.md`). *Rule* (reviewer): a
+  target unreachable in principle is not a target, and every figure of it not yet measured is suspect
+  until grounded; the target lists the ones still set by hand.
+- **A gate that does not decide answers no** (the reviewer, at phase 12's acceptance). The corrected
+  gate read 0.245 as written and 0.787 with a filter chosen after seeing the data, 1.6% under its
+  0.8, inside phase 7's rule that a margin under 5% on a measured threshold is noise. Two defensible
+  readings mean the gate did not decide, so the answer is no, and that is a result about the gate:
+  written at phase 10, corrected at phase 11, it has not yet decided a case.
+- **A bound no sabotage crosses is a check that cannot fail, again.** The slowdown control's upper
+  bound guarded nothing a sabotage proves, and its own comment named a case (a rise counted twice,
+  about 4) it could not catch at 5. It read 13.49 once on GitHub and was dropped at phase 12's
+  acceptance; the ratio is reported, unbounded. The fifth time such a check has been rejected.

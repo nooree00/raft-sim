@@ -74,6 +74,13 @@ barrier list per write. Every assertion is unchanged.
 
 ### The curve, measured again: the knee from 625–1,000 to 3,125–4,000 writes a second (P11-04, P11-05)
 
+**Superseded at phase 12's acceptance:** the latencies in this section were measured with a load
+generator that waited with `Task.Delay`, sending some writes early and the rest in bursts. Fixing it
+cut the median by 62% at 625 writes a second and 74% at 3,125, interleaved on phase 12's code
+(P12-04), so these figures measured the instrument as much as the system. The curve measured again
+with a generator that dispatches each write at its time, and the target restated from the measured
+floors, are in `docs/phases/P12/report.md` and `docs/design/performance-target.md`.
+
 The inputs first (P11-04): the median sync 159 µs, the loopback round trip 44 µs, under 10% from
 phase 10's, so the model stands: L = 362 µs and C_design = 6,278 writes a second (one sync per
 write). The target, restated before any phase-11 end-to-end record, keeps the latency criterion (a
@@ -114,6 +121,10 @@ The A/B, interleaved in one session on one machine, phase 10's head against the 
   and syncs once per write (1.002) at every rate.
 
 ### The group commit: not built, by the rule written first; and the sync is the cap (P11-06)
+
+**Superseded at phase 12's acceptance:** the 99th percentiles and the rate where the tail breaks
+were measured with the `Task.Delay` generator, whose bursts queued in the leader (P12-04); phase 12
+applied the corrected gate to a curve measured again, and found it not decisive (spec §2).
 
 The rule, written before the measurement: build a group commit in this phase only if the leader's
 sync is at least 80% busy at the highest rate sustained. The host now times each of its syncs:

@@ -1,6 +1,31 @@
 # Phase 12 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run 37845882191, the report's head `307d3f3`). Edits at
+acceptance, by the reviewer's direction:
+- **the instrument finding leads the report** (below): fixing the generator cut the median by 62 to
+  74%, so phases 10 and 11 measured `Task.Delay`'s granularity as much as the system, and the ten
+  times the target that set this phase's agenda was partly an artifact. Their latency sections now
+  say they are superseded, where they sit;
+- **the target is restated against the measured floors** (decision 1): the floor plus the queue the
+  leader's loop forms at the criterion's load, 1,066 µs at the median and 3.38 ms at the 99th
+  percentile at 3,125 writes a second, with the old figures and why they changed beside them
+  (`docs/design/performance-target.md`). It is the second figure set by hand before any
+  measurement to prove ungrounded; every figure still set by hand is listed there as suspect (a
+  register row). Against it the median at 3,125 a second in process is about 1.3 times its
+  criterion, not the 2.6 times this report gave against 543 µs;
+- **no group commit** (decision 2): as written the gate reads 0.245, and 0.787 needs a filter
+  chosen after seeing the data and misses by 1.6%, noise by phase 7's rule. A gate that does not
+  decide answers no; that the corrected gate was still not decisive is recorded as a result about
+  the gate (spec §2);
+- **the slowdown control's upper bound dropped** (decision 3, `9beffd5`): no sabotage crossed it.
+  Its lower bound is S-bench-2's, which the sabotage crosses (−0.00 against 0.75), and stays; the
+  decision is read as the bound it named, and if the whole control was meant, S-bench-2 goes with it;
+- **S-bench-1's survival moved to phase 13** with its redesign (decision 4, a register row);
+- **the six rows promised to P12 have homes** (decision 5): the target's row closed by the
+  restatement, the other five promised to phase 13, with two new rows there;
+- **the reword's relabelled records stand** (decision 6); phase 13 is proposed against the loop,
+  with the restated target as its criterion (spec §11, `docs/phases/P13/breakdown.md`).
+
 
 Commit latency, then the group commit by the corrected gate (spec §11 phase 12, P12-00's row):
 P12-00 to P12-09, as approved, with the amendments each task's outcome records. Every number in this
@@ -10,7 +35,20 @@ next push. **It is pushed with one fix** that the phase's second push's run (run
 found after that push: the cost checks compared a shard run on one worker with lines timed beside
 three (under P12-08 and deviations).
 
-## First: a gate defeated by its input, the class (P12-01)
+## First: the instrument measured itself (P12-03, P12-04)
+
+Phases 10 and 11 reported commit latency measured by a generator that waited with `Task.Delay`. It
+sent 13 to 21% of its writes early, released the rest in bursts, and its median lateness was
+1.46 ms at 625 writes a second (P12-03). Replacing it with one that dispatches each write at its time
+cut the median by 62% at 625 a second and by 74% at 3,125, interleaved on the same host (P12-04, the
+table under P12-04 below): 1.4 times the lateness removed, because the bursts also queued in the
+leader. The number had the right name and measured the instrument, the CRDT project's §13.30
+arriving in the benchmark. The ten times the target that set this phase's agenda was partly that
+artifact. Phase 10's and phase 11's latency sections now say they are superseded, where they sit;
+against the target restated from the floors, the median at 3,125 a second is about 1.3 times its
+criterion.
+
+## Second: a gate defeated by its input, the class (P12-01)
 
 The register gate learns which phases are complete from `docs/phases/status.md`, a file kept by
 hand. The hand stopped at phase 7. For four phases the gate's check on open rows promised to
@@ -63,8 +101,9 @@ A cluster's nodes sync on one disk, two and three at once, and its hops wake thr
 asleep. The floors along a commit's path, the client's two hops included, sum to between 524 µs
 (every hop warm) and 939 µs (every hop and queue cold) on this machine. The median criterion is
 543 µs. **The target is at the bottom of what the floors allow even at 625 writes a second**, with
-nothing yet spent on the software. Whether the target is restated against the floors is yours (a
-register row).
+nothing yet spent on the software. **Restated at acceptance** (the edits above): the cold floor,
+939 µs, plus the queue the leader's loop forms at 3,125 writes a second, 127 µs at the median, so
+1,066 µs; and 3.38 ms at the 99th percentile.
 
 ## The result of the phase
 
@@ -170,7 +209,8 @@ which runs its syncs inline, 79% of it at 3,500 writes a second, with requests a
 behind them. **The headline prediction's second half was wrong:** I predicted the corrected gate
 would select the group commit.
 
-**For you:** the load reading misses the threshold by 1.6%. Phase 11 read 75 to 80% at 4,000, and
+**At acceptance:** not decisive, so no (the edits above, spec §2). **As reported:** the load
+reading misses the threshold by 1.6%. Phase 11 read 75 to 80% at 4,000, and
 the queues behind the syncs are most of the latency left at 3,125. The rule, applied as written,
 does not propose the group commit; how much weight a 1.6% margin carries is yours.
 
@@ -394,10 +434,9 @@ In `docs/findings.md` under phase 12, in order:
 ## Still the person's
 
 - The cold walk of the README (the P0 row).
-- Whether the target is restated against the measured floors.
-- What phase 13 is, given P12-07's reading.
-- The slowdown control's upper bound (13.49 once on GitHub, no sabotage crosses it) and the stall
-  control's survival once on GitHub: drop or redesign.
+- Phase 13's breakdown, proposed at this acceptance (`docs/phases/P13/breakdown.md`).
+- Decided at acceptance: the target restated, the group commit not built, the slowdown's upper
+  bound dropped, S-bench-1's redesign moved to phase 13, the six rows given homes.
 
 ## Commits never verified in CI
 
