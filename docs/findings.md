@@ -1114,6 +1114,10 @@ finding: what happened, why no existing check caught it, what now catches it.
   per write (6,250 a second): the cluster reaches a tenth to a sixth of it. Same error as §13.37's
   tuned limits, applied to a target. *Rule:* a target's every input is a property of the system as
   built, or it is labelled as the capability of a different design.
+## Phase 11
+
+The first three were written during phase 10's acceptance push and P11-08, before the rest of the phase.
+
 - **The staleness check's redesign earned itself on its first real outlier.** After the per-entry
   check was widened to factor 5 and 30 s (phase 10), it failed one shard on S-hostdisk-1: recorded at
   64.2 s, it took 389.7 s on GitHub, because it ran its whole project and phase 10 had lengthened the
@@ -1134,4 +1138,57 @@ finding: what happened, why no existing check caught it, what now catches it.
   costs on GitHub's per-commit matrix and failed the staleness check, and the previous commits ran
   the old harness against nothing wrong. The same shape as phase 10's cost lines corrected later in
   their push, so the second instance. *Rule:* in a push, a data file a code change invalidates is
-  regenerated in the same commit as the change, or before it, never after.
+  regenerated in the same commit as the change. **Corrected at the phase's report:** not "or before
+  it". A refresh before a change of more than the staleness factor is stale against the old harness
+  by the same factor, so the change and its refresh must be one commit (the phase's never-verified
+  table has the instances).
+- **A fix that changes when messages are sent breaks constructions, not invariants, and each one has
+  to be named.** One append in flight per follower (P11-02) broke no invariant and seven checks: three
+  Core tests that wrote right after an election, or several times in a row, and relied on each write
+  sending the window; an isolated-follower test whose fifteen clients no longer fell 1,000 entries
+  behind; a soak-sample effect that fell under its minimum; a positive control whose pinned seeds
+  were no longer where it is caught; and a control that counted one barrier list per write. Each
+  construction now does what it relied on explicitly, and every assertion is unchanged. *Rule:* when
+  a fix changes the timing of sends, expect tests that leaned on the old timing; change how they get
+  to their state, never what they check, and list each for review.
+- **The defect fed a rare safe path, and the distribution's floor is what saw it go.** Under the
+  resends, chains of appends crossed a snapshot's chunks and delivered entries past its index, so a
+  follower often kept its suffix at an install. With one append in flight that path fell from 2.6 to
+  0.7% of the membership soak's executions, under its floor (P11-03); no invariant could have
+  noticed. *Rule:* a floor on a distribution dimension is a check on a fix's side effects, not only
+  on the generator.
+- **A decision rule's premise is a prediction too, and it can be refuted while the threshold
+  decides.** P11-06's rule built a group commit only if the leader's sync was at least 80% busy, on
+  the premise that under 80% the cap would be elsewhere. At the highest sustained rate it was 61 to
+  67% busy, so nothing was built, as the rule says; at the rate where the tail breaks it was 75 to
+  80%, and the sync was the cap. *Rule:* when a rule is written before a measurement, write its
+  premise as its own prediction, so the measurement can contradict the premise without being read
+  as overriding the rule.
+- **The checker's budget is memory, and a state's size grows with the history.** The search keys
+  each state by a character per operation, so the soak's 32,000,000 states, 7 to 12.5 GB on its
+  keys of a few dozen operations, did not fit in 16 GB for a 240-operation history, and killed the
+  first two runs of P11-07's measurement. *Rule:* a budget stated as a count stands for the memory it
+  was measured in, and only for inputs like the ones it was measured on.
+- **A sabotage caught by the wrong assertion taught more than the measurement it guarded.** S-struct-1
+  was to make every write complete, so that no history would be undecided and the both-classes guard
+  would fire. It was caught, by another assertion: twenty-client histories with no lost write at all
+  stayed undecided at 1,000,000 states. That one observation refuted phase 6's premise, that an
+  operation which never responds is what widens the search, before the measurement had finished.
+  *Rule:* when a sabotage is caught by an assertion other than the one it was written for, read why
+  before replacing it; the reason may be a finding about the thing measured.
+- **A change to the node moves facts derived from the soak in entries that never name the node.** The
+  resend fix (`af62a4a`) changed every soak history. Phase 8's hardest decided seed became easy, so
+  S-soak-6 (a budget below the hardest history's states) survived; S-sess-3's sabotaged soak sample
+  went from about 90 to 250 s. Neither entry's patch or target names `RaftNode.cs`, so the
+  touched-file stage could not select them, and both were found on GitHub after the push. The same
+  shape as the commit-ordering finding, a third time: the facts a change invalidates (named seeds,
+  recorded costs) were re-derived commits later. *Rule:* a change to what the node does is a change to
+  everything measured from the soak; re-derive the named seeds and the costs in the same commit, from
+  a soak run on that commit.
+- **A sabotage whose effect sits at its check's threshold is caught by chance.** S-bench-1's
+  coordinated omission leaves one delayed write per stall, about 1% of the writes, and the control
+  judged the open loop at its 99th percentile: caught or not turned on whether four or five stalls
+  fell in the window, and it survived 2 of 13 times on GitHub. The control had been calibrated on the
+  unpatched run only. *Rule:* calibrate a control on both runs, patched and unpatched, and put its
+  threshold where both have margin (here the 97th percentile: 31 delayed writes against 12 needed,
+  and 4 against 12).
