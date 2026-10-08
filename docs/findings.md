@@ -1259,3 +1259,19 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   so they were taken again at the repaired one (about 25 minutes; the medians agreed within about
   5%). *Rule:* before measuring at a commit, run the patch check (`git apply --check` of every
   entry) on it.
+- **An instrument that spins takes a processor from what it measures.** P12-04's first schedule
+  spun through every interval above 500 writes a second. In process the A/B looked like a pure
+  gain; in Compose at 3,125 its container took 100 to 120% of a processor on a four-processor
+  machine, and the cluster's median and tail were worse than with the sleeping version (8.7 against
+  7.0 ms, 474 against 86 ms at the 99th percentile). Measured only in process, the cost would not
+  have shown, since there the generator's processor time looked like the cluster's.
+- **Bursts hid a wake-up and caused a queue.** The old generator released writes in bursts. A burst
+  queued in the leader's loop (393 µs at 625 a second, 40 once writes came one at a time), and it
+  kept the client's reader thread awake: writes arriving one at a time each wake a pool thread, and
+  the client's hop to the leader rose from 57 to 112 µs in process. A smoother instrument moved
+  time between host segments as well as removing its own.
+- **A bound on a tail is a bound on the neighbours.** The approved control bounded the generator's
+  99th percentile lateness at 100 µs. It held at 6 to 52 µs with two of four processors free and
+  failed at about 3 ms with one, while the median stayed under 1 µs; the sabotage harness runs four
+  workers on four processors. The control asserts the median and no early dispatch; the tail is
+  held by the records, taken with the machine to itself.

@@ -1,0 +1,41 @@
+{
+  "id": "p12-04-paced-compose-ab-85edc0a-625-1",
+  "task": "P12-04",
+  "measure": "commit latency and throughput",
+  "config": {
+    "commit": "85edc0ab15e5ee862adf47607af87ed68ee69620",
+    "configuration": "Release",
+    "sdk": "10.0.401",
+    "runtime": ".NET 10.0.12",
+    "image": "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29",
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.18.44-fc-v80",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": "4",
+    "cpuLimit": "none",
+    "dotnetProcessorCount": "4",
+    "gc": "workstation, concurrent",
+    "tieredCompilation": "default (on)",
+    "tieredPgo": "default (on)",
+    "dataFileSystem": "each node\u0027s Docker volume (local driver, overlayfs storage on the host\u0027s disk); nodes at 85edc0ab15e5ee862adf47607af87ed68ee69620, this load generator at 85edc0a",
+    "warmup": "3 s, discarded",
+    "repetition": "1",
+    "load": "open loop, 625 writes a second for 10 s, scheduled on a thread of its own (sleep, then spin), 64 connections, a write given up after 5 s, plain Put over 64 keys; Compose cluster 1=n1:7100,2=n2:7100,3=n3:7100, events to each node\u0027s standard output"
+  },
+  "results": {
+    "count": 4375,
+    "mean_us": 1657.8,
+    "p50_us": 1477.6,
+    "p90_us": 1862.3,
+    "p99_us": 5921.3,
+    "p999_us": 23790.8,
+    "max_us": 25847.7,
+    "offered_per_s": 625,
+    "completed_per_s": 624.9,
+    "generator_late_p50_us": 0.7,
+    "generator_late_p99_us": 71.4,
+    "generator_late_max_us": 2197.7,
+    "incomplete": 0,
+    "redirects": 0
+  }
+}
