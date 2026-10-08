@@ -460,6 +460,15 @@ internal static class Soak
         // node that restored, within one client's retries, on a workload committing about two thirds of
         // the baseline's entries. Exercised directly by SessionCompactionTests (install and restart).
         ["retry-deduplicated-by-a-restored-table"] = "a retry answered from a table a snapshot carried: 0.32% of the membership soak, 1.74% of the baseline",
+
+        // P11-03: one append in flight per follower (P11-02) made it rarer. A follower keeps its suffix
+        // at an install when it already holds entries past the snapshot's index; before the fix the
+        // resends' many chains of appends crossed the snapshot's chunks and often delivered such
+        // entries, and now a follower being sent a snapshot gets none meanwhile. On the same 1,000
+        // seeds: 74 before and 28 after in the baseline soak (2.8%, over the floor), 26 before and 7
+        // after in the membership soak (0.7%, under it). Exercised directly by
+        // InstallSnapshotTests.AFollowerHoldingTheSnapshotsLastEntryKeepsTheEntriesAfterIt.
+        ["install-kept-the-suffix"] = "an install over a suffix that agrees with the snapshot: 0.7% of the membership soak's first 1,000 since P11-02, 2.8% of the baseline's",
     };
 
     /// <summary>
