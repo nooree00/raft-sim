@@ -218,7 +218,8 @@ Checker 173 (170), Simulation 110 (110), Core 852 (845), Scale 26 (23), Budget 3
   test uses twenty closed-loop clients, not fifteen (fifteen fell 766 entries behind instead of
   1,000); the read control's pinned seeds are 33, 84 and 1289, from the measurement run again (7 of
   3,000, as before); the barrier control asks for barrier lists on 90% of writes (a write sent from
-  an answer's effect list has none; 39 of 40 measured). For the reviewer to check each.
+  an answer's effect list has none; 39 of 40 measured), which GitHub broke, and is now one list per
+write by construction (below). For the reviewer to check each.
 - **`retry-deduplicated-by-a-restored-table` rare in the 300-execution sample** (P11-02): 4 to 2 of
   300, under the absolute minimum, while the sample committed the same entries per execution; the
   10,000-execution soak still holds it to the minimum.
@@ -271,6 +272,17 @@ Checker 173 (170), Simulation 110 (110), Core 852 (845), Scale 26 (23), Budget 3
     ms; with S-bench-1: 4 writes, 3.0 to 3.9 ms. The check on the real generator is stricter (12
     delayed writes needed, not 4), and the sabotage would need 12. For the reviewer, since it changes
     an approved control.
+- **The barrier control's guard, by construction** (a P10-05 control, changed at P11-02). Since
+  the fix, a write that arrives while every follower has an append outstanding is sent from an
+  answer's effect list, which holds no persist, so open loop the share of writes with a barrier list
+  is the machine's timing: 39 of 40 locally, 28 of 40 on GitHub (run:37737168056), against the 90% I
+  had set from the local figure. The control now drives one closed-loop client: each write is sent
+  after the previous one committed, so the follower whose answer committed it has nothing
+  outstanding, and every write's list sends behind its persist. The guard is one list per write
+  again, as before P11-02, after a short settling run: in one of five local runs without it the first
+  write arrived while both followers still had the new leader's no-op outstanding (90 lists for 91
+  writes). Measured locally with it: 94 or 95 lists for as many writes in eight runs, 20.7 to 21.1 ms
+  a list against 20.1 to 20.2 ms slept; with S-bench-3, 0 lists in four.
 - **S-bench-2's baseline missed its floor once** (1.497 against 1.5, at `3e3b7b3`, one of 13 runs),
   as its upper bound did once in phase 10; left unchanged, as the reviewer ruled then.
 - **Latency is still about ten times the target**, and nothing in this phase aimed at it.
@@ -336,9 +348,9 @@ lever being a class of entries, a push's commits checked with their own tooling)
 
 ## Commits never verified in CI
 
-Twenty-one pushed commits of the phase never had a green verdict of their own: eight of its first
-push (run:37693717232), twelve of its main push (run:37720359149), and one of the report's first
-push (run:37732711680). **Every one failed; none never
+Twenty-two pushed commits of the phase never had a green verdict of their own: eight of its first
+push (run:37693717232), twelve of its main push (run:37720359149), and one of each of the report's
+first two pushes (run:37732711680, run:37737168056). **Every one failed; none never
 ran**: every (commit, shard) job of both runs was given a runner and ran its checks, 84 and 144
 per-commit jobs and each head's twelve shards (and 36 more in the report's first push). One commit of
 the main push, `d00c396`, passed on every shard. **Accepted as never verified** (reviewer, at phase 10's acceptance), as in phases 7, 9
@@ -368,6 +380,7 @@ read from each job's annotations:
 | `309a999` | run:37720359149 | failed | shards 7, 11, 12 | the same two; S-disk-3's line |
 | `254cd0a` (head) | run:37720359149 | failed | sabotage 7/12, 12/12 | S-soak-6 and S-iface-1, fixed at `4363885` and `2e91f6a`; documentation only |
 | `2e91f6a` | run:37732711680 | failed | shard 11 | S-soak-6 survived: the cost refresh comes before the seeds' re-pick (`4363885`), which then passed on every shard, as did `c9c6fc5` |
+| `4e5e0c5` (head) | run:37737168056 | failed | sabotage 8/12 | S-bench-3's unpatched barrier control: 28 barrier lists for 40 writes, under the 90% I set at P11-02 from one local measurement (39 of 40); the guard is now one list per write by construction, in this commit; documentation only |
 
 **Four of the eight are my commit ordering, not the code.** `f0a081d` corrected S-hostdisk-1's line
 to its true cost, which took the largest-manifest model to 603 s, over its bound, and so failed the
@@ -387,8 +400,12 @@ line, found by that phase's acceptance push.
 of its head, and red on one per-commit job: `2e91f6a`, the cost refresh, ordered before the seeds'
 re-pick, so S-soak-6 still survived there. Either order left one of the two red; only one commit
 carrying both would not have. A run with a red per-commit job does not certify its head (`gates
-reports` requires the run, and its `each-commit` job, to succeed), so the report is re-committed at
-the next push's head with this row, alone in its push, and that push's run certifies it.
+reports` requires the run, and its `each-commit` job, to succeed), so the report was re-committed at
+the next push's head, alone in its push (`4e5e0c5`, run:37737168056). **And moved again:** that
+run was red on one of the head's shards, S-bench-3's baseline (above), a guard of mine from P11-02
+that set a threshold where the design's premise had changed. The fix, the guard by construction, is
+in this commit with the report, alone in its push, so the run that checks the fix certifies the
+report.
 
 **The main push's twelve are three defects of mine and two controls.** S-iface-1's and S-disk-3's
 lines were wrong since P11-09's local refresh (`2e91f6a` refreshed every line from that run's

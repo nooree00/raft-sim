@@ -1191,4 +1191,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   fell in the window, and it survived 2 of 13 times on GitHub. The control had been calibrated on the
   unpatched run only. *Rule:* calibrate a control on both runs, patched and unpatched, and put its
   threshold where both have margin (here the 97th percentile: 31 delayed writes against 12 needed,
-  and 4 against 12).
+  and 4 against 12). The barrier control's 90% guard was the same error from the other side: a threshold
+  read off one local run where the design's premise (a barrier list per write) had stopped holding;
+  GitHub gave 70%. It is now one list per write by construction (one closed-loop client). A guard
+  that can be made exact by construction should not be a measured share.

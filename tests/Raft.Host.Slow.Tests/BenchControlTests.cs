@@ -105,8 +105,14 @@ public sealed class BenchControlTests
 
     /// <summary>
     /// P10-05's vacuity guard: with every sync delayed and no other delay, the leader's barrier per
-    /// client write is about one delayed sync (its append's), so the measurement reads what it claims;
-    /// nearly every write has such an effect list (all of them before P11-02).
+    /// client write is about one delayed sync (its append's), so the measurement reads what it claims,
+    /// and every write has such an effect list. One closed-loop client: since P11-02 a write that
+    /// arrives while every follower has an append outstanding is sent from an answer's effect list,
+    /// which holds no persist, and how often that happens open loop is the machine's timing (39 of 40
+    /// writes had a barrier list locally, 28 of 40 on GitHub, run 37737168056). Closed loop, a write is
+    /// sent only after the previous one committed, so the follower whose answer committed it has
+    /// nothing outstanding and the write's list sends to it behind the persist: a list per write by
+    /// construction, as before P11-02.
     /// Sabotage S-bench-3 (the barrier counted at a client response, which a leader's append has none of).
     /// </summary>
     [Fact]
@@ -116,18 +122,20 @@ public sealed class BenchControlTests
         await using var c = new HostCluster(RaftOptions.Default with { ElectionTimeoutMin = 1_000, ElectionTimeoutMax = 2_000 }, files: dir => new SlowSyncFileSystem(new DirectoryFileSystem(dir), delay));
         c.StartAll();
         var leader = (await c.LeaderAsync(TimeSpan.FromSeconds(15), Ct))!.Value;
+
+        // A first write can arrive while both followers still have the new leader's no-op outstanding,
+        // and is then sent from its answer (90 lists for 91 writes, once in five local runs): a short
+        // closed run first, so the counted run starts with the no-op committed.
+        await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 0, Duration: TimeSpan.FromMilliseconds(500), Warmup: TimeSpan.Zero, ClosedClients: 1), Ct);
         var before = c.Host(leader)!.Barrier;
 
-        var r = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 10, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1)), Ct);
+        var r = await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: 0, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1), ClosedClients: 1), Ct);
 
         var after = c.Host(leader)!.Barrier;
         var lists = after.Lists - before.Lists;
         var perList = lists == 0 ? 0 : (after.Micros - before.Micros) / lists;
         Report("bench-barrier.txt", FormattableString.Invariant($"{lists} barrier lists for {r.Answered} writes, {perList:F0} us each; a delayed sync slept {delay.MeanSleptMicros:F0} us"));
-        // Since P11-02 a write that arrives while the leader's append to a follower is outstanding is
-        // sent from the answer's effect list, which holds no persist: a barrier list per write is no
-        // longer the design, nearly one is (39 of 40 at 10 writes a second with 20-ms syncs).
-        Assert.True(lists >= r.Answered * 0.9, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered: under 90%, so the measurement does not cover the writes");
+        Assert.True(lists >= r.Answered, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered: fewer than one a write, so the measurement does not cover the writes");
         Assert.InRange(perList / delay.MeanSleptMicros, 0.9, 2.5);
     }
 }
