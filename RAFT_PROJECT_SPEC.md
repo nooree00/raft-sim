@@ -48,6 +48,15 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   it. A group commit is still not built: it trades latency for throughput, and
   latency is about ten times its target with nothing yet aimed at it. Latency
   comes first; the corrected gate is then applied again to the new curve.
+  **Applied at phase 12 (P12-07), it did not select a group commit.** The
+  lowest rate whose 99th percentile passed 100 ms in any run was 1,000 writes a
+  second, in one run of five whose leader lost office, the sync 25% busy there;
+  counting only tails broken by load, 3,500, the sync 78.7% busy, under the 80%
+  the gate sets. The cap the measurement names is the leader's single loop,
+  which runs its syncs inline: at 3,500 writes a second they take 79% of it,
+  225 µs each, and requests and answers queue behind them (the decomposition's
+  largest segments at 3,125). No group commit is built; the register row is
+  closed by this measurement.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
