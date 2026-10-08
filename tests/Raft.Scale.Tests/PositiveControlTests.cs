@@ -221,11 +221,13 @@ public sealed class PositiveControlTests
     /// that slows executions is how phase 7's shard 10 went over its ceiling. So, as the budget tests
     /// name their seeds, it runs the first three executions that measurement found it caught in. Each
     /// must be rejected with the control on, and accepted with the real node on the same seed.
+    /// Measured again at P11-02 (one append in flight per follower changes every execution's
+    /// messages): still 7 of 3,000, at seeds 33, 84, 1289, 1309, 1364, 1542 and 1890.
     /// </summary>
     [Theory]
     [InlineData(33)]
-    [InlineData(1367)]
-    [InlineData(1418)]
+    [InlineData(84)]
+    [InlineData(1289)]
     public void TheReadControlIsCaughtByLinearizabilityWhereTheMeasurementFoundIt(int seed)
     {
         Assert.True(Control("reads-without-a-quorum", seed).Caught, $"seed {seed}: the read control's history was accepted");

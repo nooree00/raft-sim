@@ -117,6 +117,9 @@ public sealed class CompactionTests
         c.Client(N1, "Put|c|3");
         c.Client(N1, "Put|d|4");
         c.Client(N1, "Put|e|5");
+        // One append in flight per follower (P11-02): n2 gets entry 4, its answer sends 5 and 6.
+        c.Deliver(N1, N2);
+        c.Deliver(N2, N1);
         c.Deliver(N1, N2);
         c.Client(N1, "Put|f|6");
         c.Deliver(N2, N1);
@@ -205,6 +208,10 @@ public sealed class CompactionTests
         c.Client(N1, "Put|c|3");
         c.Client(N1, "Put|d|4");
         c.Client(N1, "Put|e|5");
+        // One append in flight per follower (P11-02): n2 gets entry 4, its answer sends 5 and 6.
+        c.Deliver(N1, N2);
+        c.Drop(N1, N3);
+        c.Deliver(N2, N1);
         c.Deliver(N1, N2);
         c.Drop(N1, N3);
         c.Client(N1, "Put|f|6");

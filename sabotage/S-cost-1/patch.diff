@@ -1,0 +1,12 @@
+diff --git a/tests/Raft.Scale.Tests/ReplicationCostTests.cs b/tests/Raft.Scale.Tests/ReplicationCostTests.cs
+--- a/tests/Raft.Scale.Tests/ReplicationCostTests.cs
++++ b/tests/Raft.Scale.Tests/ReplicationCostTests.cs
+@@ -43,7 +43,7 @@
+     {
+         var sent = Nodes.Where(n => n != leader).ToDictionary(n => n, _ => 0L);
+         long committed = 0, backlog = 0;
+-        foreach (var s in sim.Observations.OfType<SentObservation>().Where(s => s.Node == leader))
++        foreach (var s in sim.Observations.OfType<SentObservation>().Where(s => s.Node != leader))
+         {
+             if (MessageCodec.Decode(s.Payload.ToArray()) is not AppendEntries ae)
+             {

@@ -1,0 +1,7 @@
+description: The in-flight mark is never set, so every write and every answer sends every unacknowledged entry again: the resends phase 10 measured return (P11-02)
+mechanism: an append with entries is sent without marking it outstanding
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.ReplicationCostTests.TheLeaderSendsEachFollowerABoundedNumberOfEntriesPerCommittedEntry
+reason: entries per committed entry
+expect: caught

@@ -1,0 +1,12 @@
+diff --git a/tests/Raft.Scale.Tests/ReplicationCostTests.cs b/tests/Raft.Scale.Tests/ReplicationCostTests.cs
+--- a/tests/Raft.Scale.Tests/ReplicationCostTests.cs
++++ b/tests/Raft.Scale.Tests/ReplicationCostTests.cs
+@@ -97,7 +97,7 @@
+             problems.Add($"only {cost.Committed} entries committed: too few to read a ratio from ({line})");
+         }
+ 
+-        if (cost.Backlog < inFlight / 2)
++        if (cost.Backlog < inFlight / 2 && inFlight < 0)
+         {
+             problems.Add($"the backlog never reached {inFlight / 2}: the workload did not keep operations in flight, and any implementation passes ({line})");
+         }

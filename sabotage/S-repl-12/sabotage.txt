@@ -1,0 +1,6 @@
+description: The heartbeat timer does not re-send an outstanding append, so a lost append or a lost answer leaves the follower without entries until another write (P11-02)
+mechanism: the heartbeat sends in the write's mode, nothing to a follower with an append outstanding
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.AHeartbeatResendsAnAppendStillInFlight
+expect: caught

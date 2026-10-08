@@ -286,10 +286,126 @@ public sealed class ReplicationTests
     {
         var n = Node(N1);
         Lead(n, T1);
+        // n2 acknowledges the no-op, so an append to it is not in flight and the entry goes now (P11-02).
+        Receive(n, N2, new AppendEntriesResponse(T1, true, 1));
         var request = n.Handle(new ClientRequest(1, Cmd("Put|x|1")));
 
         var persist = IndexOf<PersistAppend>(request, p => p.File == EntryLog.FileName);
         var carrying = request.ToList().FindIndex(x => x is Send s && MessageCodec.Decode(s.Payload.ToArray()) is AppendEntries { Entries.Count: > 0 });
         Assert.True(persist >= 0 && persist < carrying, "a client's entry must be persisted before the AppendEntries that carries it");
+    }
+
+    /// <summary>A leader of term 1 whose no-op n2 has acknowledged: nothing in flight to n2.</summary>
+    private static RaftNode Settled()
+    {
+        var n = Node(N1);
+        Lead(n, T1);
+        Receive(n, N2, new AppendEntriesResponse(T1, true, 1));
+        return n;
+    }
+
+    /// <summary>
+    /// P11-02: one append with entries in flight per follower. A second write while the first is
+    /// unanswered sends n2 nothing; the answer sends the second, alone. Before P11-02 every write and
+    /// every answer sent every unacknowledged entry again (phase 10: about 200 messages per committed
+    /// write past the knee). Sabotages S-repl-10 (the mark never cleared) and S-repl-11 (never set).
+    /// </summary>
+    [Fact]
+    public void ASecondWriteWaitsForTheAnswerToTheFirstAndThenGoesAlone()
+    {
+        var n = Settled();
+        var first = AppendsTo(n.Handle(new ClientRequest(1, Cmd("Put|x|1"))), N2);
+        Assert.Equal([E(T1, "Put|x|1")], Assert.Single(first).Entries);
+
+        var second = AppendsTo(n.Handle(new ClientRequest(2, Cmd("Put|x|2"))), N2);
+        Assert.True(second.All(a => a.Entries.Count == 0), "a write sent n2 entries while an append to it was unanswered: every write resends the window");
+
+        var next = Assert.Single(AppendsTo(Receive(n, N2, new AppendEntriesResponse(T1, true, 2)), N2));
+        Assert.Equal(2, next.PrevLogIndex);
+        Assert.Equal([E(T1, "Put|x|2")], next.Entries);
+    }
+
+    /// <summary>P11-02: an answer that does not reach what the outstanding append carried leaves it outstanding: a stale answer starts no second chain.</summary>
+    [Fact]
+    public void AnAnswerShortOfTheOutstandingAppendSendsNothing()
+    {
+        var n = Settled();
+        n.Handle(new ClientRequest(1, Cmd("Put|x|1")));
+        n.Handle(new ClientRequest(2, Cmd("Put|x|2")));
+
+        Assert.True(AppendsTo(Receive(n, N2, new AppendEntriesResponse(T1, true, 1)), N2).All(a => a.Entries.Count == 0), "an answer for index 1 started a send while the append carrying index 2 was unanswered");
+    }
+
+    /// <summary>P11-02: a rejection backs off and sends at once, in flight or not, as before.</summary>
+    [Fact]
+    public void ARejectionBacksOffAndSendsAtOnce()
+    {
+        var n = Node(N1, LogFile(E(T1, "Put|x|1"), E(T1, "Put|x|2")), TermVoteLog.Record(T1, null));
+        Lead(n, T2);
+
+        var retry = Assert.Single(AppendsTo(Receive(n, N2, new AppendEntriesResponse(T2, false, 1)), N2));
+        Assert.Equal(1, retry.PrevLogIndex);
+        Assert.Equal(2, retry.Entries.Count);
+    }
+
+    /// <summary>P11-02: a heartbeat re-sends an append still unanswered, so a lost one is recovered within one interval. Sabotage S-repl-12.</summary>
+    [Fact]
+    public void AHeartbeatResendsAnAppendStillInFlight()
+    {
+        var n = Settled();
+        n.Handle(new ClientRequest(1, Cmd("Put|x|1")));
+
+        var resent = AppendsTo(n.Handle(new Tick(RaftOptions.Default.HeartbeatInterval)), N2);
+        Assert.Contains(resent, a => a.PrevLogIndex == 1 && a.Entries.SequenceEqual([E(T1, "Put|x|1")]));
+    }
+
+    /// <summary>
+    /// P11-02: a read while an append is in flight still reaches every follower at once, without the
+    /// entries: an empty append carrying the read's round, so the read waits one round trip, not for
+    /// the outstanding answer and the send after it.
+    /// </summary>
+    [Fact]
+    public void AReadWhileAnAppendIsInFlightSendsAnEmptyAppendCarryingItsRound()
+    {
+        var n = Settled();
+        var write = Assert.Single(AppendsTo(n.Handle(new ClientRequest(1, Cmd("Put|x|1"))), N2));
+
+        var probe = Assert.Single(AppendsTo(n.Handle(new ClientRequest(2, Cmd("Get|x"))), N2));
+        Assert.Empty(probe.Entries);
+        Assert.True(probe.Round > write.Round, "the read's append did not carry a new round");
+        Assert.Equal(1, probe.PrevLogIndex);
+    }
+
+    /// <summary>P11-02: a leader that loses office forgets what it had in flight; leading again, its no-op goes at once.</summary>
+    [Fact]
+    public void ALeaderThatLosesOfficeForgetsWhatItHadInFlight()
+    {
+        var n = Settled();
+        n.Handle(new ClientRequest(1, Cmd("Put|x|1")));
+        Receive(n, N3, new AppendEntries(T2, N3, 2, T1, [], 0));
+
+        var won = AppendsTo(Lead(n, new Term(3)), N2);
+        Assert.Contains(won, a => a.Entries.Count > 0);
+    }
+
+    /// <summary>
+    /// P11-02 at the limit's largest (spec §10): with an append in flight and `MaxEntriesPerAppend` + 1
+    /// more written, the answer sends exactly `MaxEntriesPerAppend`, and the next answer the last one.
+    /// </summary>
+    [Fact]
+    public void TheBatchAfterAnAnswerIsAtMostMaxEntriesPerAppend()
+    {
+        var max = RaftOptions.Default.MaxEntriesPerAppend;
+        var n = Settled();
+        n.Handle(new ClientRequest(1, Cmd("Put|x|0")));
+        for (var k = 1; k <= max + 1; k++)
+        {
+            n.Handle(new ClientRequest(1 + k, Cmd("Put|x|" + k)));
+        }
+
+        var batch = Assert.Single(AppendsTo(Receive(n, N2, new AppendEntriesResponse(T1, true, 2)), N2));
+        Assert.Equal(max, batch.Entries.Count);
+        var last = Assert.Single(AppendsTo(Receive(n, N2, new AppendEntriesResponse(T1, true, 2 + max)), N2));
+        Assert.Single(last.Entries);
     }
 }

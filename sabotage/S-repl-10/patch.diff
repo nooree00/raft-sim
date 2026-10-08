@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -589,7 +589,7 @@
+         {
+             _matchIndex[from] = Math.Max(_matchIndex[from], r.MatchIndex);
+             _nextIndex[from] = _matchIndex[from] + 1;
+-            if (_inFlight.TryGetValue(from, out var carried) && _matchIndex[from] >= carried)
++            if (_inFlight.TryGetValue(from, out var carried) && _matchIndex[from] >= carried && carried < 0)
+             {
+                 _inFlight.Remove(from);
+             }

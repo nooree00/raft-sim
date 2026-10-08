@@ -475,6 +475,13 @@ internal static class Soak
 
         // P8-07: see its entry below the soak floor; 1 of the baseline sample, 0 of the membership sample.
         ["read-answered-after-a-later-term-began"] = "a read released after a later election: 1 of the baseline sample, 0 of the membership sample",
+
+        // P11-02: 4 of the baseline sample's 300 before one append in flight per follower, 2 after (the
+        // sample commits as many entries either way, 132 per execution); declared below the soak floor
+        // since P8-09 (174 of the baseline soak's 10,000), which must still clear the absolute minimum.
+        // A composite of a commit, a lost answer, a compaction past the entry and a retry reaching a
+        // node that restored: rare at 300, and the fix moved when answers go.
+        ["retry-deduplicated-by-a-restored-table"] = "a retry answered from a restored table: 4 of the baseline sample before P11-02, 2 after",
     };
 
     /// <summary>Effects at or above 95%, each with the reason the other case is rare.</summary>

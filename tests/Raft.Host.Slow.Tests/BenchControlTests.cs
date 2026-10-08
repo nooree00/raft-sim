@@ -100,7 +100,8 @@ public sealed class BenchControlTests
 
     /// <summary>
     /// P10-05's vacuity guard: with every sync delayed and no other delay, the leader's barrier per
-    /// client write is about one delayed sync (its append's), so the measurement reads what it claims.
+    /// client write is about one delayed sync (its append's), so the measurement reads what it claims;
+    /// nearly every write has such an effect list (all of them before P11-02).
     /// Sabotage S-bench-3 (the barrier counted at a client response, which a leader's append has none of).
     /// </summary>
     [Fact]
@@ -118,7 +119,10 @@ public sealed class BenchControlTests
         var lists = after.Lists - before.Lists;
         var perList = lists == 0 ? 0 : (after.Micros - before.Micros) / lists;
         Report("bench-barrier.txt", FormattableString.Invariant($"{lists} barrier lists for {r.Answered} writes, {perList:F0} us each; a delayed sync slept {delay.MeanSleptMicros:F0} us"));
-        Assert.True(lists >= r.Answered, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered");
+        // Since P11-02 a write that arrives while the leader's append to a follower is outstanding is
+        // sent from the answer's effect list, which holds no persist: a barrier list per write is no
+        // longer the design, nearly one is (39 of 40 at 10 writes a second with 20-ms syncs).
+        Assert.True(lists >= r.Answered * 0.9, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered: under 90%, so the measurement does not cover the writes");
         Assert.InRange(perList / delay.MeanSleptMicros, 0.9, 2.5);
     }
 }

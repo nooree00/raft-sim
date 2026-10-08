@@ -1,0 +1,6 @@
+description: The in-flight mark is never cleared by an answer, so after the first append to a follower nothing more is sent to it until a heartbeat (P11-02)
+mechanism: an answer reaching the outstanding append leaves it outstanding
+kind: test
+project: tests/Raft.Core.Tests
+target: Raft.Core.Tests.ReplicationTests.ASecondWriteWaitsForTheAnswerToTheFirstAndThenGoesAlone
+expect: caught

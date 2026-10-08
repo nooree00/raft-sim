@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -1206,7 +1206,7 @@
+ 
+         var prev = next - 1;
+         List<LogEntry> entries = outstanding && mode == SendMode.Probe ? [] : _log.From(next, _options.MaxEntriesPerAppend);
+-        if (entries.Count > 0)
++        if (entries.Count < 0)
+         {
+             _inFlight[peer] = prev + entries.Count;
+         }

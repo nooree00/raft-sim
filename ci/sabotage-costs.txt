@@ -344,3 +344,8 @@ S-bench-2 90.6
 S-bench-3 91.5
 S-fsync-1 48.4
 S-fsync-2 59.4
+S-repl-10 7.0
+S-repl-11 60.0
+S-repl-12 7.0
+S-cost-1 6.0
+S-cost-2 6.0

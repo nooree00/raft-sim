@@ -1,11 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
 --- a/src/Raft.Core/RaftNode.cs
 +++ b/src/Raft.Core/RaftNode.cs
-@@ -692,7 +692,7 @@
+@@ -761,7 +761,7 @@
          }
  
          _round++;
 -        _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _termCommitted ? _commitIndex : -1 });
 +        _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _commitIndex });
-         Heartbeats(effects);
+         Heartbeats(effects, SendMode.Probe);
      }
  

@@ -1,0 +1,6 @@
+description: The cost check's backlog guard is gone, so a run that never kept operations in flight passes the bound whatever the implementation does (P11-01)
+mechanism: the vacuity guard on the backlog removed
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.ReplicationCostTests.ARunThatNeverBuiltABacklogIsRefused
+expect: caught

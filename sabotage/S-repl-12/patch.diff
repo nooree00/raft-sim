@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Core/RaftNode.cs b/src/Raft.Core/RaftNode.cs
+--- a/src/Raft.Core/RaftNode.cs
++++ b/src/Raft.Core/RaftNode.cs
+@@ -1177,7 +1177,7 @@
+         Resend,
+     }
+ 
+-    private void Heartbeats(List<Effect> effects, SendMode mode = SendMode.Resend)
++    private void Heartbeats(List<Effect> effects, SendMode mode = SendMode.Replicate)
+     {
+         _sinceHeartbeat = 0;
+         Save(effects);

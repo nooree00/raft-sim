@@ -84,6 +84,13 @@ public sealed class RaftNode : INode
     private readonly List<NodeId> _votes = [];
     private readonly Dictionary<NodeId, long> _nextIndex = [];
     private readonly Dictionary<NodeId, long> _matchIndex = [];
+
+    // P11-02: per follower, the last index the outstanding append with entries carried. While one is
+    // outstanding a write sends that follower nothing; the answer that reaches it sends the next
+    // batch. Before, every write and every answer sent every unacknowledged entry again, and each
+    // answer's send drew an answer that sent again: phase 10 measured about 200 messages per committed
+    // write past the knee, and P11-01 1,629 entries per committed entry at 32 in flight.
+    private readonly Dictionary<NodeId, long> _inFlight = [];
     private readonly Dictionary<long, long> _pending = [];
     private Term _term;
     private NodeId? _votedFor;
@@ -457,6 +464,7 @@ public sealed class RaftNode : INode
         if (r.Done)
         {
             _snapshotSent.Remove(from);
+            _inFlight.Remove(from);
             _matchIndex[from] = Math.Max(_matchIndex[from], r.LastIncludedIndex);
             _nextIndex[from] = Math.Max(next, r.LastIncludedIndex + 1);
             AdvanceCommit(effects);
@@ -581,6 +589,11 @@ public sealed class RaftNode : INode
         {
             _matchIndex[from] = Math.Max(_matchIndex[from], r.MatchIndex);
             _nextIndex[from] = _matchIndex[from] + 1;
+            if (_inFlight.TryGetValue(from, out var carried) && _matchIndex[from] >= carried)
+            {
+                _inFlight.Remove(from);
+            }
+
             AdvanceCommit(effects);
             ProceedIfCaughtUp(effects);
             if (_nextIndex[from] <= _log.LastIndex)
@@ -595,6 +608,7 @@ public sealed class RaftNode : INode
         // retry at once; never below what the follower is known to match. P4-03 predicted that one
         // entry per rejection was fast enough; measured, it was not (the phase report).
         _nextIndex[from] = Math.Max(_matchIndex[from] + 1, Math.Min(_nextIndex[from] - 1, r.MatchIndex + 1));
+        _inFlight.Remove(from);
         SendAppend(from, effects);
     }
 
@@ -748,7 +762,7 @@ public sealed class RaftNode : INode
 
         _round++;
         _reads.Add(new Read(c.RequestId, c.Payload.ToArray(), _round) { Index = _termCommitted ? _commitIndex : -1 });
-        Heartbeats(effects);
+        Heartbeats(effects, SendMode.Probe);
     }
 
     /// <summary>An entry of this term has committed: the reads waiting for it take the commit index as theirs.</summary>
@@ -1149,7 +1163,21 @@ public sealed class RaftNode : INode
         }
     }
 
-    private void Heartbeats(List<Effect> effects)
+    /// <summary>
+    /// How an append is sent (P11-02). <c>Replicate</c> (a write, an answer, a configuration, a new
+    /// leader's no-op): nothing to a follower with an append outstanding. <c>Probe</c> (a read): to such
+    /// a follower, an append without entries, carrying the read's round, so the read waits one round
+    /// trip and the window is not sent again. <c>Resend</c> (the heartbeat timer): the outstanding
+    /// window again, which recovers a lost append or answer within one interval.
+    /// </summary>
+    private enum SendMode
+    {
+        Replicate,
+        Probe,
+        Resend,
+    }
+
+    private void Heartbeats(List<Effect> effects, SendMode mode = SendMode.Resend)
     {
         _sinceHeartbeat = 0;
         Save(effects);
@@ -1157,11 +1185,11 @@ public sealed class RaftNode : INode
         for (var k = 0; k < peers.Count; k++)
         {
             var peer = peers[k];
-            SendAppend(peer, effects);
+            SendAppend(peer, effects, mode);
         }
     }
 
-    private void SendAppend(NodeId peer, List<Effect> effects)
+    private void SendAppend(NodeId peer, List<Effect> effects, SendMode mode = SendMode.Replicate)
     {
         var next = _nextIndex[peer];
         if (next <= _log.BaseIndex)
@@ -1170,8 +1198,20 @@ public sealed class RaftNode : INode
             return;
         }
 
+        var outstanding = _inFlight.ContainsKey(peer);
+        if (outstanding && mode == SendMode.Replicate)
+        {
+            return;
+        }
+
         var prev = next - 1;
-        var ae = new AppendEntries(_term, _context.Id, prev, _log.TermAt(prev), _log.From(next, _options.MaxEntriesPerAppend), _commitIndex, _round);
+        List<LogEntry> entries = outstanding && mode == SendMode.Probe ? [] : _log.From(next, _options.MaxEntriesPerAppend);
+        if (entries.Count > 0)
+        {
+            _inFlight[peer] = prev + entries.Count;
+        }
+
+        var ae = new AppendEntries(_term, _context.Id, prev, _log.TermAt(prev), entries, _commitIndex, _round);
         effects.Add(new Send(peer, MessageCodec.Encode(ae)));
     }
 
@@ -1228,6 +1268,7 @@ public sealed class RaftNode : INode
         _leaderHint = null;
         _nextIndex.Clear();
         _matchIndex.Clear();
+        _inFlight.Clear();
         _pending.Clear();
         _membershipRequest = null;
         _catchingUp = null;

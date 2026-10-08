@@ -1,0 +1,6 @@
+description: The cost reading counts the followers' sends, which carry no entries, so it reads nothing and any implementation's ratio is unread (P11-01)
+mechanism: the reading anchored to the wrong node
+kind: test
+project: tests/Raft.Scale.Tests
+target: Raft.Scale.Tests.ReplicationCostTests.TheLeaderSendsEachFollowerABoundedNumberOfEntriesPerCommittedEntry
+expect: caught
