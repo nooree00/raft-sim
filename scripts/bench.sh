@@ -17,6 +17,8 @@
 #                                           RAFT_BENCH_AB_RATES
 # The task a record names, and its id's prefix, are phase 10's unless RAFT_BENCH_INPUTS_TASK or
 # RAFT_BENCH_LOAD_TASK names another (P11-04, P11-05 measure again with the same tool).
+# RAFT_BENCH_DECOMPOSE=1 makes load-local and load-compose trace each write's hand-offs and record
+# where its latency went (P12-03); the Compose nodes then run with RAFT_HANDOFF_TRACE=1.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -29,6 +31,7 @@ rates="${RAFT_BENCH_RATES:-625 1000 1250 1500 2000 3125}"
 commit="$(git rev-parse HEAD)"
 inputs_task="${RAFT_BENCH_INPUTS_TASK:-P10-02}"; load_task="${RAFT_BENCH_LOAD_TASK:-P10-04}"
 lc() { echo "$1" | tr 'A-Z' 'a-z'; }
+decompose=(); [ "${RAFT_BENCH_DECOMPOSE:-0}" = 1 ] && decompose=(--decompose 1)
 test -z "$(git status --porcelain -- src)" || { echo "bench: src has uncommitted changes; a record names the commit it measured"; exit 1; }
 volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
 # Built once, in Release, through the same container as every other build (restore needs the
@@ -52,7 +55,7 @@ case "$what" in
   load-local)
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
-        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-local-$rate-$r" --repetition "$r" --out measurements
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-local-$rate-$r" --repetition "$r" --out measurements "${decompose[@]}"
       done
     done ;;
   barrier)
@@ -100,7 +103,7 @@ case "$what" in
       done
     done ;;
   load-compose)
-    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)"
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_HANDOFF_TRACE="${RAFT_BENCH_DECOMPOSE:-0}"
     dc() { docker compose -f compose/compose.yaml "$@"; }
     trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
     dc build n1 >/dev/null
@@ -117,7 +120,7 @@ case "$what" in
         done
         dc --profile client run --rm --no-deps -T -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" client \
           bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-compose-$rate-$r" --repetition "$r" --out /out \
-          --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk)"
+          --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk)" "${decompose[@]}"
       done
     done ;;
   *) echo "bench: unknown measurement $what"; exit 2 ;;

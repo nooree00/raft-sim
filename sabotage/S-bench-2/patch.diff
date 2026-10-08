@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Host/LoadGenerator.cs b/src/Raft.Host/LoadGenerator.cs
-index 162321c..8e917fb 100644
+index 86a5edd..c2b2023 100644
 --- a/src/Raft.Host/LoadGenerator.cs
 +++ b/src/Raft.Host/LoadGenerator.cs
-@@ -122,6 +122,7 @@ public static class LoadGenerator
+@@ -124,6 +124,7 @@ public static class LoadGenerator
                              return;
                          }
  
@@ -10,12 +10,12 @@ index 162321c..8e917fb 100644
                          try
                          {
                              bool ok;
-@@ -151,7 +152,7 @@ public static class LoadGenerator
+@@ -154,7 +155,7 @@ public static class LoadGenerator
                              if (ok)
                              {
                                  var done = clock.ElapsedTicks;
 -                                latencies.Add(Bench.Micros(done - due));
 +                                latencies.Add(Bench.Micros(acquired - due));
+                                 config.Trace?.Invoke(new WriteStamp(n, start + due, sent, replied, Bench.Micros(done - due)));
                                  if (done >= windowStart && done <= windowEnd)
                                  {
-                                     Interlocked.Increment(ref inWindow);

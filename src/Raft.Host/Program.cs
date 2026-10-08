@@ -37,7 +37,9 @@ public static class Program
                 var peers = Endpoints(options["--peers"]);
                 // The P9-07 positive control, for its one measurement in Compose: never set in a real configuration.
                 var raft = Environment.GetEnvironmentVariable("RAFT_ANSWER_AT_APPEND") == "1" ? RaftOptions.Default with { AnswerAtAppend = true } : RaftOptions.Default;
-                var config = new HostConfig(id, peers, new IPEndPoint(IPAddress.Any, peers[id].Port), new IPEndPoint(IPAddress.Any, int.Parse(options["--client-port"], CultureInfo.InvariantCulture)), options["--data"], raft);
+                // P12-03: the hand-off stamps, for a decomposed bench run only (fetched with `Trace|`).
+                var trace = Environment.GetEnvironmentVariable("RAFT_HANDOFF_TRACE") == "1" ? new HandOffTrace() : null;
+                var config = new HostConfig(id, peers, new IPEndPoint(IPAddress.Any, peers[id].Port), new IPEndPoint(IPAddress.Any, int.Parse(options["--client-port"], CultureInfo.InvariantCulture)), options["--data"], raft, Trace: trace);
                 var host = new NodeHost(config, Console.Out);
                 await using (host.ConfigureAwait(false))
                 {
@@ -140,13 +142,14 @@ public static class Program
         var seconds = double.Parse(o.GetValueOrDefault("--seconds", "10"), CultureInfo.InvariantCulture);
         var warmup = double.Parse(o.GetValueOrDefault("--warmup", "3"), CultureInfo.InvariantCulture);
         int? clients = o.TryGetValue("--clients", out var cl) ? int.Parse(cl, CultureInfo.InvariantCulture) : null;
+        var decompose = o.ContainsKey("--decompose");
         LocalCluster? local = null;
         IReadOnlyDictionary<NodeId, DnsEndPoint> nodes;
         string where;
         if (o.TryGetValue("--local", out var root))
         {
             local = new LocalCluster(root);
-            local.Start();
+            local.Start(traced: decompose);
             await local.LeaderAsync(TimeSpan.FromSeconds(15), CancellationToken.None).ConfigureAwait(false);
             nodes = local.Clients;
             where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded";
@@ -163,7 +166,8 @@ public static class Program
             var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
             var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
             var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
-            var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients);
+            var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
+            var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
             var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
             var wallMicros = Bench.Micros(wall.ElapsedTicks);
@@ -206,6 +210,34 @@ public static class Program
                 }
             }
 
+            // P12-03: where the latency went, segment by segment, from the hand-off stamps: in process from
+            // the hosts' traces, in Compose fetched from each node with `Trace|`; both through the same bytes.
+            if (decompose && r.Answered > 0)
+            {
+                var (traces, leader) = local is not null
+                    ? (local.Traces.ToDictionary(t => t.Key, t => HandOffTrace.Write(t.Value.Snapshot())), await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false))
+                    : await FetchTracesAsync(nodes).ConfigureAwait(false);
+                results["trace_bytes"] = traces.Values.Sum(t => (long)t.Length);
+                var d = Decomposition.Compute(traces.ToDictionary(t => t.Key, t => HandOffTrace.Read(t.Value)), leader, [.. writes]);
+                results["decomposed_writes"] = d.Joined;
+                results["decomposition_coverage"] = Math.Round((double)d.Joined / Math.Max(1, d.Writes), 4);
+                results["decomposition_causality_violations"] = d.Violations;
+                results["decomposition_mismatched"] = d.Mismatched;
+                results["decomposition_sum_gap"] = Math.Round(d.SumGap, 4);
+                foreach (var (name, count) in d.NegativeBy.Where(n => n.Value > 0))
+                {
+                    results[$"seg_{name}_negative"] = count;
+                }
+
+                foreach (var name in Decomposition.Segments)
+                {
+                    var (mean, p50, p99) = Decomposition.Stats(d.Micros[name]);
+                    results[$"seg_{name}_mean_us"] = mean;
+                    results[$"seg_{name}_p50_us"] = p50;
+                    results[$"seg_{name}_p99_us"] = p99;
+                }
+            }
+
             var load = clients is null
                 ? $"open loop, {rate} writes a second for {seconds} s, 64 connections, a write given up after 5 s, plain Put over 64 keys; {where}"
                 : $"closed loop, {clients} clients for {seconds} s, plain Put over 64 keys; {where}";
@@ -228,6 +260,32 @@ public static class Program
                 await local.DisposeAsync().ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// A Compose cluster's traces (P12-03): each node's stamps, fetched with `Trace|`, and the node
+    /// that says it leads. A node that does not answer, or is not traced, fails the run: a
+    /// decomposition missing a node would join nothing through it.
+    /// </summary>
+    private static async Task<(Dictionary<NodeId, byte[]> Traces, NodeId Leader)> FetchTracesAsync(IReadOnlyDictionary<NodeId, DnsEndPoint> nodes)
+    {
+        var traces = new Dictionary<NodeId, byte[]>();
+        NodeId? leader = null;
+        foreach (var (id, at) in nodes)
+        {
+            var status = await RealClient.SendAsync(at, "Status|", TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
+            if (status?.StartsWith("ok|Leader|", StringComparison.Ordinal) == true)
+            {
+                leader = id;
+            }
+
+            var reply = await RealClient.SendAsync(at, "Trace|", TimeSpan.FromMinutes(2), CancellationToken.None).ConfigureAwait(false);
+            traces[id] = reply?.StartsWith("ok|", StringComparison.Ordinal) == true
+                ? Convert.FromBase64String(reply[3..])
+                : throw new InvalidOperationException($"node {id}: no trace ({reply ?? "no reply"}); is RAFT_HANDOFF_TRACE=1 set on the nodes?");
+        }
+
+        return (traces, leader ?? throw new InvalidOperationException("no node says it leads after the run"));
     }
 
     private static Dictionary<string, string> Options(string[] args)

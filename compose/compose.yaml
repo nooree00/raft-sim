@@ -8,6 +8,8 @@ x-node: &node
   environment:
     # P9-07's positive control, set only for its one measurement (phase 9 decision 8).
     RAFT_ANSWER_AT_APPEND: ${RAFT_ANSWER_AT_APPEND:-0}
+    # P12-03: the hand-off stamps, for a decomposed bench run only (scripts/bench.sh, RAFT_BENCH_DECOMPOSE=1).
+    RAFT_HANDOFF_TRACE: ${RAFT_HANDOFF_TRACE:-0}
 services:
   n1:
     <<: *node

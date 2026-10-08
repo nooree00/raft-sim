@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/Decomposition.cs
++++ b/src/Raft.Host/Decomposition.cs
+@@ -98,7 +98,7 @@
+         {
+             if (d.Number is { } n)
+             {
+-                byNumber.TryAdd(n, index);
++                byNumber.TryAdd(n, index + 1);
+             }
+         }
+ 

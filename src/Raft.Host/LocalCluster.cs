@@ -30,16 +30,20 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
 
     public double SyncMicros(NodeId n) => _files[n].SyncMicros;
 
-    public void Start(RaftOptions? options = null)
+    /// <summary>Each host's hand-off trace, when started with tracing (P12-03).</summary>
+    public IReadOnlyDictionary<NodeId, HandOffTrace> Traces { get; private set; } = new Dictionary<NodeId, HandOffTrace>();
+
+    public void Start(RaftOptions? options = null, bool traced = false)
     {
         var ids = Enumerable.Range(1, 3).Select(i => new NodeId(i)).ToList();
         var peers = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + n.Value));
         Clients = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + 100 + n.Value));
+        Traces = traced ? ids.ToDictionary(n => n, _ => new HandOffTrace()) : new Dictionary<NodeId, HandOffTrace>();
         foreach (var n in ids)
         {
             var dir = Path.Combine(root, n.ToString());
             var config = new HostConfig(n, peers, new IPEndPoint(IPAddress.Loopback, basePort + n.Value), new IPEndPoint(IPAddress.Loopback, basePort + 100 + n.Value), dir, options ?? RaftOptions.Default,
-                FileSystem: d => _files[n] = new CountingFileSystem(new DirectoryFileSystem(d)));
+                FileSystem: d => _files[n] = new CountingFileSystem(new DirectoryFileSystem(d)), Trace: Traces.GetValueOrDefault(n));
             var host = new NodeHost(config, TextWriter.Null);
             host.Start();
             _hosts.Add(host);

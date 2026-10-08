@@ -25,8 +25,10 @@ internal sealed class HostCluster : IAsyncDisposable
     private readonly Dictionary<NodeId, NodeHost?> _hosts = [];
     private readonly RaftOptions _options;
     private readonly Func<string, IFileSystem>? _files;
+    private readonly Dictionary<NodeId, HandOffTrace> _traces = [];
 
-    public HostCluster(RaftOptions? options = null, int size = 3, Func<string, IFileSystem>? files = null)
+    /// <param name="traced">Each host records its hand-off stamps (P12-03), read with <see cref="Trace"/>.</param>
+    public HostCluster(RaftOptions? options = null, int size = 3, Func<string, IFileSystem>? files = null, bool traced = false)
     {
         _options = options ?? RaftOptions.Default;
         _files = files;
@@ -36,8 +38,15 @@ internal sealed class HostCluster : IAsyncDisposable
             _peers[id] = new IPEndPoint(IPAddress.Loopback, FreePort());
             _clients[id] = new IPEndPoint(IPAddress.Loopback, FreePort());
             _hosts[id] = null;
+            if (traced)
+            {
+                _traces[id] = new HandOffTrace();
+            }
         }
     }
+
+    /// <summary>A traced host's hand-off stamps.</summary>
+    public HandOffTrace Trace(NodeId n) => _traces[n];
 
     public IReadOnlyList<NodeId> Nodes => [.. _hosts.Keys];
 
@@ -50,7 +59,7 @@ internal sealed class HostCluster : IAsyncDisposable
     public void Start(NodeId n)
     {
         var peers = _peers.ToDictionary(p => p.Key, p => new DnsEndPoint("127.0.0.1", p.Value.Port));
-        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options, FileSystem: _files), Events);
+        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options, FileSystem: _files, Trace: _traces.GetValueOrDefault(n)), Events);
         host.Start();
         _hosts[n] = host;
     }

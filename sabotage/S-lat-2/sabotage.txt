@@ -1,0 +1,6 @@
+description: The decomposition joins each write to the next log index, whose stamps are the next write's entry, so every segment it reports is of another write (P12-03); the segments still sum to the latency, since they telescope, which is why the sum cannot be the guard
+mechanism: each write's index taken one past the index its entry was persisted at
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DecompositionTests.EachSegmentIsTheTimeBetweenItsTwoHandOffs
+expect: caught

@@ -21,7 +21,8 @@ namespace Raft.Host;
 /// <param name="Connections">Open loop: the persistent connections a write waits for; one write is outstanding on each.</param>
 /// <param name="ClosedClients">Closed loop (the comparison): this many clients, each sending its next write when the last is answered, timed from its send.</param>
 /// <param name="Timeout">A write with no reply by then is given up (counted incomplete) and its connection reopened: a leader that loses its office drops its pending requests unanswered.</param>
-public sealed record LoadConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes, double Rate, TimeSpan Duration, TimeSpan Warmup, int Connections = 64, int? ClosedClients = null, TimeSpan? Timeout = null);
+/// <param name="Trace">Open loop, P12-03: each counted write answered `ok`, with when it was due, sent and answered (the kernel's monotonic clock) and its latency, for the decomposition.</param>
+public sealed record LoadConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes, double Rate, TimeSpan Duration, TimeSpan Warmup, int Connections = 64, int? ClosedClients = null, TimeSpan? Timeout = null, Action<WriteStamp>? Trace = null);
 
 /// <summary>A load run's result: each counted write's latency in microseconds, and what did not complete.</summary>
 /// <param name="Answered">Every write answered `ok`, the warm-up's included (the denominator for syncs per write).</param>
@@ -75,6 +76,7 @@ public static class LoadGenerator
         var total = (int)(config.Rate * config.Duration.TotalSeconds);
         var counted = 0;
         var inWindow = 0;
+        var start = Stopwatch.GetTimestamp();
         var clock = Stopwatch.StartNew();
         var interval = Stopwatch.Frequency / config.Rate;
         var windowStart = (long)(config.Warmup.TotalSeconds * Stopwatch.Frequency);
@@ -126,9 +128,10 @@ public static class LoadGenerator
                         {
                             bool ok;
                             int followed;
+                            long sent = 0, replied = 0;
                             try
                             {
-                                (ok, followed) = await c.PutAsync(n, deadline.Token).ConfigureAwait(false);
+                                (ok, followed, sent, replied) = await c.PutAsync(n, deadline.Token).ConfigureAwait(false);
                             }
                             catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
                             {
@@ -152,6 +155,7 @@ public static class LoadGenerator
                             {
                                 var done = clock.ElapsedTicks;
                                 latencies.Add(Bench.Micros(done - due));
+                                config.Trace?.Invoke(new WriteStamp(n, start + due, sent, replied, Bench.Micros(done - due)));
                                 if (done >= windowStart && done <= windowEnd)
                                 {
                                     Interlocked.Increment(ref inWindow);
@@ -204,7 +208,7 @@ public static class LoadGenerator
                 for (var n = k * 1_000_000; clock.ElapsedTicks < end; n++)
                 {
                     var sent = clock.ElapsedTicks;
-                    var (ok, followed) = await c.PutAsync(n, cancel).ConfigureAwait(false);
+                    var (ok, followed, _, _) = await c.PutAsync(n, cancel).ConfigureAwait(false);
                     Interlocked.Add(ref redirects, followed);
                     if (ok)
                     {
@@ -270,38 +274,41 @@ public static class LoadGenerator
             _reader = new StreamReader(_stream, Encoding.ASCII);
         }
 
-        /// <summary>One write; whether it was answered `ok`, and how many redirects it followed.</summary>
-        public async Task<(bool Ok, int Redirects)> PutAsync(int n, CancellationToken cancel)
+        /// <summary>One write; whether it was answered `ok`, how many redirects it followed, and when its last attempt was sent and answered (the kernel's monotonic clock).</summary>
+        public async Task<(bool Ok, int Redirects, long Sent, long Answered)> PutAsync(int n, CancellationToken cancel)
         {
             var line = Encoding.ASCII.GetBytes(FormattableString.Invariant($"Put|k{n % 64}|v{n}\n"));
             for (var followed = 0; followed < 5; followed++)
             {
                 string? reply;
+                long sent, answered;
                 using (var limit = CancellationTokenSource.CreateLinkedTokenSource(cancel))
                 {
                     limit.CancelAfter(timeout);
                     try
                     {
+                        sent = Stopwatch.GetTimestamp();
                         await _stream!.WriteAsync(line, limit.Token).ConfigureAwait(false);
                         reply = await _reader!.ReadLineAsync(limit.Token).ConfigureAwait(false);
+                        answered = Stopwatch.GetTimestamp();
                     }
                     catch (Exception e) when ((e is OperationCanceledException && !cancel.IsCancellationRequested) || e is IOException or SocketException)
                     {
                         // No reply in time, or the connection broke: given up, and the connection reopened,
                         // since a late reply would otherwise answer the next write.
                         await ReconnectAsync(cancel).ConfigureAwait(false);
-                        return (false, followed);
+                        return (false, followed, 0, 0);
                     }
                 }
 
                 if (reply is null)
                 {
-                    return (false, followed);
+                    return (false, followed, 0, 0);
                 }
 
                 if (!reply.StartsWith("redirect|", StringComparison.Ordinal))
                 {
-                    return (reply == "ok" || reply.StartsWith("ok|", StringComparison.Ordinal), followed);
+                    return (reply == "ok" || reply.StartsWith("ok|", StringComparison.Ordinal), followed, sent, answered);
                 }
 
                 var hint = reply["redirect|".Length..];
@@ -314,7 +321,7 @@ public static class LoadGenerator
                 await ReconnectAsync(cancel).ConfigureAwait(false);
             }
 
-            return (false, 5);
+            return (false, 5, 0, 0);
         }
 
         /// <summary>Reopens to the current target, or to the next node if it does not answer.</summary>

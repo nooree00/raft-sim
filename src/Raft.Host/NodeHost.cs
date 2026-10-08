@@ -22,14 +22,15 @@ namespace Raft.Host;
 /// <param name="Client">Where this host accepts clients.</param>
 /// <param name="TickMilliseconds">How often the clock's tick is delivered; one tick unit is one millisecond.</param>
 /// <param name="FileSystem">The data directory as files, for a test or a measurement to wrap (a slowed sync, P10-03; a failing one, P10-07); the real directory when absent.</param>
-public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null);
+public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null, HandOffTrace? Trace = null);
 
 /// <summary>
 /// One Raft node in a process (P9-04, spec §4's host): a single thread runs the node, fed by a
 /// monotonic clock, frames from its peers and requests from clients, and executes its effects on
 /// real files (<see cref="DiskExecutor"/>). Peers are dialled and redialled; a message to a peer
 /// that cannot be reached is dropped, which Raft tolerates as a lost message. Clients send one
-/// request per line and get its reply on the same connection; `Status|` is answered by the host.
+/// request per line and get its reply on the same connection; `Status|` is answered by the host, and
+/// so is `Trace|` (its hand-off stamps, when a bench run traces it, P12-03).
 /// Core's events go to <see cref="Events"/> as JSON lines (phase 9 decision 6).
 /// </summary>
 public sealed class NodeHost : IAsyncDisposable
@@ -59,6 +60,7 @@ public sealed class NodeHost : IAsyncDisposable
     private long _stallPeriod;
     private long _stallPause;
     private long _stalledWindow = -1;
+    private long _peerHandOffDelayTicks;
     private volatile int _role;
     private long _term;
 
@@ -89,6 +91,17 @@ public sealed class NodeHost : IAsyncDisposable
     {
         _stallPeriod = period.Ticks;
         _stallPause = pause.Ticks;
+    }
+
+    /// <summary>
+    /// A measurement's hook (P12-03, the decomposition's control): every peer message waits this long,
+    /// spinning, between its read from the socket and its hand-off to the loop, so a delay of known
+    /// size and place can be planted in one segment.
+    /// </summary>
+    public TimeSpan PeerHandOffDelay
+    {
+        get => TimeSpan.FromTicks(Interlocked.Read(ref _peerHandOffDelayTicks));
+        set => Interlocked.Exchange(ref _peerHandOffDelayTicks, value.Ticks);
     }
 
     /// <summary>The persist barrier's cost so far (P10-05): see <see cref="DiskExecutor.Barrier"/>.</summary>
@@ -126,6 +139,16 @@ public sealed class NodeHost : IAsyncDisposable
         members.Sort((a, b) => a.Value.CompareTo(b.Value));
         _node = new RaftNode(new NodeContext(_config.Id, peers, new SystemRandom(), DiskExecutor.Load(files), members), _config.Options, new KvStateMachine());
         _executor = new DiskExecutor(files, Send, Respond, Emit);
+        if (_config.Trace is { } trace)
+        {
+            _executor.Durable = (file, data) =>
+            {
+                if (file == EntryLog.FileName)
+                {
+                    trace.Add(HandOffTrace.Kind.Durable, 0, data);
+                }
+            };
+        }
 
         var peerListener = new TcpListener(_config.PeerListen);
         var clientListener = new TcpListener(_config.Client);
@@ -202,6 +225,19 @@ public sealed class NodeHost : IAsyncDisposable
             }
 
             Stall();
+            if (_config.Trace is { } trace)
+            {
+                switch (input)
+                {
+                    case ClientRequest c:
+                        trace.Add(HandOffTrace.Kind.ClientTaken, c.RequestId, null);
+                        break;
+                    case Receive r:
+                        trace.Add(HandOffTrace.Kind.PeerTaken, r.From.Value, Decomposition.ArrayOf(r.Payload));
+                        break;
+                }
+            }
+
             try
             {
                 _executor!.Execute(_node!.Handle(input));
@@ -241,6 +277,22 @@ public sealed class NodeHost : IAsyncDisposable
         }
 
         _stopped.TrySetResult(failure);
+    }
+
+    /// <summary>The planted hand-off delay (<see cref="PeerHandOffDelay"/>), spun rather than slept, so it is the size planted.</summary>
+    private void SpinHandOffDelay()
+    {
+        var ticks = Interlocked.Read(ref _peerHandOffDelayTicks);
+        if (ticks <= 0)
+        {
+            return;
+        }
+
+        var until = Stopwatch.GetTimestamp() + (ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond);
+        while (Stopwatch.GetTimestamp() < until)
+        {
+            Thread.SpinWait(20);
+        }
     }
 
     /// <summary>The planted stall (<see cref="StallEvery"/>): once per period, the loop sleeps out the pause.</summary>
@@ -301,6 +353,8 @@ public sealed class NodeHost : IAsyncDisposable
             {
                 lock (writer)
                 {
+                    // Stamped as the bytes are handed to the socket: a client can read them before the write returns.
+                    _config.Trace?.Add(HandOffTrace.Kind.Responded, r.RequestId, null);
                     writer.Write(Encoding.ASCII.GetString(r.Payload.Span) + "\n");
                     writer.Flush();
                 }
@@ -360,6 +414,8 @@ public sealed class NodeHost : IAsyncDisposable
                 {
                     while (frames.TryRead(out var frame))
                     {
+                        // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
+                        _config.Trace?.Add(HandOffTrace.Kind.Sent, peer.Value, frame);
                         await stream.WriteAsync(frame, _stop.Token).ConfigureAwait(false);
                     }
                 }
@@ -422,6 +478,8 @@ public sealed class NodeHost : IAsyncDisposable
                 var from = new NodeId(BitConverter.ToInt32(hello));
                 while (await Frames.ReadAsync(stream, _maxFrame, _stop.Token).ConfigureAwait(false) is { } payload)
                 {
+                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
+                    SpinHandOffDelay();
                     _inputs.Writer.TryWrite(new Receive(from, payload));
                 }
             }
@@ -454,9 +512,24 @@ public sealed class NodeHost : IAsyncDisposable
                         continue;
                     }
 
+                    if (line == "Trace|")
+                    {
+                        // P12-03: a Compose node's hand-off stamps, for the bench to join after a run.
+                        var reply = _config.Trace is { } trace ? "ok|" + Convert.ToBase64String(HandOffTrace.Write(trace.Snapshot())) : "error|not traced";
+                        lock (writer)
+                        {
+                            writer.Write(reply + "\n");
+                            writer.Flush();
+                        }
+
+                        continue;
+                    }
+
                     var id = Interlocked.Increment(ref _requests);
                     _pending[id] = writer;
-                    _inputs.Writer.TryWrite(new ClientRequest(id, Encoding.ASCII.GetBytes(line)));
+                    var command = Encoding.ASCII.GetBytes(line);
+                    _config.Trace?.Add(HandOffTrace.Kind.ClientRead, id, command);
+                    _inputs.Writer.TryWrite(new ClientRequest(id, command));
                 }
             }
             catch (Exception e) when (e is OperationCanceledException or IOException or SocketException or ObjectDisposedException)

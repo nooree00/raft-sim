@@ -138,6 +138,66 @@ public sealed class BenchControlTests
         Assert.True(lists >= r.Answered, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered: fewer than one a write, so the measurement does not cover the writes");
         Assert.InRange(perList / delay.MeanSleptMicros, 0.9, 2.5);
     }
+
+    /// <summary>
+    /// P12-03's control: a delay planted in one hand-off, every follower's peer message held between
+    /// its read from the socket and its hand-off to the loop, must appear in that segment
+    /// (follower-queue) by its planted amount within 20%, and in no other segment by more than a
+    /// quarter of it (the generator's own lateness aside, which is before any host). One traced cluster
+    /// alternates windows with the delay off and on, three of each, each window's stamps joined alone.
+    /// Measured locally, two runs: follower-queue rose 528 and 524 us, every other host segment under
+    /// 60 us either way. Sabotage S-lat-1 (the follower's read stamped after the
+    /// delay, so it lands in the segment before, network-out).
+    /// </summary>
+    [Fact]
+    public async Task APlantedHandOffDelayAppearsInItsSegmentOnly()
+    {
+        var planted = TimeSpan.FromMicroseconds(PlantedMicros);
+        await using var c = new HostCluster(RaftOptions.Default with { ElectionTimeoutMin = 1_000, ElectionTimeoutMax = 2_000 }, traced: true);
+        c.StartAll();
+        var leader = (await c.LeaderAsync(TimeSpan.FromSeconds(15), Ct))!.Value;
+        var plain = Decomposition.Segments.ToDictionary(s => s, _ => new List<double>(), StringComparer.Ordinal);
+        var delayed = Decomposition.Segments.ToDictionary(s => s, _ => new List<double>(), StringComparer.Ordinal);
+        var writes = 0;
+        var joined = 0;
+        var left = 0;
+        for (var round = 0; round < 6; round++)
+        {
+            var on = round % 2 == 1;
+            foreach (var f in c.Nodes.Where(n => n != leader))
+            {
+                c.Host(f)!.PeerHandOffDelay = on ? planted : TimeSpan.Zero;
+            }
+
+            foreach (var n in c.Nodes)
+            {
+                c.Trace(n).Drain();
+            }
+
+            var stamps = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
+            await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: ControlRate, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1), Trace: stamps.Add), Ct);
+            var d = Decomposition.Compute(c.Nodes.ToDictionary(n => n, n => c.Trace(n).Drain()), leader, [.. stamps]);
+            writes += d.Writes;
+            joined += d.Joined;
+            left += d.Mismatched + d.Violations;
+            foreach (var s in Decomposition.Segments)
+            {
+                (on ? delayed : plain)[s].AddRange(d.Micros[s]);
+            }
+        }
+
+        var rise = Decomposition.Segments.ToDictionary(s => s, s => Decomposition.Stats(delayed[s]).P50 - Decomposition.Stats(plain[s]).P50, StringComparer.Ordinal);
+        Report("bench-handoff.txt", FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; median rise with {PlantedMicros} us planted: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))));
+        Assert.True(joined >= 0.95 * writes && left == 0, $"{joined} of {writes} writes joined, {left} left out: the control did not measure the writes it ran");
+        Assert.InRange(rise["follower-queue"] / PlantedMicros, 0.8, 1.2);
+        // Not the generator's own segment: it is two of the generator's stamps, before the write reaches
+        // any host, so no host's delay can be attributed to it; and it is the instrument's noise, which
+        // moved by 98 and 112 us between the modes in two local runs, near this bound by chance alone.
+        Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.25 * PlantedMicros, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us with {PlantedMicros} us planted in follower-queue")));
+    }
+
+    private const double PlantedMicros = 500;
+    private const double ControlRate = 300;
 }
 
 /// <summary>

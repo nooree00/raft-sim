@@ -25,6 +25,9 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
     /// </summary>
     public (long Lists, double Micros) Barrier => (Interlocked.Read(ref _barrierLists), Bench.Micros(Interlocked.Read(ref _barrierTicks)));
 
+    /// <summary>Called with each append's file and bytes once they are durable (P12-03: the decomposition's persist stamps), or not at all when unset.</summary>
+    public Action<string, ReadOnlyMemory<byte>>? Durable { get; set; }
+
     /// <summary>The files a node starts from: every file in the directory, by name.</summary>
     public static Dictionary<string, ReadOnlyMemory<byte>> Load(IFileSystem files)
     {
@@ -64,6 +67,8 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
                     {
                         files.SyncDirectory();
                     }
+
+                    Durable?.Invoke(a.File, a.Data);
 
                     break;
                 case PersistWriteAt w:

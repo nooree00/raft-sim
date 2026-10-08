@@ -1,0 +1,6 @@
+description: The follower's peer read is stamped after its hand-off delay instead of before, so a delay planted between the socket and the loop is attributed to the segment before its own (network-out), and the decomposition points the latency work at the wrong hand-off (P12-03)
+mechanism: the PeerRead stamp moved one hand-off on, past the planted delay
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.BenchControlTests.APlantedHandOffDelayAppearsInItsSegmentOnly
+expect: caught
