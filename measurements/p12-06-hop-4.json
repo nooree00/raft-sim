@@ -1,0 +1,34 @@
+{
+  "id": "p12-06-hop-4",
+  "task": "P12-06",
+  "measure": "a 96-byte frame written to a loopback connection read on a thread of its own, one way, 10000 times, a millisecond apart",
+  "config": {
+    "commit": "39b22f2deae089c3bf18621610cb062c72e2cefc",
+    "configuration": "Release",
+    "sdk": "10.0.401",
+    "runtime": ".NET 10.0.12",
+    "image": "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29",
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.18.44-fc-v80",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": "4",
+    "cpuLimit": "none",
+    "dotnetProcessorCount": "4",
+    "gc": "workstation, concurrent",
+    "tieredCompilation": "default (on)",
+    "tieredPgo": "default (on)",
+    "dataFileSystem": "overlay (/)",
+    "warmup": "200 operations, discarded",
+    "repetition": "4",
+    "load": "none: one operation at a time"
+  },
+  "results": {
+    "count": 10000,
+    "mean_us": 120.8,
+    "p50_us": 83.9,
+    "p90_us": 138.1,
+    "p99_us": 202.1,
+    "p999_us": 1540.6,
+    "max_us": 35657.3
+  }
+}
