@@ -118,3 +118,61 @@ a hand-off if there are five. Whether that is reachable is what P12-03's decompo
 the hand-offs' measured floors (each timed alone, P12's decision 1) sum to more than the margin, the
 criterion cannot be met by changing the host alone, and the phase report says so, segment by segment,
 rather than moving the criterion inside the phase.
+
+## The target restated against the floors (phase 12's acceptance)
+
+Restated at the reviewer's direction (phase 12's acceptance, decision 1). The median criterion above,
+1.5 L = 543 µs, lies under the floor P12-06 measured along a commit's path, 524 to 939 µs: a target
+unreachable in principle is not a target, and every phase measured against it would report a miss
+that says nothing. Its slack factors (1.5 on the median, 3 on the tail) were set by hand at phase
+10's decision 2, before any measurement. **They are the second of the target's figures to prove
+ungrounded**, after phase 10's 200,000 a second (half of C_disk, a capacity the design does not
+have). The reviewer's rule at this acceptance: every figure of the target not yet measured is
+suspect until it is grounded; they are listed at the end of this section.
+
+**The floor** is the commit's path with nothing else running, each part timed alone on the day
+(P12-06, five repetitions each; medians of the repetitions' medians and 99th percentiles):
+
+| Part | Median | 99th percentile | On the path | Records |
+|---|---|---|---|---|
+| A sync with two writers at once (the leader's and the follower's, on one disk) | 212 µs | 439 µs | 2 | m:p12-06-sync2-tmp-1 to -5 |
+| A one-way loopback hop to a reader asleep on its own thread | 83 µs | 201 µs | 4: the client to the leader, the leader to the follower and back, the leader to the client | m:p12-06-hop-1 to -5 |
+| A hand-off to a loop asleep on a channel | 61 µs | 168 µs | 3: the client's request, the follower's append, the follower's answer | m:p12-06-handoff-1 to -5 |
+| (for reference) a sync alone; the warm round trip | 182 µs; 50 µs | 401 µs; 113 µs | — | m:p12-06-sync-tmp-1 to -5, m:p12-06-rtt-1 to -5 |
+
+The floor's median is 4 × 83 + 2 × 212 + 3 × 61 = **939 µs**, and its 99th percentile, the parts'
+99th percentiles composed the same way (as L's was), 4 × 201 + 2 × 439 + 3 × 168 = **2,186 µs**. The
+hops and hand-offs are the cold ones because this design's threads sleep when idle; the warm sum,
+524 µs, needs every hop to find its reader awake, which this design does not arrange.
+
+**The allowance** is what the criterion's load adds to a path that is otherwise floor: the wait at
+the one serial resource. The leader's loop runs the leader's syncs inline (spec §2), so at 3,125
+writes a second it is a single server whose service time is at least the sync. Modelled as M/D/1
+with the sync above (212 µs, utilisation 0.66), the wait's median is **127 µs** and its 99th
+percentile **1,194 µs** (Lindley's recursion over 4,000,000 Poisson arrivals after 100,000
+discarded, seed 12; the mean, 209 µs, agrees with ρD/2(1 − ρ), and a third of arrivals wait not at
+all, as 1 − ρ says). Nothing is allowed for software beyond the floors: the host is held to the
+floor plus the queue its own design forms.
+
+| Criterion | Restated | Was | Why it changed |
+|---|---|---|---|
+| Median commit latency at 3,125 writes a second | at most 939 + 127 = **1,066 µs** | 1.5 × L = 543 µs | 1.5 was set by hand, and 543 µs is under the floor |
+| 99th-percentile commit latency at the same rate | at most 2,186 + 1,194 = **3.38 ms** | 3 × 825 µs = 2.47 ms | 3 was set by hand; the floor's own tail is 2.19 ms |
+| Highest sustained write rate | unchanged: at least 3,139 a second (C_design / 2) | — | not restated; its halving is set by hand (below) |
+
+**Where it is grounded:** the in-process cluster, whose hops are loopback in one container, where
+the floors were timed. Compose's hops cross containers, and no floor was measured for them, so no
+Compose criterion is grounded; Compose is reported against this one with that said, until its hop
+floor is measured (phase 13).
+
+**Where the host stands against it** (phase 12's records, P12-06): in process at 3,125 a second,
+the median 1.27 to 2.05 ms (1.40, the median of five) is about **1.3 times** the restated median,
+and the 99th percentile, 21 to 40 ms, six to twelve times the restated tail; in Compose the median,
+3.7 to 7.4 ms, is three to seven times it.
+
+**Still set by hand, suspect until grounded:** the operating point, half of C_design; the
+sustained-rate definition (completed within 5% of offered, the 99th percentile under 100 ms); the
+sustained-rate criterion's half of C_design; composing percentiles by summing them (for parts
+that do not stall together, the 99th percentile of the sum is well under the sum of the parts'
+99th percentiles, so the restated tail is likely lenient); and the allowance's model, a single server whose service is the sync alone, when
+the loop also reads requests and answers.

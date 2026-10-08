@@ -48,6 +48,10 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   it. A group commit is still not built: it trades latency for throughput, and
   latency is about ten times its target with nothing yet aimed at it. Latency
   comes first; the corrected gate is then applied again to the new curve.
+  (**Superseded at phase 12's acceptance:** "about ten times" was measured with
+  a generator that waited with `Task.Delay`, and fixing it cut the median by
+  62 to 74% (P12-04); against the target restated from the measured floors,
+  the median at 3,125 a second is about 1.3 times its criterion.)
   **Applied at phase 12 (P12-07), it did not select a group commit.** The
   lowest rate whose 99th percentile passed 100 ms in any run was 1,000 writes a
   second, in one run of five whose leader lost office, the sync 25% busy there;
@@ -56,7 +60,15 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   which runs its syncs inline: at 3,500 writes a second they take 79% of it,
   225 µs each, and requests and answers queue behind them (the decomposition's
   largest segments at 3,125). No group commit is built; the register row is
-  closed by this measurement.
+  closed by this measurement. **And the corrected gate was still not decisive**
+  (reviewer, at phase 12's acceptance): read as written it says 0.245; 0.787
+  needs a filter chosen after seeing the data, and misses 0.8 by 1.6%, which is
+  noise by phase 7's rule (a margin under 5% on a measured threshold). Two
+  defensible readings mean the gate does not decide, and a gate that does not
+  decide answers no. That is a result about the gate: twice written, once
+  corrected, it has not yet decided a case. The cap it pointed to, the
+  leader's single loop running its syncs inline, is phase 13's, and it is not
+  a group commit.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
@@ -577,6 +589,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 10 | Measurement | Throughput and latency against a written target, with the build configuration recorded beside every number |
 | 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
 | 12 | Commit latency, then the group commit by the corrected gate | The latency of a commit decomposed along its path from timestamps the hosts and the generator take (§9), at a rate below the knee and at the criterion's rate, the segments summing to the end-to-end latency; the load generator's own lateness measured and bounded before any host change is judged; the host's largest segments that are not the design's (two syncs and a round trip) removed or explained, and the curve measured again against L, in process and in Compose: the latency criterion met, or the remaining gap attributed segment by segment, each remaining segment beside its measured floor; the corrected gate (§2) applied to the new curve, a group commit proposed as phase 13 at 80% or more and the row closed with the measurement under it; every check comparing a run-to-run quantity with a threshold measured on both sides, patched and unpatched, and any within a factor of 1.5 of its threshold moved or redesigned |
+| 13 | The leader's loop, against the restated target | Proposed at phase 12's acceptance (reviewer): the median at 3,125 writes a second is about 1.3 times the target restated from the measured floors (`docs/design/performance-target.md`, 1,066 µs) and the 99th percentile is met nowhere (3.38 ms restated); the cap phase 12 named is the leader's single loop running its syncs inline, and the remedy is not a group commit. The done criterion is written by the phase-13 breakdown's first task, at its approval |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
@@ -595,7 +608,9 @@ that phase's whole attention. Replication's cost was put first in it at phase
 10's acceptance: the resend defect broke no invariant and capped the cluster at
 a tenth to a sixth of the design's capacity. Phase 12 was added at phase 11's
 acceptance: the group-commit gate corrected, and latency put before the group
-commit the corrected gate would otherwise select.)
+commit the corrected gate would otherwise select. Phase 13 was added at phase
+12's acceptance: the target restated from the measured floors, and the loop
+phase 12 named as the cap addressed against it.)
 
 ## 12. Working agreement
 
