@@ -1,0 +1,6 @@
+description: The node rule fires on any change, so every push selects the soak-derived entries whether or not the node changed, and the touched stage stops selecting (P12-02)
+mechanism: any changed path counts as the node changing
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TouchedTests.AChangeElsewhereDoesNotSelectTheSoakDerivedEntries
+expect: caught

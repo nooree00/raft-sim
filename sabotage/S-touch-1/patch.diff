@@ -1,4 +1,3 @@
-diff --git a/tools/Raft.Gates/Touched.cs b/tools/Raft.Gates/Touched.cs
 --- a/tools/Raft.Gates/Touched.cs
 +++ b/tools/Raft.Gates/Touched.cs
 @@ -74,7 +74,7 @@
@@ -6,7 +5,7 @@ diff --git a/tools/Raft.Gates/Touched.cs b/tools/Raft.Gates/Touched.cs
      {
          var node = NodeChanged(changed);
 -        return entries.Where(e => PathsIn(e.Patch).Concat(e.Control is null ? [] : PathsIn(e.Control)).Any(changed.Contains) || (node && SoakDerivedTarget(e.Target))).Select(e => e.Id).ToList();
-+        return entries.Where(e => PathsIn(e.Patch).Any(changed.Contains) || (node && SoakDerivedTarget(e.Target))).Select(e => e.Id).ToList();
++        return entries.Where(e => PathsIn(e.Patch).Concat(e.Control is null ? [] : PathsIn(e.Control)).Any(changed.Contains) || (node && SoakDerivedTarget(null))).Select(e => e.Id).ToList();
      }
  
      /// <summary>Whether the push changed the node.</summary>

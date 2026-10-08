@@ -1,7 +1,7 @@
 # Executed tests per test project. `gates testcount` requires equality: any change to a count is
 # an edit to this file in the same commit, so a deleted or undiscovered test is visible in review.
 Raft.Architecture.Tests 52
-Raft.Gates.Tests 167
+Raft.Gates.Tests 170
 Raft.Checker.Tests 173
 Raft.Simulation.Tests 110
 Raft.Core.Tests 852

@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Touched.cs
++++ b/tools/Raft.Gates/Touched.cs
+@@ -78,7 +78,7 @@
+     }
+ 
+     /// <summary>Whether the push changed the node.</summary>
+-    public static bool NodeChanged(IReadOnlySet<string> changed) => changed.Any(p => p.StartsWith(NodePrefix, StringComparison.Ordinal));
++    public static bool NodeChanged(IReadOnlySet<string> changed) => changed.Any(p => p.Length >= 0);
+ 
+     /// <summary>Whether an entry's target is in a soak-derived class.</summary>
+     public static bool SoakDerivedTarget(string? target) => target is not null && SoakDerived.Any(c => target.StartsWith(c, StringComparison.Ordinal));

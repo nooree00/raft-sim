@@ -78,7 +78,13 @@ internal static class Sabotage
 
             var changed = diff.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
             var (rate, threshold) = Touched.ParseConfig(File.ReadAllText(repo.PathOf(Touched.ConfigFile)));
-            var chosen = Touched.Select(specs.Select(s => new TouchedEntry(s.Id, File.ReadAllText(s.PatchPath), s.ControlPath is null ? null : File.ReadAllText(s.ControlPath))), changed).ToHashSet(StringComparer.Ordinal);
+            var footprints = specs.Select(s => new TouchedEntry(s.Id, File.ReadAllText(s.PatchPath), s.ControlPath is null ? null : File.ReadAllText(s.ControlPath), s.Fields.GetValueOrDefault("target"))).ToList();
+            var chosen = Touched.Select(footprints, changed).ToHashSet(StringComparer.Ordinal);
+            if (Touched.NodeChanged(changed))
+            {
+                var byFile = Touched.Select(footprints.Select(e => e with { Target = null }), changed).Count;
+                Console.WriteLine($"[sabotage] the push changed {Touched.NodePrefix}: {chosen.Count - byFile} soak-derived entries selected besides the {byFile} by file (P12-02)");
+            }
             var plan = Touched.PlanFor(chosen.Count, specs.Count, rate, threshold, acceptEstimate);
             Console.WriteLine($"[sabotage] {changed.Count} files changed in {touched}..HEAD; {plan.Line}");
             Console.Out.Flush();

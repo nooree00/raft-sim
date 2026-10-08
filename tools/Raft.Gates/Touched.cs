@@ -5,8 +5,8 @@ using System.Linq;
 
 namespace Raft.Gates;
 
-/// <summary>An entry's footprint for the touched-file selection: its patch and, if it has one, its control.</summary>
-internal sealed record TouchedEntry(string Id, string Patch, string? Control);
+/// <summary>An entry's footprint for the touched-file selection: its patch, its control if it has one, and its test target if it has one.</summary>
+internal sealed record TouchedEntry(string Id, string Patch, string? Control, string? Target = null);
 
 /// <summary>
 /// P9-00, phase 9 decision 1: the harness entries a push makes worth running before it. An entry is
@@ -51,9 +51,37 @@ internal static class Touched
         return paths;
     }
 
-    /// <summary>The ids of the entries whose patch or control names one of <paramref name="changed"/>.</summary>
-    public static IReadOnlyList<string> Select(IEnumerable<TouchedEntry> entries, IReadOnlySet<string> changed) =>
-        entries.Where(e => PathsIn(e.Patch).Concat(e.Control is null ? [] : PathsIn(e.Control)).Any(changed.Contains)).Select(e => e.Id).ToList();
+    /// <summary>
+    /// P12-02, phase 11's finding: a change to the node moves facts measured from the soak (a seed
+    /// named as the hardest, a control's pinned seeds, the soak sample's distribution) in entries
+    /// whose patch and target never name the node. S-soak-6 survived on GitHub for that reason. So a
+    /// push changing a file under this prefix also selects every entry whose target is in a
+    /// soak-derived class.
+    /// </summary>
+    public const string NodePrefix = "src/Raft.Core/";
+
+    /// <summary>The classes whose tests run the soak's executions or name seeds measured from them.</summary>
+    public static readonly string[] SoakDerived =
+    [
+        "Raft.Scale.Tests.SoakTests.",
+        "Raft.Scale.Tests.LinearizabilityTests.",
+        "Raft.Scale.Tests.KnownLimitTests.",
+        "Raft.Scale.Tests.PositiveControlTests.",
+        "Raft.Budget.Tests.BudgetTests.",
+    ];
+
+    /// <summary>The ids of the entries whose patch or control names one of <paramref name="changed"/>, and, when the node changed, the soak-derived entries (<see cref="NodeChanged"/>).</summary>
+    public static IReadOnlyList<string> Select(IEnumerable<TouchedEntry> entries, IReadOnlySet<string> changed)
+    {
+        var node = NodeChanged(changed);
+        return entries.Where(e => PathsIn(e.Patch).Concat(e.Control is null ? [] : PathsIn(e.Control)).Any(changed.Contains) || (node && SoakDerivedTarget(e.Target))).Select(e => e.Id).ToList();
+    }
+
+    /// <summary>Whether the push changed the node.</summary>
+    public static bool NodeChanged(IReadOnlySet<string> changed) => changed.Any(p => p.StartsWith(NodePrefix, StringComparison.Ordinal));
+
+    /// <summary>Whether an entry's target is in a soak-derived class.</summary>
+    public static bool SoakDerivedTarget(string? target) => target is not null && SoakDerived.Any(c => target.StartsWith(c, StringComparison.Ordinal));
 
     /// <summary>The per-entry rate and the threshold, from <see cref="ConfigFile"/>: "seconds-per-entry N" and "confirm-above-minutes N".</summary>
     public static (double SecondsPerEntry, double ConfirmAboveMinutes) ParseConfig(string text)

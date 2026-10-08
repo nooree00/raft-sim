@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Raft.Gates;
 using Xunit;
@@ -11,7 +12,9 @@ namespace Raft.Gates.Tests;
 /// control names a file the push changed; the plan (count, fraction of the manifest, estimated time)
 /// is decided before anything runs, and a selection estimated past the threshold runs only when
 /// accepted. Vacuity risk: a selection that always comes back empty passes every push; guarded by
-/// the cases that must select. Sabotage S-gate-1 (the control not read).
+/// the cases that must select. Sabotage S-gate-1 (the control not read). P12-02: a change to the node
+/// also selects the soak-derived entries; sabotages S-touch-1 (the rule removed) and S-touch-2 (the
+/// rule firing on any change).
 /// </summary>
 public sealed class TouchedTests
 {
@@ -70,6 +73,34 @@ public sealed class TouchedTests
         var plan = Touched.PlanFor(0, 292, 13.7, 11, accepted: false);
         Assert.False(plan.Run);
         Assert.Contains("0 of 292 entries", plan.Line, StringComparison.Ordinal);
+    }
+
+    /// <summary>P12-02: a soak-derived entry whose patch names no changed file is selected because the node changed. Sabotage S-touch-1.</summary>
+    [Fact]
+    public void AChangeToTheNodeSelectsTheSoakDerivedEntries() =>
+        Assert.Equal(
+            ["S-b-1"],
+            Touched.Select([new("S-b-1", Diff("tests/Raft.Scale.Tests/SoakConfig.cs"), null, "Raft.Budget.Tests.BudgetTests.TheSoaksHardestDecidedHistoriesAreDecidedWithinTheBudget(seed: 9532)"), new("S-c-1", Diff("tests/Raft.Scale.Tests/SoakConfig.cs"), null, "Raft.Scale.Tests.ReplicationCostTests.TheLeaderSendsEachFollowerABoundedNumberOfEntriesPerCommittedEntry")], Changed));
+
+    /// <summary>P12-02: a push that leaves the node alone adds nothing. Sabotage S-touch-2.</summary>
+    [Fact]
+    public void AChangeElsewhereDoesNotSelectTheSoakDerivedEntries() =>
+        Assert.Empty(Touched.Select([new("S-b-1", Diff("tests/Raft.Scale.Tests/SoakConfig.cs"), null, "Raft.Scale.Tests.SoakTests.TheGeneratedSampleHoldsEveryInvariant")], new HashSet<string>(StringComparer.Ordinal) { "docs/findings.md", "src/Raft.Host/NodeHost.cs" }));
+
+    /// <summary>The rule on this repository's manifest: a change to RaftNode.cs selects S-soak-6, which phase 11's main push could not select and which survived on GitHub.</summary>
+    [Fact]
+    public void OnThisManifestAChangeToTheNodeSelectsSoak6()
+    {
+        var root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "RAFT_PROJECT_SPEC.md")))
+        {
+            root = Path.GetDirectoryName(root)!;
+        }
+
+        var specs = SabotageSpec.LoadAll(Repo.Locate(root), new Findings());
+        var selected = Touched.Select(specs.Select(s => new TouchedEntry(s.Id, File.ReadAllText(s.PatchPath), s.ControlPath is null ? null : File.ReadAllText(s.ControlPath), s.Fields.GetValueOrDefault("target"))), Changed);
+
+        Assert.Contains("S-soak-6", selected);
     }
 
     [Fact]

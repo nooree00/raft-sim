@@ -354,3 +354,5 @@ S-struct-1 12.0
 S-struct-2 60.5
 S-status-1 11.5
 S-status-2 7.9
+S-touch-1 8.0
+S-touch-2 8.0

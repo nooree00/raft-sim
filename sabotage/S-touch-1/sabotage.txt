@@ -1,0 +1,6 @@
+description: The touched-file stage no longer adds the soak-derived entries when a push changes the node, so an entry like S-soak-6, whose patch and target never name the node, is found stale only on GitHub after the push, as in phase 11 (P12-02)
+mechanism: the node rule never matches an entry's target
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TouchedTests.AChangeToTheNodeSelectsTheSoakDerivedEntries
+expect: caught
