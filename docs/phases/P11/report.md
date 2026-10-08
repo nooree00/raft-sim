@@ -336,11 +336,12 @@ lever being a class of entries, a push's commits checked with their own tooling)
 
 ## Commits never verified in CI
 
-Twenty pushed commits of the phase never had a green verdict of their own: eight of its first push
-(run:37693717232) and twelve of its main push (run:37720359149). **Every one failed; none never
+Twenty-one pushed commits of the phase never had a green verdict of their own: eight of its first
+push (run:37693717232), twelve of its main push (run:37720359149), and one of the report's first
+push (run:37732711680). **Every one failed; none never
 ran**: every (commit, shard) job of both runs was given a runner and ran its checks, 84 and 144
-per-commit jobs and each head's twelve shards. One commit of the main push, `d00c396`, passed on
-every shard. **Accepted as never verified** (reviewer, at phase 10's acceptance), as in phases 7, 9
+per-commit jobs and each head's twelve shards (and 36 more in the report's first push). One commit of
+the main push, `d00c396`, passed on every shard. **Accepted as never verified** (reviewer, at phase 10's acceptance), as in phases 7, 9
 and 10: rewriting them would force-push, which `each-commit-list` refuses by design. The causes,
 read from each job's annotations:
 
@@ -366,6 +367,7 @@ read from each job's annotations:
 | `6adc1cd` | run:37720359149 | failed | shards 5, 12 | S-soak-6 and S-iface-1; documentation only |
 | `309a999` | run:37720359149 | failed | shards 7, 11, 12 | the same two; S-disk-3's line |
 | `254cd0a` (head) | run:37720359149 | failed | sabotage 7/12, 12/12 | S-soak-6 and S-iface-1, fixed at `4363885` and `2e91f6a`; documentation only |
+| `2e91f6a` | run:37732711680 | failed | shard 11 | S-soak-6 survived: the cost refresh comes before the seeds' re-pick (`4363885`), which then passed on every shard, as did `c9c6fc5` |
 
 **Four of the eight are my commit ordering, not the code.** `f0a081d` corrected S-hostdisk-1's line
 to its true cost, which took the largest-manifest model to 603 s, over its bound, and so failed the
@@ -380,6 +382,13 @@ harness by the same factor. The change and its refresh must be one commit. The o
 defects of mine fixed at `decc1a8`: S-shard-7 aimed at a test the class filter had made unable to
 fail, and S-rng-1's refreshed line taken from an outlier local run. `e74ca16` is phase 10's stale
 line, found by that phase's acceptance push.
+
+**This report's commit moved.** Its first push (`8851761`, run:37732711680) was green on every job
+of its head, and red on one per-commit job: `2e91f6a`, the cost refresh, ordered before the seeds'
+re-pick, so S-soak-6 still survived there. Either order left one of the two red; only one commit
+carrying both would not have. A run with a red per-commit job does not certify its head (`gates
+reports` requires the run, and its `each-commit` job, to succeed), so the report is re-committed at
+the next push's head with this row, alone in its push, and that push's run certifies it.
 
 **The main push's twelve are three defects of mine and two controls.** S-iface-1's and S-disk-3's
 lines were wrong since P11-09's local refresh (`2e91f6a` refreshed every line from that run's
