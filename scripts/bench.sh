@@ -12,6 +12,11 @@
 #                                           latency, in process, at rates below the knee
 #   scripts/bench.sh soak-ab [reps]         P10-06: the same 1,000 soak executions at this commit and at
 #                                           phase 8's head (before the last-use set), interleaved
+#   scripts/bench.sh load-ab [reps]         P11-05: the in-process curve at this commit and at phase
+#                                           10's head (before the resend fix), interleaved, at
+#                                           RAFT_BENCH_AB_RATES
+# The task a record names, and its id's prefix, are phase 10's unless RAFT_BENCH_INPUTS_TASK or
+# RAFT_BENCH_LOAD_TASK names another (P11-04, P11-05 measure again with the same tool).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -22,27 +27,32 @@ what="${1:?usage: bench.sh inputs|load-local|load-compose [repetitions]}"; reps=
 # nothing within a run, so higher rates measure the same collapse).
 rates="${RAFT_BENCH_RATES:-625 1000 1250 1500 2000 3125}"
 commit="$(git rev-parse HEAD)"
+inputs_task="${RAFT_BENCH_INPUTS_TASK:-P10-02}"; load_task="${RAFT_BENCH_LOAD_TASK:-P10-04}"
+lc() { echo "$1" | tr 'A-Z' 'a-z'; }
 test -z "$(git status --porcelain -- src)" || { echo "bench: src has uncommitted changes; a record names the commit it measured"; exit 1; }
 volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
 # Built once, in Release, through the same container as every other build (restore needs the
 # network); each measurement then runs with no network at all, beside nothing else of ours.
 scripts/in-sdk.sh dotnet build src/Raft.Host -c Release -nologo -v:q >/dev/null
 sdk="$(scripts/in-sdk.sh dotnet --version | tail -1)"
-run() {
-  docker run --rm --network none -v "$PWD:/src" -v "$volume:/data" -w /src -e RAFT_COMMIT="${measured:-$commit}" -e RAFT_IMAGE="$image" \
+run() { run_in "$PWD" "$@"; }
+# The host built in <dir> (this tree, or another commit exported beside it), its records written here.
+run_in() {
+  local dir="$1"; shift
+  docker run --rm --network none -v "$dir:/src" -v "$PWD/measurements:/out" -v "$volume:/data" -w /src -e RAFT_COMMIT="${measured:-$commit}" -e RAFT_IMAGE="$image" \
     -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll "$@"
 }
 case "$what" in
   inputs)
     for r in $(seq 1 "$reps"); do
-      run bench sync --dir /data/bench --count 10000 --id "p10-02-sync-volume-$r" --repetition "$r" --out measurements
-      run bench sync --dir /tmp/bench --count 10000 --id "p10-02-sync-tmp-$r" --repetition "$r" --out measurements
-      run bench rtt --count 10000 --id "p10-02-rtt-$r" --repetition "$r" --out measurements
+      run bench sync --dir /data/bench --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-sync-volume-$r" --repetition "$r" --out measurements
+      run bench sync --dir /tmp/bench --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-sync-tmp-$r" --repetition "$r" --out measurements
+      run bench rtt --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-rtt-$r" --repetition "$r" --out measurements
     done ;;
   load-local)
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
-        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --id "p10-04-local-$rate-$r" --repetition "$r" --out measurements
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-local-$rate-$r" --repetition "$r" --out measurements
       done
     done ;;
   barrier)
@@ -50,6 +60,21 @@ case "$what" in
     for r in $(seq 1 "$reps"); do
       for rate in 300 625; do
         run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P10-05 --id "p10-05-local-$rate-$r" --repetition "$r" --out measurements
+      done
+    done ;;
+  load-ab)
+    # Phase 10's head, exported (this tree stays as it is), both hosts built in Release.
+    base="${RAFT_BENCH_AB_BASE:-58bed2b}"; old="$(mktemp -d)/base"; mkdir -p "$old"; git archive "$base" | tar -x -C "$old"
+    docker run --rm -v "$old:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src ${HTTPS_PROXY:+--network host -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY} \
+      ${SSL_CERT_FILE:+-v "$SSL_CERT_FILE:/etc/ssl/certs/proxy-ca.pem:ro" -e SSL_CERT_FILE=/etc/ssl/certs/proxy-ca.pem} "$image" \
+      dotnet build src/Raft.Host -c Release -nologo -v:q >/dev/null
+    for r in $(seq 1 "$reps"); do
+      for rate in ${RAFT_BENCH_AB_RATES:-625 1250 3125}; do
+        for side in fix base; do
+          dir="$PWD"; at=$commit; [ "$side" = base ] && { dir="$old"; at=$base; }
+          measured=$at run_in "$dir" bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P11-05 \
+            --id "p11-05-ab-$side-$rate-$r" --repetition "$r" --out /out
+        done
       done
     done ;;
   soak-ab)
@@ -91,7 +116,7 @@ case "$what" in
           sleep 1
         done
         dc --profile client run --rm --no-deps -T -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" client \
-          bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --id "p10-04-compose-$rate-$r" --repetition "$r" --out /out \
+          bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-compose-$rate-$r" --repetition "$r" --out /out \
           --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk)"
       done
     done ;;
