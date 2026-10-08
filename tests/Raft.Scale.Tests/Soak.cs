@@ -471,6 +471,14 @@ internal static class Soak
         // consequence of the fix, which made a rare path rarer, not a property of the generator
         // (phase 11's acceptance): a change to how the leader sends is what to look at if it moves.
         ["install-kept-the-suffix"] = "an install over a suffix that agrees with the snapshot: 0.7% of the membership soak's first 1,000 since P11-02, 2.8% of the baseline's",
+
+        // P12-08, the control-margin audit: 108 of the membership soak's 10,000 (1.08%) and 163 of the
+        // baseline's (1.63%), over the floor of 100 but within the audit's factor of 1.5 of it in the
+        // membership soak, where a change to the workload could take it under without any defect. A
+        // crash must find two or more writes in flight on a disk that loses a reordered subset, and
+        // keep a later one. Exercised directly by CoverageTests.TheThreeEventsPhaseOneNeverProducedAreReachable
+        // (a slow disk makes writes overlap) and EntryLogTests.ATornEntryFollowedByAnEntryWhoseCutWasLostRecoversTheEntry.
+        ["writes-completed-out-of-order-at-crash"] = "a crash keeping a later write and losing an earlier one: 1.08% of the membership soak, 1.63% of the baseline",
     };
 
     /// <summary>

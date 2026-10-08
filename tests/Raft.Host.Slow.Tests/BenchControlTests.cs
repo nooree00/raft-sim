@@ -101,8 +101,11 @@ public sealed class BenchControlTests
         // vanished on a machine busy with the harness's other workers (a ratio of 0.47 there, 3.16 in
         // another run): on a starved machine a short sleep overlaps the wait for a processor that
         // happens anyway. The lower bound is the control: an insensitive generator gives about 0
-        // (S-bench-2). The upper bound only catches a rise counted twice.
-        Assert.InRange(rise / slept, 1.5, 5.0);
+        // (S-bench-2). The upper bound only catches a rise counted twice. The lower bound was 1.5 until
+        // P12-08's margin audit: the unpatched ratio is 2.00 to 2.02 here (ten runs, five beside three
+        // busy processes) and was 1.497 once on GitHub, within the audit's factor of 1.5 of it; at 0.75
+        // the unpatched side is at least 2 times over it and the patched side, about 0, far under.
+        Assert.InRange(rise / slept, 0.75, 5.0);
     }
 
     /// <summary>
@@ -138,14 +141,17 @@ public sealed class BenchControlTests
         var perList = lists == 0 ? 0 : (after.Micros - before.Micros) / lists;
         Report("bench-barrier.txt", FormattableString.Invariant($"{lists} barrier lists for {r.Answered} writes, {perList:F0} us each; a delayed sync slept {delay.MeanSleptMicros:F0} us"));
         Assert.True(lists >= r.Answered, $"{lists} effect lists with a send behind a persist, for {r.Answered} writes answered: fewer than one a write, so the measurement does not cover the writes");
-        Assert.InRange(perList / delay.MeanSleptMicros, 0.9, 2.5);
+        // The lower bound was 0.9 until P12-08's margin audit: the barrier per list is 1.02 to 1.04 delayed
+        // syncs (ten runs), within a factor of 1.5 of it. At 0.6 a barrier under two thirds of a sync is
+        // still refused: what it guards against is a measurement of something other than the leader's sync.
+        Assert.InRange(perList / delay.MeanSleptMicros, 0.6, 2.5);
     }
 
     /// <summary>
     /// P12-03's control: a delay planted in one hand-off, every follower's peer message held between
     /// its read from the socket and its hand-off to the loop, must appear in that segment
-    /// (follower-queue), between half and twice its planted amount, and in no other segment by more
-    /// than a quarter of it (the generator's own lateness aside, which is before any host). One traced cluster
+    /// (follower-queue), between half and three times its planted amount, and in no other segment by
+    /// more than 0.4 of it (the generator's own lateness aside, which is before any host). One traced cluster
     /// alternates windows with the delay off and on, three of each, each window's stamps joined alone.
     /// Measured locally, two runs: follower-queue rose 528 and 524 us, every other host segment under
     /// 60 us either way; with S-lat-1, 0.05 to 0.07 of the planted amount, and network-out rose by it.
@@ -155,7 +161,10 @@ public sealed class BenchControlTests
     /// single-threaded busy processes it rose 1.04 times; the spin itself took 503 µs on average). A
     /// band of ±20% around an unpatched value of 1.0 is also within P12-08's factor of 1.5 on both sides
     /// by construction. The planted amount is the time the delays actually took, as control (b)'s is the
-    /// sleep's. Sabotage S-lat-1 (the follower's read stamped after the
+    /// sleep's. P12-08's audit moved the band's top from 2 to 3 (GitHub's harness gave 1.40) and the
+    /// other segments' bound from a quarter to 0.4 of the planted amount (beside three busy processes
+    /// the largest other rise reached 0.185 of it; with S-lat-1, network-out rises 0.97 of it).
+    /// Sabotage S-lat-1 (the follower's read stamped after the
     /// delay, so it lands in the segment before, network-out).
     /// </summary>
     [Fact]
@@ -200,11 +209,11 @@ public sealed class BenchControlTests
         var planted = spun.Micros / spun.Spins;
         Report("bench-handoff.txt", FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; {PlantedMicros} us set, {planted:F0} us spun on average over {spun.Spins} messages; median rise: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))));
         Assert.True(joined >= 0.95 * writes && left == 0, $"{joined} of {writes} writes joined, {left} left out: the control did not measure the writes it ran");
-        Assert.InRange(rise["follower-queue"] / planted, 0.5, 2.0);
+        Assert.InRange(rise["follower-queue"] / planted, 0.5, 3.0);
         // Not the generator's own segment: it is two of the generator's stamps, before the write reaches
         // any host, so no host's delay can be attributed to it; and it is the instrument's noise, which
         // moved by 98 and 112 us between the modes in two local runs, near this bound by chance alone.
-        Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.25 * planted, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us with {planted:F0} us planted in follower-queue")));
+        Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.4 * planted, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us with {planted:F0} us planted in follower-queue")));
     }
 
     /// <summary>

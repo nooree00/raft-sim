@@ -1,0 +1,103 @@
+# P12-08: the soaks' rate floors at c8ff188 (Core and the simulator unchanged since), one deterministic run each, writes-completed-out-of-order-at-crash declared below the floor since P12-08; a floor's sabotages remove an effect (S-cov-7, S-soak-1), far below it.
+soak-baseline-history-indeterminate	100	above	ratio	9494	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-concurrent-on-a-key	100	above	ratio	9985	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-read-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-put-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-append-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-delete-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-cas-true	100	above	ratio	9999	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-cas-false	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-history-command-retried	100	above	ratio	9967	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-split-vote	100	above	ratio	7501	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-leader-replaced-after-crash	100	above	ratio	5494	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-vote-denied-already-voted	100	above	ratio	5512	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-requestvote-ignored	100	above	ratio	7079	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-leader-stepped-down	100	above	ratio	7102	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-candidate-stepped-down	100	above	ratio	7754	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-elected-after-restart	100	above	ratio	4237	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-elected-during-one-way-partition	100	above	ratio	3054	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-follower-caught-up-by-backtracking	100	above	ratio	6999	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-conflicting-suffix-truncated	100	above	ratio	1878	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-leader-crashed-with-uncommitted-entries	100	above	ratio	1635	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-entry-committed-in-a-later-term	100	above	ratio	1128	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-crash-with-a-log-write-in-flight	100	above	ratio	3439	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-delivered-after-later-send	100	above	ratio	8544	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-lost-in-transit-to-a-live-receiver	100	above	ratio	4640	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-delivered-twice	100	above	ratio	4522	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-delivered-later-than-normal-delay	100	above	ratio	8038	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-one-way-reachability	100	above	ratio	7408	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-node-isolated-for-a-timeout	100	above	ratio	3006	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-majority-down	100	above	ratio	3846	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-all-down	100	above	ratio	2983	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-unsynced-write-lost	100	above	ratio	3449	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-writes-completed-out-of-order-at-crash	3	above	ratio	163	-	declared below the floor, held at the absolute minimum; soak job of run 37785921243
+soak-baseline-partial-record-left-on-disk	100	above	ratio	1371	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-write-slower-than-normal-latency	100	above	ratio	4102	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-step-after-silence-longer-than-a-timeout	100	above	ratio	3684	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-restarted-from-disk	100	above	ratio	7926	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-clock-rate-diverged	100	above	ratio	5764	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-log-compacted	100	above	ratio	10000	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-snapshot-installed-by-a-follower	100	above	ratio	9036	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-restarted-from-a-snapshot	100	above	ratio	6736	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-crash-with-a-compaction-in-flight	100	above	ratio	836	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-install-kept-the-suffix	3	above	ratio	365	-	declared below the floor, held at the absolute minimum; soak job of run 37785921243
+soak-baseline-install-discarded-the-suffix	3	above	ratio	64	-	declared below the floor, held at the absolute minimum; soak job of run 37785921243
+soak-baseline-retry-committed-twice-applied-once	100	above	ratio	1816	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-retry-deduplicated-by-a-restored-table	3	above	ratio	141	-	declared below the floor, held at the absolute minimum; soak job of run 37785921243
+soak-baseline-stale-sequence-refused	100	above	ratio	5824	-	1% of 10,000 executions; soak job of run 37785921243
+soak-baseline-read-answered-after-a-later-term-began	3	above	ratio	5	-	declared below the floor, held at the absolute minimum; soak job of run 37785921243
+soak-baseline-read-waited-past-a-heartbeat-interval	100	above	ratio	916	-	1% of 10,000 executions; soak job of run 37785921243
+soak-membership-history-indeterminate	100	above	ratio	9764	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-concurrent-on-a-key	100	above	ratio	9928	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-read-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-put-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-append-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-delete-completed	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-cas-true	100	above	ratio	9981	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-cas-false	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-history-command-retried	100	above	ratio	9873	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-split-vote	100	above	ratio	6606	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-leader-replaced-after-crash	100	above	ratio	5386	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-vote-denied-already-voted	100	above	ratio	5054	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-requestvote-ignored	100	above	ratio	6686	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-leader-stepped-down	100	above	ratio	6880	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-candidate-stepped-down	100	above	ratio	6784	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-elected-after-restart	100	above	ratio	4335	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-elected-during-one-way-partition	100	above	ratio	3207	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-follower-caught-up-by-backtracking	100	above	ratio	7215	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-conflicting-suffix-truncated	100	above	ratio	1431	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-leader-crashed-with-uncommitted-entries	100	above	ratio	1289	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-entry-committed-in-a-later-term	100	above	ratio	767	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-crash-with-a-log-write-in-flight	100	above	ratio	3041	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-delivered-after-later-send	100	above	ratio	7342	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-lost-in-transit-to-a-live-receiver	100	above	ratio	2217	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-delivered-twice	100	above	ratio	2163	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-delivered-later-than-normal-delay	100	above	ratio	6308	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-one-way-reachability	100	above	ratio	4944	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-node-isolated-for-a-timeout	100	above	ratio	3016	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-majority-down	100	above	ratio	3394	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-all-down	100	above	ratio	2939	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-unsynced-write-lost	100	above	ratio	3295	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-writes-completed-out-of-order-at-crash	3	above	ratio	108	-	declared below the floor, held at the absolute minimum; soak-membership job of run 37785921243
+soak-membership-partial-record-left-on-disk	100	above	ratio	1405	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-write-slower-than-normal-latency	100	above	ratio	4150	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-step-after-silence-longer-than-a-timeout	100	above	ratio	5385	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-restarted-from-disk	100	above	ratio	8687	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-clock-rate-diverged	100	above	ratio	7574	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-log-compacted	100	above	ratio	10000	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-snapshot-installed-by-a-follower	100	above	ratio	7814	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-restarted-from-a-snapshot	100	above	ratio	5586	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-crash-with-a-compaction-in-flight	100	above	ratio	491	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-install-kept-the-suffix	3	above	ratio	111	-	declared below the floor, held at the absolute minimum; soak-membership job of run 37785921243
+soak-membership-install-discarded-the-suffix	3	above	ratio	27	-	declared below the floor, held at the absolute minimum; soak-membership job of run 37785921243
+soak-membership-retry-committed-twice-applied-once	100	above	ratio	595	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-retry-deduplicated-by-a-restored-table	3	above	ratio	29	-	declared below the floor, held at the absolute minimum; soak-membership job of run 37785921243
+soak-membership-stale-sequence-refused	100	above	ratio	1693	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-read-answered-after-a-later-term-began	3	above	ratio	6	-	declared below the floor, held at the absolute minimum; soak-membership job of run 37785921243
+soak-membership-read-waited-past-a-heartbeat-interval	100	above	ratio	405	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-membership-change-completed	100	above	ratio	3684	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-change-completed-during-a-partition	100	above	ratio	691	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-change-removed-the-leader	100	above	ratio	1825	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-crash-in-a-joint-configuration	100	above	ratio	255	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-change-still-joint-at-the-end	100	above	ratio	1451	-	1% of 10,000 executions; soak-membership job of run 37785921243
+soak-membership-compaction-during-joint-consensus	100	above	ratio	216	-	1% of 10,000 executions; soak-membership job of run 37785921243

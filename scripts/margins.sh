@@ -36,7 +36,7 @@ read_barrier() {
   local lists writes per slept
   lists="$(pick '^\K[0-9]+(?= barrier lists)' bench-barrier)"; writes="$(pick 'lists for \K[0-9]+' bench-barrier)"
   per="$(pick 'writes, \K[0-9.]+(?= us each)' bench-barrier)"; slept="$(pick 'slept \K[0-9.]+' bench-barrier)"
-  add barrier-lists "$1" "$(ratio "$lists" "$writes")"
+  add barrier-lists "$1" "$(( writes > lists ? writes - lists : 0 ))"
   [ "$1" = u ] && { add barrier-per-list-low u "$(ratio "$per" "$slept")"; add barrier-per-list-high u "$(ratio "$per" "$slept")"; }
   return 0
 }
@@ -120,16 +120,16 @@ row() { # check bound above|below timing|ratio note
   echo "# check	bound	pass	kind	unpatched	patched	note"
   row stall-open-p97 150000 above timing "open loop's 97th percentile, us; S-bench-1"
   row stall-closed-p95 75000 below timing "closed loop's 95th percentile, us"
-  row slowdown-low 1.5 above ratio "median rise over the sleep actually slept; S-bench-2"
+  row slowdown-low 0.75 above ratio "median rise over the sleep actually slept; S-bench-2"
   row slowdown-high 5.0 below ratio "the same, its upper bound"
-  row barrier-lists 1.0 above ratio "barrier effect lists per write answered; S-bench-3"
-  row barrier-per-list-low 0.9 above ratio "barrier per list over the sleep slept"
+  row barrier-lists 0 below ratio "writes answered without a barrier effect list (the test's lists >= writes, a count); S-bench-3"
+  row barrier-per-list-low 0.6 above ratio "barrier per list over the sleep slept"
   row barrier-per-list-high 2.5 below ratio "the same, its upper bound"
   row lateness-early 0 below ratio "writes dispatched before their time; S-bench-4"
   row lateness-median 5000 below timing "the generator's median lateness, us"
   row handoff-low 0.5 above ratio "follower-queue's median rise over the delay spun; S-lat-1"
-  row handoff-high 2.0 below ratio "the same, its upper bound"
-  row handoff-others 0.25 below ratio "the largest other host segment's rise over the delay spun; S-lat-1"
+  row handoff-high 3.0 below ratio "the same, its upper bound"
+  row handoff-others 0.4 below ratio "the largest other host segment's rise over the delay spun; S-lat-1"
   row cost-ratio-8 2 below ratio "entries sent a follower per committed entry, 8 in flight; S-repl-11"
   row cost-ratio-32 2 below ratio "the same, 32 in flight; S-repl-11"
   row cost-committed-8 100 above ratio "entries committed, the reading's guard, 8 in flight; S-cost-1"
