@@ -1,0 +1,12 @@
+diff --git a/tests/Raft.Checker.Tests/StructuralMeasure.cs b/tests/Raft.Checker.Tests/StructuralMeasure.cs
+--- a/tests/Raft.Checker.Tests/StructuralMeasure.cs
++++ b/tests/Raft.Checker.Tests/StructuralMeasure.cs
+@@ -27,7 +27,7 @@
+         var events = new List<(long At, int Index)>();
+         var ops = new List<Operation>();
+         var applies = new List<bool>();
+-        for (var c = 0; c < shape.Clients; c++)
++        for (var c = 0; c < Math.Min(shape.Clients, 3); c++)
+         {
+             var t = (long)rng.Next(0, (int)Length);
+             for (var i = 0; i < shape.PerClient; i++)

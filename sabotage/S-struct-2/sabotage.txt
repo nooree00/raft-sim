@@ -1,0 +1,6 @@
+description: The width counts an indeterminate operation as closed just after its invocation, not open to the end of the history: a different measure from the one the register row predicted on (P11-07)
+mechanism: an indeterminate operation closed at once
+kind: test
+project: tests/Raft.Checker.Tests
+target: Raft.Checker.Tests.StructuralMeasureTests.TheWidthCountsAnIndeterminateOperationAsOpenToTheEnd
+expect: caught

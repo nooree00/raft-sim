@@ -181,7 +181,7 @@ nothing above (P11-07). Then the cost in CI (P11-08).
 ### P11-07 — The structural measure on histories hard on their own terms
 
 - **Task:** Decision 6. A generator of single-key histories with *w* overlapping indeterminate writes and *r* observing reads, each history one a correct store could produce (the brute-force oracle confirms the small ones). The WGL checker at the soak's budget on each, with the states it used. The three candidates the register row fixed at phase 6 (the concurrency width, the overlapping indeterminate writes, the distinct values a read could see) computed for each history, and the row's prediction tested: every undecided history's width at least 4 above the largest width decided in under 1,000,000 states. The spec states the threshold, or the limit without one.
-- **Vacuity:** A generator whose histories are all decided, or all undecided, separates nothing and confirms any threshold. Guarded by requiring both classes, at least 20 histories each, before any threshold is read, and by S-struct-1 (the generator's indeterminate writes all made to complete).
+- **Vacuity:** A generator whose histories are all decided, or all undecided, separates nothing and confirms any threshold. Guarded by requiring both classes, at least 20 histories each, before any threshold is read, and by S-struct-1 (the generator ignores its shape's client count, so every history is decided; its first version, every write made to complete, was caught by another assertion, see the outcome).
 - **Sabotage:** S-struct-1, S-struct-2
 - **Verifiable here:** yes — the checker and the generator run here
 - **Prediction:** The width does not separate with a margin of 4. Histories of equal width split between decided and undecided by how the reads constrain the indeterminate writes, so the overlap of indeterminate writes with observing reads is the better separator, and the phase-6 prediction is wrong in its margin. **Observable:** the largest decided width against the smallest undecided width, over the generated set.
@@ -216,7 +216,7 @@ before it is pushed. The touched-file stage runs before every push; the shards r
 - **S-repl-10:** the in-flight mark never cleared on a response (replication stops; liveness red).
 - **S-repl-11:** the in-flight mark never set (the resends return; P11-01 red).
 - **S-repl-12:** a heartbeat does not re-send an outstanding append (a lost append is never recovered; the lost-append test red).
-- **S-struct-1:** every indeterminate write completes (no undecided histories; the both-classes guard red).
+- **S-struct-1:** the generator builds every history with three clients whatever its shape (every history decided; the both-classes guard red). Changed at P11-07 from "every indeterminate write completes", which left twenty-client histories undecided and was caught by the separation assertion instead (P11-07's outcome).
 - **S-harness-5:** an entry's test arguments without the class filter (the whole project runs again; its argument test red).
 - **S-harness-6:** the guard on results outside the target's class never fires (its test red).
 - **S-struct-2:** the width counts completed operations only (the measure differs from the one predicted; its test red).

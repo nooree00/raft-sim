@@ -1,0 +1,15 @@
+diff --git a/tests/Raft.Checker.Tests/StructuralMeasure.cs b/tests/Raft.Checker.Tests/StructuralMeasure.cs
+--- a/tests/Raft.Checker.Tests/StructuralMeasure.cs
++++ b/tests/Raft.Checker.Tests/StructuralMeasure.cs
+@@ -74,10 +74,7 @@
+         foreach (var op in ops)
+         {
+             edges.Add((op.Invoke, 1));
+-            if (op.Response is { } r)
+-            {
+-                edges.Add((r + 1, -1));
+-            }
++            edges.Add(((op.Response ?? op.Invoke) + 1, -1));
+         }
+ 
+         int open = 0, widest = 0;

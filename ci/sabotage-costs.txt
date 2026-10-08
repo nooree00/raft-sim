@@ -349,3 +349,5 @@ S-repl-11 60.0
 S-repl-12 7.0
 S-cost-1 6.0
 S-cost-2 6.0
+S-struct-1 8.1
+S-struct-2 39.7
