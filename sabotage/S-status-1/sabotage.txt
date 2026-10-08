@@ -1,0 +1,6 @@
+description: The register gate no longer fails an accepted report whose phase docs/phases/status.md does not mark complete, so a status file nobody keeps silences the check on rows promised to completed phases again, as it did for phases 8 to 11 (P12-01)
+mechanism: the first direction's comparison never true
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.RegisterCompletionTests.AnAcceptedReportWhosePhaseIsNotMarkedCompleteFails
+expect: caught

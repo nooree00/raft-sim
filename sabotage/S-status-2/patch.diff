@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Register.cs
++++ b/tools/Raft.Gates/Register.cs
+@@ -187,7 +187,7 @@
+             }
+         }
+ 
+-        foreach (var phase in completed.Order(StringComparer.Ordinal))
++        foreach (var phase in completed.Order(StringComparer.Ordinal).Where(_ => false))
+         {
+             if (!reportStatus.TryGetValue(phase, out var status))
+             {

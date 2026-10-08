@@ -1,0 +1,6 @@
+description: The register gate no longer checks that a phase marked complete has an accepted report behind it, so a phase can be closed with no evidence, which gates reports would not see either since it certifies the reports that exist (P12-01)
+mechanism: the second direction's loop over completed phases skipped
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.RegisterCompletionTests.APhaseMarkedCompleteWithNoReportFails
+expect: caught

@@ -1211,3 +1211,17 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   it had closed. Found at phase 11's acceptance, when opening a row for phase 12 needed the gate to
   know the phases. *Rule:* a gate's inputs are derived from the artefacts they describe, or checked
   against them; P12-01 checks the file against the reports' status lines.
+
+## Phase 12
+
+- **A gate defeated by its input, not its logic: the class.** Any gate that reads a file kept by
+  hand needs a check that the file is current, and the gate itself cannot be that check: it reads
+  the file as true. The status file is the fourth instance across this project and the CRDT one,
+  after the test-count baseline, the sabotage cost file and the stale patches (the reviewer, at
+  phase 11's acceptance). In each, the gate was right and its premise stale, and nothing reported
+  the staleness. P12-01 audited every such input: the test baseline and the patch set are checked
+  against what they describe on every run; the status file is now checked against the reports both
+  ways; the cost file is checked only beyond a factor of 5; and three inputs are checked by nothing
+  (the touched stage's rate per entry, the Budget tests' hardest seeds, a measurement record's
+  commit), each now a register row. *Rule:* when a gate reads a file, ask what would tell you the
+  file is wrong; if the answer is a person, that is a row.

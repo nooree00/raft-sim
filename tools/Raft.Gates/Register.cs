@@ -20,9 +20,12 @@ namespace Raft.Gates;
 ///   - every method in the built src/ assemblies that constructs a NotImplementedException —
 ///     including lambdas and local functions, which compile into nested generated types — is
 ///     named in an open row.
+///   - P12-01: docs/phases/status.md is checked against the reports both ways (see
+///     <see cref="CompletionProblems"/>): the file is kept by hand, and the gate that reads it cannot
+///     be the check that it is current.
 /// Vacuity risks: an empty register (guarded: at least one row), a status file that never marks a
-/// phase complete (guarded: a completed phase needs its report), a malformed row silently skipped
-/// (guarded: every table row must parse).
+/// phase complete (guarded: an accepted report's phase must be marked complete, P12-01), a malformed
+/// row silently skipped (guarded: every table row must parse).
 /// </summary>
 internal static partial class Register
 {
@@ -34,6 +37,11 @@ internal static partial class Register
         var phases = SpecPhases(repo);
         f.Require(phases.Count > 0, "no phases parsed from RAFT_PROJECT_SPEC.md §11");
         var completed = CompletedPhases(repo, f);
+        foreach (var problem in CompletionProblems(ReportStatuses(repo), completed))
+        {
+            f.Fail(problem);
+        }
+
         var rows = Rows(repo, f);
         f.Require(rows.Count > 0, "docs/register.md has no rows");
 
@@ -146,13 +154,73 @@ internal static partial class Register
 
             if (m.Groups["state"].Value == "complete")
             {
-                var phase = m.Groups["p"].Value;
-                set.Add(phase);
-                f.Require(File.Exists(repo.PathOf($"docs/phases/{phase}/report.md")), $"{phase} marked complete without docs/phases/{phase}/report.md");
+                set.Add(m.Groups["p"].Value);
             }
         }
 
         return set;
+    }
+
+    /// <summary>The phase whose accepted report may stay "in progress": its open row is the person's cold walk of the README, which no report can close.</summary>
+    internal const string OpenByDesign = "P0";
+
+    /// <summary>
+    /// P12-01, phase 11's acceptance: docs/phases/status.md had not been kept since phase 7, so the
+    /// check on open rows promised to completed phases could not fire for four phases, and it hid a
+    /// row left open after its phase said it closed. Both ways: an accepted report whose phase is not
+    /// marked complete (S-status-1), and a phase marked complete with no report, or a report that does
+    /// not say it is accepted (S-status-2), which is how a phase is closed without evidence, and which
+    /// <c>gates reports</c> would not see either, since it certifies the reports that exist.
+    /// </summary>
+    internal static List<string> CompletionProblems(IReadOnlyDictionary<string, string?> reportStatus, IReadOnlySet<string> completed)
+    {
+        var problems = new List<string>();
+        foreach (var (phase, status) in reportStatus.OrderBy(r => r.Key, StringComparer.Ordinal))
+        {
+            if (status is null)
+            {
+                problems.Add($"docs/phases/{phase}/report.md has no '**Status:' line");
+            }
+            else if (Accepted(status) && !completed.Contains(phase) && phase != OpenByDesign)
+            {
+                problems.Add($"{phase}: its report says it is accepted, and docs/phases/status.md does not mark it complete");
+            }
+        }
+
+        foreach (var phase in completed.Order(StringComparer.Ordinal))
+        {
+            if (!reportStatus.TryGetValue(phase, out var status))
+            {
+                problems.Add($"{phase} marked complete without docs/phases/{phase}/report.md");
+            }
+            else if (status is not null && !Accepted(status))
+            {
+                problems.Add($"{phase} marked complete, and its report does not say it is accepted (its status: '{status}')");
+            }
+        }
+
+        return problems;
+    }
+
+    private static bool Accepted(string status) => status.StartsWith("accepted", StringComparison.Ordinal);
+
+    /// <summary>Each phase report's status, the text after '**Status:' on its first such line, or null when it has none.</summary>
+    internal static Dictionary<string, string?> ReportStatuses(Repo repo)
+    {
+        var statuses = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var dir = repo.PathOf("docs/phases");
+        if (!Directory.Exists(dir))
+        {
+            return statuses;
+        }
+
+        foreach (var report in Directory.GetDirectories(dir, "P*").Select(d => Path.Combine(d, "report.md")).Where(File.Exists))
+        {
+            var m = File.ReadLines(report).Select(l => ReportStatusLine().Match(l)).FirstOrDefault(m => m.Success);
+            statuses[Path.GetFileName(Path.GetDirectoryName(report)!)] = m?.Groups["s"].Value.Trim();
+        }
+
+        return statuses;
     }
 
     internal static List<Row> Rows(Repo repo, Findings f)
@@ -371,6 +439,9 @@ internal static partial class Register
 
     [GeneratedRegex(@"^- (?<p>P\d+): (?<state>in progress|complete)\b")]
     private static partial Regex StatusLine();
+
+    [GeneratedRegex(@"^\*\*Status: (?<s>[^*]+)")]
+    private static partial Regex ReportStatusLine();
 
     [GeneratedRegex(@"^<(?<m>[^>]*)>")]
     private static partial Regex GeneratedOwner();

