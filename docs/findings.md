@@ -1308,3 +1308,9 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   woken on an idle processor costs tens of microseconds, and fewer hand-offs means more idle
   processors. The decomposition saw each move because it measures every segment, not only the one
   changed; the end-to-end gain was 79, 26 and 24 µs.
+- **A band drawn around the expected value has no margin by construction.** Three of P12-08's
+  flags were bands or floors set near what the control is expected to read: ±20% around 1.0, a
+  floor of 0.9 under a value of 1.03, a floor of 1.5 under 2.0. A control's bound belongs where the
+  sabotage puts the value, with the unpatched value far on the other side; the audit's factor of
+  1.5 on both sides says so mechanically, and moving each bound kept every sabotage caught by a
+  factor of 2.4 or more.
