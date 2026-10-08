@@ -40,7 +40,11 @@ public sealed class NodeHost : IAsyncDisposable
 
     private readonly HostConfig _config;
     private readonly TextWriter _events;
-    private readonly Channel<Input> _inputs = Channel.CreateUnbounded<Input>(new UnboundedChannelOptions { SingleReader = true });
+    // P12-05: the loop's wait for an input completes on the thread that writes the input, which then
+    // wakes the loop itself. With asynchronous continuations the completion went through the thread
+    // pool, a second wake between a reader and the loop: once connections were read on threads of their
+    // own, the leader's queue for client requests rose from 40 to 87 µs at its median.
+    private readonly Channel<Input> _inputs = Channel.CreateUnbounded<Input>(new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = true });
     private readonly CancellationTokenSource _stop = new();
     private readonly ConcurrentDictionary<NodeId, Channel<byte[]>> _outbound = new();
     private readonly ConcurrentDictionary<long, StreamWriter> _pending = new();
