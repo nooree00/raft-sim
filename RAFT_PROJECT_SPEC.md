@@ -35,6 +35,12 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   final phase, and only against a measured baseline. Phase 10 measured it, and
   phase 11 works from it: replication's resends first, then a group commit only
   by a rule written before the re-measurement (P11-00). Leader leases stay out.
+  The rule did not select a group commit (P11-06): at the highest rate sustained
+  in every run, 3,125 writes a second, the leader's sync was 61 to 67% busy,
+  under the 80% the rule set. The same measurement names the sync as the cap
+  all the same: at 4,000 a second, where the tail breaks, it is 75 to 80% busy,
+  a single queue near saturation, and each sync takes 190 to 216 µs against 159
+  idle. So no group commit is built, and more throughput starts there.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
