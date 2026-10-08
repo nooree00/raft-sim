@@ -33,6 +33,34 @@ public static class Frames
         ArgumentNullException.ThrowIfNull(stream);
         var head = new byte[4];
         var got = await stream.ReadAtLeastAsync(head, 4, throwOnEndOfStream: false, cancel).ConfigureAwait(false);
+        if (Body(head, got, maxLength) is not { } body)
+        {
+            return null;
+        }
+
+        return Message(body, await stream.ReadAtLeastAsync(body.AsMemory(4), body.Length - 4, throwOnEndOfStream: false, cancel).ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// <see cref="ReadAsync"/> on the calling thread, blocking until the frame is in (P12-05: a host
+    /// reads each connection on a thread of its own, which the kernel wakes when bytes arrive).
+    /// </summary>
+    public static byte[]? Read(Stream stream, int maxLength)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        var head = new byte[4];
+        var got = stream.ReadAtLeast(head, 4, throwOnEndOfStream: false);
+        if (Body(head, got, maxLength) is not { } body)
+        {
+            return null;
+        }
+
+        return Message(body, stream.ReadAtLeast(body.AsSpan(4), body.Length - 4, throwOnEndOfStream: false));
+    }
+
+    /// <summary>The buffer for a frame whose length <paramref name="head"/> holds, or null at a clean end of stream.</summary>
+    private static byte[]? Body(byte[] head, int got, int maxLength)
+    {
         if (got == 0)
         {
             return null;
@@ -51,7 +79,14 @@ public static class Frames
 
         var body = new byte[4 + length + 4];
         head.CopyTo(body, 0);
-        if (await stream.ReadAtLeastAsync(body.AsMemory(4), length + 4, throwOnEndOfStream: false, cancel).ConfigureAwait(false) < length + 4)
+        return body;
+    }
+
+    /// <summary>The message in a frame whose rest <paramref name="got"/> bytes were read into <paramref name="body"/>, its checksum verified.</summary>
+    private static byte[] Message(byte[] body, int got)
+    {
+        var length = body.Length - 8;
+        if (got < length + 4)
         {
             throw new InvalidDataException("the stream ended inside a frame");
         }

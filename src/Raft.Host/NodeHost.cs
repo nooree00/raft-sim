@@ -172,8 +172,8 @@ public sealed class NodeHost : IAsyncDisposable
             _tasks.Add(Task.Run(() => DialAsync(peer, queue.Reader)));
         }
 
-        _tasks.Add(Task.Run(() => AcceptAsync(peerListener, ServePeerAsync)));
-        _tasks.Add(Task.Run(() => AcceptAsync(clientListener, ServeClientAsync)));
+        _tasks.Add(Task.Run(() => AcceptAsync(peerListener, ServePeer)));
+        _tasks.Add(Task.Run(() => AcceptAsync(clientListener, ServeClient)));
         _tasks.Add(Task.Run(TickAsync));
         _tasks.Add(Task.Factory.StartNew(Loop, TaskCreationOptions.LongRunning));
 
@@ -455,7 +455,7 @@ public sealed class NodeHost : IAsyncDisposable
         }
     }
 
-    private async Task AcceptAsync(TcpListener listener, Func<TcpClient, Task> serve)
+    private async Task AcceptAsync(TcpListener listener, Action<TcpClient> serve)
     {
         while (!_stop.IsCancellationRequested)
         {
@@ -470,40 +470,45 @@ public sealed class NodeHost : IAsyncDisposable
             }
 
             _connections.Add(client);
-            _ = Task.Run(() => serve(client));
+
+            // P12-05: each connection is read on a thread of its own, blocking, so the kernel wakes the
+            // reader when bytes arrive. Read on the pool, a line waited for the pool to run its
+            // continuation: the client's hop to the leader was 112 µs at its median at 625 writes a
+            // second in process, the largest host segment after the generator's change (P12-04).
+            new Thread(() => serve(client)) { IsBackground = true, Name = $"raft-{_config.Id}-read" }.Start();
         }
     }
 
     /// <summary>A peer's frames as inputs, after its hello names it; a frame whose checksum fails closes the connection.</summary>
-    private async Task ServePeerAsync(TcpClient client)
+    private void ServePeer(TcpClient client)
     {
         using (client)
         {
             try
             {
                 var stream = client.GetStream();
-                var hello = await Frames.ReadAsync(stream, 4, _stop.Token).ConfigureAwait(false);
+                var hello = Frames.Read(stream, 4);
                 if (hello is not { Length: 4 })
                 {
                     return;
                 }
 
                 var from = new NodeId(BitConverter.ToInt32(hello));
-                while (await Frames.ReadAsync(stream, _maxFrame, _stop.Token).ConfigureAwait(false) is { } payload)
+                while (!_stop.IsCancellationRequested && Frames.Read(stream, _maxFrame) is { } payload)
                 {
                     _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
                     SpinHandOffDelay();
                     _inputs.Writer.TryWrite(new Receive(from, payload));
                 }
             }
-            catch (Exception e) when (e is OperationCanceledException or IOException or SocketException or ObjectDisposedException or InvalidDataException)
+            catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException or InvalidDataException)
             {
             }
         }
     }
 
     /// <summary>A client's requests, one per line, each answered on the same connection.</summary>
-    private async Task ServeClientAsync(TcpClient client)
+    private void ServeClient(TcpClient client)
     {
         using (client)
         {
@@ -512,7 +517,7 @@ public sealed class NodeHost : IAsyncDisposable
                 var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.ASCII);
                 var writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\n" };
-                while (await reader.ReadLineAsync(_stop.Token).ConfigureAwait(false) is { } line)
+                while (!_stop.IsCancellationRequested && reader.ReadLine() is { } line)
                 {
                     if (line == "Status|")
                     {
@@ -545,7 +550,7 @@ public sealed class NodeHost : IAsyncDisposable
                     _inputs.Writer.TryWrite(new ClientRequest(id, command));
                 }
             }
-            catch (Exception e) when (e is OperationCanceledException or IOException or SocketException or ObjectDisposedException)
+            catch (Exception e) when (e is IOException or SocketException or ObjectDisposedException)
             {
             }
         }

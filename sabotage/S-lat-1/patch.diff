@@ -1,8 +1,8 @@
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -478,8 +478,8 @@
+@@ -496,8 +496,8 @@
                  var from = new NodeId(BitConverter.ToInt32(hello));
-                 while (await Frames.ReadAsync(stream, _maxFrame, _stop.Token).ConfigureAwait(false) is { } payload)
+                 while (!_stop.IsCancellationRequested && Frames.Read(stream, _maxFrame) is { } payload)
                  {
 -                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
                      SpinHandOffDelay();
