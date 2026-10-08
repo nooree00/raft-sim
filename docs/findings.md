@@ -1288,3 +1288,10 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   *Rule:* the message's last paragraph is the trailer block; `Task:` goes in it, on the line before
   `Co-Authored-By:`. Checking it at commit time (`git interpret-trailers --parse`) costs nothing;
   finding it at push time costs every record since.
+- **A control calibrated alone was decided by its neighbours, again.** The hand-off control's band
+  (the approved ±20%) held at 1.04 to 1.05 alone and beside three busy processes, and failed
+  unpatched at 1.22 in the sabotage harness's baseline, the first time it ran beside other
+  workers: a delay planted by spinning takes a processor from the loop it hands to, so on a crowded
+  machine it costs more than itself. Third after S-bench-1 (2 of 13) and S-bench-2 (1.497 against
+  1.5). The band is now half to twice, which P12-08's rule (a factor of 1.5 either side) would have
+  demanded anyway: a band of ±20% around an expected 1.0 cannot have it.

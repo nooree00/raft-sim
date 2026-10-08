@@ -61,6 +61,8 @@ public sealed class NodeHost : IAsyncDisposable
     private long _stallPause;
     private long _stalledWindow = -1;
     private long _peerHandOffDelayTicks;
+    private long _handOffSpunTicks;
+    private long _handOffSpins;
     private volatile int _role;
     private long _term;
 
@@ -103,6 +105,13 @@ public sealed class NodeHost : IAsyncDisposable
         get => TimeSpan.FromTicks(Interlocked.Read(ref _peerHandOffDelayTicks));
         set => Interlocked.Exchange(ref _peerHandOffDelayTicks, value.Ticks);
     }
+
+    /// <summary>
+    /// The planted hand-off delays so far, and the time they actually took: a thread taken off its
+    /// processor mid-spin ends its spin late, so on a busy machine the delay planted is longer than
+    /// the one set (the control's judge, as for the slowed sync's, P10-03).
+    /// </summary>
+    public (long Spins, double Micros) PeerHandOffSpun => (Interlocked.Read(ref _handOffSpins), Bench.Micros(Interlocked.Read(ref _handOffSpunTicks)));
 
     /// <summary>The persist barrier's cost so far (P10-05): see <see cref="DiskExecutor.Barrier"/>.</summary>
     public (long Lists, double Micros) Barrier => _executor?.Barrier ?? (0, 0);
@@ -288,11 +297,15 @@ public sealed class NodeHost : IAsyncDisposable
             return;
         }
 
-        var until = Stopwatch.GetTimestamp() + (ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond);
+        var start = Stopwatch.GetTimestamp();
+        var until = start + (ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond);
         while (Stopwatch.GetTimestamp() < until)
         {
             Thread.SpinWait(20);
         }
+
+        Interlocked.Add(ref _handOffSpunTicks, Stopwatch.GetTimestamp() - start);
+        Interlocked.Increment(ref _handOffSpins);
     }
 
     /// <summary>The planted stall (<see cref="StallEvery"/>): once per period, the loop sleeps out the pause.</summary>
