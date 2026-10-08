@@ -153,6 +153,14 @@ public sealed class BenchControlTests
     /// (follower-queue), between half and three times its planted amount, and in no other segment by
     /// more than 0.4 of it (the generator's own lateness aside, which is before any host). One traced cluster
     /// alternates windows with the delay off and on, three of each, each window's stamps joined alone.
+    /// A segment's rise is its 5th percentile's, delay on against off, over the delay set: a spin never
+    /// ends before its set time, so the delay moves the segment's lower tail by the amount set, and a
+    /// neighbour's burst, which lengthens waits, moves the upper part. Judged by the median, the control
+    /// failed unpatched beside the harness's other workers at 14b9de6 (follower-queue at -0.03 of the
+    /// delay, the windows alternating in time so a burst lands in one mode), and beside the Membership
+    /// and Scale suites in two runs of four (leader-to-send rose 2.6 ms, response-to-client 324 us);
+    /// by the 5th percentile in four runs there, follower-queue rose 1.00 of the delay and no other host
+    /// segment more than 0.08, and with S-lat-1 follower-queue rose 0.00 and network-out 1.00.
     /// Measured locally, two runs: follower-queue rose 528 and 524 us, every other host segment under
     /// 60 us either way; with S-lat-1, 0.05 to 0.07 of the planted amount, and network-out rose by it.
     /// The band was first 0.8 to 1.2 (the approved "within 20%"), and failed unpatched in the sabotage
@@ -204,16 +212,17 @@ public sealed class BenchControlTests
             }
         }
 
-        var rise = Decomposition.Segments.ToDictionary(s => s, s => Decomposition.Stats(delayed[s]).P50 - Decomposition.Stats(plain[s]).P50, StringComparer.Ordinal);
+        double Low(List<double> m) => m.Count == 0 ? 0 : Measurement.Percentile([.. m.Order()], 5);
+        var median = Decomposition.Segments.ToDictionary(s => s, s => Decomposition.Stats(delayed[s]).P50 - Decomposition.Stats(plain[s]).P50, StringComparer.Ordinal);
+        var rise = Decomposition.Segments.ToDictionary(s => s, s => Low(delayed[s]) - Low(plain[s]), StringComparer.Ordinal);
         var spun = c.Nodes.Where(n => n != leader).Select(n => c.Host(n)!.PeerHandOffSpun).Aggregate((Spins: 0L, Micros: 0.0), (a, b) => (a.Spins + b.Spins, a.Micros + b.Micros));
-        var planted = spun.Micros / spun.Spins;
-        Report("bench-handoff.txt", FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; {PlantedMicros} us set, {planted:F0} us spun on average over {spun.Spins} messages; median rise: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))));
+        Report("bench-handoff.txt", FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; {PlantedMicros} us set, {spun.Micros / spun.Spins:F0} us spun on average over {spun.Spins} messages; 5th percentile rise: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))) + "; median rise: " + string.Join(", ", median.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))));
         Assert.True(joined >= 0.95 * writes && left == 0, $"{joined} of {writes} writes joined, {left} left out: the control did not measure the writes it ran");
-        Assert.InRange(rise["follower-queue"] / planted, 0.5, 3.0);
+        Assert.InRange(rise["follower-queue"] / PlantedMicros, 0.5, 3.0);
         // Not the generator's own segment: it is two of the generator's stamps, before the write reaches
         // any host, so no host's delay can be attributed to it; and it is the instrument's noise, which
         // moved by 98 and 112 us between the modes in two local runs, near this bound by chance alone.
-        Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.4 * planted, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us with {planted:F0} us planted in follower-queue")));
+        Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.4 * PlantedMicros, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us at its 5th percentile with {PlantedMicros} us planted in follower-queue")));
     }
 
     /// <summary>

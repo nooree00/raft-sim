@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# P12-08 (phase 12 decision 7): both sides of every host bench control, over RUNS runs alone and RUNS
-# beside three busy processes (the sabotage harness runs four workers on four processors, and two
-# of this phase's control failures happened only there), as rows for `gates margins`. Unpatched: the
+# P12-08 (phase 12 decision 7): both sides of every host bench control, over RUNS runs alone, RUNS
+# beside three busy processes, and RUNS beside the Membership and Scale suites (the sabotage harness
+# runs four workers on four processors, and three of this phase's control failures happened only
+# there; the third, the hand-off control at 14b9de6, beside those two suites' baseline checks and not
+# beside busy processes), as rows for `gates margins`. Unpatched: the
 # whole BenchControlTests class; patched: each control's sabotage applied to the tree, built, its
 # target run, the patch reverted. Each test writes its report before it asserts, so a failing run
 # still gives its values. The bounds are the tests' own, copied here: a test whose bound changes
@@ -15,8 +17,11 @@ bin=tests/Raft.Host.Slow.Tests/bin/Debug/net10.0
 declare -A vals
 add() { vals["$1|$2"]="${vals["$1|$2"]:+${vals["$1|$2"]},}$3"; }
 busy() { for _ in 1 2 3; do (timeout 900 sh -c 'while :; do :; done' &); done; }
-idle() { pkill -f 'while :; do :; done' || true; sleep 1; }
+# The harness's own neighbours: two suites of many threads, each run again until stopped.
+suite() { for p in Membership Scale; do (timeout 1800 sh -c "while :; do dotnet test --project tests/Raft.$p.Tests --no-build >/dev/null 2>&1; done" &); done; sleep 3; }
+idle() { pkill -f 'while :; do' || true; pkill -f 'Raft.Membership.Tests|Raft.Scale.Tests' || true; sleep 1; }
 build() { dotnet build tests/Raft.Host.Slow.Tests -nologo -v:q >/dev/null; }
+neighbours() { dotnet build tests/Raft.Membership.Tests -nologo -v:q >/dev/null && dotnet build tests/Raft.Scale.Tests -nologo -v:q >/dev/null; }
 test_run() { dotnet test --project tests/Raft.Host.Slow.Tests --no-build "$@" >/dev/null 2>&1 || true; }
 pick() { grep -oP "$1" "$bin/$2.txt" | head -1; }
 ratio() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.4f", (b == 0 ? 0 : a / b) }'; }
@@ -46,20 +51,21 @@ read_lateness() {
   return 0
 }
 read_handoff() {
-  local spun queue others
-  spun="$(pick '\K[0-9.]+(?= us spun)' bench-handoff)"
-  queue="$(pick 'follower-queue \K[-0-9.]+' bench-handoff)"
+  local set rises queue others
+  set="$(pick '\K[0-9.]+(?= us set)' bench-handoff)"
+  rises="$(grep -oP '5th percentile rise: \K[^;]*' "$bin/bench-handoff.txt" | tr ',' '\n')"
+  queue="$(echo "$rises" | awk '$1 == "follower-queue" { print $2 }')"
   # The largest rise among the host segments other than follower-queue (the generator's two are before any host).
-  others="$(grep -oP 'median rise: \K.*' "$bin/bench-handoff.txt" | tr ',' '\n' | awk '$1 != "follower-queue" && $1 != "generator-late" && $1 != "connection-wait" { if ($2 > m) m = $2 } END { print m + 0 }')"
-  add handoff-low "$1" "$(ratio "$queue" "$spun")"; add handoff-others "$1" "$(ratio "$others" "$spun")"
-  [ "$1" = u ] && add handoff-high u "$(ratio "$queue" "$spun")"
+  others="$(echo "$rises" | awk '$1 != "follower-queue" && $1 != "generator-late" && $1 != "connection-wait" { if ($2 > m) m = $2 } END { print m + 0 }')"
+  add handoff-low "$1" "$(ratio "$queue" "$set")"; add handoff-others "$1" "$(ratio "$others" "$set")"
+  [ "$1" = u ] && add handoff-high u "$(ratio "$queue" "$set")"
   return 0
 }
 
-# Unpatched: the whole class, alone and beside three busy processes.
-build
-for mode in alone busy; do
-  [ "$mode" = busy ] && busy
+# Unpatched: the whole class, alone, beside three busy processes, and beside the two suites.
+neighbours; build
+for mode in alone busy suite; do
+  [ "$mode" = busy ] && busy; [ "$mode" = suite ] && suite
   for r in $(seq 1 "$runs"); do
     test_run --filter-class '*BenchControlTests'
     read_stall u; read_slowdown u; read_barrier u; read_lateness u; read_handoff u
@@ -67,15 +73,15 @@ for mode in alone busy; do
   idle
 done
 
-# Patched: each control's sabotage, its target alone and beside three busy processes.
+# Patched: each control's sabotage, its target in the same three modes.
 for pair in S-bench-1:APlantedStallShowsOpenLoopAndHidesClosedLoop:stall S-bench-2:APlantedSlowdownMovesTheMedianByTheModelsAmount:slowdown \
             S-bench-3:TheBarrierMeasuredIsTheLeadersOwnSync:barrier S-bench-4:TheGeneratorDispatchesEachWriteAtItsTime:lateness \
             S-lat-1:APlantedHandOffDelayAppearsInItsSegmentOnly:handoff; do
   IFS=: read -r id method control <<< "$pair"
   git apply "sabotage/$id/patch.diff"
   build
-  for mode in alone busy; do
-    [ "$mode" = busy ] && busy
+  for mode in alone busy suite; do
+    [ "$mode" = busy ] && busy; [ "$mode" = suite ] && suite
     for r in $(seq 1 "$runs"); do
       test_run --filter-method "*$method"
       "read_$control" p
@@ -116,7 +122,7 @@ row() { # check bound above|below timing|ratio note
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "${vals["$1|u"]:--}" "${vals["$1|p"]:--}" "$5"
 }
 {
-  echo "# P12-08: the host bench controls, $runs runs alone and $runs beside three busy processes on each side; the replication cost check, seeded, one run a side; at $(git rev-parse --short HEAD)."
+  echo "# P12-08: the host bench controls, $runs runs alone, $runs beside three busy processes and $runs beside the Membership and Scale suites on each side; the replication cost check, seeded, one run a side; at $(git rev-parse --short HEAD)."
   echo "# check	bound	pass	kind	unpatched	patched	note"
   row stall-open-p97 150000 above timing "open loop's 97th percentile, us; S-bench-1"
   row stall-closed-p95 75000 below timing "closed loop's 95th percentile, us"
@@ -127,9 +133,9 @@ row() { # check bound above|below timing|ratio note
   row barrier-per-list-high 2.5 below ratio "the same, its upper bound"
   row lateness-early 0 below ratio "writes dispatched before their time; S-bench-4"
   row lateness-median 5000 below timing "the generator's median lateness, us"
-  row handoff-low 0.5 above ratio "follower-queue's median rise over the delay spun; S-lat-1"
+  row handoff-low 0.5 above ratio "follower-queue's 5th-percentile rise over the delay set; S-lat-1"
   row handoff-high 3.0 below ratio "the same, its upper bound"
-  row handoff-others 0.4 below ratio "the largest other host segment's rise over the delay spun; S-lat-1"
+  row handoff-others 0.4 below ratio "the largest other host segment's 5th-percentile rise over the delay set; S-lat-1"
   row cost-ratio-8 2 below ratio "entries sent a follower per committed entry, 8 in flight; S-repl-11"
   row cost-ratio-32 2 below ratio "the same, 32 in flight; S-repl-11"
   row cost-committed-8 100 above ratio "entries committed, the reading's guard, 8 in flight; S-cost-1"
