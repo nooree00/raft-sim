@@ -40,7 +40,14 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   under the 80% the rule set. The same measurement names the sync as the cap
   all the same: at 4,000 a second, where the tail breaks, it is 75 to 80% busy,
   a single queue near saturation, and each sync takes 190 to 216 µs against 159
-  idle. So no group commit is built, and more throughput starts there.
+  idle. **The rule, not the answer, was corrected at phase 11's acceptance**
+  (reviewer): it measured at the highest sustained rate, and the behaviour that
+  matters is at the rate where the tail breaks. The corrected gate is the
+  leader's sync utilisation at the lowest rate whose 99th percentile passes
+  100 ms in any run, and by it the sync is at the gate (75 to 80%), not under
+  it. A group commit is still not built: it trades latency for throughput, and
+  latency is about ten times its target with nothing yet aimed at it. Latency
+  comes first; the corrected gate is then applied again to the new curve.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
@@ -359,6 +366,11 @@ So the checker is a separate deliverable.
   of a few dozen operations do not fit 16 GB for a key of 240 (16,000,000 took
   9.3 GB). A key the soak cannot decide fails it, as above; no recorded known
   limit exists to explain, since both files have been empty since phase 8.
+  **A budget in states is not a budget in memory.** A state's memory grows with
+  the length of the key's history, so the number of states a runner holds
+  depends on the key, and every known limit's curve above (KL-1 to KL-3) was
+  quoted in states: each stands for the memory it was measured in, on keys
+  like the ones it was measured on.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct
@@ -549,6 +561,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 9 | Real sockets, multi-process | Three processes in Compose, a real client, a killed leader, and the checker green on the resulting history |
 | 10 | Measurement | Throughput and latency against a written target, with the build configuration recorded beside every number |
 | 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
+| 12 | Commit latency, then the group commit by the corrected gate | Proposed at phase 11's acceptance (reviewer): latency is about ten times its target with nothing yet aimed at it, and a group commit trades latency for throughput, so latency first; then the corrected gate (§2) applied to the new curve. The done criterion is written by the phase-12 breakdown's first task, at its approval |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
@@ -565,7 +578,9 @@ Phase 11 was added at phase 6's approval: a research question with a first-time
 candidate measure, kept out of the membership phase so that joint consensus has
 that phase's whole attention. Replication's cost was put first in it at phase
 10's acceptance: the resend defect broke no invariant and capped the cluster at
-a tenth to a sixth of the design's capacity.)
+a tenth to a sixth of the design's capacity. Phase 12 was added at phase 11's
+acceptance: the group-commit gate corrected, and latency put before the group
+commit the corrected gate would otherwise select.)
 
 ## 12. Working agreement
 

@@ -11,3 +11,7 @@ Parsed by `gates register`. One line per phase that has started: `- Pn: in progr
 - P5: complete
 - P6: complete
 - P7: complete
+- P8: complete
+- P9: complete
+- P10: complete
+- P11: complete
