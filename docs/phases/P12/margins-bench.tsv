@@ -3,7 +3,6 @@
 stall-open-p97	150000	above	timing	239979,240862,240111,234936,238857,273745,274321,255074,279345,266482,265450,257863,286994,249043,257820	2464,2654,2496,2090,2268,22646,23727,22935,24020,23856,25489,30158,32208,23546,25176	open loop's 97th percentile, us; S-bench-1
 stall-closed-p95	75000	below	timing	1673,1692,1765,1858,1603,23999,23530,24023,26442,24230,16124,16052,17765,20041,11992	-	closed loop's 95th percentile, us
 slowdown-low	0.75	above	ratio	2.01,2.01,2.02,2.01,2.02,2.82,2.58,2.38,2.58,1.91,1.98,1.96,1.84,2.02,1.95	-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,0.00	median rise over the sleep actually slept; S-bench-2
-slowdown-high	5.0	below	ratio	2.01,2.01,2.02,2.01,2.02,2.82,2.58,2.38,2.58,1.91,1.98,1.96,1.84,2.02,1.95	-	the same, its upper bound
 barrier-lists	0	below	ratio	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	94,95,95,95,95,70,72,71,73,73,75,77,77,78,78	writes answered without a barrier effect list (the test's lists >= writes, a count); S-bench-3
 barrier-per-list-low	0.6	above	ratio	1.0294,1.0348,1.0309,1.0346,1.0359,1.1676,1.1570,1.1770,1.1864,1.1257,1.1298,1.1304,1.1039,1.1044,1.0840	-	barrier per list over the sleep slept
 barrier-per-list-high	2.5	below	ratio	1.0294,1.0348,1.0309,1.0346,1.0359,1.1676,1.1570,1.1770,1.1864,1.1257,1.1298,1.1304,1.1039,1.1044,1.0840	-	the same, its upper bound

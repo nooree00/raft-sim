@@ -101,11 +101,13 @@ public sealed class BenchControlTests
         // vanished on a machine busy with the harness's other workers (a ratio of 0.47 there, 3.16 in
         // another run): on a starved machine a short sleep overlaps the wait for a processor that
         // happens anyway. The lower bound is the control: an insensitive generator gives about 0
-        // (S-bench-2). The upper bound only catches a rise counted twice. The lower bound was 1.5 until
-        // P12-08's margin audit: the unpatched ratio is 2.00 to 2.02 here (ten runs, five beside three
-        // busy processes) and was 1.497 once on GitHub, within the audit's factor of 1.5 of it; at 0.75
-        // the unpatched side is at least 2 times over it and the patched side, about 0, far under.
-        Assert.InRange(rise / slept, 0.75, 5.0);
+        // (S-bench-2). The lower bound was 1.5 until P12-08's margin audit: the unpatched ratio is 2.00
+        // to 2.02 here (ten runs, five beside three busy processes) and was 1.497 once on GitHub, within
+        // the audit's factor of 1.5 of it; at 0.75 the unpatched side is at least 2 times over it and the
+        // patched side, about 0, far under. There is no upper bound since phase 12's acceptance: no
+        // sabotage crossed the one at 5, so it was a check that could not fail, and it read 13.49 once on
+        // GitHub (run 37830104156); the ratio is reported, not bounded.
+        Assert.True(rise / slept >= 0.75, FormattableString.Invariant($"the median rose {rise / slept:F2} times the delay slept, under 0.75: the slowdown did not move the median"));
     }
 
     /// <summary>

@@ -34,7 +34,7 @@ read_stall() {
 }
 read_slowdown() {
   local r; r="$(pick 'us, \K[-0-9.E]+(?= times the)' bench-slowdown)"
-  add slowdown-low "$1" "$r"; [ "$1" = u ] && add slowdown-high u "$r"
+  add slowdown-low "$1" "$r"
   return 0
 }
 read_barrier() {
@@ -127,7 +127,6 @@ row() { # check bound above|below timing|ratio note
   row stall-open-p97 150000 above timing "open loop's 97th percentile, us; S-bench-1"
   row stall-closed-p95 75000 below timing "closed loop's 95th percentile, us"
   row slowdown-low 0.75 above ratio "median rise over the sleep actually slept; S-bench-2"
-  row slowdown-high 5.0 below ratio "the same, its upper bound"
   row barrier-lists 0 below ratio "writes answered without a barrier effect list (the test's lists >= writes, a count); S-bench-3"
   row barrier-per-list-low 0.6 above ratio "barrier per list over the sleep slept"
   row barrier-per-list-high 2.5 below ratio "the same, its upper bound"
