@@ -1326,3 +1326,14 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   waits; the 5th percentile read the delay at 1.00 in every run beside the suites. *Rule:* a control
   of a planted shift reads the statistic the shift moves and load does not (a low percentile for an
   added delay), and a margin audit runs the controls beside the harness's own neighbours.
+- **An entry's line is its time beside three other workers.** The cost file records each harness
+  entry's time on GitHub, where four workers share four processors. Dealt a shard of its own, an
+  entry runs on one worker with the runner's four processors: S-disrupt-4 took 41.5 and 29.7 s
+  against its line of 164.6 (it had run 86 to 182 s in fifteen shared shards; its patch is to
+  Raft.Core, and its build recompiles every project above it), and S-sess-3 118 s against 250.
+  The checks failed both runs' heads as stale files, the second time beyond the entry factor of 5
+  too. P12-08's audit judged the factors on the deals that had run; the refreshed file dealt
+  S-disrupt-4 alone for the first time. Both lower bounds now widen by the processors per worker
+  (S-shard-10), and a shard of one entry is judged as that entry (S-shard-11).
+  *Rule:* a cost measured beside neighbours is a cost with those neighbours; a check that
+  compares it with a run in another arrangement compares two arrangements.

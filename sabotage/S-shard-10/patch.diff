@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -598,7 +598,7 @@
+     /// </summary>
+     internal static void CheckCosts(IReadOnlyDictionary<string, double> timings, ShardCosts costs, Findings f, int workers = LineWorkers)
+     {
+-        var speedup = Math.Max(1.0, LineWorkers / (double)Math.Max(1, workers));
++        var speedup = 1.0;
+         // The furthest from its line either way: a ratio of 0.4 is further than one of 2.
+         var (worst, worstId, worstDistance) = (1.0, "none", 1.0);
+         foreach (var (id, actual) in timings.OrderBy(t => t.Key, StringComparer.Ordinal))

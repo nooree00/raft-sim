@@ -5,7 +5,7 @@
          var recordedTotal = timings.Keys.Sum(costs.Entry);
          f.Note($"recorded costs: this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded, {(recordedTotal > 0 ? actualTotal / recordedTotal : 0):F2} times " + (timings.Count > 1 ? $"(stale beyond {costs.ShardStaleFactor} either way)" : "(one entry, judged as an entry)"));
 -        if (timings.Count > 1 && ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor, speedup))
-+        if (timings.Count > 1 && actualTotal < 0 && ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor, speedup))
++        if (ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor, speedup))
          {
              f.Fail($"this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded in {ShardPlan.CostFile}, beyond the shard stale factor {costs.ShardStaleFactor}: the file is stale, refresh it from this run's entry times");
          }

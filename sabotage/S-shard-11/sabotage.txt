@@ -1,0 +1,6 @@
+description: A shard of one entry is held to the shard factor as well as the entry's, so an entry within its own factor fails the run as a stale file (S-disrupt-4 alone at 0.25 of its line, run 37830104156)
+mechanism: the shard-total staleness check applied to a shard of one entry
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.ShardPlanTests.AShardOfOneEntryIsJudgedAsThatEntry
+expect: caught

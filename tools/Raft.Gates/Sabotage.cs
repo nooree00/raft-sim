@@ -204,7 +204,7 @@ internal static class Sabotage
         // beside its recorded cost, and a failure when one is off by more than the stale factor.
         if (shardOption is not null)
         {
-            CheckCosts(timings, costs, f);
+            CheckCosts(timings, costs, f, workers);
         }
 
         // Fixed cost: worktrees, baseline builds and baseline checks, until the slowest worker is
@@ -583,9 +583,22 @@ internal static class Sabotage
     /// <summary>The recorded costs (P10-00); an absent file is a refusal, not equal costs.</summary>
     private static ShardCosts LoadCosts(Repo repo) => ShardCosts.Parse(File.ReadAllText(repo.PathOf(ShardPlan.CostFile)));
 
-    /// <summary>Each entry's time beside its recorded cost; a failure for each beyond the stale factor (P10-00).</summary>
-    internal static void CheckCosts(IReadOnlyDictionary<string, double> timings, ShardCosts costs, Findings f)
+    /// <summary>
+    /// The workers a line was timed beside: the cost file is refreshed from GitHub's shards, four
+    /// workers on four processors. A shard run on fewer workers gives each entry more processors.
+    /// </summary>
+    internal const int LineWorkers = 4;
+
+    /// <summary>
+    /// Each entry's time beside its recorded cost; a failure for each beyond the stale factor (P10-00).
+    /// A shard run on fewer than <see cref="LineWorkers"/> workers may be faster by their share of the
+    /// processors, so both lower bounds are widened by that much: S-disrupt-4, alone in a shard, took
+    /// 29.7 and 41.5 s against its line of 164.6 (run 37830104156), having run 86 to 182 s in fifteen
+    /// shared shards; its patch is to Raft.Core, and its build recompiles every project above it.
+    /// </summary>
+    internal static void CheckCosts(IReadOnlyDictionary<string, double> timings, ShardCosts costs, Findings f, int workers = LineWorkers)
     {
+        var speedup = Math.Max(1.0, LineWorkers / (double)Math.Max(1, workers));
         // The furthest from its line either way: a ratio of 0.4 is further than one of 2.
         var (worst, worstId, worstDistance) = (1.0, "none", 1.0);
         foreach (var (id, actual) in timings.OrderBy(t => t.Key, StringComparer.Ordinal))
@@ -598,21 +611,24 @@ internal static class Sabotage
                 (worst, worstId, worstDistance) = (ratio, id, distance);
             }
 
-            if (ShardPlan.Stale(actual, recorded, costs.StaleFactor, costs.StaleFloor))
+            if (ShardPlan.Stale(actual, recorded, costs.StaleFactor, costs.StaleFloor, speedup))
             {
-                f.Fail($"{id}: took {actual:F1}s against {recorded:F1}s recorded in {ShardPlan.CostFile}, beyond the stale factor {costs.StaleFactor} (and the {costs.StaleFloor}-s floor): correct its line");
+                f.Fail($"{id}: took {actual:F1}s against {recorded:F1}s recorded in {ShardPlan.CostFile}, beyond the stale factor {costs.StaleFactor}{(speedup > 1 ? $" (below, {costs.StaleFactor * speedup:G3} on {workers} worker(s))" : "")} (and the {costs.StaleFloor}-s floor): correct its line");
             }
         }
 
-        f.Note($"recorded costs: {timings.Count} entries timed; the furthest from its line is {worstId} at {worst:F2} times its recorded cost (stale beyond {costs.StaleFactor} either way, and {costs.StaleFloor} s)");
+        f.Note($"recorded costs: {timings.Count} entries timed; the furthest from its line is {worstId} at {worst:F2} times its recorded cost (stale beyond {costs.StaleFactor} either way{(speedup > 1 ? $", below beyond {costs.StaleFactor * speedup:G3} on {workers} worker(s)" : "")}, and {costs.StaleFloor} s)");
 
         // The file's claim the plan rests on is each shard's total (P10-00, from GitHub's run of
         // 2586b5f): one entry's time swings up to 4.4 times between runs with what its worker built
         // before it, while the shards' totals stayed within 0.78 and 1.61 of their recorded sums.
+        // A shard of one entry is that entry: its total is the entry's time, which the check above
+        // judges at the entry's factor. Held to the shard factor, S-sess-3 alone failed at 0.47 of its
+        // line (run 37785921243) and S-disrupt-4 at 0.25 (run 37830104156).
         var actualTotal = timings.Values.Sum();
         var recordedTotal = timings.Keys.Sum(costs.Entry);
-        f.Note($"recorded costs: this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded, {(recordedTotal > 0 ? actualTotal / recordedTotal : 0):F2} times (stale beyond {costs.ShardStaleFactor} either way)");
-        if (ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor))
+        f.Note($"recorded costs: this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded, {(recordedTotal > 0 ? actualTotal / recordedTotal : 0):F2} times " + (timings.Count > 1 ? $"(stale beyond {costs.ShardStaleFactor} either way)" : "(one entry, judged as an entry)"));
+        if (timings.Count > 1 && ShardPlan.Stale(actualTotal, recordedTotal, costs.ShardStaleFactor, costs.StaleFloor, speedup))
         {
             f.Fail($"this shard's entries took {actualTotal:F0}s against {recordedTotal:F0}s recorded in {ShardPlan.CostFile}, beyond the shard stale factor {costs.ShardStaleFactor}: the file is stale, refresh it from this run's entry times");
         }

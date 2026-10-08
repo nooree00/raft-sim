@@ -173,9 +173,11 @@ internal static class ShardPlan
     /// The reviewer's condition on recorded costs (P10-00): an entry that took more than the factor
     /// times its recorded cost, or less than its recorded cost over the factor, has a wrong line, when
     /// it is also off by more than the floor in seconds: a 2-s entry taking 7 s is noise, not a claim.
+    /// <paramref name="speedup"/> widens the lower bound only: a run with more processors per entry
+    /// than the line was timed with may be that much faster, and is no slower for it.
     /// </summary>
-    public static bool Stale(double actual, double recorded, double factor, double floor) =>
-        recorded > 0 && Math.Abs(actual - recorded) > floor && (actual > recorded * factor || actual < recorded / factor);
+    public static bool Stale(double actual, double recorded, double factor, double floor, double speedup = 1) =>
+        recorded > 0 && Math.Abs(actual - recorded) > floor && (actual > recorded * factor || actual < recorded / (factor * speedup));
 
     public static int Count(int entries, int size)
     {

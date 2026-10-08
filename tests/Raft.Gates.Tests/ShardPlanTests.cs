@@ -204,6 +204,42 @@ public sealed class ShardPlanTests
         Assert.Contains("this shard's entries took 150s against 30s recorded", failure, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A shard run on fewer workers than its lines were timed beside may be faster by their share of
+    /// the processors, and no slower: S-disrupt-4, alone, took 29.7 s against its line of 164.6 (0.18,
+    /// run 37830104156), beyond the factor of 5 below; on one worker the lower bound is 5 times 4.
+    /// The same time on four workers is stale, and five times the line is stale on any. Sabotage
+    /// S-shard-10 (no allowance for the processors).
+    /// </summary>
+    [Theory]
+    [InlineData(29.7, 1, false)]
+    [InlineData(29.7, 4, true)]
+    [InlineData(900, 1, true)]
+    public void AnEntryOnFewerWorkersMayBeFasterByItsShareOfTheProcessors(double actual, int workers, bool stale)
+    {
+        var f = new Findings();
+
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = actual }, Costs(("S-a-1", 164.6)) with { StaleFactor = 5, StaleFloor = 30, ShardStaleFactor = 3 }, f, workers);
+
+        Assert.Equal(stale, f.Failures.Any(x => x.StartsWith("S-a-1: took", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// A shard of one entry is judged as that entry, at the entry's factor, not again at the shard
+    /// factor: four times its line is within the entry factor of 5 and beyond the shard factor of 3.
+    /// Sabotage S-shard-11 (a one-entry shard held to the shard factor).
+    /// </summary>
+    [Fact]
+    public void AShardOfOneEntryIsJudgedAsThatEntry()
+    {
+        var f = new Findings();
+
+        Sabotage.CheckCosts(new Dictionary<string, double> { ["S-a-1"] = 600 }, Costs(("S-a-1", 150)) with { StaleFactor = 5, StaleFloor = 30, ShardStaleFactor = 3 }, f, 1);
+
+        Assert.Empty(f.Failures);
+        Assert.Contains(f.Notes, n => n.Contains("one entry, judged as an entry", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void TheCostFileIsParsed()
     {
