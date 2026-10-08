@@ -1295,3 +1295,8 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   machine it costs more than itself. Third after S-bench-1 (2 of 13) and S-bench-2 (1.497 against
   1.5). The band is now half to twice, which P12-08's rule (a factor of 1.5 either side) would have
   demanded anyway: a band of ±20% around an expected 1.0 cannot have it.
+- **A median is a tail on a saturated machine.** The generator's lateness control was amended once
+  to drop its 99th-percentile bound for the median, which held at 0.6 µs beside three busy
+  processes. GitHub's sabotage harness saturated its four processors and the median was 569 µs.
+  The property that holds under any load is structural (no write dispatched before its time), and
+  it is the one the sabotage breaks; magnitudes belong to records taken on a quiet machine.

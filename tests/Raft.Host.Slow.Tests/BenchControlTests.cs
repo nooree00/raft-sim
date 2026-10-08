@@ -212,12 +212,14 @@ public sealed class BenchControlTests
     /// writes a second, against a server that answers every write at once, so the lateness is the
     /// generator's alone (against the in-process cluster the tail was set by the collector's pauses,
     /// which stop the three hosts in the same process too: a 99th percentile of 1.6 to 3.9 ms in this
-    /// test process). It asserts that no write is dispatched early and that the median lateness is under
-    /// 100 µs; the 99th percentile is reported, not asserted. Measured locally beside 0, 2, 3 and 4 busy
-    /// processes on four processors: the median 0.6 µs with up to three and 0.9 ms with four; the 99th
-    /// percentile 18 and 34 µs alone, 52 µs beside two and 3.1 ms beside three, and the sabotage harness
-    /// runs four workers on GitHub's four. The 99th percentile is held by the records instead (every
-    /// load record carries it, taken with the machine to itself).
+    /// test process). It asserts that no write is dispatched early, which holds on any machine and is
+    /// what the Task.Delay generator breaks (a quarter of its writes go early), and that the median
+    /// lateness is under 5 ms, a guard against a schedule that waits whole ticks; the 99th percentile and
+    /// the median are reported, and held by the records (every load record carries them, taken with the
+    /// machine to itself). The median was first bounded at 100 µs, and failed unpatched in GitHub's
+    /// sabotage harness at 569 µs (run 37785921243), four workers on four processors. Measured locally
+    /// beside 0, 2, 3 and 4 busy processes: the median 0.6 µs with up to three and 0.9 ms with four; the
+    /// 99th percentile 18 and 34 µs alone, 52 µs beside two and 3.1 ms beside three.
     /// Sabotage S-bench-4 (the generator waits with Task.Delay again, sending some writes early).
     /// </summary>
     [Fact]
@@ -232,7 +234,7 @@ public sealed class BenchControlTests
         Report("bench-lateness.txt", FormattableString.Invariant($"{late.Count} writes dispatched, {r.Latencies.Count} answered: lateness min {late[0]:F1} us, p50 {p50:F1} us, p99 {Measurement.Percentile(late, 99):F1} us, max {late[^1]:F1} us, {late.Count(l => l < 0)} early"));
         Assert.True(late.Count == r.Scheduled && r.Latencies.Count == r.Scheduled, $"{late.Count} lateness samples and {r.Latencies.Count} answers for {r.Scheduled} writes: not every write was measured");
         Assert.True(late[0] >= 0, FormattableString.Invariant($"{late.Count(l => l < 0)} writes dispatched before their time, the earliest by {-late[0]:F1} us"));
-        Assert.True(p50 < 100, FormattableString.Invariant($"the generator's median lateness is {p50:F1} us"));
+        Assert.True(p50 < 5_000, FormattableString.Invariant($"the generator's median lateness is {p50:F1} us"));
     }
 
     /// <summary>A server that answers `Status|` as a leader and every other line `ok` at once: the generator measured alone.</summary>
