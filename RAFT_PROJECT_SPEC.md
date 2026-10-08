@@ -503,6 +503,12 @@ Not deferred. The simulator's failures are unreadable without it.
   the effect happened. Prefer a reading computed from the log and the state
   over an incrementing counter wherever one is possible, and say explicitly
   which counters have no state to derive from.
+- **Timestamps the host takes at its hand-offs** (phase 12, P12-00) are such a
+  reading, with no state to derive from, and are said so here: in bench mode
+  only, a host reads the kernel's monotonic clock where it hands a write from
+  one thread or socket to the next, and the bench joins the readings by request
+  and log index. They measure when something happened, as P11-06's sync timing
+  does, and none is taken inside `RaftNode`.
 - No visualiser. One was optional here (a timeline of nodes, terms, and
   messages, after §11's phase 8) and was dropped at phase 10 (P10-09): no
   failure of phases 1 to 9 was diagnosed more slowly for the want of one. The
@@ -561,7 +567,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 9 | Real sockets, multi-process | Three processes in Compose, a real client, a killed leader, and the checker green on the resulting history |
 | 10 | Measurement | Throughput and latency against a written target, with the build configuration recorded beside every number |
 | 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
-| 12 | Commit latency, then the group commit by the corrected gate | Proposed at phase 11's acceptance (reviewer): latency is about ten times its target with nothing yet aimed at it, and a group commit trades latency for throughput, so latency first; then the corrected gate (§2) applied to the new curve. The done criterion is written by the phase-12 breakdown's first task, at its approval |
+| 12 | Commit latency, then the group commit by the corrected gate | The latency of a commit decomposed along its path from timestamps the hosts and the generator take (§9), at a rate below the knee and at the criterion's rate, the segments summing to the end-to-end latency; the load generator's own lateness measured and bounded before any host change is judged; the host's largest segments that are not the design's (two syncs and a round trip) removed or explained, and the curve measured again against L, in process and in Compose: the latency criterion met, or the remaining gap attributed segment by segment, each remaining segment beside its measured floor; the corrected gate (§2) applied to the new curve, a group commit proposed as phase 13 at 80% or more and the row closed with the measurement under it; every check comparing a run-to-run quantity with a threshold measured on both sides, patched and unpatched, and any within a factor of 1.5 of its threshold moved or redesigned |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are

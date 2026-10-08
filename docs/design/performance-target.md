@@ -95,3 +95,26 @@ With S = 159 µs (99th percentile 366 µs) and R = 44 µs (93 µs): L = 2 × 159
 C_disk (64 / S, about 402,000 a second) is kept only as what a group commit on the leader would reach
 on this disk; it is no criterion. Whether a group commit is built is decided by P11-06's rule, from
 the curve P11-05 measures against these.
+
+## Phase 12: what the target cannot see, stated before measuring (P12-00)
+
+Written before any phase-12 number, at the reviewer's direction, so that it is not discovered later
+as a residual. The target above is unchanged (P12's decision 5), and it may be **unreachable in
+principle** on this design and machine, for a reason the model shows on its face.
+
+L = 2S + R counts the leader's sync, the follower's sync and one round trip between them. It has no
+term for two things every measured write also pays:
+- **the client's own round trip** to the leader and back: one more loopback round trip, R again,
+  44 µs on the inputs above;
+- **every piece of software between the hand-offs:** the client's request read from its socket and
+  given to the leader's loop, the append handed to a writer and written, the follower's read handed
+  to its loop and its answer to its writer, the answer handed back to the leader's loop, and the
+  response written. On this host each hand-off crosses a thread (P12-03 counts five on a commit's
+  path), and a thread's wake-up is commonly tens of microseconds.
+
+The median criterion is 1.5 L = 543 µs, which leaves 543 − 362 = **181 µs** above the model for both:
+44 µs for the client's round trip and about **140 µs** for all the software of a commit, about 28 µs
+a hand-off if there are five. Whether that is reachable is what P12-03's decomposition measures. If
+the hand-offs' measured floors (each timed alone, P12's decision 1) sum to more than the margin, the
+criterion cannot be met by changing the host alone, and the phase report says so, segment by segment,
+rather than moving the criterion inside the phase.
