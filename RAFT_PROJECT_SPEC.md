@@ -339,6 +339,26 @@ So the checker is a separate deliverable.
   as a separate operation, an abandoned one open to the end of the history. The
   machinery and the measurements were sound, and observed indeterminate operations
   still drive cost, but the 32,000,000-state wall is not a fact about WGL checkers.
+- **No structural threshold (phase 11, P11-07).** The register asked for a
+  quantity of a key's sub-history that separates the histories the checker
+  decides within its budget from those it cannot. Neither soak has had an
+  undecided key since phase 8, so it was asked of generated single-key histories
+  a linearizable store produces, with a share of their writes lost (54 histories
+  of 8 to 20 clients, `StructuralMeasureTests`). None of the three candidates
+  fixed at phase 6 separates them: the concurrency width with an indeterminate
+  operation open to the end, the indeterminate writes, and the values a read
+  could have seen all overlap between the classes. Histories of width 41 to 45
+  are undecided at 16,000,000 states while widths up to 63 are decided, and the
+  best single threshold on any candidate misplaces 3 of 52. Cost follows how
+  many operations are pending together, whether or not they respond: twenty
+  clients with no write lost are not decided in 1,000,000 states, and three
+  clients with thirteen lost writes are decided in 174. **The limit is therefore
+  stated without a threshold:** it is the budget, and the budget is memory. As a
+  state count it holds only for keys like the soak's, because a state is keyed by
+  a character per operation: the 32,000,000 states that fit the runner for keys
+  of a few dozen operations do not fit 16 GB for a key of 240 (16,000,000 took
+  9.3 GB). A key the soak cannot decide fails it, as above; no recorded known
+  limit exists to explain, since both files have been empty since phase 8.
 
 **The checker's own vacuity risk is the sharpest in the project.** A checker
 that accepts everything passes every test you write against a correct
