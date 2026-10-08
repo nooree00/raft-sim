@@ -1,4 +1,4 @@
 # P12-08: the unpatched values GitHub's runs and the local harness gave where a control failed or came near its bound, kept beside this machine's runs.
-handoff-high-observed	3.0	below	ratio	1.4046,1.2212	-	follower-queue's rise over the delay: 1.40 in GitHub's harness (run 37785921243, 85edc0a's shard 8), 1.22 in the local harness (before c8ff188's band)
+# handoff-high-observed (1.40 in GitHub's harness, run 37785921243, and 1.22 and -0.03 in the local harness) measured the hand-off control's median over the delay spun, which e098dc6 replaced with its 5th percentile over the delay set: not a row of the current check.
 slowdown-low-observed	0.75	above	ratio	1.497	-	the slowdown control's ratio once on GitHub (phase 11's finding)
 lateness-median-observed	5000	below	timing	568.6	-	the generator's median lateness in GitHub's harness (run 37785921243, sabotage 11/12), four workers on four processors

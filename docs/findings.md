@@ -1314,3 +1314,15 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   sabotage puts the value, with the unpatched value far on the other side; the audit's factor of
   1.5 on both sides says so mechanically, and moving each bound kept every sabotage caught by a
   factor of 2.4 or more.
+- **A neighbour's burst moves a median; a planted delay moves the lower tail.** The hand-off control
+  compared each segment's median over windows with the delay off and on, alternating in time.
+  Beside the harness's real neighbours (the Membership and Scale suites, many threads each), a burst
+  in one window moved every median by hundreds of microseconds to milliseconds, and the control
+  failed unpatched both ways: follower-queue at −0.03 of the delay in the local harness, other
+  segments up 2.6 ms beside the two suites. P12-08's audit had put it beside three single-threaded
+  busy processes, which take processors evenly and never burst: the audit's neighbour was a
+  stand-in for the harness's, and the stand-in was kinder. A planted delay adds a fixed amount to
+  every sample, so it moves the lower tail by exactly that amount, while load only lengthens
+  waits; the 5th percentile read the delay at 1.00 in every run beside the suites. *Rule:* a control
+  of a planted shift reads the statistic the shift moves and load does not (a low percentile for an
+  added delay), and a margin audit runs the controls beside the harness's own neighbours.
