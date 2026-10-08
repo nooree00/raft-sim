@@ -95,9 +95,22 @@ public static class Program
         {
             case "sync":
                 Directory.CreateDirectory(dir);
+                var writers = int.Parse(o.GetValueOrDefault("--writers", "1"), CultureInfo.InvariantCulture);
                 _ = Bench.Sync(dir, Math.Min(count, 200), bytes); // warm-up, discarded
-                samples = Bench.Sync(dir, count, bytes);
-                measure = $"append of {bytes} bytes and sync, {count} times, in {dir}";
+                samples = writers > 1 ? Bench.SyncConcurrent(dir, count, bytes, writers) : Bench.Sync(dir, count, bytes);
+                measure = writers > 1
+                    ? $"append of {bytes} bytes and sync, {count} times on each of {writers} threads at once, each in its own directory under {dir}"
+                    : $"append of {bytes} bytes and sync, {count} times, in {dir}";
+                break;
+            case "handoff":
+                _ = Bench.HandOff(Math.Min(count, 200)); // warm-up, discarded
+                samples = Bench.HandOff(count);
+                measure = $"an input handed from a thread to a loop blocked on it (an unbounded channel, continuations on the writer), {count} times, a millisecond apart";
+                break;
+            case "hop":
+                _ = Bench.Hop(Math.Min(count, 200), bytes); // warm-up, discarded
+                samples = Bench.Hop(count, bytes);
+                measure = $"a {bytes}-byte frame written to a loopback connection read on a thread of its own, one way, {count} times, a millisecond apart";
                 break;
             case "rtt":
                 _ = await Bench.RoundTripAsync(Math.Min(count, 200), bytes, CancellationToken.None).ConfigureAwait(false); // warm-up, discarded

@@ -4,6 +4,9 @@
 # values a process cannot see (commit, SDK, image) passed in from here. Usage:
 #   scripts/bench.sh inputs [repetitions]   P10-02: the data volume's sync, the container's /tmp sync,
 #                                           and the loopback round trip, each repeated
+#   scripts/bench.sh floors [reps]          P12-06: the floors the decomposition's segments are read
+#                                           against: the sync with 2 and 3 writers at once, a thread
+#                                           hand-off to a blocked loop, a one-way loopback hop
 #   scripts/bench.sh load-local [reps]      P10-04: the offered-load curve against three hosts in one
 #                                           process (the container's /tmp), each rate repeated
 #   scripts/bench.sh load-compose [reps]    P10-04: the same curve against the Compose cluster, the
@@ -58,6 +61,15 @@ case "$what" in
       run bench sync --dir /data/bench --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-sync-volume-$r" --repetition "$r" --out measurements
       run bench sync --dir /tmp/bench --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-sync-tmp-$r" --repetition "$r" --out measurements
       run bench rtt --count 10000 --task "$inputs_task" --id "$(lc "$inputs_task")-rtt-$r" --repetition "$r" --out measurements
+    done ;;
+  floors)
+    for r in $(seq 1 "$reps"); do
+      for w in 2 3; do
+        run bench sync --dir /data/bench --count 5000 --writers "$w" --task P12-06 --id "p12-06-sync$w-volume-$r" --repetition "$r" --out measurements
+        run bench sync --dir /tmp/bench --count 5000 --writers "$w" --task P12-06 --id "p12-06-sync$w-tmp-$r" --repetition "$r" --out measurements
+      done
+      run bench handoff --count 10000 --task P12-06 --id "p12-06-handoff-$r" --repetition "$r" --out measurements
+      run bench hop --count 10000 --task P12-06 --id "p12-06-hop-$r" --repetition "$r" --out measurements
     done ;;
   load-local)
     for r in $(seq 1 "$reps"); do
