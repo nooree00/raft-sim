@@ -171,7 +171,12 @@ public sealed class NodeHost : IAsyncDisposable
         _listeners.Add(clientListener);
         foreach (var peer in peers)
         {
-            var queue = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
+            // P12-05: the writer's continuation runs on the thread that queues the frame, the loop, so a
+            // send is written to the socket before the loop takes its next input, unless the socket is
+            // full, when the write completes later and the loop goes on. Through the pool, the hand-off
+            // from loop to writer was the leader's wait to send and the follower's to answer (69 and 64 µs
+            // at their medians at 625 writes a second in process, P12-04).
+            var queue = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = true });
             _outbound[peer] = queue;
             _tasks.Add(Task.Run(() => DialAsync(peer, queue.Reader)));
         }
