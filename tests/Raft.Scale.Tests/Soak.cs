@@ -467,7 +467,9 @@ internal static class Soak
         // entries, and now a follower being sent a snapshot gets none meanwhile. On the same 1,000
         // seeds: 74 before and 28 after in the baseline soak (2.8%, over the floor), 26 before and 7
         // after in the membership soak (0.7%, under it). Exercised directly by
-        // InstallSnapshotTests.AFollowerHoldingTheSnapshotsLastEntryKeepsTheEntriesAfterIt.
+        // InstallSnapshotTests.AFollowerHoldingTheSnapshotsLastEntryKeepsTheEntriesAfterIt. A
+        // consequence of the fix, which made a rare path rarer, not a property of the generator
+        // (phase 11's acceptance): a change to how the leader sends is what to look at if it moves.
         ["install-kept-the-suffix"] = "an install over a suffix that agrees with the snapshot: 0.7% of the membership soak's first 1,000 since P11-02, 2.8% of the baseline's",
     };
 
