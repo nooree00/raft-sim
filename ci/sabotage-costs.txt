@@ -284,7 +284,7 @@ S-sec-3 5.7
 S-sec-4 4.6
 S-sess-1 11.2
 S-sess-2 14.8
-S-sess-3 249.5
+S-sess-3 182.2
 S-sess-4 14.8
 S-sess-5 6.1
 S-shard-1 6.6
