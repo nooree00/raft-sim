@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -26,6 +27,8 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
 
     /// <summary>Each host's syncs so far.</summary>
     public long Syncs(NodeId n) => _files[n].Syncs;
+
+    public double SyncMicros(NodeId n) => _files[n].SyncMicros;
 
     public void Start(RaftOptions? options = null)
     {
@@ -76,8 +79,12 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
 public sealed class CountingFileSystem(IFileSystem inner) : IFileSystem
 {
     private long _syncs;
+    private long _syncTicks;
 
     public long Syncs => Interlocked.Read(ref _syncs);
+
+    /// <summary>The time spent in syncs, so a run's sync busy fraction is read from its own syncs, not the model's S (P11-06).</summary>
+    public double SyncMicros => Bench.Micros(Interlocked.Read(ref _syncTicks));
 
     public IReadOnlyList<string> List() => inner.List();
 
@@ -98,7 +105,9 @@ public sealed class CountingFileSystem(IFileSystem inner) : IFileSystem
     public void Sync(string name)
     {
         Interlocked.Increment(ref _syncs);
+        var start = Stopwatch.GetTimestamp();
         inner.Sync(name);
+        Interlocked.Add(ref _syncTicks, Stopwatch.GetTimestamp() - start);
     }
 
     public void SyncDirectory() => inner.SyncDirectory();

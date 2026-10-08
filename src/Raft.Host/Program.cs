@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -161,8 +162,11 @@ public static class Program
             var before = local is null ? [] : local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1))).ToArray();
             var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
             var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
+            var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients);
+            var wall = Stopwatch.StartNew();
             var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
+            var wallMicros = Bench.Micros(wall.ElapsedTicks);
             var results = Bench.Summary(r.Latencies);
             if (clients is null)
             {
@@ -177,6 +181,14 @@ public static class Program
                 var leader = await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
                 var syncs = local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1)) - before[i]).ToArray();
                 results["leader_syncs_per_write"] = Math.Round((double)syncs[leader.Value - 1] / r.Answered, 3);
+
+                // P11-06: the leader's sync busy fraction over the run, from its own syncs' timings.
+                var syncMicros = local.SyncMicros(leader) - syncMicrosBefore[leader.Value - 1];
+                if (syncs[leader.Value - 1] > 0)
+                {
+                    results["leader_sync_us"] = Math.Round(syncMicros / syncs[leader.Value - 1], 1);
+                    results["leader_sync_busy"] = Math.Round(syncMicros / wallMicros, 3);
+                }
                 results["follower_syncs_per_write"] = Math.Round(syncs.Where((_, i) => i != leader.Value - 1).Average() / r.Answered, 3);
                 var sent = local.Hosts[leader.Value - 1].Sent;
                 results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
