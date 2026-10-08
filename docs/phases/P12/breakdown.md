@@ -247,7 +247,7 @@ run on that commit before it is pushed.
 - **S-lat-1:** the planted delay attributed to the segment after its own (a stamp moved one hand-off on).
 - **S-lat-2:** each write joined to the next log index, so every segment reported is of another write's entry. *Amended at P12-03:* the approved text was "one stamp taken before the hand-off it closes, so the segments no longer sum to the latency", and it cannot be caught that way. The segments are differences of consecutive stamps, so they sum to the span from the first stamp to the last whatever the stamps in between are; a stamp at the wrong point moves time between two neighbouring segments (S-lat-1's shape), and a wrong join moves it to another write. The guard against a wrong join is content instead: every stamp the join reaches by index must be of an entry carrying the write's own command (the leader's and the follower's persisted records, the append written and the append read), and a write that fails it is counted and left out.
 - **S-bench-4:** the generator waits with `Task.Delay` again, so its lateness control is red.
-- **S-margin-1:** the audit script reads only the unpatched side, so a threshold set on a control's own unpatched median passes.
+- **S-margin-1:** the audit reads only the unpatched side, so a control whose sabotage reaches within a factor of 1.5 of its threshold passes. *Amended at P12-08:* the approved text said "so a threshold set on a control's own unpatched median passes", which reading the unpatched side would still flag; the failure the sabotage reproduces is phase 11's, a patched side near the bound. The unpatched case is a test of its own (`AThresholdAtTheUnpatchedMedianIsFlagged`).
 
 ## Register rows
 

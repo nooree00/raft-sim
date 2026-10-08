@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using Raft.Core;
 using Raft.Core.Tests;
@@ -79,6 +80,9 @@ public sealed class ReplicationCostTests
     {
         var (cost, elections) = Run(1, inFlight);
         var problems = Problems(cost, elections, inFlight);
+
+        // P12-08: the values the check's bounds are read against, for the margin audit (scripts/margins.sh).
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, $"replication-cost-{inFlight}.txt"), FormattableString.Invariant($"committed {cost.Committed}, worst {cost.WorstRatio:F4}, backlog {cost.Backlog}, elections {elections}\n"));
         Assert.True(problems.Count == 0, string.Join("; ", problems));
     }
 

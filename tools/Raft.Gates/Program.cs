@@ -18,6 +18,7 @@ internal static class Program
         ["verify-run"] = ("the ci run for --sha completed green with every required job", VerifyRun.RunOne),
         ["trailers"] = ("Task: trailers present, and each task's prediction committed first (spec §12)", Trailers.Run),
         ["patches"] = ("every sabotage patch and control applies with git apply, the harness's own tool (P4 acceptance)", PatchCheck.Run),
+        ["margins"] = ("each threshold check's distance from its bound, unpatched and patched, from a margins file (P12-08)", Margins.Run),
         ["measurements"] = ("every measurement record carries its configuration; every report number cites a record or run (P10-01)", Measurements.Run),
         ["register"] = ("deferred-items register vs phase status; every NotImplementedException listed (spec §12)", Register.Run),
         ["reports"] = ("each phase report's certifying commit has a green ci run (spec §12)", VerifyRun.RunReports),

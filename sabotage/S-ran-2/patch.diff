@@ -13,7 +13,7 @@
 --- a/ci/test-baseline.txt
 +++ b/ci/test-baseline.txt
 @@ -4,7 +4,7 @@
- Raft.Gates.Tests 170
+ Raft.Gates.Tests 176
  Raft.Checker.Tests 173
  Raft.Simulation.Tests 110
 -Raft.Core.Tests 852

@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Margins.cs
++++ b/tools/Raft.Gates/Margins.cs
+@@ -40,7 +40,7 @@
+     {
+         ArgumentNullException.ThrowIfNull(row);
+         var unpatched = row.Unpatched.Count == 0 ? 0 : Margin(row, row.Unpatched, mustExceed: row.PassAbove);
+-        var patched = row.Patched.Count == 0 ? double.PositiveInfinity : Margin(row, row.Patched, mustExceed: !row.PassAbove);
++        var patched = double.PositiveInfinity;
+         return new Verdict(row, unpatched, patched);
+     }
+ 

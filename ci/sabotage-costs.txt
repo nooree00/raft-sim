@@ -359,3 +359,4 @@ S-touch-2 8.0
 S-lat-1 104.2
 S-lat-2 4.0
 S-bench-4 96.3
+S-margin-1 5.0

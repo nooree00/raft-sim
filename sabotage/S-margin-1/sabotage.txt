@@ -1,0 +1,6 @@
+description: The control-margin audit reads only the unpatched side of each check, so a control whose sabotage reaches within a factor of 1.5 of its threshold passes the audit, as phase 11's stall control was calibrated (its patched side then survived 2 of 13 runs on GitHub) (P12-08)
+mechanism: the patched side's margin never computed
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.MarginTests.APatchedSideNearTheBoundIsFlagged
+expect: caught
