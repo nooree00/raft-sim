@@ -204,11 +204,11 @@ public sealed class BenchControlTests
     /// generator's alone (against the in-process cluster the tail was set by the collector's pauses,
     /// which stop the three hosts in the same process too: a 99th percentile of 1.6 to 3.9 ms in this
     /// test process). It asserts that no write is dispatched early and that the median lateness is under
-    /// 100 µs; the 99th percentile is reported, not asserted. Measured locally beside 0, 1, 2 and 3 busy
-    /// processes on four processors, two runs each: the median 0.4 to 0.6 µs throughout; the 99th
-    /// percentile 6 to 20 µs with two processors free and 2.3 to 2.8 ms with one, and the sabotage
-    /// harness runs four workers on GitHub's four. The 99th percentile is held by the records instead
-    /// (every load record carries it, taken with the machine to itself).
+    /// 100 µs; the 99th percentile is reported, not asserted. Measured locally beside 0, 2, 3 and 4 busy
+    /// processes on four processors: the median 0.6 µs with up to three and 0.9 ms with four; the 99th
+    /// percentile 18 and 34 µs alone, 52 µs beside two and 3.1 ms beside three, and the sabotage harness
+    /// runs four workers on GitHub's four. The 99th percentile is held by the records instead (every
+    /// load record carries it, taken with the machine to itself).
     /// Sabotage S-bench-4 (the generator waits with Task.Delay again, sending some writes early).
     /// </summary>
     [Fact]

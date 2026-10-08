@@ -12,6 +12,8 @@
 #                                           latency, in process, at rates below the knee
 #   scripts/bench.sh soak-ab [reps]         P10-06: the same 1,000 soak executions at this commit and at
 #                                           phase 8's head (before the last-use set), interleaved
+#   scripts/bench.sh compose-ab [reps]      P12-04: load generators built at RAFT_BENCH_AB_COMMITS (this
+#                                           commit's nodes), interleaved in Compose at RAFT_BENCH_RATES
 #   scripts/bench.sh trace-ab [reps]        P12-03: the hand-off trace's own cost, in process, traced and
 #                                           untraced runs interleaved at RAFT_BENCH_RATES
 #   scripts/bench.sh load-ab [reps]         P11-05: the in-process curve at this commit and at phase
@@ -21,6 +23,8 @@
 # RAFT_BENCH_LOAD_TASK names another (P11-04, P11-05 measure again with the same tool).
 # RAFT_BENCH_DECOMPOSE=1 makes load-local and load-compose trace each write's hand-offs and record
 # where its latency went (P12-03); the Compose nodes then run with RAFT_HANDOFF_TRACE=1.
+# RAFT_BENCH_ID_TAG adds a tag after a record id's task prefix, for a second set under one task
+# (P12-04: the generator's second schedule, `paced`).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -33,6 +37,7 @@ rates="${RAFT_BENCH_RATES:-625 1000 1250 1500 2000 3125}"
 commit="$(git rev-parse HEAD)"
 inputs_task="${RAFT_BENCH_INPUTS_TASK:-P10-02}"; load_task="${RAFT_BENCH_LOAD_TASK:-P10-04}"
 lc() { echo "$1" | tr 'A-Z' 'a-z'; }
+tag="${RAFT_BENCH_ID_TAG:+-$RAFT_BENCH_ID_TAG}"
 decompose=(); [ "${RAFT_BENCH_DECOMPOSE:-0}" = 1 ] && decompose=(--decompose 1)
 test -z "$(git status --porcelain -- src)" || { echo "bench: src has uncommitted changes; a record names the commit it measured"; exit 1; }
 volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
@@ -57,7 +62,37 @@ case "$what" in
   load-local)
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
-        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-local-$rate-$r" --repetition "$r" --out measurements "${decompose[@]}"
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-local-$rate-$r" --repetition "$r" --out measurements "${decompose[@]}"
+      done
+    done ;;
+  compose-ab)
+    # Each commit's load generator in an image of its own, against nodes built from this commit, a
+    # fresh cluster for every run, the commits interleaved within each repetition.
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_HANDOFF_TRACE=0
+    dc() { docker compose -f compose/compose.yaml "$@"; }
+    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    dc build n1 >/dev/null
+    commits="${RAFT_BENCH_AB_COMMITS:?compose-ab needs RAFT_BENCH_AB_COMMITS}"
+    for c in $commits; do
+      at="$(git rev-parse --short "$c")"; tree="$(mktemp -d)/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
+      docker build -q -f "$tree/compose/Dockerfile" --build-arg SDK_IMAGE="$image" -t "raft-host:ab-$at" "$tree" >/dev/null
+    done
+    for r in $(seq 1 "$reps"); do
+      for rate in $rates; do
+        for c in $commits; do
+          at="$(git rev-parse --short "$c")"
+          dc --profile client down -v >/dev/null 2>&1 || true
+          dc up -d n1 n2 n3 >/dev/null
+          for _ in $(seq 60); do
+            for i in 1 2 3; do
+              case "$(dc run --rm --no-deps -T client request --node "n$i:7100" --line 'Status|' 2>/dev/null || true)" in ok\|Leader\|*) break 2 ;; esac
+            done
+            sleep 1
+          done
+          docker run --rm --network raft_clients --user "$(id -u):$(id -g)" -v "$PWD/measurements:/out" -e RAFT_COMMIT="$(git rev-parse "$c")" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" "raft-host:ab-$at" \
+            bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-compose-ab-$at-$rate-$r" --repetition "$r" --out /out \
+            --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk); nodes at $commit, this load generator at $at"
+        done
       done
     done ;;
   trace-ab)
@@ -87,7 +122,7 @@ case "$what" in
         for side in fix base; do
           dir="$PWD"; at=$commit; [ "$side" = base ] && { dir="$old"; at=$base; }
           measured=$at run_in "$dir" bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$ab_task" \
-            --id "$(lc "$ab_task")-ab-$side-$rate-$r" --repetition "$r" --out /out
+            --id "$(lc "$ab_task")$tag-ab-$side-$rate-$r" --repetition "$r" --out /out
         done
       done
     done ;;
@@ -130,7 +165,7 @@ case "$what" in
           sleep 1
         done
         dc --profile client run --rm --no-deps -T -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" client \
-          bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-compose-$rate-$r" --repetition "$r" --out /out \
+          bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-compose-$rate-$r" --repetition "$r" --out /out \
           --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk)" "${decompose[@]}"
       done
     done ;;

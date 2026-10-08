@@ -163,18 +163,18 @@ public static class LoadGenerator
 
         try
         {
-            // P12-04: the schedule runs on a thread of its own, which sleeps while more than two
-            // milliseconds remain and spins the rest, so a write is dispatched at its time and never
-            // before it.
-            // Waiting with Task.Delay, as first written, sent 14 to 20% of writes early and the rest late
-            // by about 1.5 ms at the median (P12-03).
+            // P12-04: the schedule runs on a thread of its own, which sleeps on the kernel's clock until
+            // just before each write's time and spins the rest (Pacing), so a write is dispatched at its
+            // time and never before it. Waiting with Task.Delay, as first written, sent 13 to 21% of
+            // writes early and the rest late by about 1.5 ms at the median (P12-03).
             await Task.Factory.StartNew(
                 () =>
                 {
+                    Pacing.Prepare();
                     for (var i = 0; i < total && !cancel.IsCancellationRequested; i++)
                     {
                         var due = (long)(i * interval);
-                        WaitUntil(start + due);
+                        Pacing.WaitUntil(start + due);
                         var dispatched = Stopwatch.GetTimestamp() - start;
                         var count = due >= windowStart;
                         if (count)
@@ -201,31 +201,6 @@ public static class LoadGenerator
         }
 
         return new LoadResult([.. latencies], counted, incomplete, redirects, config.Duration - config.Warmup, answered, inWindow) { Lateness = [.. lateness] };
-    }
-
-    /// <summary>
-    /// Returns at <paramref name="target"/>, a <see cref="Stopwatch.GetTimestamp"/> value, and never
-    /// before it: sleeping a millisecond at a time while more than two remain (a sleep of one
-    /// oversleeps by a fraction of one), yielding the processor while more than 200 µs remain, and
-    /// spinning the rest.
-    /// </summary>
-    private static void WaitUntil(long target)
-    {
-        var millisecond = Stopwatch.Frequency / 1000;
-        while (target - Stopwatch.GetTimestamp() > 2 * millisecond)
-        {
-            Thread.Sleep(1);
-        }
-
-        while (target - Stopwatch.GetTimestamp() > millisecond / 5)
-        {
-            Thread.Yield();
-        }
-
-        while (Stopwatch.GetTimestamp() < target)
-        {
-            Thread.SpinWait(20);
-        }
     }
 
     /// <summary>How long a run waits past its schedule for the replies still outstanding.</summary>
