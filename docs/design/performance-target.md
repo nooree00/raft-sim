@@ -68,3 +68,30 @@ reply's path back; the host's event log (one JSON line per Core event, to standa
 collection; and any sharing of the four processors among three nodes and the load generator in one
 container. Each is a reason the host may fall short of the model at low load. The latency target's
 slack (1.5 times the median, 3 times the tail) is for them.
+
+## Phase 11's target (P11-04)
+
+Restated before any phase-11 end-to-end number (P11-04, decision 4), with the inputs measured again
+on the day, because P11-05 compares within one machine and one session. The model is phase 10's. The
+throughput criterion changes, and the reason is phase 10's acceptance: its 200,000 a second was half
+of C_disk, the capability of a design whose leader sync carries a 64-entry batch, which this design
+does not have. Every criterion below is a property of the design as built.
+
+| Input | Where | Median | 99th percentile | Records |
+|---|---|---|---|---|
+| S: a 96-byte append and its sync | the Compose data volume | 159 µs (142 to 166) | 366 µs (287 to 408) | m:p11-04-sync-volume-1 to m:p11-04-sync-volume-5 |
+| S: the same | the container's `/tmp` | 164 µs (156 to 168) | 381 µs (327 to 401) | m:p11-04-sync-tmp-1 to m:p11-04-sync-tmp-5 |
+| R: a 96-byte frame and its echo over loopback TCP | in one container | 44 µs (37 to 49) | 93 µs (88 to 100) | m:p11-04-rtt-1 to m:p11-04-rtt-5 |
+
+With S = 159 µs (99th percentile 366 µs) and R = 44 µs (93 µs): L = 2 × 159 + 44 = **362 µs**, its
+99th-percentile counterpart 2 × 366 + 93 = 825 µs, and **C_design = 1 / S = 6,277 writes a second**.
+
+| Criterion | Target | Measured at |
+|---|---|---|
+| Median commit latency | at most 1.5 × L = **543 µs** | an offered rate of C_design / 2, 3,125 a second (phase 10's point, 0.4% under 3,139) |
+| 99th-percentile commit latency | at most 3 × 825 µs = **2.47 ms** | the same |
+| Highest sustained write rate (completed within 5% of offered, the 99th percentile under 100 ms) | at least **C_design / 2, 3,139 a second** | the offered-load curve, 625 to 9,375 a second |
+
+C_disk (64 / S, about 402,000 a second) is kept only as what a group commit on the leader would reach
+on this disk; it is no criterion. Whether a group commit is built is decided by P11-06's rule, from
+the curve P11-05 measures against these.

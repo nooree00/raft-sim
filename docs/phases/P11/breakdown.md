@@ -158,7 +158,7 @@ nothing above (P11-07). Then the cost in CI (P11-08).
 - **Sabotage:** ; manual: the reviewer compares the target's commit with the first P11-05 record's
 - **Verifiable here:** partial — the inputs measured here; the commit order is checked by the reviewer
 - **Prediction:** S and R move by under 10% from phase 10's (160 µs and 47 µs medians), so the targets' numbers change by under 10%: the same disk and kernel. **Observable:** the new records' medians against phase 10's.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the inputs moved by under 10%: the data volume's median sync 159 µs against phase 10's 160 (0.4%), the loopback round trip 44 µs against 47 (7%), five repetitions each (records p11-04-*). The tails moved more and in the same direction (the sync's 99th percentile 366 µs against 410), which the prediction did not cover. The target, restated in `docs/design/performance-target.md` before any phase-11 end-to-end record: L = 362 µs, a median of at most 543 µs and a 99th percentile of at most 2.47 ms at 3,125 writes a second, and a sustained rate of at least C_design / 2 = 3,139 a second, the design's own capacity in place of the 200,000 that described a design with a group commit. Committed before P11-05's first record, whose commit field the report cites beside it.
 
 ### P11-05 — The curve re-measured against the model
 
