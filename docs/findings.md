@@ -1275,3 +1275,16 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   failed at about 3 ms with one, while the median stayed under 1 µs; the sabotage harness runs four
   workers on four processors. The control asserts the median and no early dispatch; the tail is
   held by the records, taken with the machine to itself.
+- **A commit's message is part of its hash, so a trailer fixed late moves every record after it.**
+  Six of phase 12's commits carried `Task:` in a paragraph of its own above the attribution lines,
+  where git does not read it as a trailer (the same slip as P11's `98089c5`); the trailers gate
+  found it in the local run before the push. Rewording them changed the hash of every commit from
+  the first, and 150 records named those commits. The records were relabelled rather than taken
+  again: each reworded commit's tree is byte-identical to the one measured (checked with `git diff`
+  over every path but the records and the breakdown), and a script replaced each old hash with the
+  new one, full and short, in the records' fields, their ids and file names (the Compose A/B's carry
+  a commit in the name) and the breakdown's citations: `0937084` became `a65be9a`, `517e295`
+  `495b600`, `26afe2a` `c4506af`, `97df308` `c6aac4c`, `ce17efc` `85edc0a`, `44d23e6` `b7cd6c4`.
+  *Rule:* the message's last paragraph is the trailer block; `Task:` goes in it, on the line before
+  `Co-Authored-By:`. Checking it at commit time (`git interpret-trailers --parse`) costs nothing;
+  finding it at push time costs every record since.

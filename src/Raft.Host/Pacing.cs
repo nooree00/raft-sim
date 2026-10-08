@@ -13,7 +13,7 @@ namespace Raft.Host;
 /// first version slept only while more than two milliseconds remained, so above 500 writes a second
 /// it spun through every interval: in Compose at 3,125 a second its container took 100 to 120% of a
 /// processor beside a leader at about 70%, and the median and the tail grew (interleaved against
-/// this version, `p12-04-compose-ab-*`). A sleep to within 20 µs, tried first, woke too late too
+/// this version, `p12-04-paced-compose-ab-*`). A sleep to within 20 µs, tried first, woke too late too
 /// often (a 99th percentile of 49 and 177 µs alone); 80 µs leaves the spin under a quarter of a
 /// processor at 3,125 a second.
 /// </summary>
