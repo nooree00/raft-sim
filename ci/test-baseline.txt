@@ -9,4 +9,4 @@ Raft.Scale.Tests 26
 Raft.Budget.Tests 3
 Raft.Membership.Tests 3
 Raft.Host.Tests 31
-Raft.Host.Slow.Tests 8
+Raft.Host.Slow.Tests 9

@@ -340,9 +340,9 @@ S-shard-8 4.7
 S-shard-9 7.0
 S-meas-1 5.1
 S-meas-2 6.5
-S-bench-1 69.9
-S-bench-2 69.0
-S-bench-3 72.7
+S-bench-1 104.4
+S-bench-2 104.4
+S-bench-3 97.8
 S-fsync-1 38.1
 S-fsync-2 46.5
 S-repl-10 6.3
@@ -356,5 +356,6 @@ S-status-1 11.5
 S-status-2 7.9
 S-touch-1 8.0
 S-touch-2 8.0
-S-lat-1 93.1
+S-lat-1 104.2
 S-lat-2 4.0
+S-bench-4 96.3

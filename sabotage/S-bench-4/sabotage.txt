@@ -1,0 +1,6 @@
+description: The load generator waits for each write's time with Task.Delay again, as before P12-04, skipping the wait when under a millisecond remains, so it sends some writes early and the rest about a millisecond late, and the latency it reports carries its own scheduling error both ways (P12-03 measured 14 to 20% early and a median of 1.5 ms late)
+mechanism: the schedule's wait replaced by the Task.Delay it replaced
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.BenchControlTests.TheGeneratorDispatchesEachWriteAtItsTime
+expect: caught

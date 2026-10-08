@@ -9,21 +9,22 @@ using Raft.Core;
 
 namespace Raft.Host;
 
-/// <summary>A write as the load generator saw it (P12-03): its number, when it was due, sent and answered, and the latency the generator measured.</summary>
-public sealed record WriteStamp(int N, long Due, long Sent, long Answered, double LatencyMicros);
+/// <summary>A write as the load generator saw it (P12-03): its number, when it was due, dispatched (P12-04: when its time came on the generator's schedule), sent and answered, and the latency the generator measured.</summary>
+public sealed record WriteStamp(int N, long Due, long Dispatched, long Sent, long Answered, double LatencyMicros);
 
 /// <summary>
 /// P12-03, phase 12 decision 2: where a commit's latency goes. After a run, the hosts' hand-off
 /// stamps (<see cref="HandOffTrace"/>) and the generator's are joined write by write: a write's
 /// command (`Put|k..|v{n}`) names it in the leader's client read and in the leader's entry log, which
 /// gives its index; its index names it in every append, answer and persist after that. Each write's
-/// latency is then fourteen consecutive stamps, so its thirteen segments sum to it by construction.
+/// latency is then fifteen consecutive stamps, so its fourteen segments sum to it by construction.
 /// That identity checks nothing about the join, so the guards are others: the share of writes
 /// joined; content (every stamp joined by index is of an entry carrying the write's own command, so
 /// a write joined to another's index is counted and left out, S-lat-2); causality (no segment from
-/// the send on negative: the generator's own lateness is signed, since it sends early when less than
-/// a millisecond remains); and the stamps' span against the generator's own latency for the same
-/// writes. With two followers, the one whose answer the leader took first is the one that committed
+/// the dispatch on negative: the generator's own lateness is signed, since the generator P12-03
+/// measured sent early when less than a millisecond remained); and the stamps' span against the
+/// generator's own latency for the same writes. The generator's part is two segments (P12-04): its
+/// own lateness, and the wait for a free connection after it, which is the system's backlog. With two followers, the one whose answer the leader took first is the one that committed
 /// the write.
 /// </summary>
 public static class Decomposition
@@ -32,6 +33,7 @@ public static class Decomposition
     public static readonly string[] Segments =
     [
         "generator-late",
+        "connection-wait",
         "client-to-leader",
         "leader-queue",
         "leader-persist",
@@ -130,9 +132,9 @@ public static class Decomposition
                     && answersRead[f].TryGetValue(index, out var lRead) && peerTaken[leader].TryGetValue(lRead.Array!, out var lTaken))
                 {
                     wrong |= sent.Number != w.N || fRead.Number != w.N || fDurable.Number != w.N;
-                    if (best is null || lTaken < best[11])
+                    if (best is null || lTaken < best[12])
                     {
-                        best = [w.Due, w.Sent, read.At, leaderTaken, leaderDurable.At, sent.At, fRead.At, fTaken, fDurable.At, answered.At, lRead.At, lTaken, leaderResponded, w.Answered];
+                        best = [w.Due, w.Dispatched, w.Sent, read.At, leaderTaken, leaderDurable.At, sent.At, fRead.At, fTaken, fDurable.At, answered.At, lRead.At, lTaken, leaderResponded, w.Answered];
                     }
                 }
             }
@@ -155,8 +157,8 @@ public static class Decomposition
                 segments[k] = Bench.Micros(best[k + 1] - best[k]);
                 if (segments[k] < 0)
                 {
-                    // The generator's scheduling error is signed: it sends a write early when less than its
-                    // wait threshold remains. Causality is the system's, from the send on.
+                    // The generator's scheduling error is signed: a generator that dispatches early shows it
+                    // here rather than as a violation. Causality is the system's, from the dispatch on.
                     causal &= k == 0;
                     negative[Segments[k]]++;
                 }

@@ -152,12 +152,12 @@ public static class Program
             local.Start(traced: decompose);
             await local.LeaderAsync(TimeSpan.FromSeconds(15), CancellationToken.None).ConfigureAwait(false);
             nodes = local.Clients;
-            where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded";
+            where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded" + (decompose ? ", hand-offs traced" : "");
         }
         else
         {
             nodes = Endpoints(o["--nodes"]);
-            where = "Compose cluster " + o["--nodes"] + ", events to each node's standard output";
+            where = "Compose cluster " + o["--nodes"] + ", events to each node's standard output" + (decompose ? ", hand-offs traced" : "");
         }
 
         try
@@ -178,6 +178,15 @@ public static class Program
             }
 
             results["completed_per_s"] = Math.Round(r.CompletedPerSecond, 1);
+            if (r.Lateness.Count > 0)
+            {
+                // P12-04: the generator's own lateness, each counted write's dispatch after its time.
+                var late = r.Lateness.Order().ToList();
+                results["generator_late_p50_us"] = Math.Round(Measurement.Percentile(late, 50), 1);
+                results["generator_late_p99_us"] = Math.Round(Measurement.Percentile(late, 99), 1);
+                results["generator_late_max_us"] = Math.Round(late[^1], 1);
+            }
+
             results["incomplete"] = r.Incomplete;
             results["redirects"] = r.Redirects;
             if (local is not null && r.Answered > 0)
@@ -239,7 +248,7 @@ public static class Program
             }
 
             var load = clients is null
-                ? $"open loop, {rate} writes a second for {seconds} s, 64 connections, a write given up after 5 s, plain Put over 64 keys; {where}"
+                ? $"open loop, {rate} writes a second for {seconds} s, scheduled on a thread of its own (sleep, then spin), 64 connections, a write given up after 5 s, plain Put over 64 keys; {where}"
                 : $"closed loop, {clients} clients for {seconds} s, plain Put over 64 keys; {where}";
             var recordConfig = Measurement.Config($"{warmup} s, discarded", o.GetValueOrDefault("--repetition", "1"), load, root ?? "/data");
             if (o.TryGetValue("--data-fs", out var dataFs))

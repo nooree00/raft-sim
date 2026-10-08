@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Raft.Core;
@@ -194,6 +196,97 @@ public sealed class BenchControlTests
         // any host, so no host's delay can be attributed to it; and it is the instrument's noise, which
         // moved by 98 and 112 us between the modes in two local runs, near this bound by chance alone.
         Assert.All(rise.Where(r => r.Key is not "follower-queue" and not "generator-late"), r => Assert.True(r.Value < 0.25 * PlantedMicros, FormattableString.Invariant($"{r.Key} rose {r.Value:F0} us with {PlantedMicros} us planted in follower-queue")));
+    }
+
+    /// <summary>
+    /// P12-04's control: the generator dispatches each write at its time and never before it, at 3,125
+    /// writes a second, against a server that answers every write at once, so the lateness is the
+    /// generator's alone (against the in-process cluster the tail was set by the collector's pauses,
+    /// which stop the three hosts in the same process too: a 99th percentile of 1.6 to 3.9 ms in this
+    /// test process). It asserts that no write is dispatched early and that the median lateness is under
+    /// 100 µs; the 99th percentile is reported, not asserted. Measured locally beside 0, 1, 2 and 3 busy
+    /// processes on four processors, two runs each: the median 0.4 to 0.6 µs throughout; the 99th
+    /// percentile 6 to 20 µs with two processors free and 2.3 to 2.8 ms with one, and the sabotage
+    /// harness runs four workers on GitHub's four. The 99th percentile is held by the records instead
+    /// (every load record carries it, taken with the machine to itself).
+    /// Sabotage S-bench-4 (the generator waits with Task.Delay again, sending some writes early).
+    /// </summary>
+    [Fact]
+    public async Task TheGeneratorDispatchesEachWriteAtItsTime()
+    {
+        await using var server = new OkServer();
+
+        var r = await LoadGenerator.RunAsync(new LoadConfig(new Dictionary<NodeId, DnsEndPoint> { [new NodeId(1)] = server.Endpoint }, Rate: 3_125, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1)), Ct);
+
+        var late = r.Lateness.Order().ToList();
+        var p50 = Measurement.Percentile(late, 50);
+        Report("bench-lateness.txt", FormattableString.Invariant($"{late.Count} writes dispatched, {r.Latencies.Count} answered: lateness min {late[0]:F1} us, p50 {p50:F1} us, p99 {Measurement.Percentile(late, 99):F1} us, max {late[^1]:F1} us, {late.Count(l => l < 0)} early"));
+        Assert.True(late.Count == r.Scheduled && r.Latencies.Count == r.Scheduled, $"{late.Count} lateness samples and {r.Latencies.Count} answers for {r.Scheduled} writes: not every write was measured");
+        Assert.True(late[0] >= 0, FormattableString.Invariant($"{late.Count(l => l < 0)} writes dispatched before their time, the earliest by {-late[0]:F1} us"));
+        Assert.True(p50 < 100, FormattableString.Invariant($"the generator's median lateness is {p50:F1} us"));
+    }
+
+    /// <summary>A server that answers `Status|` as a leader and every other line `ok` at once: the generator measured alone.</summary>
+    private sealed class OkServer : IAsyncDisposable
+    {
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly CancellationTokenSource _stop = new();
+        private readonly Task _accept;
+
+        public OkServer()
+        {
+            _listener.Start();
+            _accept = AcceptAsync();
+        }
+
+        public DnsEndPoint Endpoint => new("127.0.0.1", ((IPEndPoint)_listener.LocalEndpoint).Port);
+
+        private async Task AcceptAsync()
+        {
+            while (!_stop.IsCancellationRequested)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(_stop.Token);
+                }
+                catch (Exception e) when (e is OperationCanceledException or SocketException or ObjectDisposedException)
+                {
+                    return;
+                }
+
+                _ = ServeAsync(client);
+            }
+        }
+
+        private async Task ServeAsync(TcpClient client)
+        {
+            using (client)
+            {
+                client.NoDelay = true;
+                var stream = client.GetStream();
+                using var reader = new StreamReader(stream, Encoding.ASCII);
+                var writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\n", AutoFlush = true };
+                try
+                {
+                    while (await reader.ReadLineAsync(_stop.Token) is { } line)
+                    {
+                        await writer.WriteAsync(line == "Status|" ? "ok|Leader|1\n" : "ok\n");
+                    }
+                }
+                catch (Exception e) when (e is OperationCanceledException or IOException or ObjectDisposedException)
+                {
+                }
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _stop.CancelAsync();
+            _listener.Stop();
+            await _accept;
+            _stop.Dispose();
+        }
     }
 
     private const double PlantedMicros = 500;

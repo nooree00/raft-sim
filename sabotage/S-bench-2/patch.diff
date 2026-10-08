@@ -1,21 +1,19 @@
-diff --git a/src/Raft.Host/LoadGenerator.cs b/src/Raft.Host/LoadGenerator.cs
-index 86a5edd..c2b2023 100644
 --- a/src/Raft.Host/LoadGenerator.cs
 +++ b/src/Raft.Host/LoadGenerator.cs
-@@ -124,6 +124,7 @@ public static class LoadGenerator
-                             return;
-                         }
+@@ -113,6 +113,7 @@
+                 }
+             }
  
-+                        var acquired = clock.ElapsedTicks;
-                         try
-                         {
-                             bool ok;
-@@ -154,7 +155,7 @@ public static class LoadGenerator
-                             if (ok)
-                             {
-                                 var done = clock.ElapsedTicks;
--                                latencies.Add(Bench.Micros(done - due));
-+                                latencies.Add(Bench.Micros(acquired - due));
-                                 config.Trace?.Invoke(new WriteStamp(n, start + due, sent, replied, Bench.Micros(done - due)));
-                                 if (done >= windowStart && done <= windowEnd)
-                                 {
++            var acquired = Stopwatch.GetTimestamp() - start;
+             try
+             {
+                 bool ok;
+@@ -143,7 +144,7 @@
+                 if (ok)
+                 {
+                     var done = Stopwatch.GetTimestamp() - start;
+-                    latencies.Add(Bench.Micros(done - due));
++                    latencies.Add(Bench.Micros(acquired - due));
+                     config.Trace?.Invoke(new WriteStamp(n, start + due, start + dispatched, sent, replied, Bench.Micros(done - due)));
+                     if (done >= windowStart && done <= windowEnd)
+                     {

@@ -1,0 +1,26 @@
+--- a/src/Raft.Host/LoadGenerator.cs
++++ b/src/Raft.Host/LoadGenerator.cs
+@@ -211,20 +211,10 @@
+     /// </summary>
+     private static void WaitUntil(long target)
+     {
+-        var millisecond = Stopwatch.Frequency / 1000;
+-        while (target - Stopwatch.GetTimestamp() > 2 * millisecond)
++        var wait = target - Stopwatch.GetTimestamp();
++        if (wait > Stopwatch.Frequency / 1000)
+         {
+-            Thread.Sleep(1);
+-        }
+-
+-        while (target - Stopwatch.GetTimestamp() > millisecond / 5)
+-        {
+-            Thread.Yield();
+-        }
+-
+-        while (Stopwatch.GetTimestamp() < target)
+-        {
+-            Thread.SpinWait(20);
++            Task.Delay(TimeSpan.FromTicks(wait * TimeSpan.TicksPerSecond / Stopwatch.Frequency)).Wait();
+         }
+     }
+ 

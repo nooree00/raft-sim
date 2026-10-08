@@ -21,7 +21,7 @@ namespace Raft.Host;
 /// <param name="Connections">Open loop: the persistent connections a write waits for; one write is outstanding on each.</param>
 /// <param name="ClosedClients">Closed loop (the comparison): this many clients, each sending its next write when the last is answered, timed from its send.</param>
 /// <param name="Timeout">A write with no reply by then is given up (counted incomplete) and its connection reopened: a leader that loses its office drops its pending requests unanswered.</param>
-/// <param name="Trace">Open loop, P12-03: each counted write answered `ok`, with when it was due, sent and answered (the kernel's monotonic clock) and its latency, for the decomposition.</param>
+/// <param name="Trace">Open loop, P12-03: each counted write answered `ok`, with when it was due, dispatched, sent and answered (the kernel's monotonic clock) and its latency, for the decomposition.</param>
 public sealed record LoadConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes, double Rate, TimeSpan Duration, TimeSpan Warmup, int Connections = 64, int? ClosedClients = null, TimeSpan? Timeout = null, Action<WriteStamp>? Trace = null);
 
 /// <summary>A load run's result: each counted write's latency in microseconds, and what did not complete.</summary>
@@ -29,6 +29,9 @@ public sealed record LoadConfig(IReadOnlyDictionary<NodeId, DnsEndPoint> Nodes, 
 /// <param name="InWindow">Writes answered within the counted window (after the warm-up, before the schedule ended): the throughput's numerator. A write answered after the window is counted in the latencies, not here.</param>
 public sealed record LoadResult(IReadOnlyList<double> Latencies, int Scheduled, int Incomplete, int Redirects, TimeSpan Counted, int Answered = 0, int InWindow = 0)
 {
+    /// <summary>Open loop, P12-04: each counted write's dispatch after its scheduled time, in microseconds (the generator's own lateness; a wait for a free connection after it is not in it).</summary>
+    public IReadOnlyList<double> Lateness { get; init; } = [];
+
     /// <summary>
     /// Writes answered within the window, a second. Dividing every answer by the window instead (as
     /// first written) reported an overloaded cluster as keeping up: at 3,125 offered it gave 3,125
@@ -70,6 +73,7 @@ public static class LoadGenerator
         }
 
         var latencies = new ConcurrentBag<double>();
+        var lateness = new ConcurrentBag<double>();
         var redirects = 0;
         var incomplete = 0;
         var answered = 0;
@@ -77,7 +81,6 @@ public static class LoadGenerator
         var counted = 0;
         var inWindow = 0;
         var start = Stopwatch.GetTimestamp();
-        var clock = Stopwatch.StartNew();
         var interval = Stopwatch.Frequency / config.Rate;
         var windowStart = (long)(config.Warmup.TotalSeconds * Stopwatch.Frequency);
         var windowEnd = (long)(config.Duration.TotalSeconds * Stopwatch.Frequency);
@@ -87,92 +90,105 @@ public static class LoadGenerator
         // Without the bound an overloaded run drained for minutes after its ten seconds (P10-04).
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
         deadline.CancelAfter(config.Duration + Grace);
+
+        // One write, from its dispatch: on a free connection at once (on the scheduler's thread, up to
+        // the wait for its reply), or waiting for one, which is the system's backlog, not the generator's.
+        async Task WriteAsync(int n, long due, long dispatched, bool count)
+        {
+            if (!pool.Reader.TryRead(out var c))
+            {
+                try
+                {
+                    c = await pool.Reader.ReadAsync(deadline.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
+                {
+                    // Still waiting for a connection when the run ended: never sent, incomplete.
+                    if (count)
+                    {
+                        Interlocked.Increment(ref incomplete);
+                    }
+
+                    return;
+                }
+            }
+
+            try
+            {
+                bool ok;
+                int followed;
+                long sent = 0, replied = 0;
+                try
+                {
+                    (ok, followed, sent, replied) = await c.PutAsync(n, deadline.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
+                {
+                    // Sent, not answered when the run ended: incomplete. The connection's stream
+                    // is left mid-reply, but the run is over and every connection is closed.
+                    (ok, followed) = (false, 0);
+                }
+
+                Interlocked.Add(ref redirects, followed);
+                if (ok)
+                {
+                    Interlocked.Increment(ref answered);
+                }
+
+                if (!count)
+                {
+                    return;
+                }
+
+                if (ok)
+                {
+                    var done = Stopwatch.GetTimestamp() - start;
+                    latencies.Add(Bench.Micros(done - due));
+                    config.Trace?.Invoke(new WriteStamp(n, start + due, start + dispatched, sent, replied, Bench.Micros(done - due)));
+                    if (done >= windowStart && done <= windowEnd)
+                    {
+                        Interlocked.Increment(ref inWindow);
+                    }
+                }
+                else
+                {
+                    Interlocked.Increment(ref incomplete);
+                }
+            }
+            finally
+            {
+                pool.Writer.TryWrite(c);
+            }
+        }
+
         try
         {
-            for (var i = 0; i < total; i++)
-            {
-                var due = (long)(i * interval);
-                var wait = due - clock.ElapsedTicks;
-                if (wait > Stopwatch.Frequency / 1000)
+            // P12-04: the schedule runs on a thread of its own, which sleeps while more than two
+            // milliseconds remain and spins the rest, so a write is dispatched at its time and never
+            // before it.
+            // Waiting with Task.Delay, as first written, sent 14 to 20% of writes early and the rest late
+            // by about 1.5 ms at the median (P12-03).
+            await Task.Factory.StartNew(
+                () =>
                 {
-                    await Task.Delay(TimeSpan.FromTicks(wait * TimeSpan.TicksPerSecond / Stopwatch.Frequency), cancel).ConfigureAwait(false);
-                }
-
-                var count = due >= config.Warmup.TotalSeconds * Stopwatch.Frequency;
-                if (count)
-                {
-                    counted++;
-                }
-
-                var n = i;
-                inflight.Add(Task.Run(
-                    async () =>
+                    for (var i = 0; i < total && !cancel.IsCancellationRequested; i++)
                     {
-                        Connection c;
-                        try
+                        var due = (long)(i * interval);
+                        WaitUntil(start + due);
+                        var dispatched = Stopwatch.GetTimestamp() - start;
+                        var count = due >= windowStart;
+                        if (count)
                         {
-                            c = await pool.Reader.ReadAsync(deadline.Token).ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
-                        {
-                            // Still waiting for a connection when the run ended: never sent, incomplete.
-                            if (count)
-                            {
-                                Interlocked.Increment(ref incomplete);
-                            }
-
-                            return;
+                            counted++;
+                            lateness.Add(Bench.Micros(dispatched - due));
                         }
 
-                        try
-                        {
-                            bool ok;
-                            int followed;
-                            long sent = 0, replied = 0;
-                            try
-                            {
-                                (ok, followed, sent, replied) = await c.PutAsync(n, deadline.Token).ConfigureAwait(false);
-                            }
-                            catch (OperationCanceledException) when (!cancel.IsCancellationRequested)
-                            {
-                                // Sent, not answered when the run ended: incomplete. The connection's stream
-                                // is left mid-reply, but the run is over and every connection is closed.
-                                (ok, followed) = (false, 0);
-                            }
-
-                            Interlocked.Add(ref redirects, followed);
-                            if (ok)
-                            {
-                                Interlocked.Increment(ref answered);
-                            }
-
-                            if (!count)
-                            {
-                                return;
-                            }
-
-                            if (ok)
-                            {
-                                var done = clock.ElapsedTicks;
-                                latencies.Add(Bench.Micros(done - due));
-                                config.Trace?.Invoke(new WriteStamp(n, start + due, sent, replied, Bench.Micros(done - due)));
-                                if (done >= windowStart && done <= windowEnd)
-                                {
-                                    Interlocked.Increment(ref inWindow);
-                                }
-                            }
-                            else
-                            {
-                                Interlocked.Increment(ref incomplete);
-                            }
-                        }
-                        finally
-                        {
-                            pool.Writer.TryWrite(c);
-                        }
-                    },
-                    cancel));
-            }
+                        inflight.Add(WriteAsync(i, due, dispatched, count));
+                    }
+                },
+                cancel,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).ConfigureAwait(false);
 
             await Task.WhenAll(inflight).ConfigureAwait(false);
         }
@@ -184,7 +200,32 @@ public static class LoadGenerator
             }
         }
 
-        return new LoadResult([.. latencies], counted, incomplete, redirects, config.Duration - config.Warmup, answered, inWindow);
+        return new LoadResult([.. latencies], counted, incomplete, redirects, config.Duration - config.Warmup, answered, inWindow) { Lateness = [.. lateness] };
+    }
+
+    /// <summary>
+    /// Returns at <paramref name="target"/>, a <see cref="Stopwatch.GetTimestamp"/> value, and never
+    /// before it: sleeping a millisecond at a time while more than two remain (a sleep of one
+    /// oversleeps by a fraction of one), yielding the processor while more than 200 µs remain, and
+    /// spinning the rest.
+    /// </summary>
+    private static void WaitUntil(long target)
+    {
+        var millisecond = Stopwatch.Frequency / 1000;
+        while (target - Stopwatch.GetTimestamp() > 2 * millisecond)
+        {
+            Thread.Sleep(1);
+        }
+
+        while (target - Stopwatch.GetTimestamp() > millisecond / 5)
+        {
+            Thread.Yield();
+        }
+
+        while (Stopwatch.GetTimestamp() < target)
+        {
+            Thread.SpinWait(20);
+        }
     }
 
     /// <summary>How long a run waits past its schedule for the replies still outstanding.</summary>

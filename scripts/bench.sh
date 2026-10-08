@@ -76,6 +76,8 @@ case "$what" in
     done ;;
   load-ab)
     # Phase 10's head, exported (this tree stays as it is), both hosts built in Release.
+    # The task is P11-05's unless RAFT_BENCH_AB_TASK names another (P12-04: the generator, against P12-03's head).
+    ab_task="${RAFT_BENCH_AB_TASK:-P11-05}"
     base="${RAFT_BENCH_AB_BASE:-58bed2b}"; old="$(mktemp -d)/base"; mkdir -p "$old"; git archive "$base" | tar -x -C "$old"
     docker run --rm -v "$old:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src ${HTTPS_PROXY:+--network host -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY} \
       ${SSL_CERT_FILE:+-v "$SSL_CERT_FILE:/etc/ssl/certs/proxy-ca.pem:ro" -e SSL_CERT_FILE=/etc/ssl/certs/proxy-ca.pem} "$image" \
@@ -84,8 +86,8 @@ case "$what" in
       for rate in ${RAFT_BENCH_AB_RATES:-625 1250 3125}; do
         for side in fix base; do
           dir="$PWD"; at=$commit; [ "$side" = base ] && { dir="$old"; at=$base; }
-          measured=$at run_in "$dir" bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P11-05 \
-            --id "p11-05-ab-$side-$rate-$r" --repetition "$r" --out /out
+          measured=$at run_in "$dir" bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$ab_task" \
+            --id "$(lc "$ab_task")-ab-$side-$rate-$r" --repetition "$r" --out /out
         done
       done
     done ;;

@@ -10,7 +10,7 @@ using Xunit;
 namespace Raft.Host.Tests;
 
 /// <summary>
-/// P12-03: the decomposition's join, on hand-built traces whose every segment is known. Three writes
+/// P12-03, P12-04: the decomposition's join, on hand-built traces whose every segment is known. Three writes
 /// (numbers 1 to 3, at indices 2 to 4, so a number taken for an index shows), each segment j of the
 /// committing follower's path lasting (j + 1) * 10 us; the other follower answers later, so it must
 /// not be the one decomposed. Sabotage S-lat-2 (each write joined to the next index, whose stamps are
@@ -34,9 +34,9 @@ public sealed class DecompositionTests
         {
             var index = n + 1;
             var request = 100 + n;
-            var at = new double[14];
+            var at = new double[15];
             at[0] = n * 10_000;
-            for (var j = 1; j < 14; j++)
+            for (var j = 1; j < 15; j++)
             {
                 at[j] = at[j - 1] + (j * 10);
             }
@@ -49,24 +49,24 @@ public sealed class DecompositionTests
 
             var append = new AppendEntries(T1, Leader, index - 1, T1, [new LogEntry(T1, Command(n))], index - 1);
             var answer = new AppendEntriesResponse(T1, true, index);
-            Add(Leader, at[2], HandOffTrace.Kind.ClientRead, request, Command(n));
-            Add(Leader, at[3], HandOffTrace.Kind.ClientTaken, request, null);
-            Add(Leader, at[4], HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
+            Add(Leader, at[3], HandOffTrace.Kind.ClientRead, request, Command(n));
+            Add(Leader, at[4], HandOffTrace.Kind.ClientTaken, request, null);
+            Add(Leader, at[5], HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
             foreach (var (f, late) in new[] { (Fast, 0.0), (Slow, 500.0) })
             {
                 var appendRead = MessageCodec.Encode(append);
                 var answerRead = MessageCodec.Encode(answer);
-                Add(Leader, at[5], HandOffTrace.Kind.Sent, f.Value, Frames.Encode(MessageCodec.Encode(append)));
-                Add(f, at[6], HandOffTrace.Kind.PeerRead, Leader.Value, appendRead);
-                Add(f, at[7], HandOffTrace.Kind.PeerTaken, Leader.Value, appendRead);
-                Add(f, at[8] + late, HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
-                Add(f, at[9] + late, HandOffTrace.Kind.Sent, Leader.Value, Frames.Encode(answerRead));
-                Add(Leader, at[10] + late, HandOffTrace.Kind.PeerRead, f.Value, answerRead);
-                Add(Leader, at[11] + late, HandOffTrace.Kind.PeerTaken, f.Value, answerRead);
+                Add(Leader, at[6], HandOffTrace.Kind.Sent, f.Value, Frames.Encode(MessageCodec.Encode(append)));
+                Add(f, at[7], HandOffTrace.Kind.PeerRead, Leader.Value, appendRead);
+                Add(f, at[8], HandOffTrace.Kind.PeerTaken, Leader.Value, appendRead);
+                Add(f, at[9] + late, HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
+                Add(f, at[10] + late, HandOffTrace.Kind.Sent, Leader.Value, Frames.Encode(answerRead));
+                Add(Leader, at[11] + late, HandOffTrace.Kind.PeerRead, f.Value, answerRead);
+                Add(Leader, at[12] + late, HandOffTrace.Kind.PeerTaken, f.Value, answerRead);
             }
 
-            Add(Leader, at[12], HandOffTrace.Kind.Responded, request, null);
-            writes.Add(new WriteStamp(n, Ticks(at[0]), Ticks(at[1]), Ticks(at[13]), at[13] - at[0]));
+            Add(Leader, at[13], HandOffTrace.Kind.Responded, request, null);
+            writes.Add(new WriteStamp(n, Ticks(at[0]), Ticks(at[1]), Ticks(at[2]), Ticks(at[14]), at[14] - at[0]));
         }
 
         return (traces.ToDictionary(t => t.Key, t => (IReadOnlyList<HandOffTrace.Stamp>)t.Value), writes);
@@ -113,12 +113,12 @@ public sealed class DecompositionTests
         Assert.Equal((2, 1, 1), (d.Joined, d.Violations, d.NegativeBy["follower-queue"]));
     }
 
-    /// <summary>The generator sends early when less than a millisecond remains: its lateness is negative, and that is the instrument's, not a violation.</summary>
+    /// <summary>A write dispatched early (P12-03's generator sent 14 to 20% of its writes before their time): its lateness is negative, and that is the instrument's, not a violation.</summary>
     [Fact]
-    public void AnEarlySendIsTheGeneratorsLatenessNotAViolation()
+    public void AnEarlyDispatchIsTheGeneratorsLatenessNotAViolation()
     {
         var (traces, writes) = Build();
-        writes[0] = writes[0] with { Sent = writes[0].Due - Ticks(50) };
+        writes[0] = writes[0] with { Dispatched = writes[0].Due - Ticks(50) };
 
         var d = Decomposition.Compute(traces, Leader, writes);
 
