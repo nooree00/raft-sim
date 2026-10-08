@@ -12,6 +12,8 @@
 #                                           latency, in process, at rates below the knee
 #   scripts/bench.sh soak-ab [reps]         P10-06: the same 1,000 soak executions at this commit and at
 #                                           phase 8's head (before the last-use set), interleaved
+#   scripts/bench.sh trace-ab [reps]        P12-03: the hand-off trace's own cost, in process, traced and
+#                                           untraced runs interleaved at RAFT_BENCH_RATES
 #   scripts/bench.sh load-ab [reps]         P11-05: the in-process curve at this commit and at phase
 #                                           10's head (before the resend fix), interleaved, at
 #                                           RAFT_BENCH_AB_RATES
@@ -56,6 +58,13 @@ case "$what" in
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
         run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")-local-$rate-$r" --repetition "$r" --out measurements "${decompose[@]}"
+      done
+    done ;;
+  trace-ab)
+    for r in $(seq 1 "$reps"); do
+      for rate in $rates; do
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P12-03 --id "p12-03-trace-ab-traced-$rate-$r" --repetition "$r" --out measurements --decompose 1
+        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P12-03 --id "p12-03-trace-ab-untraced-$rate-$r" --repetition "$r" --out measurements
       done
     done ;;
   barrier)

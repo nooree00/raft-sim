@@ -1225,3 +1225,37 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   (the touched stage's rate per entry, the Budget tests' hardest seeds, a measurement record's
   commit), each now a register row. *Rule:* when a gate reads a file, ask what would tell you the
   file is wrong; if the answer is a person, that is a row.
+- **A guard that holds by construction guards nothing.** P12-03's approved guard was the segments'
+  sum against the latency, within 5%, to catch a stamp taken at the wrong point (S-lat-2). The
+  segments are differences of consecutive stamps, so they sum to the span from the first stamp to
+  the last whatever the stamps between are: a misplaced stamp moves time between two neighbours,
+  and a wrong join moves it to another write, and neither changes the sum. It was found while
+  writing the sabotage, before any number relied on it; the guard became content (every stamp the
+  join reaches by index carries the write's own command). *Rule:* before a check is the guard for
+  a sabotage, write down the sabotage's effect on the checked quantity; if it is zero by algebra,
+  the check is not the guard.
+- **An instrument that errs both ways looks better on average than it is.** The generator skips
+  its wait when under a millisecond remains, so it sends 13 to 21% of writes early, and the rest
+  late by 1.3 to 1.5 ms at the median. Early sends shorten the measured latency and late ones
+  lengthen it, so the mean hides part of the error. Only a signed segment showed it.
+- **A backlog shows where the queue is, not where the cause is.** The generator holds at most 64
+  writes outstanding, so when the cluster falls behind (a Compose run at 3,125 a second, 2,465
+  completed, in P12-03's first set) the backlog waits for a connection, inside the generator's segment, whose median
+  became 1.03 s. A decomposition attributes time to the place a write waited; a cap upstream of the
+  bottleneck moves the wait upstream of it.
+- **A probe costs least where it is read.** The trace adds 2 to 7% to the median and two to
+  four times to the 99th percentile (interleaved, in process), most likely the collector working
+  through the arrays the trace keeps alive. The decomposition is read by medians, and the curve is
+  measured untraced; a decomposition of the tail would need a trace that allocates nothing.
+- **C#'s switch expression picks a common type.** The trace's reader returned each payload
+  through a switch whose arms were an array, an array and a `ReadOnlyMemory<byte>`; the
+  expression's type became `ReadOnlyMemory<byte>` (an array converts to it implicitly), so every
+  array came back boxed as memory and the join found no peer message. Running the in-process
+  bench through the same bytes as Compose found it on the first run; `DecompositionTests` keeps it.
+- **A measurement pins its commit, so check the commit before measuring on it.** P12-03's first
+  forty records named a commit whose change had made S-bench-2's patch stale (it inserted a line
+  into the patch's context). The touched-file stage would have found it, but it runs per push, and
+  the records came first. Repairing the unpushed commit changed its hash and orphaned the records,
+  so they were taken again at the repaired one (about 25 minutes; the medians agreed within about
+  5%). *Rule:* before measuring at a commit, run the patch check (`git apply --check` of every
+  entry) on it.
