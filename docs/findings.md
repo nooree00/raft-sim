@@ -1300,3 +1300,11 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   processes. GitHub's sabotage harness saturated its four processors and the median was 569 µs.
   The property that holds under any load is structural (no write dispatched before its time), and
   it is the one the sabotage breaks; magnitudes belong to records taken on a quiet machine.
+- **Removing a hand-off made the next wake dearer.** Each of P12-05's three changes cut its
+  segment by 45 to 60 µs and moved part of it elsewhere: reading connections on threads of their
+  own exposed the input channel's completion through the pool (+45 µs in the loop's queue), and
+  writing sends from the loop left the pool colder for the reads that still used it (+33 µs in the
+  network hops, +27 µs in the generator's read). On this four-processor virtual machine a thread
+  woken on an idle processor costs tens of microseconds, and fewer hand-offs means more idle
+  processors. The decomposition saw each move because it measures every segment, not only the one
+  changed; the end-to-end gain was 79, 26 and 24 µs.
