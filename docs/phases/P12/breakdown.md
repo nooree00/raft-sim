@@ -5,7 +5,26 @@ Commit latency, then the group commit by the corrected gate (spec §11 phase 12,
 in `docs/phases/P11/breakdown.md`, parsed by `gates breakdown`; outcomes will say `(evidence)` or
 `(forcing)`.
 
-**Draft for review.** No implementation until it is approved.
+**Approved** (reviewer), every decision as proposed; stop and report after the phase. With the
+approval:
+- **P12-01 checks both directions:** a report that says its phase is complete while
+  `docs/phases/status.md` does not, and `status.md` marking a phase complete with no certified report
+  behind it, the second being how a phase gets closed without evidence and the one nobody would
+  think to test. P12-01 also audits the other gates of the same shape, a gate reading a file kept by
+  hand (the sabotage cost file, the test baseline, the patch set, and any other found): whether
+  anything verifies each file is current, or each depends on someone remembering. Any that depends
+  on remembering becomes a register row. The task below is amended accordingly, before it starts;
+- **the status file's finding leads the phase report,** stated as a class: any gate reading a
+  manually maintained file needs a check that the file is current, and the gate itself cannot be
+  that check (the fourth instance in two projects: the test-count baseline, the sabotage cost file,
+  the stale patches, the status file);
+- **the target's gap is written down before the measurement** (`docs/design/performance-target.md`,
+  phase 12's section, with P12-00): L has no term for the client's round trip or for software, which
+  leaves about 140 µs for all of a commit's software at 1.5 L, a reason the target may be
+  unreachable in principle;
+- the headline prediction's shape is what the reviewer wants tested: if the generator's lateness is
+  the largest segment and the corrected gate then selects a group commit, phase 13 is decided by
+  measurement.
 
 **Latency is next, and this phase is about it** (the reviewer asked that the breakdown say so, not
 leave it to the register row). Phase 11 left the cluster at about ten times the design's latency
@@ -134,13 +153,13 @@ cost in CI (P12-09).
 - **Prediction:** The amendment changes §11 and §9 and nothing else: §4's description of the host loop holds until P12-05 chooses its changes, and P12-05, not this task, will be the one to change it. **Observable:** the sections P12-00's commit changes.
 - **Outcome:** pending
 
-### P12-01 — Phase completion checked against the reports
+### P12-01 — Phase completion checked against the reports, both ways; the other hand-kept inputs audited
 
-- **Task:** Decision 8. `gates register` reads each `docs/phases/Pn/report.md` status line and fails when an accepted report's phase is not marked complete in `docs/phases/status.md`, with P0 the one exception, written in the gate with its reason. Phase 11's acceptance found the file unmaintained since phase 7: four phases unmarked, so the gate's check on open rows promised to completed phases could not fire, and the resends row stayed open after its phase said it closed.
-- **Vacuity:** A check that reads a status line nobody writes passes everything. Guarded by a test on today's reports (every accepted one parsed as accepted) and by S-status-1 (the comparison removed).
-- **Sabotage:** S-status-1
+- **Task:** Decision 8, amended at approval. `gates register` compares `docs/phases/status.md` with the reports both ways. An accepted report whose phase is not marked complete fails. A phase marked complete whose report is missing, or does not say it is accepted, fails too. A missing report is one `gates reports` never sees either, since it certifies the reports that exist, so a phase closed with no report would pass every gate today. P0 is the one exception, written in the gate with its reason: accepted, its row the person's walk. Then the audit: for every gate that reads a file kept by hand (the sabotage cost file, the test baseline, the patch set, and any other found), whether anything verifies the file is current or it depends on someone remembering; each that depends on remembering becomes a register row. Phase 11's acceptance found `status.md` unmaintained since phase 7: four phases unmarked, so the check on open rows promised to completed phases could not fire, and the resends row stayed open after its phase said it closed.
+- **Vacuity:** A check that reads a status line nobody writes passes everything. Guarded by a test on today's reports (every accepted one parsed as accepted), by S-status-1 (the first direction removed: a phase accepted and unmarked passes) and by S-status-2 (the second removed: a phase marked complete with no report passes).
+- **Sabotage:** S-status-1, S-status-2
 - **Verifiable here:** yes — the gate and its tests run locally
-- **Prediction:** Run against phase 11's tree before its acceptance, the check fails on exactly the four unmarked phases and, once they are marked, on exactly one open row (the resends). P0 is the only exception it needs: no other phase has an accepted report and a row open by design. **Observable:** the gate's output on `47a9d91` with the check added.
+- **Prediction:** Run against phase 11's tree before its acceptance, the first direction fails on exactly the four unmarked phases and, once they are marked, on exactly one open row (the resends). P0 is the only exception it needs. The second direction finds nothing on today's tree: every phase marked complete has an accepted report. The audit: the test baseline and the patch set are verified current on every run, mechanically (the count gate compares the baseline with the executed counts; the patch gate applies every patch); the cost file only coarsely (an entry beyond a factor of 5, a shard beyond 2), so a line wrong by less, as S-sess-3's was at 2.9 times, depends on someone refreshing it, and that is a row. At least one more input depends on remembering: the touched-file stage's rate per entry (`ci/sabotage-touched.txt`, 13.7 s, against 5.7 s measured at phase 11's main push), which nothing compares with a run. **Observable:** the gate's output on `47a9d91` with the check added and on today's tree; the audit's table, file by file.
 - **Outcome:** pending
 
 ### P12-02 — The soak-derived entries selected when the node changes
@@ -217,11 +236,12 @@ cost in CI (P12-09).
 
 ## Sabotage ids
 
-New series: S-lat (P12-03), S-touch (P12-02), S-status (P12-01), S-margin (P12-08); S-bench-4 follows
+New series: S-lat (P12-03), S-touch (P12-02), S-status (P12-01, two), S-margin (P12-08); S-bench-4 follows
 S-bench-3. Each id's `sabotage/<id>/` entry lands in the same commit as the check it proves and is
 run on that commit before it is pushed.
 
 - **S-status-1:** the gate no longer compares accepted reports with the status file (a phase accepted and unmarked passes).
+- **S-status-2:** the gate no longer checks that a phase marked complete has an accepted report (a phase closed with no report passes).
 - **S-touch-1:** the rule removed: a change to `RaftNode.cs` no longer selects S-soak-6.
 - **S-touch-2:** the rule matching every path: a change to a document selects the soak's entries.
 - **S-lat-1:** the planted delay attributed to the segment after its own (a stamp moved one hand-off on).
