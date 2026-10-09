@@ -1362,3 +1362,10 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   bound guarded nothing a sabotage proves, and its own comment named a case (a rise counted twice,
   about 4) it could not catch at 5. It read 13.49 once on GitHub and was dropped at phase 12's
   acceptance; the ratio is reported, unbounded. The fifth time such a check has been rejected.
+- **A ratio quoted against a baseline that had moved, one message after the finding.** The
+  acceptance message that restated the target put the median at 2.6 times the restated criterion;
+  2.6 was its ratio to the old 543 µs, and against the restated 1,066 µs it is 1.3. The reviewer named
+  it as their own error and the same class as the instrument finding just above: a number read
+  against a reference that had changed under it. Caught in the phase 13 draft, which quoted both.
+  *Rule:* a ratio names its baseline, and the edit that moves a baseline re-reads every ratio quoted
+  against it, in the message as well as the documents.
