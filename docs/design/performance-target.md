@@ -176,3 +176,29 @@ sustained-rate criterion's half of C_design; composing percentiles by summing th
 that do not stall together, the 99th percentile of the sum is well under the sum of the parts'
 99th percentiles, so the restated tail is likely lenient); and the allowance's model, a single server whose service is the sync alone, when
 the loop also reads requests and answers.
+
+## Compose's criterion, from its own hop floor (P13-06)
+
+Until phase 13 no Compose criterion was grounded: Compose's hops cross containers, and no floor had
+been measured for them. P13-06 measured one: a cold one-way frame from one container of the node
+image to a reader asleep on its own thread in another, on a bridge network of their own (Compose's
+driver), timed from the writer's monotonic stamp (the two containers share one kernel, so one
+clock), five runs of 10,000 frames a millisecond apart (m:p13-06-hop-compose-1 to -5): **110 µs at
+the median and 219 µs at the 99th percentile** (medians of the runs'), against loopback's 83 and 201.
+
+The criterion is the restated one with Compose's hop in place of loopback's, the sync with two
+writers on a Docker volume in place of /tmp's (209 and 463 µs, m:p12-06-sync2-volume-1 to -5), the
+same hand-off floor (61 and 168 µs) and the same allowance (127 and 1,194 µs, phase 12's
+acceptance), as decision 8 of phase 13 set:
+
+| Compose criterion at 3,125 writes a second | Floor | Allowance | Criterion |
+|---|---|---|---|
+| Median commit latency | 4 × 110 + 2 × 209 + 3 × 61 = 1,040 µs | 127 µs | **1,167 µs** |
+| 99th-percentile commit latency | 4 × 219 + 2 × 463 + 3 × 168 = 2,305 µs | 1,194 µs | **3.50 ms** |
+
+The same figures still set by hand apply to it, and are settled below (P13-08). **Where Compose
+stands:** traced, at 3,125 writes a second its median was 3,294 µs on this phase's host (2,797 to
+3,564, m:p13-05-traced-compose-3125-1 to -5), about 2.8 times the criterion; untraced, both this
+phase's host and phase 12's were past their capacity on this machine at 3,125 in four runs of five
+(m:p13-05-compose-ab-*), so Compose's highest sustained rate on this machine that day was 1,250 for
+both (2,000 in four runs of five for this phase's host, two for phase 12's).

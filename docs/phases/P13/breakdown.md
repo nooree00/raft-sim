@@ -247,7 +247,7 @@ has changed, because the host's change moves its numbers. Then the target's rema
 - **Sabotage:** ; manual: the record's two hosts, and the floor beside loopback's
 - **Verifiable here:** partial — Compose runs here; whether two containers on one machine stand for Compose's hosts is the reviewer's
 - **Prediction:** A cold cross-container hop takes 100 to 200 µs at its median, against loopback's 83, so Compose's median criterion is 1.1 to 1.5 ms, and Compose's median at 3,125 after P13-04 is still above it. **Observable:** the record; the target's Compose line.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the hop took 110 µs at its median (100 to 119 over five runs, m:p13-06-hop-compose-1 to -5) and 219 at its 99th percentile, against loopback's 83 and 201; the record names both hosts (the writer `raft-hop-writer` at 172.18.0.3, the reader `raft-hop-reader` at 172.18.0.2), and the writer refuses a reader at its own address (checked against 127.0.0.1). Compose's criterion restated in the target from it, with the sync on a Docker volume and the same hand-offs and allowance: **1,167 µs at the median and 3.50 ms at the 99th percentile**, inside the predicted 1.1 to 1.5 ms. Compose's median at 3,125 after P13-04 is above it, as predicted: 3,294 µs traced (m:p13-05-traced-compose-3125-1 to -5), about 2.8 times; untraced, past capacity on this machine that day for both hosts. Whether two containers on one machine stand for Compose's hosts stays the reviewer's: they share one kernel, which is what lets one clock time the hop.
 
 ### P13-07 — The stall control redesigned so its sabotage cannot pass
 
