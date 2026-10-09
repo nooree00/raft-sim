@@ -28,7 +28,7 @@ ratio() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.4f", (b == 0 ? 0 : a / b) }
 
 # One report's values, for the rows its control has on this side.
 read_stall() {
-  add stall-open-p97 "$1" "$(pick 'p97 \K[0-9.]+' bench-stall)"
+  add stall-open-p95 "$1" "$(pick 'open: .*?p95 \K[0-9.]+' bench-stall)"
   [ "$1" = u ] && add stall-closed-p95 u "$(pick 'closed: .*p95 \K[0-9.]+' bench-stall)"
   return 0
 }
@@ -122,9 +122,9 @@ row() { # check bound above|below timing|ratio note
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "${vals["$1|u"]:--}" "${vals["$1|p"]:--}" "$5"
 }
 {
-  echo "# P12-08: the host bench controls, $runs runs alone, $runs beside three busy processes and $runs beside the Membership and Scale suites on each side; the replication cost check, seeded, one run a side; at $(git rev-parse --short HEAD)."
+  echo "# P12-08's audit (scripts/margins.sh): the host bench controls, $runs runs alone, $runs beside three busy processes and $runs beside the Membership and Scale suites on each side; the replication cost check, seeded, one run a side; at $(git rev-parse --short HEAD)."
   echo "# check	bound	pass	kind	unpatched	patched	note"
-  row stall-open-p97 150000 above timing "open loop's 97th percentile, us; S-bench-1"
+  row stall-open-p95 150000 above timing "open loop's 95th percentile, us (a 1-s stall every 4 s, P13-07); S-bench-1"
   row stall-closed-p95 75000 below timing "closed loop's 95th percentile, us"
   row slowdown-low 0.75 above ratio "median rise over the sleep actually slept; S-bench-2"
   row barrier-lists 0 below ratio "writes answered without a barrier effect list (the test's lists >= writes, a count); S-bench-3"
