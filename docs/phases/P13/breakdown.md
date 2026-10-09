@@ -193,7 +193,7 @@ has changed, because the host's change moves its numbers. Then the target's rema
 - **Sabotage:** ; manual: the diff read against the approved text, and every section it touches named in the outcome
 - **Verifiable here:** partial — the text here, its approval the reviewer's
 - **Prediction:** The amendment changes §11 (the phase-13 row) and §4 (the host's loop), and no other section; node-interface §4 needs no change, because it already says the node never waits. **Observable:** the diff.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — the amendment changed §11 (the phase-13 row's done criterion, in place of the placeholder, with the proposal's figures kept beside it) and §4 (a bullet after the persist barrier's: the host runs each node's effect lists on one thread, in emitted order, the node never waits, the barrier holds across lists, a failed write or sync stops the host before any later effect, the loop waits only on a full queue), and no other section: §2's sentence naming the cap as phase 13's is history and stays. `docs/design/node-interface.md` §4 needed no change: it already says "the node never waits, the world holds the message back" and holds a `Send` or `ClientResponse` behind every persist the node emitted before it, across lists. The register's eight rows promised to phase 13 cite the row; one is new, the loop's cap itself, which the draft's P13-05 named as closing with the curve and which had no row.
 
 ### P13-01 — One currency mechanism for every hand-kept input
 
