@@ -1,0 +1,6 @@
+description: After a failed sync the queued effect lists still run, so the host sends and answers for writes whose durability is unknown (P10-07)
+mechanism: the effect queue reports the failure and goes on to the next list
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.EffectThreadTests.NothingRunsAfterAFailedSync
+expect: caught

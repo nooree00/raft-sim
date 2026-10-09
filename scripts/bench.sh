@@ -19,6 +19,9 @@
 #                                           commit's nodes), interleaved in Compose at RAFT_BENCH_RATES
 #   scripts/bench.sh trace-ab [reps]        P12-03: the hand-off trace's own cost, in process, traced and
 #                                           untraced runs interleaved at RAFT_BENCH_RATES
+#   scripts/bench.sh compose-node-ab [reps] P13-05: the nodes built at each of RAFT_BENCH_AB_COMMITS, the
+#                                           load from this commit's generator, interleaved in Compose at
+#                                           RAFT_BENCH_RATES
 #   scripts/bench.sh load-ab [reps]         P11-05: the in-process curve at this commit and at phase
 #                                           10's head (before the resend fix), interleaved, at
 #                                           RAFT_BENCH_AB_RATES
@@ -104,6 +107,39 @@ case "$what" in
           docker run --rm --network raft_clients --user "$(id -u):$(id -g)" -v "$PWD/measurements:/out" -e RAFT_COMMIT="$(git rev-parse "$c")" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" "raft-host:ab-$at" \
             bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-compose-ab-$at-$rate-$r" --repetition "$r" --out /out \
             --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk); nodes at $commit, this load generator at $at"
+        done
+      done
+    done ;;
+  compose-node-ab)
+    # The nodes at each commit, in an image of its own tagged as the cluster's for its runs; the load
+    # from this commit's generator in every run; a fresh cluster each time, the commits interleaved.
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE=0
+    dc() { docker compose -f compose/compose.yaml "$@"; }
+    gen="raft-host:ab-gen-$(git rev-parse --short HEAD)"
+    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker tag "$gen" raft-host:local >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    dc build n1 >/dev/null
+    docker tag raft-host:local "$gen"
+    commits="${RAFT_BENCH_AB_COMMITS:?compose-node-ab needs RAFT_BENCH_AB_COMMITS}"
+    for c in $commits; do
+      at="$(git rev-parse --short "$c")"; tree="$(mktemp -d)/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
+      docker build -q -f "$tree/compose/Dockerfile" --build-arg SDK_IMAGE="$image" -t "raft-host:ab-$at" "$tree" >/dev/null
+    done
+    for r in $(seq 1 "$reps"); do
+      for rate in $rates; do
+        for c in $commits; do
+          at="$(git rev-parse --short "$c")"
+          dc --profile client down -v >/dev/null 2>&1 || true
+          docker tag "raft-host:ab-$at" raft-host:local
+          dc up -d --no-build n1 n2 n3 >/dev/null
+          for _ in $(seq 60); do
+            for i in 1 2 3; do
+              case "$(docker run --rm --network raft_clients "$gen" request --node "n$i:7100" --line 'Status|' 2>/dev/null || true)" in ok\|Leader\|*) break 2 ;; esac
+            done
+            sleep 1
+          done
+          docker run --rm --network raft_clients --user "$(id -u):$(id -g)" -v "$PWD/measurements:/out" -e RAFT_COMMIT="$(git rev-parse "$c")" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" "$gen" \
+            bench load --nodes 1=n1:7100,2=n2:7100,3=n3:7100 --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-compose-ab-$at-$rate-$r" --repetition "$r" --out /out \
+            --data-fs "each node's Docker volume (local driver, $(docker info -f '{{.Driver}}') storage on the host's disk); nodes at $at, the load generator at $commit"
         done
       done
     done ;;

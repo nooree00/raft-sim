@@ -1,0 +1,15 @@
+diff --git a/src/Raft.Host/EffectThread.cs b/src/Raft.Host/EffectThread.cs
+index a19a9fc..c1cd737 100644
+--- a/src/Raft.Host/EffectThread.cs
++++ b/src/Raft.Host/EffectThread.cs
+@@ -50,8 +50,8 @@ public sealed class EffectThread : IAsyncDisposable
+         _execute = execute;
+         _failed = failed;
+         _measure = measure;
+-        _lists = Channel.CreateBounded<(IReadOnlyList<Effect>, long)>(new BoundedChannelOptions(capacity) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, AllowSynchronousContinuations = true });
+-        _thread = Task.Factory.StartNew(Run, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
++        _lists = Channel.CreateBounded<(IReadOnlyList<Effect>, long)>(new BoundedChannelOptions(capacity) { SingleReader = false, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, AllowSynchronousContinuations = true });
++        _thread = Task.WhenAll(Task.Factory.StartNew(Run, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default), Task.Factory.StartNew(Run, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default));
+     }
+ 
+     /// <summary>

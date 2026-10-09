@@ -182,6 +182,8 @@ public static class Program
             var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
             var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
             var loopBefore = local is null ? [] : local.Hosts.Select(h => h.LoopTimes).ToArray();
+            var effectsBefore = local is null ? [] : local.Hosts.Select(h => h.EffectTimes).ToArray();
+            var effectWaitsBefore = local is null ? [] : local.Hosts.Select(h => (h.EffectWaits.Persist.Length, h.EffectWaits.Response.Length)).ToArray();
             var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
@@ -238,19 +240,41 @@ public static class Program
                 results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
                 results["leader_bytes_per_write"] = Math.Round((double)(sent.Bytes - sentBefore[leader.Value - 1].Bytes) / r.Answered, 0);
 
-                // P13-03: the leader's loop, per write: the node's handling, the effects' execution (its syncs
-                // among them), and how much of the loop's busy time (the wall less its wait) the two cover.
-                var loop = local.Hosts[leader.Value - 1].LoopTimes;
+                // P13-03: the leader's loop, per write: the node's handling and the hand-over of its effects, and
+                // how much of the loop's busy time (the wall less its wait) the two cover. P13-04: the effects'
+                // thread the same way, its syncs' share of its work, and each list's wait in its queue.
+                var leaderHost = local.Hosts[leader.Value - 1];
+                var loop = leaderHost.LoopTimes;
                 var lb = loopBefore[leader.Value - 1];
-                var (handle, execute, wait) = (loop.HandleMicros - lb.HandleMicros, loop.ExecuteMicros - lb.ExecuteMicros, loop.WaitMicros - lb.WaitMicros);
+                var (handle, handOver, wait) = (loop.HandleMicros - lb.HandleMicros, loop.HandOverMicros - lb.HandOverMicros, loop.WaitMicros - lb.WaitMicros);
                 results["leader_loop_handle_us_per_write"] = Math.Round(handle / r.Answered, 1);
-                results["leader_loop_execute_us_per_write"] = Math.Round(execute / r.Answered, 1);
+                results["leader_loop_handover_us_per_write"] = Math.Round(handOver / r.Answered, 1);
                 results["leader_loop_inputs_per_write"] = Math.Round((double)(loop.Inputs - lb.Inputs) / r.Answered, 2);
                 results["leader_loop_busy"] = Math.Round((wallMicros - wait) / wallMicros, 3);
-                results["leader_loop_parts_cover"] = Math.Round((handle + execute) / Math.Max(1, wallMicros - wait), 3);
+                results["leader_loop_parts_cover"] = Math.Round((handle + handOver) / Math.Max(1, wallMicros - wait), 3);
+                var fx = leaderHost.EffectTimes;
+                var eb = effectsBefore[leader.Value - 1];
+                var (execute, effectWait) = (fx.ExecuteMicros - eb.ExecuteMicros, fx.WaitMicros - eb.WaitMicros);
+                results["leader_effects_execute_us_per_write"] = Math.Round(execute / r.Answered, 1);
+                results["leader_effects_lists_per_write"] = Math.Round((double)(fx.Lists - eb.Lists) / r.Answered, 2);
+                results["leader_effects_busy"] = Math.Round((wallMicros - effectWait) / wallMicros, 3);
+                results["leader_effects_parts_cover"] = Math.Round(execute / Math.Max(1, wallMicros - effectWait), 3);
+                results["leader_effects_full_us_per_write"] = Math.Round((fx.FullMicros - eb.FullMicros) / r.Answered, 1);
                 if (syncs[leader.Value - 1] > 0)
                 {
-                    results["leader_loop_sync_share"] = Math.Round(syncMicros / Math.Max(1, handle + execute), 3);
+                    results["leader_effects_sync_share"] = Math.Round(syncMicros / Math.Max(1, execute), 3);
+                }
+
+                var waits = leaderHost.EffectWaits;
+                var (persistFrom, responseFrom) = effectWaitsBefore[leader.Value - 1];
+                foreach (var (name, samples) in new[] { ("persist", waits.Persist[persistFrom..]), ("response", waits.Response[responseFrom..]) })
+                {
+                    if (samples.Length > 0)
+                    {
+                        var sorted = samples.Order().ToList();
+                        results[$"leader_effect_queue_{name}_p50_us"] = Math.Round(Measurement.Percentile(sorted, 50), 1);
+                        results[$"leader_effect_queue_{name}_p99_us"] = Math.Round(Measurement.Percentile(sorted, 99), 1);
+                    }
                 }
 
                 // P10-05: the time the leader's sends waited behind its own persists, per such effect list,

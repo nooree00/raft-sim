@@ -1,0 +1,6 @@
+description: Two threads run a node's effect lists, so a later list can release a send or a response while an earlier list's persist is still syncing (node-interface §4's barrier broken across lists)
+mechanism: a second consumer of the effect queue
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.EffectThreadTests.NoListReleasesBeforeThePersistsOfTheListsBeforeItAreDurable
+expect: caught

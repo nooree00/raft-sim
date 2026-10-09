@@ -1,0 +1,16 @@
+diff --git a/src/Raft.Host/EffectThread.cs b/src/Raft.Host/EffectThread.cs
+index a19a9fc..f803405 100644
+--- a/src/Raft.Host/EffectThread.cs
++++ b/src/Raft.Host/EffectThread.cs
+@@ -154,10 +154,8 @@ public sealed class EffectThread : IAsyncDisposable
+                     // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
+                     // report success over lost pages), so nothing after it runs: not the rest of this list,
+                     // and not any list queued behind it.
+-                    _stopped = true;
+-                    _lists.Writer.TryComplete();
+                     _failed(e);
+-                    return;
++                    continue;
+                 }
+ 
+                 Interlocked.Add(ref _executeTicks, Stopwatch.GetTimestamp() - start);

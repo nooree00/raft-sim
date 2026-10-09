@@ -24,7 +24,8 @@ namespace Raft.Host;
 /// <param name="TickMilliseconds">How often the clock's tick is delivered; one tick unit is one millisecond.</param>
 /// <param name="FileSystem">The data directory as files, for a test or a measurement to wrap (a slowed sync, P10-03; a failing one, P10-07); the real directory when absent.</param>
 /// <param name="AnswerRoles">Whether `Roles|` is answered (P13-02: a Compose node in a load run, RAFT_BENCH_ROLES=1); the role changes are kept either way.</param>
-public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null, HandOffTrace? Trace = null, bool AnswerRoles = false);
+/// <param name="TimeEffects">Whether each effect list's wait in the queue is kept, for a load run's record (P13-04).</param>
+public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null, HandOffTrace? Trace = null, bool AnswerRoles = false, bool TimeEffects = false);
 
 /// <summary>
 /// One change of a node's role (P13-02), with the host's evidence for why: how long it had read no
@@ -41,8 +42,9 @@ public sealed record RoleChange(long At, Role From, Role To, long Term, double S
 
 /// <summary>
 /// One Raft node in a process (P9-04, spec §4's host): a single thread runs the node, fed by a
-/// monotonic clock, frames from its peers and requests from clients, and executes its effects on
-/// real files (<see cref="DiskExecutor"/>). Peers are dialled and redialled; a message to a peer
+/// monotonic clock, frames from its peers and requests from clients, and hands its effects to a
+/// thread of their own that executes them on real files, in order (<see cref="EffectThread"/>,
+/// <see cref="DiskExecutor"/>; P13-04: the node never waits for a sync). Peers are dialled and redialled; a message to a peer
 /// that cannot be reached is dropped, which Raft tolerates as a lost message. Clients send one
 /// request per line and get its reply on the same connection; `Status|` is answered by the host, and
 /// so is `Trace|` (its hand-off stamps, when a bench run traces it, P12-03).
@@ -70,6 +72,7 @@ public sealed class NodeHost : IAsyncDisposable
     private readonly object _eventLock = new();
     private RaftNode? _node;
     private DiskExecutor? _executor;
+    private EffectThread? _effects;
     private long _requests;
     private volatile bool _holdOutbound;
     private readonly TaskCompletionSource<Exception> _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -89,7 +92,7 @@ public sealed class NodeHost : IAsyncDisposable
     private readonly ConcurrentQueue<RoleChange> _roleChanges = new();
     private long _loopWaitTicks;
     private long _loopHandleTicks;
-    private long _loopExecuteTicks;
+    private long _loopHandOverTicks;
     private long _loopInputs;
 
     public NodeHost(HostConfig config, TextWriter events)
@@ -129,11 +132,18 @@ public sealed class NodeHost : IAsyncDisposable
 
     /// <summary>
     /// The loop's time so far (P13-03), from its own timers: blocked waiting for an input; in the node's
-    /// handling of inputs; executing their effects (the syncs among them); and the inputs taken. Its
-    /// busy time read the other way, the run's wall time less the wait, is what the two parts must cover.
+    /// handling of inputs; handing their effects over (P13-04: waiting only when the queue is full); and
+    /// the inputs taken. Its busy time read the other way, the run's wall time less the wait, is what
+    /// the two parts must cover.
     /// </summary>
-    public (double WaitMicros, double HandleMicros, double ExecuteMicros, long Inputs) LoopTimes =>
-        (Bench.Micros(Interlocked.Read(ref _loopWaitTicks)), Bench.Micros(Interlocked.Read(ref _loopHandleTicks)), Bench.Micros(Interlocked.Read(ref _loopExecuteTicks)), Interlocked.Read(ref _loopInputs));
+    public (double WaitMicros, double HandleMicros, double HandOverMicros, long Inputs) LoopTimes =>
+        (Bench.Micros(Interlocked.Read(ref _loopWaitTicks)), Bench.Micros(Interlocked.Read(ref _loopHandleTicks)), Bench.Micros(Interlocked.Read(ref _loopHandOverTicks)), Interlocked.Read(ref _loopInputs));
+
+    /// <summary>The effect thread's time so far (P13-04): see <see cref="EffectThread.Times"/>.</summary>
+    public (double WaitMicros, double ExecuteMicros, long Lists, double FullMicros) EffectTimes => _effects?.Times ?? (0, 0, 0, 0);
+
+    /// <summary>Each measured effect list's wait in the queue (P13-04, with <see cref="HostConfig.TimeEffects"/>): see <see cref="EffectThread.Waits"/>.</summary>
+    public (double[] Persist, double[] Response) EffectWaits => _effects?.Waits ?? ([], []);
 
     /// <summary>Every change of the node's role since the host started, in order (P13-02).</summary>
     public IReadOnlyList<RoleChange> RoleChanges => [.. _roleChanges];
@@ -191,6 +201,7 @@ public sealed class NodeHost : IAsyncDisposable
         members.Sort((a, b) => a.Value.CompareTo(b.Value));
         _node = new RaftNode(new NodeContext(_config.Id, peers, new SystemRandom(), DiskExecutor.Load(files), members), _config.Options, new KvStateMachine());
         _executor = new DiskExecutor(files, Send, Respond, Emit);
+        _effects = new EffectThread(_executor.Execute, FailStop, measure: _config.TimeEffects);
         if (_config.Trace is { } trace)
         {
             _executor.Durable = (file, data) =>
@@ -237,6 +248,11 @@ public sealed class NodeHost : IAsyncDisposable
     {
         await _stop.CancelAsync().ConfigureAwait(false);
         _inputs.Writer.TryComplete();
+        if (_effects is not null)
+        {
+            await _effects.DisposeAsync().ConfigureAwait(false);
+        }
+
         foreach (var l in _listeners)
         {
             l.Stop();
@@ -304,31 +320,26 @@ public sealed class NodeHost : IAsyncDisposable
                 }
             }
 
-            try
+            // P13-04: the effects go to their own thread, in order, and the loop takes its next input; it
+            // waits only when the queue is full. A list the queue refuses means it has stopped (a failed
+            // write or sync, P10-07, or disposal), and the loop stops with it.
+            var handling = Stopwatch.GetTimestamp();
+            var effects = _node!.Handle(input);
+            var handed = Stopwatch.GetTimestamp();
+            Interlocked.Add(ref _loopHandleTicks, handed - handling);
+            if (effects.Count > 0 && !_effects!.Enqueue(effects))
             {
-                var handling = Stopwatch.GetTimestamp();
-                var effects = _node!.Handle(input);
-                var executing = Stopwatch.GetTimestamp();
-                _executor!.Execute(effects);
-                Interlocked.Add(ref _loopHandleTicks, executing - handling);
-                Interlocked.Add(ref _loopExecuteTicks, Stopwatch.GetTimestamp() - executing);
-                Interlocked.Increment(ref _loopInputs);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-                // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
-                // report success over lost pages), so the host stops at once. The failed list's remaining
-                // effects are not executed, so nothing is sent or answered after the failure.
-                FailStop(e);
                 return;
             }
 
-            var role = _node!.Role;
+            Interlocked.Add(ref _loopHandOverTicks, Stopwatch.GetTimestamp() - handed);
+            Interlocked.Increment(ref _loopInputs);
+            var role = _node.Role;
             if ((int)role != _role)
             {
                 // P13-02: the change and the host's evidence, read on the loop, for a load run's record.
                 var now = Stopwatch.GetTimestamp();
-                _roleChanges.Enqueue(new RoleChange(now, (Role)_role, role, Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, input is Tick t ? t.Elapsed : 0));
+                _roleChanges.Enqueue(new RoleChange(now, (Role)_role, role, TermIn(effects) ?? Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, input is Tick t ? t.Elapsed : 0));
             }
 
             _role = (int)role;
@@ -337,8 +348,8 @@ public sealed class NodeHost : IAsyncDisposable
 
     /// <summary>
     /// Stops the host after a failed write or sync (P10-07): records why, stops accepting peers and
-    /// clients, closes every connection, and lets <see cref="Stopped"/> complete. Called on the loop's
-    /// own thread, so it waits for nothing.
+    /// clients, closes every connection, and lets <see cref="Stopped"/> complete. Called on the effect
+    /// thread, which has stopped running lists (P13-04), so it waits for nothing.
     /// </summary>
     private void FailStop(Exception failure)
     {
@@ -357,6 +368,26 @@ public sealed class NodeHost : IAsyncDisposable
         }
 
         _stopped.TrySetResult(failure);
+    }
+
+    /// <summary>The term an effect list announces (a role change's event carries it), read before the list runs (P13-04: the host's own term follows the events the effect thread emits).</summary>
+    private static long? TermIn(IReadOnlyList<Effect> effects)
+    {
+        foreach (var e in effects)
+        {
+            if (e is Emit emit)
+            {
+                foreach (var f in emit.Fields)
+                {
+                    if (f.Key == "term" && long.TryParse(f.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var t))
+                    {
+                        return t;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The planted hand-off delay (<see cref="PeerHandOffDelay"/>), spun rather than slept, so it is the size planted.</summary>

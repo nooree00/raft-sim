@@ -1,0 +1,6 @@
+description: The loop executes each effect list itself, as before P13-04, so it waits for every sync and requests and answers queue behind it (the change undone behind the new thread)
+mechanism: the effects executed inline on the loop instead of handed to their thread
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.EffectThreadTests.TheLoopTakesItsInputsWhileASyncIsHeld
+expect: caught

@@ -1,0 +1,16 @@
+diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
+index 8a24581..8e29bb2 100644
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -327,9 +327,9 @@ public sealed class NodeHost : IAsyncDisposable
+             var effects = _node!.Handle(input);
+             var handed = Stopwatch.GetTimestamp();
+             Interlocked.Add(ref _loopHandleTicks, handed - handling);
+-            if (effects.Count > 0 && !_effects!.Enqueue(effects))
++            if (effects.Count > 0)
+             {
+-                return;
++                _executor!.Execute(effects);
+             }
+ 
+             Interlocked.Add(ref _loopHandOverTicks, Stopwatch.GetTimestamp() - handed);
