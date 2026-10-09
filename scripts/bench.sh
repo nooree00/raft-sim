@@ -9,6 +9,10 @@
 #                                           hand-off to a blocked loop, a one-way loopback hop
 #   scripts/bench.sh compose-hop [reps]     P13-06: Compose's hop floor, a frame from one container to a
 #                                           reader asleep in another, on a bridge network as Compose's
+#   scripts/bench.sh allowance              P13-08: the allowance's model (a computation, no load): the
+#                                           service time from 50% low to 50% high at 3,125 a second, the
+#                                           measured service, evenly spaced arrivals, and the rates the
+#                                           measured service keeps the sustained-rate definition to
 #   scripts/bench.sh load-local [reps]      P10-04: the offered-load curve against three hosts in one
 #                                           process (the container's /tmp), each rate repeated
 #   scripts/bench.sh load-compose [reps]    P10-04: the same curve against the Compose cluster, the
@@ -91,6 +95,25 @@ case "$what" in
       docker run --rm --name raft-hop-writer --hostname raft-hop-writer --network "$net" raft-host:local bench hop-writer --to raft-hop-reader:7300 --count 10000 --bytes 96
       docker wait raft-hop-reader >/dev/null; docker logs raft-hop-reader | tail -1; docker rm raft-hop-reader >/dev/null
     done ;;
+  allowance)
+    # Each point a record: "rate service arrivals id-suffix". The service times at 3,125 and above are
+    # P13-05's, the leader's execution of its effects per write at that rate (m:p13-05-ab-fix-*).
+    while read -r rate service arrivals name; do
+      run bench allowance --rate "$rate" --service-us "$service" --arrivals "$arrivals" --count 4000000 --seed 12 --task P13-08 --id "p13-08-allowance-$name" --out measurements
+    done <<'POINTS'
+3125 106.2 poisson 3125-d0.5
+3125 159.3 poisson 3125-d0.75
+3125 191.2 poisson 3125-d0.9
+3125 212.4 poisson 3125-d1.0
+3125 233.6 poisson 3125-d1.1
+3125 265.5 poisson 3125-d1.25
+3125 318.6 poisson 3125-d1.5
+3125 304 poisson 3125-measured
+3125 304 even 3125-measured-even
+3500 280 poisson 3500-measured
+4000 248 poisson 4000-measured
+POINTS
+    ;;
   load-local)
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
