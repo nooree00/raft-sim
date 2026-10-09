@@ -235,6 +235,32 @@ public static class Bench
         return samples;
     }
 
+    /// <summary>
+    /// P13-08: the waits at a single server whose every service takes <paramref name="serviceMicros"/>,
+    /// arrivals at <paramref name="rate"/> a second, Poisson or evenly spaced, by Lindley's recursion
+    /// (each wait is the last one plus its service less the gap to the next arrival, or none), the
+    /// first <paramref name="discard"/> left out so the queue starts from its steady state. Seeded.
+    /// </summary>
+    public static double[] Allowance(double rate, double serviceMicros, bool even, int count, int seed, int discard)
+    {
+        var random = new Random(seed);
+        var gap = 1e6 / rate;
+        var wait = 0.0;
+        var samples = new double[count];
+        for (var i = 0; i < discard + count; i++)
+        {
+            if (i >= discard)
+            {
+                samples[i - discard] = wait;
+            }
+
+            var next = even ? gap : -Math.Log(1 - random.NextDouble()) * gap;
+            wait = Math.Max(0, wait + serviceMicros - next);
+        }
+
+        return samples;
+    }
+
     /// <summary>The summary a record keeps: count, mean and percentiles (nearest rank) in microseconds.</summary>
     public static Dictionary<string, double> Summary(IEnumerable<double> samples)
     {

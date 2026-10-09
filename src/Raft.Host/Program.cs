@@ -131,6 +131,17 @@ public static class Program
                 samples = await Bench.RoundTripAsync(count, bytes, CancellationToken.None).ConfigureAwait(false);
                 measure = $"loopback round trip of a {bytes}-byte frame, {count} times";
                 break;
+            case "allowance":
+                // P13-08: the restated target's allowance, the wait at one serial resource, by Lindley's
+                // recursion, committed so the target's figures and their sensitivity can be computed again.
+                var rate = double.Parse(o["--rate"], CultureInfo.InvariantCulture);
+                var service = double.Parse(o["--service-us"], CultureInfo.InvariantCulture);
+                var even = o.GetValueOrDefault("--arrivals", "poisson") == "even";
+                var seed = int.Parse(o.GetValueOrDefault("--seed", "12"), CultureInfo.InvariantCulture);
+                var discard = int.Parse(o.GetValueOrDefault("--discard", "100000"), CultureInfo.InvariantCulture);
+                samples = Bench.Allowance(rate, service, even, count, seed, discard);
+                measure = FormattableString.Invariant($"the wait at a single server (a model, not the machine): Lindley's recursion over {count} arrivals after {discard} discarded, {(even ? "evenly spaced" : "Poisson")} at {rate} a second, each served for {service} us, seed {seed}; utilisation {rate * service / 1e6:F3}");
+                break;
             case "load":
                 return await LoadAsync(o).ConfigureAwait(false);
             case "record":
@@ -142,7 +153,7 @@ public static class Program
                 await Console.Out.WriteLineAsync($"{taken.Id}: " + string.Join(", ", timed.Select(x => $"{x.Key} {x.Value}"))).ConfigureAwait(false);
                 return 0;
             default:
-                await Console.Error.WriteLineAsync("bench sync|rtt|load|record").ConfigureAwait(false);
+                await Console.Error.WriteLineAsync("bench sync|handoff|hop|rtt|allowance|load|record").ConfigureAwait(false);
                 return 2;
         }
 
