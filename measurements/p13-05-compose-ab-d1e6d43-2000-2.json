@@ -1,0 +1,76 @@
+{
+  "id": "p13-05-compose-ab-d1e6d43-2000-2",
+  "task": "P13-05",
+  "measure": "commit latency and throughput",
+  "config": {
+    "commit": "d1e6d4337172f5ef8f800f0c44012cb73ec97fde",
+    "configuration": "Release",
+    "sdk": "10.0.401",
+    "runtime": ".NET 10.0.12",
+    "image": "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29",
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.18.44-fc-v80",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": "4",
+    "cpuLimit": "none",
+    "dotnetProcessorCount": "4",
+    "gc": "workstation, concurrent",
+    "tieredCompilation": "default (on)",
+    "tieredPgo": "default (on)",
+    "dataFileSystem": "each node\u0027s Docker volume (local driver, overlayfs storage on the host\u0027s disk); nodes at d1e6d43, the load generator at a2aba2583efb5d325ca688d3e2e1fc1dd06e0d3f",
+    "warmup": "3 s, discarded",
+    "repetition": "2",
+    "load": "open loop, 2000 writes a second for 10 s, scheduled on a thread of its own (sleep, then spin), 64 connections, a write given up after 5 s, plain Put over 64 keys; Compose cluster 1=n1:7100,2=n2:7100,3=n3:7100, events to each node\u0027s standard output"
+  },
+  "results": {
+    "count": 13954,
+    "mean_us": 32859.5,
+    "p50_us": 1700.4,
+    "p90_us": 136384.3,
+    "p99_us": 375597.9,
+    "p999_us": 395533.7,
+    "max_us": 402677.1,
+    "offered_per_s": 2000,
+    "completed_per_s": 1993.1,
+    "generator_late_p50_us": 0.8,
+    "generator_late_p99_us": 50751.8,
+    "generator_late_max_us": 89697.5,
+    "incomplete": 46,
+    "redirects": 18,
+    "role_changes": 3,
+    "elections": 1,
+    "elections_unexplained": 0
+  },
+  "roles": [
+    {
+      "Node": 3,
+      "AtMs": 2709.8,
+      "From": "Follower",
+      "To": "Candidate",
+      "Term": 2,
+      "SilenceMs": 170.9,
+      "TickMs": 29,
+      "Explained": true
+    },
+    {
+      "Node": 3,
+      "AtMs": 2721.3,
+      "From": "Candidate",
+      "To": "Leader",
+      "Term": 2,
+      "SilenceMs": 182.4,
+      "TickMs": 0,
+      "Explained": true
+    },
+    {
+      "Node": 2,
+      "AtMs": 2727.3,
+      "From": "Leader",
+      "To": "Follower",
+      "Term": 2,
+      "SilenceMs": 7.5,
+      "TickMs": 0,
+      "Explained": true
+    }
+  ]
+}
