@@ -23,6 +23,10 @@
     <Compile Include="../Raft.Scale.Tests/SoakConfig.cs" Link="Soak/SoakConfig.cs" />
   </ItemGroup>
   <ItemGroup>
+    <!-- P13-01: the seeds, kept where the soak job's comparison reads them too. -->
+    <None Include="../../ci/budget-seeds.txt" Link="budget-seeds.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../src/Raft.Core/Raft.Core.csproj" />
     <ProjectReference Include="../../src/Raft.Simulation/Raft.Simulation.csproj" />
     <ProjectReference Include="../../src/Raft.Kv/Raft.Kv.csproj" />

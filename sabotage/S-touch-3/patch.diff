@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Touched.cs b/tools/Raft.Gates/Touched.cs
+index cdf17e4..7a45d1d 100644
+--- a/tools/Raft.Gates/Touched.cs
++++ b/tools/Raft.Gates/Touched.cs
+@@ -147,7 +147,7 @@ internal static class Touched
+     /// names the scale at which this run's estimate equals its time.
+     /// </summary>
+     public static void CheckRun(Config config, double estimateSeconds, double actualSeconds, Func<double, double> estimateAt, Findings f) =>
+-        Currency.Factor(Currency.TouchedRun, [("this run's time", estimateSeconds, actualSeconds)], config.StaleFactor, config.StaleFloor, f, (_, actual) =>
++        Currency.Factor(Currency.TouchedRun, [("this run's time", estimateSeconds, estimateSeconds)], config.StaleFactor, config.StaleFloor, f, (_, actual) =>
+         {
+             if (estimateAt(0.05) > actual)
+             {

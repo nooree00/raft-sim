@@ -236,6 +236,7 @@ internal static class Soak
         var limitFailures = new List<string>();
         long operations = 0, indeterminate = 0, refused = 0, maxStates = 0, membership = 0;
         var hardest = new List<(long States, int Seed)>();
+        var hardestDecided = new List<(long States, int Seed)>();
         var checking = new System.Diagnostics.Stopwatch();
         var total = System.Diagnostics.Stopwatch.StartNew();
         var maxPerKey = 0;
@@ -273,6 +274,10 @@ internal static class Soak
             var lin = WglChecker.Check(client.History, CheckerBudget);
             checking.Stop();
             hardest.Add((lin.StatesExplored, seed));
+            if (lin.Verdict == Verdict.Linearizable)
+            {
+                hardestDecided.Add((lin.StatesExplored, seed));
+            }
             Assert.True(lin.Verdict != Verdict.NotLinearizable, $"seed {seed}, linearizability at key {lin.Key}: no linearization past\n  {string.Join("\n  ", lin.LongestPrefix.TakeLast(5))}\nof\n  {string.Join("\n  ", lin.SubHistory.Take(40))}");
             var (recorded, limitFailure) = KnownLimits.Judge(limits, seed, client.History, lin);
             if (limitFailure is not null)
@@ -363,6 +368,8 @@ internal static class Soak
             timeToLeader.Count == 0 ? "time to leader: none measured" : $"time to leader after the stable suffix: max {timeToLeader.Max()}, mean {timeToLeader.Average().ToString("F0", CultureInfo.InvariantCulture)} (window {Cluster.Window})",
             $"linearizability (WGL, budget {CheckerBudget} states per key): {count - undecided.Count - unverified.Count} checked and accepted, 0 rejected; {unverified.Count} unverified{(unverified.Count == 0 ? "" : ": " + string.Join("; ", unverified))}; any other undecided search fails the run ({undecided.Count} here); most states explored {maxStates}",
             $"hardest histories (states explored, seed): {string.Join(", ", hardest.OrderByDescending(x => x.States).Take(5).Select(x => $"{x.States} seed {x.Seed}"))}",
+            // P13-01: the Budget tests' seeds (ci/budget-seeds.txt) are compared with this ranking by the soak job.
+            $"ten hardest decided histories (states explored, seed): {string.Join(", ", hardestDecided.OrderByDescending(x => x.States).ThenBy(x => x.Seed).Take(10).Select(x => $"{x.States} seed {x.Seed}"))}",
             $"time: checking {checking.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)} s of {total.Elapsed.TotalSeconds.ToString("F0", CultureInfo.InvariantCulture)} s",
             $"client histories: {operations} operations ({operations / count} per execution), {indeterminate} indeterminate, {refused} refusals left out; largest per-key sub-history {maxPerKey}{(profile.Spares > 0 ? $"; membership requests {membership}, counted apart" : "")}",
             $"history contents (floor {Coverage.FloorFor(count, FloorRate)}):",

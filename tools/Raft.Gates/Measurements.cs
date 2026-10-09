@@ -41,8 +41,41 @@ internal static partial class Measurements
             }
         }
 
+        // P13-01: a record's commit is a claim about the tree it measured, and only git can say it is
+        // on this branch. An unpushed reword or amend leaves records naming a commit no longer on it
+        // (phase 12: 150 records, then 40, each found by hand).
+        CheckCommits(records, CommitsOnBranch(repo, f), f);
         f.Note($"{records.Count} records, {reports.Count} reports checked");
         return f;
+    }
+
+    /// <summary>The full id of every commit the head descends from, and a resolver for abbreviated ones.</summary>
+    internal static Func<string, bool> CommitsOnBranch(Repo repo, Findings f)
+    {
+        var list = repo.Git("rev-list", "HEAD");
+        f.Require(list.Ok, $"git rev-list HEAD failed: {list.StdErr.Trim()}");
+        var ancestors = list.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+        var resolved = new Dictionary<string, string?>(StringComparer.Ordinal);
+        return claimed =>
+        {
+            if (!resolved.TryGetValue(claimed, out var full))
+            {
+                var r = repo.Git("rev-parse", "--verify", "--quiet", claimed + "^{commit}");
+                resolved[claimed] = full = r.Ok ? r.StdOut.Trim() : null;
+            }
+
+            return full is not null && ancestors.Contains(full);
+        };
+    }
+
+    /// <summary>Each record's commit a member of the head's ancestors (the observer <see cref="Currency.RecordCommit"/>).</summary>
+    internal static void CheckCommits(IReadOnlyDictionary<string, JsonElement> records, Func<string, bool> onBranch, Findings f)
+    {
+        var claims = records.OrderBy(r => r.Key, StringComparer.Ordinal)
+            .Select(r => (Key: r.Key, Claimed: r.Value.TryGetProperty("config", out var c) && c.TryGetProperty("commit", out var commit) ? commit.GetString() ?? "" : ""))
+            .Where(c => c.Claimed.Length > 0);
+        Currency.Member(Currency.RecordCommit, claims, onBranch, "the commits the head descends from", f,
+            key => $"Relabel it to the commit whose tree it measured, if that tree is byte-identical (as phase 12's relabels were), or measure it again");
     }
 
     /// <summary>Every record, by id; a record whose id is not its file name, or whose configuration is incomplete, fails.</summary>

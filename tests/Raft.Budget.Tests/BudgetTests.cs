@@ -1,3 +1,7 @@
+using System;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using Raft.Checker;
 using Raft.Core.Tests;
 using Raft.Scale.Tests;
@@ -20,11 +24,14 @@ namespace Raft.Budget.Tests;
 public sealed class BudgetTests
 {
     /// <summary>
-    /// At 10,000 executions on six keys, sessions and ReadIndex reads, after the resend fix (P11-03),
-    /// by states explored: 9532 (3,702), 6673 (2,371), 9824 (890), the three hardest (phase 8's were
-    /// 5908, 9699 and 4105). The three together check in well under a second.
+    /// The seeds, from ci/budget-seeds.txt (copied beside the assembly): at P11-03, at 10,000
+    /// executions on six keys, sessions and ReadIndex reads, after the resend fix, by states explored:
+    /// 9532 (3,702), 6673 (2,371), 9824 (890), the three hardest (phase 8's were 5908, 9699 and 4105).
+    /// P13-01 moved them out of this file: the soak job compares them with its own ranking on every
+    /// run, so a change that makes one easy fails there rather than waiting for a sabotage to survive.
     /// </summary>
-    public static readonly int[] HardSeeds = [9532, 6673, 9824];
+    public static readonly int[] HardSeeds = [.. File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "budget-seeds.txt"))
+        .Select(l => l.Trim()).Where(l => l.Length > 0 && !l.StartsWith('#')).Select(l => int.Parse(l, CultureInfo.InvariantCulture))];
 
     public static TheoryData<int> Seeds => new(HardSeeds);
 

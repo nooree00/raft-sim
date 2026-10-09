@@ -146,8 +146,8 @@ internal static class ShardPlan
         return shares;
     }
 
-    /// <summary>The shard's modelled time: its slowest worker's baseline build, units and entries.</summary>
-    public static double ModelledTime(IReadOnlyList<PlanEntry> entries, ShardCosts costs, int workers = Workers)
+    /// <summary>The shard's modelled time: its slowest worker's baseline build, units and entries (each entry's line times <paramref name="entryScale"/>: the touched stage's estimate on this machine, P13-01).</summary>
+    public static double ModelledTime(IReadOnlyList<PlanEntry> entries, ShardCosts costs, int workers = Workers, double entryScale = 1)
     {
         if (entries.Count == 0)
         {
@@ -157,7 +157,7 @@ internal static class ShardPlan
         var w = Math.Max(1, Math.Min(workers, entries.Count));
         var units = Sabotage.AssignBaselines(entries.Select(e => e.Unit).Distinct(StringComparer.Ordinal).ToList(), w);
         var shares = WorkerShares(entries, w, costs);
-        return Enumerable.Range(0, w).Max(k => costs.Build + units[k].Sum(costs.Unit) + shares[k].Sum(e => costs.Entry(e.Id)));
+        return Enumerable.Range(0, w).Max(k => costs.Build + units[k].Sum(costs.Unit) + (entryScale * shares[k].Sum(e => costs.Entry(e.Id))));
     }
 
     /// <summary>A manifest entry with no recorded cost, and a cost for no entry: each a refusal (P10-00).</summary>

@@ -3,7 +3,7 @@
   "task": "P10-05",
   "measure": "commit latency and throughput",
   "config": {
-    "commit": "538c580b0f0af281712390fb71a6c3681d78d03f",
+    "commit": "398322933042f19398aeb98c345476603d482f30",
     "configuration": "Release",
     "sdk": "10.0.401",
     "runtime": ".NET 10.0.12",

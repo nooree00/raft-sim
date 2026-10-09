@@ -1,0 +1,6 @@
+description: The Budget seeds are compared with themselves instead of the soak's ranking, so a seed a change made easy stays named as hard (phase 11's resend fix, S-soak-6 surviving)
+mechanism: the soak-ranking observer takes the claimed seeds as the soak's ten hardest
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.CurrencyTests.ABudgetSeedOutsideTheSoaksTenHardestIsStale
+expect: caught

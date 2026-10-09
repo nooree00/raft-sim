@@ -1,0 +1,6 @@
+description: The inputs found in the tree are never compared with the registry, so a gate reading a file nobody registered passes (the fifth hand-kept input, unseen)
+mechanism: the completeness check over the found inputs skipped
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.InputsTests.AnInputNotInTheRegistryFails
+expect: caught

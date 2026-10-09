@@ -1,0 +1,6 @@
+description: The run's total entry time is never compared with the cost file's sum, so a file drifting as a whole stays unrefreshed within the per-shard factor
+mechanism: the github-run observer compares the file's sum with itself
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.BuildCollectCostTests.ARunWhoseTotalIsBeyondTheFactorOfTheFilesSumIsStale
+expect: caught

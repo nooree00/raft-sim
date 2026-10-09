@@ -367,3 +367,9 @@ S-lat-1 99.7
 S-lat-2 3.4
 S-bench-4 98.1
 S-margin-1 4.3
+S-input-1 5.0
+S-input-2 5.0
+S-meas-3 5.5
+S-touch-3 5.0
+S-shard-12 5.0
+S-soak-12 5.0

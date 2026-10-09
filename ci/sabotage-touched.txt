@@ -1,8 +1,23 @@
 # The touched-file stage of the local run (P9-00, phase 9 decision 1). Its plan is printed before
-# anything runs: the selected count, the selected fraction of the manifest, and the estimate below.
-# A selection estimated past the threshold runs only with --accept-estimate, a decision the phase
-# report records. Changing either number is a visible decision.
-# Phase 8's first push: 94 entries in 21.4 minutes locally, in one invocation (13.7 s each).
-seconds-per-entry 13.7
+# anything runs: the selected count, the selected fraction of the manifest, and the estimate. A
+# selection estimated past the threshold runs only with --accept-estimate, a decision the phase
+# report records.
+#
+# The estimate (P13-01) is the shard plan's model of the selected entries on the stage's workers
+# (ci/sabotage-costs.txt: each worker's baseline build and units, then the longest entry first to
+# the worker that would finish soonest), each entry's line times entry-scale. Phase 8's flat 13.7 s
+# an entry missed both single-entry runs by eleven times and the 67-entry run by 2.4.
+#
+# entry-scale: fitted to the sixteen touched runs of phases 10 to 12 with a cost file at their
+# commit (the local logs, 2586b5f to 7ffb10b), the scale that minimises the worst run's error: 1.25,
+# the lines being GitHub's seconds, so an entry here takes a quarter longer than its line. At it the
+# runs came to 0.60 to 2.14 times their estimates (the worst 307d3f3, 214 s against 100, its
+# baseline builds 101 to 108 s against the file's 63.5).
+entry-scale 1.25
+# stale-factor and stale-floor: the run compared with its estimate after it ends (the observer
+# touched-run, P13-01). The margin audit's rule, 1.5 beyond the furthest of the sixteen (2.14),
+# gives 3.2; and a run within 30 s of its estimate is not judged (a short run's noise is not a claim).
+stale-factor 3.25
+stale-floor 30
 # The local run's own length at phase 8 (650 to 710 s): past it, the stage would more than double it.
 confirm-above-minutes 11

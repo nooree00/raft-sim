@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/BuildCollect.cs b/tools/Raft.Gates/BuildCollect.cs
+index 83b906a..7a99cd3 100644
+--- a/tools/Raft.Gates/BuildCollect.cs
++++ b/tools/Raft.Gates/BuildCollect.cs
+@@ -86,7 +86,7 @@ internal static class BuildCollect
+ 
+         var observed = times.Values.Sum();
+         var claimed = times.Keys.Sum(costs.Entry);
+-        Currency.Factor(Currency.GitHubRun, [($"the run's {times.Count} entries", claimed, observed)], CostFactor, costs.StaleFloor, f,
++        Currency.Factor(Currency.GitHubRun, [($"the run's {times.Count} entries", claimed, claimed)], CostFactor, costs.StaleFloor, f,
+             (_, _) => $"Refresh the file's entry lines from this run's notice below (and its predecessors'), as P12-08 did");
+         Console.WriteLine("::notice::sabotage entry times, the whole run%0A" + string.Join("%0A", times.Select(t => FormattableString.Invariant($"{t.Key} {t.Value:F1}"))));
+     }

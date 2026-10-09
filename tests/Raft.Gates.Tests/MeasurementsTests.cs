@@ -10,7 +10,8 @@ namespace Raft.Gates.Tests;
 /// <summary>
 /// P10-01: a measurement record carries every configuration field, and a report's number cites a
 /// record or a CI run. Every rule has a case that must fail it. Sabotages S-meas-1 (a missing field
-/// accepted) and S-meas-2 (an uncited number accepted).
+/// accepted) and S-meas-2 (an uncited number accepted); P13-01, S-meas-3 (a record's commit taken
+/// as on the branch).
 /// </summary>
 public sealed class MeasurementsTests
 {
@@ -19,6 +20,35 @@ public sealed class MeasurementsTests
         var config = Measurements.ConfigFields.ToDictionary(f => f, f => "x-" + f, StringComparer.Ordinal);
         edit?.Invoke(config);
         return JsonSerializer.SerializeToElement(new { id, task = "P10-02", config, results = new Dictionary<string, double> { ["p50_us"] = 412 } });
+    }
+
+    /// <summary>
+    /// P13-01: a record's commit must be one the head descends from. Phase 12's unpushed reword left
+    /// 150 records naming commits no longer on the branch, found by hand. Sabotage S-meas-3.
+    /// </summary>
+    [Fact]
+    public void ARecordNamingACommitOffTheBranchIsStale()
+    {
+        using var g = new GitFixture();
+        g.Write("Raft.slnx", "<Solution />");
+        var onBranch = g.Commit("measured here");
+        g.Git("checkout", "-q", "-b", "side");
+        var offBranch = g.Commit("reworded away");
+        g.Git("checkout", "-q", "main");
+        g.Commit("the head");
+        var records = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+        {
+            ["m-1"] = Record("m-1", c => c["commit"] = onBranch[..7]),
+            ["m-2"] = Record("m-2", c => c["commit"] = offBranch),
+            ["m-3"] = Record("m-3", c => c["commit"] = "0123456789abcdef0123456789abcdef01234567"),
+        };
+        var f = new Findings();
+
+        Measurements.CheckCommits(records, Measurements.CommitsOnBranch(g.Repo, f), f);
+
+        Assert.Equal(2, f.Failures.Count);
+        Assert.StartsWith($"measurements: m-2 claims {offBranch};", f.Failures[0], StringComparison.Ordinal);
+        Assert.StartsWith("measurements: m-3 claims 0123456789abcdef", f.Failures[1], StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Measurements.cs b/tools/Raft.Gates/Measurements.cs
+index 5570cc3..30cd1fd 100644
+--- a/tools/Raft.Gates/Measurements.cs
++++ b/tools/Raft.Gates/Measurements.cs
+@@ -74,7 +74,7 @@ internal static partial class Measurements
+         var claims = records.OrderBy(r => r.Key, StringComparer.Ordinal)
+             .Select(r => (Key: r.Key, Claimed: r.Value.TryGetProperty("config", out var c) && c.TryGetProperty("commit", out var commit) ? commit.GetString() ?? "" : ""))
+             .Where(c => c.Claimed.Length > 0);
+-        Currency.Member(Currency.RecordCommit, claims, onBranch, "the commits the head descends from", f,
++        Currency.Member(Currency.RecordCommit, claims, _ => true, "the commits the head descends from", f,
+             key => $"Relabel it to the commit whose tree it measured, if that tree is byte-identical (as phase 12's relabels were), or measure it again");
+     }
+ 

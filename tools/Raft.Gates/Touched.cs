@@ -83,10 +83,18 @@ internal static class Touched
     /// <summary>Whether an entry's target is in a soak-derived class.</summary>
     public static bool SoakDerivedTarget(string? target) => target is not null && SoakDerived.Any(c => target.StartsWith(c, StringComparison.Ordinal));
 
-    /// <summary>The per-entry rate and the threshold, from <see cref="ConfigFile"/>: "seconds-per-entry N" and "confirm-above-minutes N".</summary>
-    public static (double SecondsPerEntry, double ConfirmAboveMinutes) ParseConfig(string text)
+    /// <summary>
+    /// The estimate's inputs (P13-01): the factor that turns a cost-file line, timed on GitHub, into
+    /// this machine's seconds; how far a run may be from its estimate before the file is stale; and
+    /// the threshold past which a selection needs --accept-estimate.
+    /// </summary>
+    internal sealed record Config(double EntryScale, double StaleFactor, double StaleFloor, double ConfirmAboveMinutes);
+
+    /// <summary>"entry-scale F", "stale-factor F", "stale-floor S" and "confirm-above-minutes N", from <see cref="ConfigFile"/>; '#' comments.</summary>
+    public static Config ParseConfig(string text)
     {
-        double? rate = null, threshold = null;
+        var values = new Dictionary<string, double>(StringComparer.Ordinal);
+        string[] keys = ["entry-scale", "stale-factor", "stale-floor", "confirm-above-minutes"];
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.Trim();
@@ -96,37 +104,70 @@ internal static class Touched
             }
 
             var parts = line.Split(' ', 2, StringSplitOptions.TrimEntries);
-            var value = double.Parse(parts[1], CultureInfo.InvariantCulture);
-            switch (parts[0])
+            if (!keys.Contains(parts[0]))
             {
-                case "seconds-per-entry":
-                    rate = value;
-                    break;
-                case "confirm-above-minutes":
-                    threshold = value;
-                    break;
-                default:
-                    throw new FormatException($"{ConfigFile}: unknown key '{parts[0]}'");
+                throw new FormatException($"{ConfigFile}: unknown key '{parts[0]}'");
             }
+
+            values[parts[0]] = double.Parse(parts[1], CultureInfo.InvariantCulture);
         }
 
-        return (rate ?? throw new FormatException($"{ConfigFile}: no seconds-per-entry"), threshold ?? throw new FormatException($"{ConfigFile}: no confirm-above-minutes"));
+        double Get(string k) => values.TryGetValue(k, out var v) ? v : throw new FormatException($"{ConfigFile}: no {k}");
+        return new Config(Get("entry-scale"), Get("stale-factor"), Get("stale-floor"), Get("confirm-above-minutes"));
     }
 
-    /// <summary>The plan for <paramref name="selected"/> of <paramref name="manifest"/> entries.</summary>
-    public static Plan PlanFor(int selected, int manifest, double secondsPerEntry, double confirmAboveMinutes, bool accepted)
+    /// <summary>
+    /// The selection's estimate in this machine's seconds: the shard plan's model of the entries on
+    /// the stage's workers (P10-00: each worker's baseline build and units, then the longest entry first
+    /// to the worker that would finish soonest), each entry's line scaled to this machine. Phase 8's flat
+    /// 13.7 s an entry missed every single entry by eleven times (S-kill-1 alone takes 117 s) and the
+    /// 67-entry run by 2.4.
+    /// </summary>
+    public static double Estimate(IReadOnlyList<PlanEntry> entries, ShardCosts costs, int workers, double entryScale) =>
+        ShardPlan.ModelledTime(entries, costs, workers, entryScale);
+
+    /// <summary>The plan for <paramref name="selected"/> of <paramref name="manifest"/> entries, estimated at <paramref name="estimateSeconds"/>.</summary>
+    public static Plan PlanFor(int selected, int manifest, double estimateSeconds, Config config, bool accepted)
     {
-        var estimate = TimeSpan.FromSeconds(selected * secondsPerEntry);
+        var estimate = TimeSpan.FromSeconds(selected == 0 ? 0 : estimateSeconds);
         var fraction = manifest == 0 ? 0 : 100.0 * selected / manifest;
-        var over = estimate.TotalMinutes > confirmAboveMinutes;
+        var over = estimate.TotalMinutes > config.ConfirmAboveMinutes;
         var run = selected > 0 && (!over || accepted);
         var verdict = selected == 0 ? "nothing to run"
             : !over ? "running"
-            : accepted ? $"over the {N(confirmAboveMinutes)}-minute threshold, accepted: running"
-            : $"over the {N(confirmAboveMinutes)}-minute threshold: not run; pass --accept-estimate to run it, and record the decision";
-        var line = $"touched: {selected} of {manifest} entries ({fraction.ToString("F1", CultureInfo.InvariantCulture)}% of the manifest), estimated {estimate.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min at {N(secondsPerEntry)} s per entry; {verdict}";
+            : accepted ? $"over the {N(config.ConfirmAboveMinutes)}-minute threshold, accepted: running"
+            : $"over the {N(config.ConfirmAboveMinutes)}-minute threshold: not run; pass --accept-estimate to run it, and record the decision";
+        var line = $"touched: {selected} of {manifest} entries ({fraction.ToString("F1", CultureInfo.InvariantCulture)}% of the manifest), estimated {estimate.TotalMinutes.ToString("F1", CultureInfo.InvariantCulture)} min (the shard plan's model, lines times {N(config.EntryScale)}); {verdict}";
         return new Plan(selected, manifest, estimate, run, line);
     }
+
+    /// <summary>
+    /// The run against its estimate (the observer <see cref="Currency.TouchedRun"/>): beyond the factor
+    /// either way, the file's scale, or the cost file's build and unit lines, are stale. The refresh
+    /// names the scale at which this run's estimate equals its time.
+    /// </summary>
+    public static void CheckRun(Config config, double estimateSeconds, double actualSeconds, Func<double, double> estimateAt, Findings f) =>
+        Currency.Factor(Currency.TouchedRun, [("this run's time", estimateSeconds, actualSeconds)], config.StaleFactor, config.StaleFloor, f, (_, actual) =>
+        {
+            if (estimateAt(0.05) > actual)
+            {
+                return $"The build and unit lines in {ShardPlan.CostFile} alone exceed this run: refresh them from its fixed-cost split";
+            }
+
+            if (estimateAt(20) < actual)
+            {
+                return $"No entry-scale up to 20 reaches this run: refresh {ShardPlan.CostFile}'s lines for the selected entries";
+            }
+
+            var (lo, hi) = (0.05, 20.0);
+            for (var i = 0; i < 60; i++)
+            {
+                var mid = (lo + hi) / 2;
+                (lo, hi) = estimateAt(mid) < actual ? (mid, hi) : (lo, mid);
+            }
+
+            return $"At entry-scale {N(lo)} this run's estimate would equal its time; refit the scale over the recent touched runs";
+        });
 
     private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 }

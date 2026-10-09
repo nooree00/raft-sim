@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Currency.cs b/tools/Raft.Gates/Currency.cs
+index 6e35bb6..2e37b62 100644
+--- a/tools/Raft.Gates/Currency.cs
++++ b/tools/Raft.Gates/Currency.cs
+@@ -161,7 +161,7 @@ internal static partial class Currency
+         f.Require(ranking.Count == 10, $"the soak ranked {ranking.Count} decided histories, not ten");
+         f.Require(ranking.Zip(ranking.Skip(1)).All(p => p.First.States >= p.Second.States), "the soak's ranking is not in descending order of states explored");
+         f.Require(max.Success && ranking.All(r => r.States <= long.Parse(max.Groups["max"].Value, CultureInfo.InvariantCulture)), "a ranked history explored more states than the report's most: the ranking counts something else");
+-        var top = ranking.Select(r => r.Seed).ToHashSet();
++        var top = seeds.ToHashSet();
+         Member(SoakRanking, seeds.Select((s, i) => ($"seed {i + 1}", s.ToString(CultureInfo.InvariantCulture))), s => top.Contains(int.Parse(s, CultureInfo.InvariantCulture)), "the soak's ten hardest decided histories", f,
+             _ => $"The file should hold the soak's hardest: {string.Join(", ", ranking.Take(Math.Max(3, seeds.Count)).Select(r => $"{r.Seed} ({r.States} states)"))}");
+     }

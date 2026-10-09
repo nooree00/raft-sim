@@ -50,6 +50,9 @@ internal static class Sabotage
         var acceptEstimate = rest.Remove("--accept-estimate");
         var f = new Findings();
         var clock = Stopwatch.StartNew();
+        Touched.Config? touchedConfig = null;
+        Func<double, double>? touchedEstimateAt = null;
+        var touchedEstimate = 0.0;
 
         var status = repo.Git("status", "--porcelain");
         if (!status.Ok || status.StdOut.Length > 0)
@@ -77,7 +80,7 @@ internal static class Sabotage
             }
 
             var changed = diff.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
-            var (rate, threshold) = Touched.ParseConfig(File.ReadAllText(repo.PathOf(Touched.ConfigFile)));
+            touchedConfig = Touched.ParseConfig(File.ReadAllText(repo.PathOf(Touched.ConfigFile)));
             var footprints = specs.Select(s => new TouchedEntry(s.Id, File.ReadAllText(s.PatchPath), s.ControlPath is null ? null : File.ReadAllText(s.ControlPath), s.Fields.GetValueOrDefault("target"))).ToList();
             var chosen = Touched.Select(footprints, changed).ToHashSet(StringComparer.Ordinal);
             if (Touched.NodeChanged(changed))
@@ -85,7 +88,12 @@ internal static class Sabotage
                 var byFile = Touched.Select(footprints.Select(e => e with { Target = null }), changed).Count;
                 Console.WriteLine($"[sabotage] the push changed {Touched.NodePrefix}: {chosen.Count - byFile} soak-derived entries selected besides the {byFile} by file (P12-02)");
             }
-            var plan = Touched.PlanFor(chosen.Count, specs.Count, rate, threshold, acceptEstimate);
+            var selected = specs.Where(s => chosen.Contains(s.Id)).Select(PlanEntryOf).ToList();
+            var touchedCosts = LoadCosts(repo);
+            var touchedWorkers = Math.Min(Math.Clamp(workersOption is null ? Environment.ProcessorCount : int.Parse(workersOption, System.Globalization.CultureInfo.InvariantCulture), 1, 4), Math.Max(1, selected.Count));
+            touchedEstimateAt = scale => Touched.Estimate(selected, touchedCosts, touchedWorkers, scale);
+            touchedEstimate = touchedEstimateAt(touchedConfig.EntryScale);
+            var plan = Touched.PlanFor(chosen.Count, specs.Count, touchedEstimate, touchedConfig, acceptEstimate);
             Console.WriteLine($"[sabotage] {changed.Count} files changed in {touched}..HEAD; {plan.Line}");
             Console.Out.Flush();
             f.Note(plan.Line);
@@ -211,6 +219,12 @@ internal static class Sabotage
         // ready to run its first entry (P2-01's prediction is about this number).
         f.Note($"fixed cost {ready.Max().TotalSeconds:F0}s (worktrees, baseline builds, baseline checks; slowest worker), of which setup (manifest, worktrees) {worktrees.TotalSeconds:F0}s");
         f.Note($"total {clock.Elapsed.TotalSeconds:F0}s for {specs.Count} sabotages on {workers} workers (ceiling {ceiling.TotalMinutes:F0} min)");
+        if (touchedConfig is not null && touchedEstimateAt is not null)
+        {
+            // P13-01: the estimate decided whether this selection needed --accept-estimate; the run says whether it was right.
+            Touched.CheckRun(touchedConfig, touchedEstimate, clock.Elapsed.TotalSeconds, touchedEstimateAt, f);
+        }
+
         f.Require(clock.Elapsed <= ceiling, $"harness took {clock.Elapsed.TotalMinutes:F1} min, over the {ceiling.TotalMinutes:F0}-minute ceiling — the manifest has outgrown the design; decide, do not run it less often");
         if (summary is not null)
         {

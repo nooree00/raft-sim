@@ -1,0 +1,6 @@
+description: A measurement record's commit is taken as on the branch, so a record naming a commit an unpushed reword left behind passes (phase 12: 150 records, found by hand)
+mechanism: the record-commit observer reads the claim back instead of asking git
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.MeasurementsTests.ARecordNamingACommitOffTheBranchIsStale
+expect: caught

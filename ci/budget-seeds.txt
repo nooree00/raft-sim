@@ -1,0 +1,10 @@
+# The Budget tests' seeds (P5-05; tests/Raft.Budget.Tests): the baseline soak's hardest decided
+# histories by states explored, so the checker's budget meets a hard history on every suite run, not
+# only in the soak. Picked at P11-03 from the soak at 10,000 executions on six keys, with sessions
+# and ReadIndex reads, after the resend fix: 9532 (3,702 states), 6673 (2,371), 9824 (890).
+# P13-01: the soak job compares them with its own ten hardest decided histories on every run
+# (`gates currency soak-ranking`), and fails when one is not among them; the failure names the
+# soak's hardest, which is what this file should then hold.
+9532
+6673
+9824

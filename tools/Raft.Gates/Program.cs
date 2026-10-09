@@ -24,7 +24,12 @@ internal static class Program
         ["reports"] = ("each phase report's certifying commit has a green ci run (spec §12)", VerifyRun.RunReports),
         ["sabotage"] = ("run every sabotage/ entry from a committed tree; each must give its expected result", Sabotage.Run),
         ["testcount"] = ("per-project executed-test counts against ci/test-baseline.txt", TestCount.Run),
+        ["inputs"] = ("every input a gate reads registered in ci/inputs.txt with what verifies it (P13-01)", Inputs.Run),
+        ["currency"] = ("an observer run on its own: soak-ranking --report FILE, the Budget seeds against the soak (P13-01)", Currency.Run),
     };
+
+    /// <summary>The gates' names, for the registry's construction lines.</summary>
+    internal static IReadOnlyCollection<string> CommandNames => Commands.Keys;
 
     private static int Main(string[] args)
     {

@@ -11,4 +11,5 @@ gates trailers || rc=1
 gates register || rc=1
 gates patches || rc=1
 gates measurements || rc=1
+gates inputs || rc=1
 exit "$rc"

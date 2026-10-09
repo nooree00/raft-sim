@@ -35,8 +35,79 @@ internal static class BuildCollect
             return f;
         }
 
-        Evaluate(coreResult, shards, EachCommitMatrix.JobsOfThisRun(rest), f);
+        var jobs = EachCommitMatrix.JobsOfThisRun(rest);
+        Evaluate(coreResult, shards, jobs, f);
+        if (f.Failures.Count == 0)
+        {
+            var api = Api.FromEnvironment(rest);
+            CheckCosts(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), ShardCosts.Parse(repo.ReadText(ShardPlan.CostFile)), f);
+        }
+
         return f;
+    }
+
+    /// <summary>The run's total over the file's sum: beyond this factor either way, the cost file is stale (P13-01).</summary>
+    public const double CostFactor = 2;
+
+    /// <summary>
+    /// P13-01, the observer <see cref="Currency.GitHubRun"/>: every head shard's entry-time notice,
+    /// read through the API, and the run's total compared with the cost file's sum over the same
+    /// entries. One line stays at the harness's factor of 5 (held out, an entry's median over three
+    /// runs reached 2.07 times its line, and over 20 jobs of one run 2.45); the total does not
+    /// average that away by luck: four runs came to 0.83 to 1.02 of their sums, so a factor of 2
+    /// keeps 1.65 times the furthest (the margin audit's rule asks 1.5). Vacuity risk: a total over
+    /// the shards that reported compares less work than the run did; guarded by requiring every
+    /// head shard's notice. The refreshed lines go to the log, so a refresh is copying.
+    /// </summary>
+    internal static void CheckCosts(IReadOnlyList<string> shards, string jobsJson, Func<long, string> annotations, ShardCosts costs, Findings f)
+    {
+        using var doc = JsonDocument.Parse(jobsJson);
+        var times = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        foreach (var shard in shards)
+        {
+            var job = doc.RootElement.GetProperty("jobs").EnumerateArray().Single(j => j.GetProperty("name").GetString() == "sabotage " + shard);
+            var notice = Notice(annotations(job.GetProperty("id").GetInt64()));
+            if (notice is null)
+            {
+                f.Fail($"sabotage {shard}: no 'sabotage entry times' notice, so the run's total cannot be compared with {ShardPlan.CostFile}");
+                continue;
+            }
+
+            foreach (var (id, seconds) in notice)
+            {
+                times[id] = seconds;
+            }
+        }
+
+        if (f.Failures.Count > 0)
+        {
+            return;
+        }
+
+        var observed = times.Values.Sum();
+        var claimed = times.Keys.Sum(costs.Entry);
+        Currency.Factor(Currency.GitHubRun, [($"the run's {times.Count} entries", claimed, observed)], CostFactor, costs.StaleFloor, f,
+            (_, _) => $"Refresh the file's entry lines from this run's notice below (and its predecessors'), as P12-08 did");
+        Console.WriteLine("::notice::sabotage entry times, the whole run%0A" + string.Join("%0A", times.Select(t => FormattableString.Invariant($"{t.Key} {t.Value:F1}"))));
+    }
+
+    /// <summary>An annotations response's entry times, or null when it holds no entry-time notice.</summary>
+    internal static IReadOnlyList<(string Id, double Seconds)>? Notice(string annotationsJson)
+    {
+        using var doc = JsonDocument.Parse(annotationsJson);
+        foreach (var a in doc.RootElement.EnumerateArray())
+        {
+            var message = a.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+            if (!message.StartsWith("sabotage entry times", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return [.. message.Split('\n').Skip(1).Select(l => l.Trim().Split(' ')).Where(p => p.Length == 2)
+                .Select(p => (p[0], double.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))];
+        }
+
+        return null;
     }
 
     internal static void Evaluate(string coreResult, IReadOnlyList<string> shards, string jobsJson, Findings f)

@@ -1,0 +1,6 @@
+description: The touched stage's run is never compared with its estimate, so a stale scale or cost line keeps deciding --accept-estimate (phase 8's flat rate missed single entries by eleven times)
+mechanism: the touched-run observer compares the estimate with itself
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.TouchedTests.ARunFarFromItsEstimateIsStale
+expect: caught

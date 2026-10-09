@@ -14,4 +14,6 @@ test -s "$report" || { echo "soak: no report written; the soak did not run"; exi
 cat "$report"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then { echo '```'; cat "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"; fi
 head -1 "$report" | grep -q "^$executions executions " || { echo "soak: the report does not cover $executions executions: the soak ran less than it claims"; exit 1; }
+# P13-01: the Budget tests' seeds against this soak's own ranking (ci/budget-seeds.txt).
+dotnet tools/Raft.Gates/bin/Debug/net10.0/Raft.Gates.dll currency soak-ranking --report "$report" || status=1
 exit "$status"

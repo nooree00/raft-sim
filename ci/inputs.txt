@@ -1,0 +1,53 @@
+# Every input a gate reads, and what verifies it (P13-01, `gates inputs`). Phase 12's class finding:
+# a gate reading a file kept by hand reads it as true, so it cannot be the check that the file is
+# current. One line per input, PATH KIND DETAIL, KIND one of
+#   currency OBSERVER   a claim about something observable, compared with it on every run of the
+#                       observer (tools/Raft.Gates/Currency.cs: one comparison, one failure text)
+#   construction GATE   compared with what it describes, both ways, by that gate on every run
+#   subject REASON      what a gate checks, not a premise
+#   decision REASON     a chosen value with nothing to observe; a change to it is visible in review
+#   row "TEXT" REASON   a premise nothing checks yet; TEXT is in exactly one open register row
+# `gates inputs` finds the inputs in the tree (every file under ci/, every ci/ path a script, test,
+# project file or workflow names, every repository path a string literal in the gates' source
+# begins with) and fails one with no line here: a gate reading a new file fails until someone says
+# what verifies it, and "nothing yet" is a register row.
+
+ci/inputs.txt                   subject       this registry, compared by gates inputs with the inputs it finds
+
+# The four phase 12 found checked by nothing (P12-01's audit), each with an observer where its truth lives.
+measurements                    currency      record-commit: each record's commit among the head's ancestors (gates measurements)
+ci/sabotage-touched.txt         currency      touched-run: the touched stage's run within a factor of 3.25 of its estimate (gates sabotage --touched)
+ci/sabotage-costs.txt           currency      github-run: the run's total within a factor of 2 of the file's sum (build-collect); each entry within 5 and each shard within 3 in the harness
+ci/budget-seeds.txt             currency      soak-ranking: each seed among the baseline soak's ten hardest decided histories (the soak job)
+
+# Current by construction: compared with what they describe, both ways, on every run.
+ci/test-baseline.txt            construction  testcount: each project's executed count against the run's
+ci/known-limits.txt             construction  register: each entry's open row and approving report; the soak fails an entry no longer undecided, by its sub-history's digest
+ci/known-limits-membership.txt  construction  register: as ci/known-limits.txt, for the membership soak
+docs/phases/status.md           construction  register: against the reports' status lines, both ways (P12-01)
+global.json                     construction  preflight: the running SDK against its pinned version
+
+# Chosen values.
+ci/image.digest                 decision      the SDK image every job runs in, pinned by digest; preflight checks the form and that every workflow uses it
+ci/gitleaks.image               decision      the secret scanner's image, pinned by digest; preflight checks the form
+ci/sabotage-shard-size.txt      decision      entries per harness shard; each shard's 15-minute ceiling bounds the consequence
+
+# Premises nothing checks yet, found by this registry's first application (P13-01).
+ci/broad-targets.txt            row           "ci/broad-targets.txt" the tests almost any behaviour change turns red; nothing checks that a test of that kind is listed
+docs/phases/P12/margins.tsv     row           "docs/phases/P12/margins.tsv" the control margins at e098dc6; nothing ties its rows to the controls they describe
+
+# What the gates check.
+.github/workflows               subject       what preflight checks: pins, and no suppressed failure
+RAFT_PROJECT_SPEC.md            subject       the contract; register reads its phase rows
+Raft.slnx                       subject       the solution, and the repository root's marker
+docs                            subject       a commit touching only it is a documentation commit (trailers, each-commit)
+docs/phases                     subject       the phases' breakdowns and reports (breakdown, register, measurements, reports)
+docs/phases/*/report.md         subject       the phase reports: their status lines (register), their cited records (measurements)
+docs/register.md                subject       the register (register)
+src                             subject       the source register scans for NotImplementedException
+src/Raft.Core                   subject       the node: a push changing it selects the soak-derived entries (sabotage --touched)
+tests                           subject       the tests testcount and register read
+ci                              subject       the hand-kept inputs' directory: inputs requires a line for every file in it
+sabotage                        subject       the harness entries (sabotage, patches, breakdown); inputs does not read their patches as readers
+tests/Raft.Gates.Tests          subject       the gates' own tests, whose fixtures name inputs that do not exist; inputs does not read them as readers
+tools/Raft.Gates                subject       the gates' source, whose string literals inputs reads for the paths the gates name

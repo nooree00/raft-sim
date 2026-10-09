@@ -1,0 +1,6 @@
+description: The shared comparison never reports a claim stale, so every hand-kept input's observer goes silent at once
+mechanism: both currency policies, the factor and the member, never fail
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.CurrencyTests.AClaimBeyondItsFactorIsStale
+expect: caught
