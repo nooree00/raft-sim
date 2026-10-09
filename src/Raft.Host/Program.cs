@@ -181,6 +181,7 @@ public static class Program
             var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
             var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
             var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
+            var loopBefore = local is null ? [] : local.Hosts.Select(h => h.LoopTimes).ToArray();
             var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
@@ -236,6 +237,21 @@ public static class Program
                 var sent = local.Hosts[leader.Value - 1].Sent;
                 results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
                 results["leader_bytes_per_write"] = Math.Round((double)(sent.Bytes - sentBefore[leader.Value - 1].Bytes) / r.Answered, 0);
+
+                // P13-03: the leader's loop, per write: the node's handling, the effects' execution (its syncs
+                // among them), and how much of the loop's busy time (the wall less its wait) the two cover.
+                var loop = local.Hosts[leader.Value - 1].LoopTimes;
+                var lb = loopBefore[leader.Value - 1];
+                var (handle, execute, wait) = (loop.HandleMicros - lb.HandleMicros, loop.ExecuteMicros - lb.ExecuteMicros, loop.WaitMicros - lb.WaitMicros);
+                results["leader_loop_handle_us_per_write"] = Math.Round(handle / r.Answered, 1);
+                results["leader_loop_execute_us_per_write"] = Math.Round(execute / r.Answered, 1);
+                results["leader_loop_inputs_per_write"] = Math.Round((double)(loop.Inputs - lb.Inputs) / r.Answered, 2);
+                results["leader_loop_busy"] = Math.Round((wallMicros - wait) / wallMicros, 3);
+                results["leader_loop_parts_cover"] = Math.Round((handle + execute) / Math.Max(1, wallMicros - wait), 3);
+                if (syncs[leader.Value - 1] > 0)
+                {
+                    results["leader_loop_sync_share"] = Math.Round(syncMicros / Math.Max(1, handle + execute), 3);
+                }
 
                 // P10-05: the time the leader's sends waited behind its own persists, per such effect list,
                 // and as a share of the run's mean commit latency.

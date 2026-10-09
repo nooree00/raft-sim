@@ -87,6 +87,10 @@ public sealed class NodeHost : IAsyncDisposable
     private long _stallOnceTicks;
     private long _lastLeaderRead = Stopwatch.GetTimestamp();
     private readonly ConcurrentQueue<RoleChange> _roleChanges = new();
+    private long _loopWaitTicks;
+    private long _loopHandleTicks;
+    private long _loopExecuteTicks;
+    private long _loopInputs;
 
     public NodeHost(HostConfig config, TextWriter events)
     {
@@ -122,6 +126,14 @@ public sealed class NodeHost : IAsyncDisposable
     /// input it takes, as a descheduled or collecting leader would, so its followers' timers fire.
     /// </summary>
     public void StallOnce(TimeSpan pause) => Interlocked.Exchange(ref _stallOnceTicks, pause.Ticks);
+
+    /// <summary>
+    /// The loop's time so far (P13-03), from its own timers: blocked waiting for an input; in the node's
+    /// handling of inputs; executing their effects (the syncs among them); and the inputs taken. Its
+    /// busy time read the other way, the run's wall time less the wait, is what the two parts must cover.
+    /// </summary>
+    public (double WaitMicros, double HandleMicros, double ExecuteMicros, long Inputs) LoopTimes =>
+        (Bench.Micros(Interlocked.Read(ref _loopWaitTicks)), Bench.Micros(Interlocked.Read(ref _loopHandleTicks)), Bench.Micros(Interlocked.Read(ref _loopExecuteTicks)), Interlocked.Read(ref _loopInputs));
 
     /// <summary>Every change of the node's role since the host started, in order (P13-02).</summary>
     public IReadOnlyList<RoleChange> RoleChanges => [.. _roleChanges];
@@ -252,9 +264,12 @@ public sealed class NodeHost : IAsyncDisposable
         while (!_stop.IsCancellationRequested)
         {
             Input input;
+            var waiting = Stopwatch.GetTimestamp();
             try
             {
-                if (!reader.WaitToReadAsync(_stop.Token).AsTask().GetAwaiter().GetResult() || !reader.TryRead(out input!))
+                var ready = reader.WaitToReadAsync(_stop.Token).AsTask().GetAwaiter().GetResult();
+                Interlocked.Add(ref _loopWaitTicks, Stopwatch.GetTimestamp() - waiting);
+                if (!ready || !reader.TryRead(out input!))
                 {
                     continue;
                 }
@@ -291,7 +306,13 @@ public sealed class NodeHost : IAsyncDisposable
 
             try
             {
-                _executor!.Execute(_node!.Handle(input));
+                var handling = Stopwatch.GetTimestamp();
+                var effects = _node!.Handle(input);
+                var executing = Stopwatch.GetTimestamp();
+                _executor!.Execute(effects);
+                Interlocked.Add(ref _loopHandleTicks, executing - handling);
+                Interlocked.Add(ref _loopExecuteTicks, Stopwatch.GetTimestamp() - executing);
+                Interlocked.Increment(ref _loopInputs);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
@@ -302,7 +323,7 @@ public sealed class NodeHost : IAsyncDisposable
                 return;
             }
 
-            var role = _node.Role;
+            var role = _node!.Role;
             if ((int)role != _role)
             {
                 // P13-02: the change and the host's evidence, read on the loop, for a load run's record.

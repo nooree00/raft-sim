@@ -1,8 +1,8 @@
 diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
-index b695961..d99d342 100644
+index 49e0e82..8abde17 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -298,8 +298,12 @@ public sealed class NodeHost : IAsyncDisposable
+@@ -319,8 +319,12 @@ public sealed class NodeHost : IAsyncDisposable
                  // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
                  // report success over lost pages), so the host stops at once. The failed list's remaining
                  // effects are not executed, so nothing is sent or answered after the failure.
@@ -16,4 +16,4 @@ index b695961..d99d342 100644
 +                continue;
              }
  
-             var role = _node.Role;
+             var role = _node!.Role;
