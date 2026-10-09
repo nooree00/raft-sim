@@ -39,7 +39,9 @@ public static class Program
                 var raft = Environment.GetEnvironmentVariable("RAFT_ANSWER_AT_APPEND") == "1" ? RaftOptions.Default with { AnswerAtAppend = true } : RaftOptions.Default;
                 // P12-03: the hand-off stamps, for a decomposed bench run only (fetched with `Trace|`).
                 var trace = Environment.GetEnvironmentVariable("RAFT_HANDOFF_TRACE") == "1" ? new HandOffTrace() : null;
-                var config = new HostConfig(id, peers, new IPEndPoint(IPAddress.Any, peers[id].Port), new IPEndPoint(IPAddress.Any, int.Parse(options["--client-port"], CultureInfo.InvariantCulture)), options["--data"], raft, Trace: trace);
+                // P13-02: `Roles|` answered, for a load run's record of the cluster's role changes (bench mode only).
+                var roles = Environment.GetEnvironmentVariable("RAFT_BENCH_ROLES") == "1";
+                var config = new HostConfig(id, peers, new IPEndPoint(IPAddress.Any, peers[id].Port), new IPEndPoint(IPAddress.Any, int.Parse(options["--client-port"], CultureInfo.InvariantCulture)), options["--data"], raft, Trace: trace, AnswerRoles: roles);
                 var host = new NodeHost(config, Console.Out);
                 await using (host.ConfigureAwait(false))
                 {
@@ -182,7 +184,9 @@ public static class Program
             var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
+            var started = Stopwatch.GetTimestamp();
             var r = await LoadGenerator.RunAsync(config, CancellationToken.None).ConfigureAwait(false);
+            var ended = Stopwatch.GetTimestamp();
             var wallMicros = Bench.Micros(wall.ElapsedTicks);
             var results = Bench.Summary(r.Latencies);
             if (clients is null)
@@ -202,6 +206,19 @@ public static class Program
 
             results["incomplete"] = r.Incomplete;
             results["redirects"] = r.Redirects;
+
+            // P13-02: every host's role changes from the measured window's start to the run's end (its
+            // drain included), each election explained by a silence past the election timeout or counted.
+            var windowStart = started + (long)(warmup * Stopwatch.Frequency);
+            var changes = local is not null
+                ? local.Hosts.Select((h, i) => (Node: i + 1, Changes: h.RoleChanges)).ToList()
+                : await FetchRolesAsync(nodes).ConfigureAwait(false);
+            var roles = changes.SelectMany(n => n.Changes.Where(c => c.At >= windowStart && c.At <= ended)
+                    .Select(c => new RoleRecord(n.Node, Math.Round(Bench.Micros(c.At - windowStart) / 1000, 1), c.From.ToString(), c.To.ToString(), c.Term, Math.Round(c.SilenceMs, 1), c.TickMs, c.Explained(RaftOptions.Default))))
+                .OrderBy(c => c.AtMs).ToList();
+            results["role_changes"] = roles.Count;
+            results["elections"] = roles.Count(c => c.To == nameof(Role.Candidate) && c.From != nameof(Role.Candidate));
+            results["elections_unexplained"] = roles.Count(c => !c.Explained);
             if (local is not null && r.Answered > 0)
             {
                 var leader = await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
@@ -270,7 +287,7 @@ public static class Program
                 recordConfig["dataFileSystem"] = dataFs;
             }
 
-            var record = new MeasurementRecord(o["--id"], o.GetValueOrDefault("--task", "P10-04"), "commit latency and throughput", recordConfig, results);
+            var record = new MeasurementRecord(o["--id"], o.GetValueOrDefault("--task", "P10-04"), "commit latency and throughput", recordConfig, results, roles);
             Measurement.Write(o.GetValueOrDefault("--out", "measurements"), record);
             await Console.Out.WriteLineAsync($"{record.Id}: " + string.Join(", ", record.Results.Select(x => $"{x.Key} {x.Value}"))).ConfigureAwait(false);
             return 0;
@@ -282,6 +299,25 @@ public static class Program
                 await local.DisposeAsync().ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// A Compose cluster's role changes (P13-02): each node's, fetched with `Roles|`, their ages read
+    /// back on this process's clock. A node that does not answer fails the run: a record missing a
+    /// node would read a leader change there as none.
+    /// </summary>
+    private static async Task<List<(int Node, IReadOnlyList<RoleChange> Changes)>> FetchRolesAsync(IReadOnlyDictionary<NodeId, DnsEndPoint> nodes)
+    {
+        var all = new List<(int, IReadOnlyList<RoleChange>)>();
+        foreach (var (id, at) in nodes)
+        {
+            var reply = await RealClient.SendAsync(at, "Roles|", TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
+            all.Add((id.Value, reply?.StartsWith("ok|", StringComparison.Ordinal) == true
+                ? NodeHost.DecodeRoles(reply[3..], Stopwatch.GetTimestamp())
+                : throw new InvalidOperationException($"node {id}: no role changes ({reply ?? "no reply"}); is RAFT_BENCH_ROLES=1 set on the nodes?")));
+        }
+
+        return all;
     }
 
     /// <summary>

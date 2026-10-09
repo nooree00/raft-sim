@@ -16,7 +16,10 @@ namespace Raft.Host;
 /// <see cref="Measurement.Config"/>, not typed: `gates measurements` refuses a record missing any
 /// field, so a number without its build configuration cannot reach a report.
 /// </summary>
-public sealed record MeasurementRecord(string Id, string Task, string Measure, IReadOnlyDictionary<string, string> Config, IReadOnlyDictionary<string, double> Results);
+public sealed record MeasurementRecord(string Id, string Task, string Measure, IReadOnlyDictionary<string, string> Config, IReadOnlyDictionary<string, double> Results, IReadOnlyList<RoleRecord>? Roles = null);
+
+/// <summary>A load run's change of role (P13-02): which node, when after the measured window began, and the host's evidence (<see cref="RoleChange"/>).</summary>
+public sealed record RoleRecord(int Node, double AtMs, string From, string To, long Term, double SilenceMs, long TickMs, bool Explained);
 
 /// <summary>What a measurement ran on, read from the process and the machine, and the record's file.</summary>
 public static class Measurement
@@ -111,6 +114,7 @@ public static class Measurement
             measure = record.Measure,
             config = record.Config,
             results = record.Results,
+            roles = record.Roles,
         }, Indented);
         File.WriteAllText(Path.Combine(directory, record.Id + ".json"), json + "\n");
     }
@@ -130,7 +134,7 @@ public static class Measurement
         return sorted[Math.Clamp(rank - 1, 0, sorted.Count - 1)];
     }
 
-    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
 
     private static string CpuModel(string cpuinfo) =>
         cpuinfo.Split('\n').FirstOrDefault(l => l.StartsWith("model name", StringComparison.Ordinal)) is { } line ? line[(line.IndexOf(':', StringComparison.Ordinal) + 1)..].Trim() : "";

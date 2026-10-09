@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
+index b695961..db40ad6 100644
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -303,7 +303,7 @@ public sealed class NodeHost : IAsyncDisposable
+             }
+ 
+             var role = _node.Role;
+-            if ((int)role != _role)
++            if (false && (int)role != _role)
+             {
+                 // P13-02: the change and the host's evidence, read on the loop, for a load run's record.
+                 var now = Stopwatch.GetTimestamp();

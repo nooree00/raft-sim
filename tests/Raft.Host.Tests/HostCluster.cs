@@ -26,12 +26,15 @@ internal sealed class HostCluster : IAsyncDisposable
     private readonly RaftOptions _options;
     private readonly Func<string, IFileSystem>? _files;
     private readonly Dictionary<NodeId, HandOffTrace> _traces = [];
+    private readonly bool _answerRoles;
 
     /// <param name="traced">Each host records its hand-off stamps (P12-03), read with <see cref="Trace"/>.</param>
-    public HostCluster(RaftOptions? options = null, int size = 3, Func<string, IFileSystem>? files = null, bool traced = false)
+    /// <param name="answerRoles">Each host answers `Roles|` (P13-02).</param>
+    public HostCluster(RaftOptions? options = null, int size = 3, Func<string, IFileSystem>? files = null, bool traced = false, bool answerRoles = false)
     {
         _options = options ?? RaftOptions.Default;
         _files = files;
+        _answerRoles = answerRoles;
         for (var i = 1; i <= size; i++)
         {
             var id = new NodeId(i);
@@ -59,7 +62,7 @@ internal sealed class HostCluster : IAsyncDisposable
     public void Start(NodeId n)
     {
         var peers = _peers.ToDictionary(p => p.Key, p => new DnsEndPoint("127.0.0.1", p.Value.Port));
-        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options, FileSystem: _files, Trace: _traces.GetValueOrDefault(n)), Events);
+        var host = new NodeHost(new HostConfig(n, peers, _peers[n], _clients[n], Path.Combine(_root, n.ToString()), _options, FileSystem: _files, Trace: _traces.GetValueOrDefault(n), AnswerRoles: _answerRoles), Events);
         host.Start();
         _hosts[n] = host;
     }

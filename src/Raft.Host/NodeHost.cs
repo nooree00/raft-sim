@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -22,7 +23,21 @@ namespace Raft.Host;
 /// <param name="Client">Where this host accepts clients.</param>
 /// <param name="TickMilliseconds">How often the clock's tick is delivered; one tick unit is one millisecond.</param>
 /// <param name="FileSystem">The data directory as files, for a test or a measurement to wrap (a slowed sync, P10-03; a failing one, P10-07); the real directory when absent.</param>
-public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null, HandOffTrace? Trace = null);
+/// <param name="AnswerRoles">Whether `Roles|` is answered (P13-02: a Compose node in a load run, RAFT_BENCH_ROLES=1); the role changes are kept either way.</param>
+public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoint> Peers, IPEndPoint PeerListen, IPEndPoint Client, string DataDirectory, RaftOptions Options, int TickMilliseconds = 10, Func<string, IFileSystem>? FileSystem = null, HandOffTrace? Trace = null, bool AnswerRoles = false);
+
+/// <summary>
+/// One change of a node's role (P13-02), with the host's evidence for why: how long it had read no
+/// frame a leader sends (an AppendEntries or an InstallSnapshot, told by the wire form's type byte),
+/// so for an election its silence from the leader, read where the bytes arrive, before its loop; and
+/// the size of the clock tick it was handling (a tick past the election timeout is the clock's own
+/// thread paused, a whole-process stall, not the leader's alone).
+/// </summary>
+public sealed record RoleChange(long At, Role From, Role To, long Term, double SilenceMs, long TickMs)
+{
+    /// <summary>An election the host can explain: the node had heard nothing from its peers for at least the shortest election timeout.</summary>
+    public bool Explained(RaftOptions options) => To != Role.Candidate || From == Role.Candidate || SilenceMs >= options.ElectionTimeoutMin;
+}
 
 /// <summary>
 /// One Raft node in a process (P9-04, spec §4's host): a single thread runs the node, fed by a
@@ -69,6 +84,9 @@ public sealed class NodeHost : IAsyncDisposable
     private long _handOffSpins;
     private volatile int _role;
     private long _term;
+    private long _stallOnceTicks;
+    private long _lastLeaderRead = Stopwatch.GetTimestamp();
+    private readonly ConcurrentQueue<RoleChange> _roleChanges = new();
 
     public NodeHost(HostConfig config, TextWriter events)
     {
@@ -98,6 +116,15 @@ public sealed class NodeHost : IAsyncDisposable
         _stallPeriod = period.Ticks;
         _stallPause = pause.Ticks;
     }
+
+    /// <summary>
+    /// A control's hook (P13-02): the loop stops once, for <paramref name="pause"/>, before the next
+    /// input it takes, as a descheduled or collecting leader would, so its followers' timers fire.
+    /// </summary>
+    public void StallOnce(TimeSpan pause) => Interlocked.Exchange(ref _stallOnceTicks, pause.Ticks);
+
+    /// <summary>Every change of the node's role since the host started, in order (P13-02).</summary>
+    public IReadOnlyList<RoleChange> RoleChanges => [.. _roleChanges];
 
     /// <summary>
     /// A measurement's hook (P12-03, the decomposition's control): every peer message waits this long,
@@ -243,6 +270,12 @@ public sealed class NodeHost : IAsyncDisposable
             }
 
             Stall();
+            var once = Interlocked.Exchange(ref _stallOnceTicks, 0);
+            if (once > 0)
+            {
+                Thread.Sleep(TimeSpan.FromTicks(once));
+            }
+
             if (_config.Trace is { } trace)
             {
                 switch (input)
@@ -269,7 +302,15 @@ public sealed class NodeHost : IAsyncDisposable
                 return;
             }
 
-            _role = (int)_node.Role;
+            var role = _node.Role;
+            if ((int)role != _role)
+            {
+                // P13-02: the change and the host's evidence, read on the loop, for a load run's record.
+                var now = Stopwatch.GetTimestamp();
+                _roleChanges.Enqueue(new RoleChange(now, (Role)_role, role, Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, input is Tick t ? t.Elapsed : 0));
+            }
+
+            _role = (int)role;
         }
     }
 
@@ -505,6 +546,11 @@ public sealed class NodeHost : IAsyncDisposable
                 var from = new NodeId(BitConverter.ToInt32(hello));
                 while (!_stop.IsCancellationRequested && Frames.Read(stream, _maxFrame) is { } payload)
                 {
+                    if (FromLeader(payload))
+                    {
+                        Interlocked.Exchange(ref _lastLeaderRead, Stopwatch.GetTimestamp());
+                    }
+
                     _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
                     SpinHandOffDelay();
                     _inputs.Writer.TryWrite(new Receive(from, payload));
@@ -539,6 +585,19 @@ public sealed class NodeHost : IAsyncDisposable
                         continue;
                     }
 
+                    if (line == "Roles|")
+                    {
+                        // P13-02: a Compose node's role changes, for a load run's record; each as its age now.
+                        var reply = _config.AnswerRoles ? "ok|" + EncodeRoles(RoleChanges, Stopwatch.GetTimestamp()) : "error|roles not answered";
+                        lock (writer)
+                        {
+                            writer.Write(reply + "\n");
+                            writer.Flush();
+                        }
+
+                        continue;
+                    }
+
                     if (line == "Trace|")
                     {
                         // P12-03: a Compose node's hand-off stamps, for the bench to join after a run.
@@ -564,6 +623,22 @@ public sealed class NodeHost : IAsyncDisposable
             }
         }
     }
+
+    /// <summary>
+    /// Whether a frame is one only a leader sends: the wire form's type byte (docs/design/node-interface.md
+    /// §6) is 3 for AppendEntries and 5 for InstallSnapshot. Read here, not decoded: one byte, on the
+    /// reader's thread, for the role record's silence (P13-02); a test holds it to the codec.
+    /// </summary>
+    public static bool FromLeader(ReadOnlySpan<byte> payload) => payload.Length > 0 && payload[0] is 3 or 5;
+
+    /// <summary>`Roles|`'s answer: each change as "age-ms,from,to,term,silence-ms,tick-ms", separated by ';' (P13-02).</summary>
+    public static string EncodeRoles(IEnumerable<RoleChange> changes, long now) =>
+        string.Join(";", changes.Select(c => string.Create(CultureInfo.InvariantCulture, $"{Bench.Micros(now - c.At) / 1000:F1},{c.From},{c.To},{c.Term},{c.SilenceMs:F1},{c.TickMs}")));
+
+    /// <summary>The inverse of <see cref="EncodeRoles"/>: each change, its time given back on the reader's clock as <paramref name="now"/> less its age.</summary>
+    public static IReadOnlyList<RoleChange> DecodeRoles(string text, long now) =>
+        [.. text.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(item => item.Split(','))
+            .Select(p => new RoleChange(now - (long)(double.Parse(p[0], CultureInfo.InvariantCulture) * Stopwatch.Frequency / 1000), Enum.Parse<Role>(p[1]), Enum.Parse<Role>(p[2]), long.Parse(p[3], CultureInfo.InvariantCulture), double.Parse(p[4], CultureInfo.InvariantCulture), long.Parse(p[5], CultureInfo.InvariantCulture)))];
 
     private sealed record HostEvent(long T, string Node, string Event, IReadOnlyDictionary<string, string> Fields);
 

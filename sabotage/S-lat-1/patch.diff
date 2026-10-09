@@ -1,9 +1,11 @@
+diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
+index b695961..ddc82c5 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -496,8 +496,8 @@
-                 var from = new NodeId(BitConverter.ToInt32(hello));
-                 while (!_stop.IsCancellationRequested && Frames.Read(stream, _maxFrame) is { } payload)
-                 {
+@@ -551,8 +551,8 @@ public sealed class NodeHost : IAsyncDisposable
+                         Interlocked.Exchange(ref _lastLeaderRead, Stopwatch.GetTimestamp());
+                     }
+ 
 -                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
                      SpinHandOffDelay();
 +                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);

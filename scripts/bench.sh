@@ -80,7 +80,7 @@ case "$what" in
   compose-ab)
     # Each commit's load generator in an image of its own, against nodes built from this commit, a
     # fresh cluster for every run, the commits interleaved within each repetition.
-    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_HANDOFF_TRACE=0
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE=0
     dc() { docker compose -f compose/compose.yaml "$@"; }
     trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
     dc build n1 >/dev/null
@@ -161,7 +161,7 @@ case "$what" in
       done
     done ;;
   load-compose)
-    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_HANDOFF_TRACE="${RAFT_BENCH_DECOMPOSE:-0}"
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE="${RAFT_BENCH_DECOMPOSE:-0}"
     dc() { docker compose -f compose/compose.yaml "$@"; }
     trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
     dc build n1 >/dev/null

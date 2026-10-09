@@ -1,0 +1,6 @@
+description: A host's role changes are not recorded, so a load run's leader change reads as none and an unexplained election is never counted (phase 12's two, found only through their redirects)
+mechanism: the role change after each input never enqueued
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.RoleChangeTests.ALeaderStalledPastItsTimeoutIsRecordedAsAnElectionItsSilenceExplains
+expect: caught
