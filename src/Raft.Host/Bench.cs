@@ -138,6 +138,63 @@ public static class Bench
     }
 
     /// <summary>
+    /// P13-06, Compose's hop floor, the reader's side: one connection accepted on <paramref name="port"/>,
+    /// its frames read on this thread, blocking, as the host's peer reads are; each frame begins with
+    /// the writer's monotonic stamp, and the containers of one machine share one kernel and so one
+    /// monotonic clock, so each is timed from that stamp to its read. The first
+    /// <paramref name="discard"/> are a warm-up, left out.
+    /// </summary>
+    public static (double[] Samples, string Writer) HopReader(int port, int count, int discard)
+    {
+        using var listener = new TcpListener(IPAddress.Any, port);
+        listener.Start();
+        using var peer = listener.AcceptTcpClient();
+        var writer = ((IPEndPoint)peer.Client.RemoteEndPoint!).Address.ToString();
+        var stream = peer.GetStream();
+        var samples = new double[count];
+        for (var i = 0; i < discard + count; i++)
+        {
+            var frame = Frames.Read(stream, 1 << 20) ?? throw new IOException("the writer closed");
+            var read = Stopwatch.GetTimestamp();
+            if (i >= discard)
+            {
+                samples[i - discard] = Micros(read - System.Buffers.Binary.BinaryPrimitives.ReadInt64LittleEndian(frame));
+            }
+        }
+
+        return (samples, writer);
+    }
+
+    /// <summary>
+    /// The writer's side: <paramref name="count"/> frames of <paramref name="bytes"/> bytes to the reader at
+    /// <paramref name="host"/>, a millisecond apart, so each read wakes a reader that was asleep, each
+    /// stamped as it is written. A reader at this host's own address is refused: a hop within one
+    /// container is loopback's, which P12-06 measured.
+    /// </summary>
+    public static string HopWriter(string host, int port, int count, int bytes)
+    {
+        using var client = new TcpClient { NoDelay = true };
+        client.Connect(host, port);
+        var local = ((IPEndPoint)client.Client.LocalEndPoint!).Address;
+        var remote = ((IPEndPoint)client.Client.RemoteEndPoint!).Address;
+        if (local.Equals(remote) || IPAddress.IsLoopback(remote))
+        {
+            throw new InvalidOperationException($"the reader {host} ({remote}) is this host: a hop within one container is loopback's");
+        }
+
+        var s = client.GetStream();
+        var payload = new byte[Math.Max(8, bytes)];
+        for (var i = 0; i < count; i++)
+        {
+            Thread.Sleep(1);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(payload, Stopwatch.GetTimestamp());
+            s.Write(Frames.Encode(payload));
+        }
+
+        return $"{local} to {remote}";
+    }
+
+    /// <summary>
     /// The loopback round trip: a framed message of <paramref name="bytes"/> bytes sent over one TCP
     /// connection and the same frame echoed back, <paramref name="count"/> times, each timed from the
     /// write's start to the echo's last byte, as the host's transport sends and reads frames.

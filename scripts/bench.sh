@@ -7,6 +7,8 @@
 #   scripts/bench.sh floors [reps]          P12-06: the floors the decomposition's segments are read
 #                                           against: the sync with 2 and 3 writers at once, a thread
 #                                           hand-off to a blocked loop, a one-way loopback hop
+#   scripts/bench.sh compose-hop [reps]     P13-06: Compose's hop floor, a frame from one container to a
+#                                           reader asleep in another, on a bridge network as Compose's
 #   scripts/bench.sh load-local [reps]      P10-04: the offered-load curve against three hosts in one
 #                                           process (the container's /tmp), each rate repeated
 #   scripts/bench.sh load-compose [reps]    P10-04: the same curve against the Compose cluster, the
@@ -73,6 +75,21 @@ case "$what" in
       done
       run bench handoff --count 10000 --task P12-06 --id "p12-06-handoff-$r" --repetition "$r" --out measurements
       run bench hop --count 10000 --task P12-06 --id "p12-06-hop-$r" --repetition "$r" --out measurements
+    done ;;
+  compose-hop)
+    # Two containers of the node image on a bridge network of their own (Compose's driver), the reader
+    # started first and writing the record, the writer refusing a reader at its own address.
+    export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)"
+    docker compose -f compose/compose.yaml build n1 >/dev/null
+    net="raft-hop-$$"; docker network create "$net" >/dev/null
+    trap 'docker rm -f raft-hop-reader >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    for r in $(seq 1 "$reps"); do
+      docker run -d --name raft-hop-reader --hostname raft-hop-reader --network "$net" --user "$(id -u):$(id -g)" -v "$PWD/measurements:/out" \
+        -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" raft-host:local \
+        bench hop-reader --port 7300 --count 10000 --writer raft-hop-writer --task P13-06 --id "p13-06-hop-compose-$r" --repetition "$r" --out /out >/dev/null
+      sleep 2
+      docker run --rm --name raft-hop-writer --hostname raft-hop-writer --network "$net" raft-host:local bench hop-writer --to raft-hop-reader:7300 --count 10000 --bytes 96
+      docker wait raft-hop-reader >/dev/null; docker logs raft-hop-reader | tail -1; docker rm raft-hop-reader >/dev/null
     done ;;
   load-local)
     for r in $(seq 1 "$reps"); do

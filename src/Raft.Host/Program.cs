@@ -114,6 +114,18 @@ public static class Program
                 samples = Bench.Hop(count, bytes);
                 measure = $"a {bytes}-byte frame written to a loopback connection read on a thread of its own, one way, {count} times, a millisecond apart";
                 break;
+            case "hop-reader":
+                // P13-06: the reader's side of a hop between two Compose containers; the record is written here.
+                var (hops, from) = Bench.HopReader(int.Parse(o.GetValueOrDefault("--port", "7300"), CultureInfo.InvariantCulture), count, 200);
+                samples = hops;
+                measure = $"a {bytes}-byte frame from another container ({o.GetValueOrDefault("--writer", "?")}, {from}) to a reader asleep on a thread of its own in this one ({Environment.MachineName}), one way, timed from the writer's monotonic stamp (one kernel, one clock), {count} times, a millisecond apart, after 200 discarded";
+                break;
+            case "hop-writer":
+                var to = o["--to"];
+                var colon = to.LastIndexOf(':');
+                var path = Bench.HopWriter(to[..colon], int.Parse(to[(colon + 1)..], CultureInfo.InvariantCulture), count + 200, bytes);
+                await Console.Out.WriteLineAsync($"hop-writer: {count + 200} frames, {path}").ConfigureAwait(false);
+                return 0;
             case "rtt":
                 _ = await Bench.RoundTripAsync(Math.Min(count, 200), bytes, CancellationToken.None).ConfigureAwait(false); // warm-up, discarded
                 samples = await Bench.RoundTripAsync(count, bytes, CancellationToken.None).ConfigureAwait(false);
