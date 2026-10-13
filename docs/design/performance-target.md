@@ -202,3 +202,65 @@ stands:** traced, at 3,125 writes a second its median was 3,294 µs on this phas
 phase's host and phase 12's were past their capacity on this machine at 3,125 in four runs of five
 (m:p13-05-compose-ab-*), so Compose's highest sustained rate on this machine that day was 1,250 for
 both (2,000 in four runs of five for this phase's host, two for phase 12's).
+
+## The figures still set by hand: declared, tested, dropped (P13-08)
+
+Phase 13 settled the figures phase 12's acceptance listed as suspect (decision 7, as the reviewer
+set it): the operating point and the sustained-rate definition are conventions and are declared;
+the percentile summing and the halving are arithmetic over measured things and were to be grounded
+or dropped; the allowance's model stays with its sensitivity reported.
+
+**Declared conventions.**
+- *The operating point, half of C_design (3,125 writes a second).* A choice of what is tested: the
+  load at which a design with one sync a write should still have headroom. Another choice tests
+  something else (at 0.8 of capacity the queue, at a tenth the floor); nothing measured says which.
+- *The sustained-rate definition: completed within 5% of offered, the 99th percentile under 100 ms.*
+  A choice of what keeping up means here: 5% leaves room for a run's drain, 100 ms is an interactive
+  bound. Near the knee the reported rate moves with the choice: on phase 12's host the 99th
+  percentile went from 26 ms at 3,125 to 114 ms at 4,000 (m:p13-05-ab-base-*).
+
+**The percentile summing: tested, and dropped.** The floor's median and 99th percentile are sums of
+the parts' (939 µs and 2,186 µs). Measured end to end at 100 writes a second, where the model's queue
+is negligible, interleaved, five runs a side (m:p13-08-ab-fix-100-*, m:p13-08-ab-base-100-*): the
+median is 1,647 µs on this phase's host and 1,486 on phase 12's, and the 99th percentile 2,598 and
+2,402 µs, **all above the sums**. The run holds what the parts do not: an idle system's wake-ups,
+a millisecond apart in the parts' timing and ten here. And at 1,250 a second the median on phase
+12's host is 846 µs (m:p13-05-ab-base-1250-*), **below** the summed 939. The floor depends on how
+warm the system is, so the sum is neither a bound on it nor an estimate of it. Decision 7's rule
+applies: the sum is dropped, and with it the floors both latency criteria rest on. The restated
+1,066 µs and 3.38 ms (and Compose's 1,167 µs and 3.50 ms) are the figures reported against until
+they are restated; they are not grounded.
+
+**The halving: dropped.** The sustained-rate criterion, half of C_design (3,139 a second), was to be
+replaced by the rate at which the allowance's model, with the measured service, keeps the
+sustained-rate definition. With the leader's measured execution per write at each rate (304 µs at
+3,125, 280 at 3,500, 248 at 4,000, m:p13-05-ab-fix-*) the model keeps it to about 4,000 (its 99th
+percentile wait 33 ms at 3,500 and 93 ms at 4,000, m:p13-08-allowance-3500-measured and -4000-measured),
+but the model is falsified by the same runs (below), so it grounds nothing. The highest sustained
+rate is reported with no criterion: in process 3,500 a second on this phase's host (every run) and
+3,125 on phase 12's (3,500 in four runs of five); in Compose 1,250 for both, on this machine that day.
+
+**The allowance's model, checked, and its sensitivity.** The model is M/D/1: Poisson arrivals at
+3,125 a second, each served for the sync with two writers, 212.4 µs. Its waits by Lindley's
+recursion, now a committed command (`bench allowance`, seed 12, 4,000,000 arrivals after 100,000):
+
+| Service time | Utilisation | Median wait | 99th-percentile wait | Median criterion | 99th-percentile criterion | Record |
+|---|---|---|---|---|---|---|
+| 50% low, 106 µs | 0.33 | 0 µs | 222 µs | 939 µs | 2.41 ms | m:p13-08-allowance-3125-d0.5 |
+| 25% low, 159 µs | 0.50 | 0 | 530 | 939 | 2.72 | m:p13-08-allowance-3125-d0.75 |
+| 10% low, 191 µs | 0.60 | 69 | 861 | 1,008 | 3.05 | m:p13-08-allowance-3125-d0.9 |
+| **as restated, 212 µs** | **0.66** | **127** | **1,199** | **1,066** | **3.38** | m:p13-08-allowance-3125-d1.0 |
+| 10% high, 234 µs | 0.73 | 197 | 1,713 | 1,136 | 3.90 | m:p13-08-allowance-3125-d1.1 |
+| 25% high, 266 µs | 0.83 | 419 | 3,229 | 1,358 | 5.42 | m:p13-08-allowance-3125-d1.25 |
+| 50% high, 319 µs | 1.00 | 25,722 | 202,495 | about 27 ms | about 205 ms | m:p13-08-allowance-3125-d1.5 |
+
+**A wrong model moves the criterion a little one way only:** the operating point sits at a
+utilisation of 0.66, on the steep side of the queue's curve. Both of the model's inputs proved
+wrong. The service is not the sync alone: the leader's serial work per write was 1.29 times it on
+the loop (P13-03) and is 1.43 times it on the effect thread (304 µs at 3,125), where the model's
+median wait is 1,961 µs and its 99th percentile 13.5 ms (m:p13-08-allowance-3125-measured). And the
+generator's arrivals are evenly spaced, not Poisson, where the same service gives no queue at all
+(m:p13-08-allowance-3125-measured-even). The waits measured in the effect queue at 3,125 are 280 µs
+before a persist and 213 µs before a response at their medians (m:p13-05-ab-fix-3125-*), between the
+two. The restated allowance came close because its two errors cancel: an agreement with no
+mechanism behind it.
