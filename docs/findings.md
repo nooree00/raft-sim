@@ -1369,3 +1369,46 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   against a reference that had changed under it. Caught in the phase 13 draft, which quoted both.
   *Rule:* a ratio names its baseline, and the edit that moves a baseline re-reads every ratio quoted
   against it, in the message as well as the documents.
+
+## Phase 13
+
+- **Moving the serial work moved its queue, not its load.** Phase 12 named the cap as the leader's
+  loop running its syncs inline, and phase 13 moved the effects to a thread of their own, as the
+  contract allows. The loop's queues went (the loop 0.06 busy at 3,125 writes a second) and the
+  effect thread's took their place (0.95 busy): the leader's serial work per write, its sync with
+  the append's write, the sends and the responses, is the same wherever it runs, and the median rose
+  by a quarter, the extra hand-off and the response's wait behind later persists added to it. P13-03
+  had measured the split before the change: the handling was 4.5% of the loop's work and the effects
+  95%. *Rule:* before moving work between threads, ask whether the work, not the thread, is the
+  queue's server; a measured split that puts 95% of the time in what moves says the queue moves too.
+- **A model whose two errors cancel looks grounded.** The restated allowance (M/D/1, the sync
+  alone, Poisson arrivals) predicted 127 µs at the median, close to the waits later measured. Both
+  inputs were wrong: the serial work is 1.43 times the sync, which alone puts the model's median wait
+  at 1,961 µs, and the generator's arrivals are evenly spaced, which alone puts it at nothing. The
+  agreement had no mechanism behind it. *Rule:* a model is checked input by input, not by its output
+  agreeing; an agreement found before the inputs are measured is a coincidence until they are.
+- **A floor that depends on the rate is not a sum of parts.** The restated floor summed parts timed
+  alone a millisecond apart. End to end at 100 writes a second the path was slower than the sum, an
+  idle system's wake-ups in it, and at 1,250 its median was faster, the parts overlapping on a warm
+  machine. So the sum was neither a bound nor an estimate, and the test the reviewer set (ground or
+  drop) dropped it. *Rule:* a composed floor is checked end to end at the conditions it is used at
+  before it is a criterion.
+- **The currency mechanism's first run found what memory missed for three phases.** The ancestry
+  observer failed 15 phase-10 records naming two commits rewritten before that phase's push, after
+  phase 12's relabelling had been taken as having left none; the registry found two premises nothing
+  checks, one written by phase 12's own audit after it audited the inputs (`margins.tsv`). The class
+  entry's rule held: the gate reading the records had read them as true for three phases.
+- **A control that names "the leader" once and acts on it later tests a moment that has passed.**
+  S-lead-1's control read the leader, waited, and stalled that node, asserting an election after the
+  stall. On a slow runner a second election came first, the node stalled no longer led, and the new
+  leader needed no election: the unpatched target failed once on GitHub (`4ca269b`) and about once
+  in sixty runs here. The control now stalls whoever leads when it acts and waits for a node taking
+  office after that. *Rule:* a control reads the state it acts on at the moment it acts, and asserts
+  what follows from the act, not from an earlier read.
+- **A format rule found late costs a replay.** Two outcomes (P13-05, P13-08) lacked the dash `gates
+  breakdown` requires after the parenthesis, and the gate first ran on them in the full local run,
+  seven commits on. Fixing them in the commits that wrote them meant replaying seven unpushed commits
+  and relabelling 21 records to the new hashes (the source byte-identical). Nothing pushed was
+  rewritten. *Rule:* a commit that writes an outcome runs the breakdown gate before the next commit
+  builds on it. Not scripted: I have run the fast gates before each such commit since, which is
+  the kind of rule spec §10 predicts will not hold.
