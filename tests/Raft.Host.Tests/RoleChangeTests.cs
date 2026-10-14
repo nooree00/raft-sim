@@ -27,8 +27,13 @@ public sealed class RoleChangeTests
     {
         await using var c = new HostCluster(answerRoles: true);
         c.StartAll();
-        var leader = await c.LeaderAsync(Wait, Ct) ?? throw new InvalidOperationException("no leader");
+        _ = await c.LeaderAsync(Wait, Ct) ?? throw new InvalidOperationException("no leader");
         await Task.Delay(500, Ct);
+
+        // The node that leads now: on a slow machine the first election can be followed by another
+        // before the stall (run 38482181300, at 4ca269b), and stalling a node that no longer leads
+        // plants nothing. The new leader is the one that takes office after the stall.
+        var leader = await c.LeaderAsync(Wait, Ct) ?? throw new InvalidOperationException("no leader");
         var stalled = Stopwatch.GetTimestamp();
         c.Host(leader)!.StallOnce(TimeSpan.FromSeconds(1));
 
@@ -36,18 +41,17 @@ public sealed class RoleChangeTests
         for (var end = DateTime.UtcNow + Wait; next is null && DateTime.UtcNow < end;)
         {
             await Task.Delay(50, Ct);
-            foreach (var n in c.Nodes.Where(n => n != leader && c.Host(n)!.Role == Role.Leader))
+            foreach (var n in c.Nodes.Where(n => n != leader && c.Host(n)!.RoleChanges.Any(x => x.At >= stalled && x.To == Role.Leader)))
             {
                 next = n;
             }
         }
 
-        Assert.True(next is not null, "no follower took office while the leader was stalled");
+        Assert.True(next is not null, "no follower took office after the leader was stalled");
         var elections = c.Nodes.Where(n => n != leader).SelectMany(n => c.Host(n)!.RoleChanges).Where(x => x.At >= stalled && x.To == Role.Candidate && x.From == Role.Follower).ToList();
         Assert.NotEmpty(elections);
         var first = elections.OrderBy(x => x.At).First();
-        Assert.True(first.SilenceMs >= RaftOptions.Default.ElectionTimeoutMin, $"the first election's silence from the leader was {first.SilenceMs:F1} ms, under the {RaftOptions.Default.ElectionTimeoutMin}-ms timeout");
-        Assert.True(first.Explained(RaftOptions.Default));
+        Assert.True(first.Explained(RaftOptions.Default), $"the first election's silence from the leader was {first.SilenceMs:F1} ms, more than a tick under the {RaftOptions.Default.ElectionTimeoutMin}-ms timeout");
         Assert.Contains(c.Host(next.Value)!.RoleChanges, x => x.At >= stalled && x.To == Role.Leader);
 
         // The same changes through `Roles|`, as a Compose load run reads them.
@@ -62,6 +66,8 @@ public sealed class RoleChangeTests
     {
         Assert.False(new RoleChange(0, Role.Follower, Role.Candidate, 3, SilenceMs: 40, TickMs: 160).Explained(RaftOptions.Default));
         Assert.True(new RoleChange(0, Role.Follower, Role.Candidate, 3, SilenceMs: 151, TickMs: 10).Explained(RaftOptions.Default));
+        Assert.True(new RoleChange(0, Role.Follower, Role.Candidate, 3, SilenceMs: 142, TickMs: 10).Explained(RaftOptions.Default));
+        Assert.False(new RoleChange(0, Role.Follower, Role.Candidate, 3, SilenceMs: 138, TickMs: 10).Explained(RaftOptions.Default));
         Assert.True(new RoleChange(0, Role.Leader, Role.Follower, 4, SilenceMs: 0, TickMs: 0).Explained(RaftOptions.Default));
     }
 

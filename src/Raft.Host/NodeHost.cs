@@ -36,8 +36,15 @@ public sealed record HostConfig(NodeId Id, IReadOnlyDictionary<NodeId, DnsEndPoi
 /// </summary>
 public sealed record RoleChange(long At, Role From, Role To, long Term, double SilenceMs, long TickMs)
 {
-    /// <summary>An election the host can explain: the node had heard nothing from its peers for at least the shortest election timeout.</summary>
-    public bool Explained(RaftOptions options) => To != Role.Candidate || From == Role.Candidate || SilenceMs >= options.ElectionTimeoutMin;
+    /// <summary>
+    /// An election the host can explain: the node had heard nothing from a leader for the shortest
+    /// election timeout, to within one tick of the clock. The timer counts whole ticks of wall time,
+    /// and the tick that fires it can include up to one tick from before the last heartbeat was handled,
+    /// so an election at the shortest timeout can show a silence a tick short of it (S-lead-1's control
+    /// failed so, once in about sixty runs). The tolerance is the clock's interval, not the size of the
+    /// tick that fired: a long tick is the clock's own thread paused, which explains nothing.
+    /// </summary>
+    public bool Explained(RaftOptions options, int tickMilliseconds = 10) => To != Role.Candidate || From == Role.Candidate || SilenceMs + tickMilliseconds >= options.ElectionTimeoutMin;
 }
 
 /// <summary>
