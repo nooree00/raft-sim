@@ -1,5 +1,5 @@
 # P12-08's audit (scripts/margins.sh): the host bench controls, 5 runs alone, 5 beside three busy processes and 5 beside the Membership and Scale suites on each side; the replication cost check, seeded, one run a side; at 3a1056b.
-# The handoff rows measured again at 7f4b02c, after the hand-off control's change (twenty windows, 2 ms planted, slept then spun): the whole class unpatched and S-lat-1 patched, 5 runs alone, 5 beside three busy processes, 5 beside the suites.
+# at 7f4b02c: handoff-low, handoff-high, handoff-others (measured again after the hand-off control's change, twenty windows, 2 ms planted, slept then spun: the whole class unpatched and S-lat-1 patched, 5 runs alone, 5 beside three busy processes, 5 beside the suites)
 # check	bound	pass	kind	unpatched	patched	note
 stall-open-p95	150000	above	timing	814595,823450,810943,822375,812610,818006,818485,824193,821869,825531,814034,834264,822677,839316,820481	3276,3707,3451,3396,3258,11571,15513,16173,10485,15453,26336,24883,24088,24955,25280	open loop's 95th percentile, us (a 1-s stall every 4 s, P13-07); S-bench-1
 stall-closed-p95	75000	below	timing	2777,2787,3318,2595,2621,8095,11562,16017,10396,8121,13566,11651,12952,13080,12282	-	closed loop's 95th percentile, us

@@ -1,0 +1,6 @@
+description: The margins observer reads each row's measurement commit as current, so a row measured before its control changed passes a report (P14-06)
+mechanism: each row's commit read as current
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.MarginsCurrencyTests.ARowMeasuredBeforeItsControlLastChangedFailsAReport
+expect: caught

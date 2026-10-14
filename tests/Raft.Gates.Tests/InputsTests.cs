@@ -15,7 +15,7 @@ public sealed class InputsTests
 {
     private static readonly string[] Gates = ["register", "testcount", "preflight"];
 
-    private static readonly string[] Tracked = ["ci/inputs.txt", "ci/test-baseline.txt", "ci/sabotage-costs.txt", "ci/sabotage-touched.txt", "ci/budget-seeds.txt", "ci/broad-targets.txt", "measurements/m-1.json", "docs/register.md", "Raft.slnx"];
+    private static readonly string[] Tracked = ["ci/inputs.txt", "ci/test-baseline.txt", "ci/sabotage-costs.txt", "ci/sabotage-touched.txt", "ci/budget-seeds.txt", "ci/broad-targets.txt", "docs/phases/P13/margins-bench.tsv", "measurements/m-1.json", "docs/register.md", "Raft.slnx"];
 
     private static IReadOnlyList<Inputs.Line> Lines(string text, Findings f) => Inputs.Parse(text, f);
 
@@ -27,6 +27,7 @@ public sealed class InputsTests
         ci/sabotage-costs.txt     currency      github-run: the run's total
         ci/budget-seeds.txt       currency      soak-ranking: the soak's ten hardest
         ci/broad-targets.txt      currency      broad-run: the harness's red neighbours
+        docs/phases/*/margins-bench.tsv currency margins-commit: each row's commit
         docs/register.md          row           "the register's own row" nothing checks it
         """;
 

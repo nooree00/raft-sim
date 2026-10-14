@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Raft.Gates;
 
@@ -17,8 +18,20 @@ namespace Raft.Gates;
 /// (S-bench-1 then survived 2 of 13 runs on GitHub, its patched side near the bound); guarded by
 /// computing both sides on every row, sabotage S-margin-1.
 /// </summary>
-internal static class Margins
+internal static partial class Margins
 {
+    /// <summary>The bench controls' margin tables, one a phase (P14-06): `scripts/margins.sh` writes them.</summary>
+    public const string BenchTables = "docs/phases/*/margins-bench.tsv";
+
+    /// <summary>
+    /// What each family of rows describes (P14-06): a row is stale once one of these changed after the
+    /// commit it was measured at. The replication cost check's rows are the Scale suite's; every other row
+    /// is a host bench control's.
+    /// </summary>
+    internal static IReadOnlyList<string> SourcesOf(string check) => check.StartsWith("cost-", StringComparison.Ordinal)
+        ? ["src/Raft.Core", "tests/Raft.Scale.Tests", "scripts/margins.sh"]
+        : ["src/Raft.Host", "tests/Raft.Host.Slow.Tests", "scripts/margins.sh"];
+
     /// <summary>The factor a side must keep from its bound.</summary>
     public const double Required = 1.5;
 
@@ -95,8 +108,33 @@ internal static class Margins
     public static Findings Run(Repo repo, string[] args)
     {
         var rest = args.ToList();
-        var data = Options.Take(rest, "--data") ?? "docs/phases/P12/margins.tsv";
+        var currency = rest.Remove("--currency");
+        var data = Options.Take(rest, "--data") ?? NewestBenchTable(repo);
         var f = new Findings();
+        if (currency)
+        {
+            if (data is null)
+            {
+                f.Fail($"no bench margins table ({BenchTables})");
+                return f;
+            }
+
+            var lines = File.ReadAllLines(repo.PathOf(data));
+            var head = repo.Git("rev-parse", "HEAD").StdOut.Trim();
+            var atReport = repo.Git("show", "--name-only", "--format=", "HEAD").StdOut.Split('\n').Any(l => ReportPath().IsMatch(l.Trim()));
+            CheckCurrency(data, RowCommits(lines, Parse(lines).Select(r => r.Check)),
+                check => repo.Git(["log", "-1", "--format=%H", "--", .. SourcesOf(check)]).StdOut.Trim(),
+                (ancestor, commit) => repo.Git("merge-base", "--is-ancestor", ancestor, commit).ExitCode == 0,
+                atReport, head, f);
+            return f;
+        }
+
+        if (data is null)
+        {
+            f.Fail($"no bench margins table ({BenchTables})");
+            return f;
+        }
+
         var path = repo.PathOf(data);
         if (!File.Exists(path))
         {
@@ -121,6 +159,89 @@ internal static class Margins
 
         return f;
     }
+
+    /// <summary>The newest phase's bench margins table, or null when no phase has one.</summary>
+    internal static string? NewestBenchTable(Repo repo) =>
+        System.IO.Directory.GetDirectories(repo.PathOf("docs/phases"))
+            .Select(d => (Dir: d, Phase: PhaseNumber().Match(Path.GetFileName(d))))
+            .Where(x => x.Phase.Success && File.Exists(Path.Combine(x.Dir, "margins-bench.tsv")))
+            .OrderByDescending(x => int.Parse(x.Phase.Groups[1].Value, CultureInfo.InvariantCulture))
+            .Select(x => Path.GetRelativePath(repo.Root, Path.Combine(x.Dir, "margins-bench.tsv")).Replace('\\', '/'))
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Each row's measurement commit (P14-06): the table's header names one for every row ("... at
+    /// &lt;commit&gt;."), and a line `# at &lt;commit&gt;: &lt;checks&gt;` overrides it for the checks it names
+    /// (a control measured again alone). A row with neither has no commit.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string?> RowCommits(IReadOnlyList<string> lines, IEnumerable<string> checks)
+    {
+        var header = lines.Where(l => l.StartsWith('#')).Select(l => HeaderCommit().Match(l)).FirstOrDefault(m => m.Success)?.Groups[1].Value;
+        var commits = checks.ToDictionary(c => c, _ => header, StringComparer.Ordinal);
+        foreach (var m in lines.Select(l => OverrideCommit().Match(l)).Where(m => m.Success))
+        {
+            foreach (var check in m.Groups[2].Value.Split('(')[0].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (commits.ContainsKey(check))
+                {
+                    commits[check] = m.Groups[1].Value;
+                }
+            }
+        }
+
+        return commits;
+    }
+
+    /// <summary>
+    /// The observer <see cref="Currency.MarginsCommit"/> (P14-06): each row measured at or after the last
+    /// change to what it describes. Stale rows fail only when the head commit carries a phase report: an
+    /// audit takes over an hour and belongs once a phase, before its report, so on any other push they are
+    /// noted. Vacuity risk: an observer reading a row's commit as current passes every table (S-margin-2).
+    /// </summary>
+    internal static void CheckCurrency(string table, IReadOnlyDictionary<string, string?> rows, Func<string, string> lastChange, Func<string, string, bool> isAncestor, bool atReport, string head, Findings f)
+    {
+        // A row is current when its commit contains the last change to its control's sources.
+        var last = rows.Keys.ToDictionary(c => c, lastChange, StringComparer.Ordinal);
+        var judged = new Findings();
+        var stale = 0;
+        foreach (var (check, commit) in rows)
+        {
+            var current = commit is not null && last[check].Length > 0 && isAncestor(last[check], commit);
+            if (!current)
+            {
+                stale++;
+                judged.Fail(Currency.Text(Currency.MarginsCommit, check, commit ?? "no commit", $"its control's sources last changed at {Short(last[check])}, after it", "measured at or after the last change to its control's sources", "Run scripts/margins.sh at the head and write its table for this phase"));
+            }
+        }
+
+        foreach (var failure in judged.Failures)
+        {
+            if (atReport)
+            {
+                f.Fail(failure);
+            }
+            else
+            {
+                f.Note("would fail a report: " + failure);
+            }
+        }
+
+        f.Note($"currency {Currency.MarginsCommit.Id}: {rows.Count} row(s) in {table} against {Currency.MarginsCommit.Source}; {stale} stale{(atReport ? ", the head carries a phase report" : $", not judged: the head ({Short(head)}) carries no phase report")}");
+    }
+
+    private static string Short(string commit) => commit.Length > 7 ? commit[..7] : commit;
+
+    [GeneratedRegex(@"\bat ([0-9a-f]{7,40})\.")]
+    private static partial Regex HeaderCommit();
+
+    [GeneratedRegex(@"^# at ([0-9a-f]{7,40}): (.+)$")]
+    private static partial Regex OverrideCommit();
+
+    [GeneratedRegex(@"^docs/phases/P\d+/report\.md$")]
+    private static partial Regex ReportPath();
+
+    [GeneratedRegex(@"^P(\d+)$")]
+    private static partial Regex PhaseNumber();
 
     private static string Show(double margin) => double.IsPositiveInfinity(margin) ? "never reaches it" : string.Create(CultureInfo.InvariantCulture, $"{margin:F2} times");
 }

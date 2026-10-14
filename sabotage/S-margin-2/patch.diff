@@ -1,0 +1,13 @@
+diff --git a/tools/Raft.Gates/Margins.cs b/tools/Raft.Gates/Margins.cs
+index 53610b0..a911c1f 100644
+--- a/tools/Raft.Gates/Margins.cs
++++ b/tools/Raft.Gates/Margins.cs
+@@ -206,7 +206,7 @@ internal static partial class Margins
+         var stale = 0;
+         foreach (var (check, commit) in rows)
+         {
+-            var current = commit is not null && last[check].Length > 0 && isAncestor(last[check], commit);
++            var current = commit is not null || isAncestor(last[check], commit ?? "");
+             if (!current)
+             {
+                 stale++;

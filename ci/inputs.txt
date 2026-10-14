@@ -15,12 +15,13 @@
 ci/inputs.txt                   subject       this registry, compared by gates inputs with the inputs it finds
 
 # The four phase 12 found checked by nothing (P12-01's audit), each with an observer where its truth lives;
-# and the first premise this registry's first application found (P13-01), given an observer by P14-05.
+# and the two premises this registry's first application found (P13-01), given observers by P14-05 and P14-06.
 measurements                    currency      record-commit: each record's commit among the head's ancestors (gates measurements)
 ci/sabotage-touched.txt         currency      touched-run: the touched stage's run within a factor of 3.25 of its estimate (gates sabotage --touched)
 ci/sabotage-costs.txt           currency      github-run: the run's total within a factor of 2 of the file's sum (build-collect); each entry within 5 and each shard within 3 in the harness
 ci/budget-seeds.txt             currency      soak-ranking: each seed among the baseline soak's ten hardest decided histories (the soak job)
 ci/broad-targets.txt            currency      broad-run: every test red beside at least half of the entries that ran it beside their target, and at least four, listed (build-collect, P14-05)
+docs/phases/*/margins-bench.tsv currency      margins-commit: each bench row measured at or after its control's sources last changed (gates margins --currency; fails a report at the head, P14-06)
 
 # Current by construction: compared with what they describe, both ways, on every run.
 ci/test-baseline.txt            construction  testcount: each project's executed count against the run's
@@ -34,9 +35,6 @@ ci/image.digest                 decision      the SDK image every job runs in, p
 ci/gitleaks.image               decision      the secret scanner's image, pinned by digest; preflight checks the form
 ci/sabotage-shard-size.txt      decision      entries per harness shard; each shard's 15-minute ceiling bounds the consequence
 
-# A premise nothing checks yet, found by this registry's first application (P13-01).
-docs/phases/P12/margins.tsv     row           "docs/phases/P12/margins.tsv" the control margins at e098dc6; nothing ties its rows to the controls they describe
-
 # What the gates check.
 .github/workflows               subject       what preflight checks: pins, and no suppressed failure
 RAFT_PROJECT_SPEC.md            subject       the contract; register reads its phase rows
@@ -47,6 +45,10 @@ docs/phases/*/report.md         subject       the phase reports: their status li
 docs/register.md                subject       the register (register)
 src                             subject       the source register scans for NotImplementedException
 src/Raft.Core                   subject       the node: a push changing it selects the soak-derived entries (sabotage --touched)
+src/Raft.Host                   subject       the host: a bench margins row is stale once it changes after the row's commit (gates margins --currency)
+tests/Raft.Host.Slow.Tests      subject       the bench controls: as src/Raft.Host for their rows
+tests/Raft.Scale.Tests          subject       the replication cost check: its margins rows are stale once it changes
+scripts/margins.sh              subject       the margin audit's script: every margins row is stale once it changes
 tests                           subject       the tests testcount and register read
 ci                              subject       the hand-kept inputs' directory: inputs requires a line for every file in it
 sabotage                        subject       the harness entries (sabotage, patches, breakdown); inputs does not read their patches as readers
