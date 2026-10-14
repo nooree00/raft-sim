@@ -36,12 +36,16 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
     /// <summary>Each host's hand-off trace, when started with tracing (P12-03).</summary>
     public IReadOnlyDictionary<NodeId, HandOffTrace> Traces { get; private set; } = new Dictionary<NodeId, HandOffTrace>();
 
-    public void Start(RaftOptions? options = null, bool traced = false)
+    /// <summary>One write in this many traced, when traced (P15-01).</summary>
+    public int TraceSample { get; private set; } = 1;
+
+    public void Start(RaftOptions? options = null, bool traced = false, int traceSample = 1)
     {
+        TraceSample = Math.Max(1, traceSample);
         var ids = Enumerable.Range(1, 3).Select(i => new NodeId(i)).ToList();
         var peers = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + n.Value));
         Clients = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + 100 + n.Value));
-        Traces = traced ? ids.ToDictionary(n => n, _ => new HandOffTrace()) : new Dictionary<NodeId, HandOffTrace>();
+        Traces = traced ? ids.ToDictionary(n => n, _ => new HandOffTrace(TraceSample)) : new Dictionary<NodeId, HandOffTrace>();
         foreach (var n in ids)
         {
             var dir = Path.Combine(root, n.ToString());

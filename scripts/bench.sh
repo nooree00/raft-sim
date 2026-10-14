@@ -39,7 +39,8 @@
 # (P12-04: the generator's second schedule, `paced`).
 # RAFT_BENCH_SEPARATE=1 makes load-local and load-ab run the in-process cluster in a process of its own
 # (`bench cluster`, a container of its own) and the load generator in another sharing its loopback
-# (P15-01); without it the generator shares the hosts' process, as before.
+# (P15-01); without it the generator shares the hosts' process, as before. RAFT_BENCH_TRACE_SAMPLE=N makes
+# a traced run keep one write in N, by entry index (P15-01's contingency: the full trace's own cost).
 #   scripts/bench.sh instrument-ab [reps]   P15-01: the generator in the hosts' process and in its own,
 #                                           each untraced and traced, interleaved at RAFT_BENCH_RATES
 set -euo pipefail
@@ -79,7 +80,7 @@ cluster="raft-cluster-$$"
 load_in() {
   local dir="$1" mode="$2"; shift 2
   if [ "$mode" = separate ]; then
-    local traced=(); for a in "$@"; do [ "$a" = --decompose ] && traced=(--decompose 1); done
+    local traced=(); for a in "$@"; do [ "$a" = --decompose ] && traced=(--decompose 1 ${RAFT_BENCH_TRACE_SAMPLE:+--trace-sample "$RAFT_BENCH_TRACE_SAMPLE"}); done
     docker rm -f "$cluster" >/dev/null 2>&1 || true
     docker run -d --name "$cluster" --network none -v "$dir:/src" -w /src -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" \
       dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench cluster --local /tmp/cluster --control-port 27299 "${traced[@]}" >/dev/null
@@ -87,7 +88,8 @@ load_in() {
       -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench load --cluster 127.0.0.1:27299 "$@"
     docker rm -f "$cluster" >/dev/null 2>&1 || true
   else
-    run_in "$dir" bench load --local /tmp/cluster "$@"
+    local sampled=(); for a in "$@"; do [ "$a" = --decompose ] && sampled=(${RAFT_BENCH_TRACE_SAMPLE:+--trace-sample "$RAFT_BENCH_TRACE_SAMPLE"}); done
+    run_in "$dir" bench load --local /tmp/cluster "$@" "${sampled[@]}"
   fi
 }
 mode="local"; [ "${RAFT_BENCH_SEPARATE:-0}" = 1 ] && mode=separate

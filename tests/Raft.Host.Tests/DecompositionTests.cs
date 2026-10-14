@@ -166,4 +166,34 @@ public sealed class DecompositionTests
         Assert.Equal(100.0 / 1_700, tail.Groups["other"], 6);
         Assert.Equal(0, tail.Segments["leader-queue"], 6);
     }
+
+    /// <summary>
+    /// P15-01: a trace that keeps one write in two, by entry index, decomposes the writes it keeps (indices
+    /// 2 and 4) exactly as the full trace does, and leaves the other out. Sabotage S-proc-3 (the loop's takes
+    /// of the reads it kept dropped, so nothing joins).
+    /// </summary>
+    [Fact]
+    public void ASampledTraceDecomposesItsSampledWritesAsTheFullTraceDoes()
+    {
+        var (traces, writes) = Build();
+        var sampled = traces.ToDictionary(t => t.Key, t =>
+        {
+            var trace = new HandOffTrace(sample: 2);
+            foreach (var s in t.Value)
+            {
+                trace.Offer(s);
+            }
+
+            return trace.Snapshot();
+        });
+
+        var full = Decomposition.Compute(traces, Leader, writes);
+        var d = Decomposition.Compute(sampled, Leader, writes);
+
+        Assert.Equal((3, 2, 0, 0), (d.Writes, d.Joined, d.Violations, d.Mismatched));
+        foreach (var name in Decomposition.Segments)
+        {
+            Assert.Equal(new[] { full.Micros[name][0], full.Micros[name][2] }, d.Micros[name]);
+        }
+    }
 }

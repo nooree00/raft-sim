@@ -51,6 +51,7 @@ public sealed class SeparateGeneratorTests
             var roles = await probe.RolesAsync();
 
             Assert.Equal(cluster.Id, probe.ProcessId);
+            Assert.NotEqual(ProcessToken.Value, probe.Instance);
             Assert.Equal(1, Program.GeneratorOwnProcess(probe));
             Assert.True(r.Answered > 50, $"{r.Answered} writes answered");
             Assert.InRange(fields["leader_syncs_per_write"], 0.01, 3);
@@ -89,7 +90,7 @@ public sealed class SeparateGeneratorTests
             var probe = new LocalProbe(local);
             await probe.LeaderAsync(TimeSpan.FromSeconds(15));
 
-            Assert.Equal(Environment.ProcessId, probe.ProcessId);
+            Assert.Equal(ProcessToken.Value, probe.Instance);
             Assert.Equal(0, Program.GeneratorOwnProcess(probe));
         }
     }

@@ -62,8 +62,17 @@ public sealed record HostCounters(long Syncs, double SyncMicros, long Messages, 
 /// </summary>
 public interface IClusterProbe
 {
-    /// <summary>The process the hosts run in.</summary>
+    /// <summary>The process the hosts run in, by its id in its own namespace (for the record).</summary>
     int ProcessId { get; }
+
+    /// <summary>
+    /// The hosts' process by a token drawn when it started (<see cref="ProcessToken"/>): unlike a process id,
+    /// unique across the containers a separate run uses, each with a namespace in which its process is 1.
+    /// </summary>
+    string Instance { get; }
+
+    /// <summary>One write in this many traced, when the hosts trace (P15-01).</summary>
+    int TraceSample { get; }
 
     IReadOnlyDictionary<NodeId, DnsEndPoint> Clients { get; }
 
@@ -78,10 +87,23 @@ public interface IClusterProbe
     Task<Dictionary<NodeId, byte[]>> TracesAsync();
 }
 
+/// <summary>
+/// This process's token, drawn when it started (P15-01): two processes compare tokens, not ids, because
+/// in two containers each process can be process 1 of its own namespace (the first separate runs read so).
+/// </summary>
+public static class ProcessToken
+{
+    public static string Value { get; } = Guid.NewGuid().ToString("N");
+}
+
 /// <summary>An in-process cluster's probe: the generator shares the hosts' process.</summary>
 public sealed class LocalProbe(LocalCluster cluster) : IClusterProbe
 {
     public int ProcessId => Environment.ProcessId;
+
+    public string Instance => ProcessToken.Value;
+
+    public int TraceSample => cluster.TraceSample;
 
     public IReadOnlyDictionary<NodeId, DnsEndPoint> Clients => cluster.Clients;
 
@@ -104,10 +126,14 @@ public sealed class ControlProbe : IClusterProbe
 {
     private readonly DnsEndPoint _control;
 
-    private ControlProbe(DnsEndPoint control, int processId, IReadOnlyDictionary<NodeId, DnsEndPoint> clients) =>
-        (_control, ProcessId, Clients) = (control, processId, clients);
+    private ControlProbe(DnsEndPoint control, int processId, string instance, int traceSample, IReadOnlyDictionary<NodeId, DnsEndPoint> clients) =>
+        (_control, ProcessId, Instance, TraceSample, Clients) = (control, processId, instance, traceSample, clients);
+
+    public int TraceSample { get; }
 
     public int ProcessId { get; }
+
+    public string Instance { get; }
 
     public IReadOnlyDictionary<NodeId, DnsEndPoint> Clients { get; }
 
@@ -121,10 +147,10 @@ public sealed class ControlProbe : IClusterProbe
             if (reply?.StartsWith("ok|", StringComparison.Ordinal) == true)
             {
                 var parts = reply.Split('|');
-                var clients = parts[2].Split(',').Select(e => e.Split('=')).ToDictionary(
+                var clients = parts[4].Split(',').Select(e => e.Split('=')).ToDictionary(
                     e => new NodeId(int.Parse(e[0], CultureInfo.InvariantCulture)),
                     e => new DnsEndPoint(control.Host, int.Parse(e[1][(e[1].LastIndexOf(':') + 1)..], CultureInfo.InvariantCulture)));
-                return new ControlProbe(control, int.Parse(parts[1], CultureInfo.InvariantCulture), clients);
+                return new ControlProbe(control, int.Parse(parts[1], CultureInfo.InvariantCulture), parts[2], int.Parse(parts[3], CultureInfo.InvariantCulture), clients);
             }
 
             if (DateTime.UtcNow > end)
@@ -195,8 +221,8 @@ public sealed class ControlProbe : IClusterProbe
 
 /// <summary>
 /// `bench cluster`'s control port (P15-01): the in-process cluster's hosts asked from another process,
-/// one request per line, each answered on its connection: `Nodes|` (this process's id and the hosts'
-/// client ports), `Counters|`, `Leader|`, `Roles|n`, `Trace|n` and `Stop|`.
+/// one request per line, each answered on its connection: `Nodes|` (this process's id, its token, the
+/// trace's sample and the hosts' client ports), `Counters|`, `Leader|`, `Roles|n`, `Trace|n` and `Stop|`.
 /// </summary>
 public sealed class ClusterControl(LocalCluster cluster, int port) : IDisposable
 {
@@ -263,7 +289,7 @@ public sealed class ClusterControl(LocalCluster cluster, int port) : IDisposable
         int Node() => int.Parse(arg, CultureInfo.InvariantCulture);
         return verb switch
         {
-            "Nodes|" => $"ok|{Environment.ProcessId}|" + string.Join(",", cluster.Clients.OrderBy(c => c.Key.Value).Select(c => $"{c.Key.Value}={c.Value.Host}:{c.Value.Port}")),
+            "Nodes|" => $"ok|{Environment.ProcessId}|{ProcessToken.Value}|{cluster.TraceSample}|" + string.Join(",", cluster.Clients.OrderBy(c => c.Key.Value).Select(c => $"{c.Key.Value}={c.Value.Host}:{c.Value.Port}")),
             "Counters|" => "ok|" + string.Join(";", cluster.Counters().Select(c => c.Encode())),
             "Leader|" => cluster.Hosts.Select((h, n) => (h, n)).FirstOrDefault(x => x.h.Role == Role.Leader) is { h: not null } l ? $"ok|{l.n + 1}" : "error|no leader",
             "Roles|" => "ok|" + NodeHost.EncodeRoles(cluster.Hosts[Node() - 1].RoleChanges, Stopwatch.GetTimestamp()),

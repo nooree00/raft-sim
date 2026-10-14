@@ -190,7 +190,7 @@ public static class Program
         if (o.TryGetValue("--local", out var root))
         {
             local = new LocalCluster(root);
-            local.Start(traced: decompose);
+            local.Start(traced: decompose, traceSample: int.Parse(o.GetValueOrDefault("--trace-sample", "1"), CultureInfo.InvariantCulture));
             probe = new LocalProbe(local);
             await probe.LeaderAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
             nodes = local.Clients;
@@ -277,6 +277,8 @@ public static class Program
                     ? (await probe.TracesAsync().ConfigureAwait(false), await probe.LeaderAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
                     : await FetchTracesAsync(nodes).ConfigureAwait(false);
                 results["trace_bytes"] = traces.Values.Sum(t => (long)t.Length);
+                // P15-01: one write in this many traced (by entry index); the others are not joined.
+                results["trace_sample"] = probe?.TraceSample ?? 1;
                 var d = Decomposition.Compute(traces.ToDictionary(t => t.Key, t => HandOffTrace.Read(t.Value)), leader, [.. writes]);
                 results["decomposed_writes"] = d.Joined;
                 results["decomposition_coverage"] = Math.Round((double)d.Joined / Math.Max(1, d.Writes), 4);
@@ -338,13 +340,15 @@ public static class Program
     }
 
     /// <summary>
-    /// P15-01: 1 when the load generator ran in a process of its own, the cluster's process id against its
-    /// own, else 0. Sabotage S-proc-1 (a separate mode claimed without comparing them).
+    /// P15-01: 1 when the load generator ran in a process of its own, the cluster's process token against
+    /// its own, else 0. Tokens, not process ids: in two containers each process can be process 1 of its own
+    /// namespace, and the first separate runs read as shared for that reason. Sabotage S-proc-1 (a
+    /// separate mode claimed without comparing them).
     /// </summary>
     public static double GeneratorOwnProcess(IClusterProbe probe)
     {
         ArgumentNullException.ThrowIfNull(probe);
-        return probe.ProcessId != Environment.ProcessId ? 1 : 0;
+        return probe.Instance != ProcessToken.Value ? 1 : 0;
     }
 
     /// <summary>
@@ -401,7 +405,7 @@ public static class Program
     }
 
     /// <summary>
-    /// `bench cluster --local DIR --control-port P [--base-port B] [--decompose 1]` (P15-01): the in-process cluster in a
+    /// `bench cluster --local DIR --control-port P [--base-port B] [--decompose 1 [--trace-sample N]]` (P15-01): the in-process cluster in a
     /// process of its own, for a load generator in another to drive (`bench load --cluster
     /// 127.0.0.1:P`); it runs until `Stop|` is asked on its control port.
     /// </summary>
@@ -410,7 +414,7 @@ public static class Program
         var cluster = new LocalCluster(o.GetValueOrDefault("--local", "/tmp/cluster"), int.Parse(o.GetValueOrDefault("--base-port", "27000"), CultureInfo.InvariantCulture));
         await using (cluster.ConfigureAwait(false))
         {
-            cluster.Start(traced: o.ContainsKey("--decompose"));
+            cluster.Start(traced: o.ContainsKey("--decompose"), traceSample: int.Parse(o.GetValueOrDefault("--trace-sample", "1"), CultureInfo.InvariantCulture));
             using var control = new ClusterControl(cluster, int.Parse(o.GetValueOrDefault("--control-port", "27299"), CultureInfo.InvariantCulture));
             control.Start();
             await Console.Out.WriteLineAsync($"bench cluster: pid {Environment.ProcessId}, control port open").ConfigureAwait(false);

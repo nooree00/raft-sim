@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/HandOffTrace.cs
++++ b/src/Raft.Host/HandOffTrace.cs
+@@ -90,7 +90,7 @@
+             case Kind.Durable:
+                 return payload is ReadOnlyMemory<byte> records && DurableKeeps(records.Span);
+             case Kind.PeerTaken:
+-                return payload is byte[] array && _keptReads.TryRemove(array, out _);
++                return false;
+             case Kind.PeerRead:
+                 var read = payload as byte[];
+                 var keep = MessageKeeps(kind, id, read);

@@ -1,0 +1,6 @@
+description: The sampled trace drops the loop's takes of the peer reads it kept, so a sampled write's queues have no end and no write joins (P15-01)
+mechanism: the takes of kept reads not kept
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DecompositionTests.ASampledTraceDecomposesItsSampledWritesAsTheFullTraceDoes
+expect: caught

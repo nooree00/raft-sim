@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
+using System.Threading.Tasks;
 using Raft.Core;
 using Raft.Host;
 using Xunit;
@@ -9,7 +11,9 @@ namespace Raft.Host.Tests;
 /// <summary>
 /// P15-01: a load record's leader fields come from each host's counters read before and after the run,
 /// through the same function whether the hosts share the generator's process or not; the counters cross
-/// the cluster's control port unchanged. Sabotage S-proc-2 (a single reading, not a difference).
+/// the cluster's control port unchanged; and the generator's process is told from the hosts' by a token,
+/// not a process id. Sabotages S-proc-1 (processes compared by id), S-proc-2 (a single reading, not a
+/// difference).
 /// </summary>
 public sealed class ClusterProbeTests
 {
@@ -39,4 +43,32 @@ public sealed class ClusterProbeTests
 
         Assert.Equal(c, HostCounters.Decode(c.Encode()));
     }
+
+    /// <summary>A cluster seen from another container: its process is numbered as this one is, in a namespace of its own.</summary>
+    private sealed class OtherNamespace : IClusterProbe
+    {
+        public int ProcessId => Environment.ProcessId;
+
+        public string Instance => "a process drawn elsewhere";
+
+        public int TraceSample => 1;
+
+        public IReadOnlyDictionary<NodeId, DnsEndPoint> Clients => new Dictionary<NodeId, DnsEndPoint>();
+
+        public Task<IReadOnlyList<HostCounters>> CountersAsync() => throw new NotSupportedException();
+
+        public Task<NodeId> LeaderAsync(TimeSpan within) => throw new NotSupportedException();
+
+        public Task<List<(int Node, IReadOnlyList<RoleChange> Changes)>> RolesAsync() => throw new NotSupportedException();
+
+        public Task<Dictionary<NodeId, byte[]>> TracesAsync() => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Sabotage S-proc-1: the first separate runs (two containers, each process 1 of its own namespace) read
+    /// as sharing a process when the record compared process ids.
+    /// </summary>
+    [Fact]
+    public void AProcessNumberedLikeThisOneInAnotherNamespaceIsAnotherProcess() =>
+        Assert.Equal(1, Program.GeneratorOwnProcess(new OtherNamespace()));
 }
