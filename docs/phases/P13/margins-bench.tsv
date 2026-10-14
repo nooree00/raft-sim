@@ -1,0 +1,19 @@
+# P12-08's audit (scripts/margins.sh): the host bench controls, 5 runs alone, 5 beside three busy processes and 5 beside the Membership and Scale suites on each side; the replication cost check, seeded, one run a side; at 3a1056b.
+# check	bound	pass	kind	unpatched	patched	note
+stall-open-p95	150000	above	timing	814595,823450,810943,822375,812610,818006,818485,824193,821869,825531,814034,834264,822677,839316,820481	3276,3707,3451,3396,3258,11571,15513,16173,10485,15453,26336,24883,24088,24955,25280	open loop's 95th percentile, us (a 1-s stall every 4 s, P13-07); S-bench-1
+stall-closed-p95	75000	below	timing	2777,2787,3318,2595,2621,8095,11562,16017,10396,8121,13566,11651,12952,13080,12282	-	closed loop's 95th percentile, us
+slowdown-low	0.75	above	ratio	2.02,2.00,2.01,2.02,2.02,1.98,2.00,1.99,2.00,2.01,2.14,2.18,2.29,2.17,2.17	-0.00,-0.00,0.00,-0.00,-0.00,-0.00,-0.00,-0.00,-0.00,0.00,0.00,-0.00,-0.00,-0.00,-0.00	median rise over the sleep actually slept; S-bench-2
+barrier-lists	0	below	ratio	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	92,91,92,93,92,89,88,89,90,89,75,81,79,80,79	writes answered without a barrier effect list (the test's lists >= writes, a count); S-bench-3
+barrier-per-list-low	0.6	above	ratio	1.0471,1.0500,1.0420,1.0443,1.0471,1.0386,1.0416,1.0360,1.0371,1.0389,1.0565,1.0729,1.0626,1.0734,1.0783	-	barrier per list over the sleep slept
+barrier-per-list-high	2.5	below	ratio	1.0471,1.0500,1.0420,1.0443,1.0471,1.0386,1.0416,1.0360,1.0371,1.0389,1.0565,1.0729,1.0626,1.0734,1.0783	-	the same, its upper bound
+lateness-early	0	below	ratio	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	2475,2483,2460,2468,2452,2332,2135,2397,2322,2351,1839,1885,1918,1952,1959	writes dispatched before their time; S-bench-4
+lateness-median	5000	below	timing	0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.7,0.6,0.7,0.6,0.7	-	the generator's median lateness, us
+handoff-low	0.5	above	ratio	1.0200,1.0220,1.0240,1.0140,1.0220,1.0060,1.0040,1.0060,1.0040,1.0040,1.0100,1.0060,1.0100,1.0080,1.0040	0.0140,0.0140,0.0140,0.0220,0.0260,0.0060,0.0060,0.0040,0.0060,0.0040,0.0040,0.0060,0.0080,0.0080,0.0060	follower-queue's 5th-percentile rise over the delay set; S-lat-1
+handoff-high	3.0	below	ratio	1.0200,1.0220,1.0240,1.0140,1.0220,1.0060,1.0040,1.0060,1.0040,1.0040,1.0100,1.0060,1.0100,1.0080,1.0040	-	the same, its upper bound
+handoff-others	0.4	below	ratio	0.1160,0.0900,0.0880,0.1020,0.1040,0.0900,0.0260,0.0640,0.0640,0.0680,0.0640,0.0760,0.0880,0.1040,0.0340	1.0000,0.9860,0.9900,0.9940,0.9900,1.0000,0.9960,0.9960,0.9960,0.9940,1.0000,0.9980,1.0040,0.9980,0.9960	the largest other host segment's 5th-percentile rise over the delay set; S-lat-1
+cost-ratio-8	2	below	ratio	1.0716	41.5171	entries sent a follower per committed entry, 8 in flight; S-repl-11
+cost-ratio-32	2	below	ratio	1.0703	1629.1005	the same, 32 in flight; S-repl-11
+cost-committed-8	100	above	ratio	1117	0	entries committed, the reading's guard, 8 in flight; S-cost-1
+cost-committed-32	100	above	ratio	4128	0	the same, 32 in flight; S-cost-1
+cost-backlog-8	4	above	ratio	8	-	the largest backlog, the vacuity guard, 8 in flight (S-cost-2 is caught on a run built idle)
+cost-backlog-32	16	above	ratio	26	-	the same, 32 in flight

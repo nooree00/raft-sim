@@ -256,7 +256,7 @@ has changed, because the host's change moves its numbers. Then the target's rema
 - **Sabotage:** ; shared: S-bench-1
 - **Verifiable here:** yes — the control and its margin script run here
 - **Prediction:** Unpatched, 18 to 24% of open-loop writes take over 150 ms (the 95th percentile 400 to 900 ms); with S-bench-1, under 1% (the 95th percentile under 20 ms); every margin row of the control keeps a factor of 3 or more on both sides in all three modes, and the leader keeps office in every run. **Observable:** the margin table.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — every share and margin as predicted but one figure of the patched side. Unpatched, 86 to 88 of 400 open-loop writes took over 150 ms (21.5 to 22%) and the 95th percentile was 806 to 810 ms in three runs here, 811 to 839 ms over the audit's fifteen (`docs/phases/P13/margins-bench.tsv`, at `3a1056b`). With S-bench-1 the 95th percentile was 2.0 ms in the harness and 3.3 to 3.7 ms alone, 10 to 16 beside busy processes, and **24 to 26 ms beside the Membership and Scale suites, over the predicted 20**. The control's rows keep a factor of 3 or more on both sides in all three modes, as predicted: the open side 5.95 unpatched and 3.80 patched, the closed side 3.12 (`gates margins`); every other row of the audit, after the host's change, keeps the 1.5 the audit asks. The office the stalled leader must keep is asserted by the control, which passed in the three runs here and in CI; the audit tolerates a failing run and records only the percentiles, so whether office held in each of its runs is not in its table.
 
 ### P13-08 — The target's figures still set by hand: declared, grounded or dropped
 
