@@ -1,0 +1,6 @@
+description: The load record calls the generator's process its own without comparing it with the cluster's, so a run sharing the hosts' process passes for the separate instrument (P15-01)
+mechanism: the process comparison removed, every run called separate
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.SeparateGeneratorTests.AClusterInThisProcessSharesTheGeneratorsProcess
+expect: caught

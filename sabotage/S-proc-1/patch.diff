@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/Program.cs
++++ b/src/Raft.Host/Program.cs
+@@ -344,7 +344,7 @@
+     public static double GeneratorOwnProcess(IClusterProbe probe)
+     {
+         ArgumentNullException.ThrowIfNull(probe);
+-        return probe.ProcessId != Environment.ProcessId ? 1 : 0;
++        return 1;
+     }
+ 
+     /// <summary>

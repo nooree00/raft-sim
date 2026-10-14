@@ -30,6 +30,9 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
 
     public double SyncMicros(NodeId n) => _files[n].SyncMicros;
 
+    /// <summary>Each host's counters now, in node order (P15-01).</summary>
+    public IReadOnlyList<HostCounters> Counters() => [.. _hosts.Select((h, i) => HostCounters.Of(h, _files[new NodeId(i + 1)]))];
+
     /// <summary>Each host's hand-off trace, when started with tracing (P12-03).</summary>
     public IReadOnlyDictionary<NodeId, HandOffTrace> Traces { get; private set; } = new Dictionary<NodeId, HandOffTrace>();
 

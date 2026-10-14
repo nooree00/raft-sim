@@ -1,0 +1,6 @@
+description: The record's leader fields read the hosts' counters once, after the run, so the election and warm-up before it count as the run's work (P15-01)
+mechanism: the counters' difference over the run replaced by their totals
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.ClusterProbeTests.TheRecordsLeaderFieldsAreWhatTheLeaderDidBetweenTheTwoReadings
+expect: caught

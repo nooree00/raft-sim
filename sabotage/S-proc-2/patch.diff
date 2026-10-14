@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/Program.cs
++++ b/src/Raft.Host/Program.cs
+@@ -356,7 +356,7 @@
+     {
+         ArgumentNullException.ThrowIfNull(before);
+         ArgumentNullException.ThrowIfNull(after);
+-        var run = after.Select((c, i) => c.Minus(before[i])).ToList();
++        var run = after.ToList();
+         var l = run[leader.Value - 1];
+         var results = new Dictionary<string, double>(StringComparer.Ordinal)
+         {

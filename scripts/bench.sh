@@ -37,6 +37,11 @@
 # where its latency went (P12-03); the Compose nodes then run with RAFT_HANDOFF_TRACE=1.
 # RAFT_BENCH_ID_TAG adds a tag after a record id's task prefix, for a second set under one task
 # (P12-04: the generator's second schedule, `paced`).
+# RAFT_BENCH_SEPARATE=1 makes load-local and load-ab run the in-process cluster in a process of its own
+# (`bench cluster`, a container of its own) and the load generator in another sharing its loopback
+# (P15-01); without it the generator shares the hosts' process, as before.
+#   scripts/bench.sh instrument-ab [reps]   P15-01: the generator in the hosts' process and in its own,
+#                                           each untraced and traced, interleaved at RAFT_BENCH_RATES
 set -euo pipefail
 cd "$(dirname "$0")/.."
 image="$(cat ci/image.digest)"
@@ -66,6 +71,27 @@ run_in() {
   docker run --rm --network none -v "$dir:/src" -v "$PWD/measurements:/out" -v "$volume:/data" -w /src -e RAFT_COMMIT="${measured:-$commit}" -e RAFT_IMAGE="$image" \
     -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll "$@"
 }
+# P15-01: one in-process load run, the cluster built in <dir> either in the generator's process
+# (`--local`) or in a process of its own (RAFT_BENCH_SEPARATE=1, or "separate" as the second argument):
+# `bench cluster` in a container of its own, the load generator built here in a second container sharing
+# its loopback; the record names the measured commit. The load's own arguments follow.
+cluster="raft-cluster-$$"
+load_in() {
+  local dir="$1" mode="$2"; shift 2
+  if [ "$mode" = separate ]; then
+    local traced=(); for a in "$@"; do [ "$a" = --decompose ] && traced=(--decompose 1); done
+    docker rm -f "$cluster" >/dev/null 2>&1 || true
+    docker run -d --name "$cluster" --network none -v "$dir:/src" -w /src -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" \
+      dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench cluster --local /tmp/cluster --control-port 27299 "${traced[@]}" >/dev/null
+    docker run --rm --network "container:$cluster" -v "$PWD:/src" -v "$PWD/measurements:/out" -w /src -e RAFT_COMMIT="${measured:-$commit}" -e RAFT_IMAGE="$image" \
+      -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench load --cluster 127.0.0.1:27299 "$@"
+    docker rm -f "$cluster" >/dev/null 2>&1 || true
+  else
+    run_in "$dir" bench load --local /tmp/cluster "$@"
+  fi
+}
+mode="local"; [ "${RAFT_BENCH_SEPARATE:-0}" = 1 ] && mode=separate
+trap 'docker rm -f "$cluster" >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
 case "$what" in
   inputs)
     for r in $(seq 1 "$reps"); do
@@ -119,7 +145,7 @@ POINTS
   load-local)
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
-        run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-local-$rate-$r" --repetition "$r" --out measurements "${decompose[@]}"
+        load_in "$PWD" "$mode" --rate "$rate" --seconds 10 --warmup 3 --task "$load_task" --id "$(lc "$load_task")$tag-local-$rate-$r" --repetition "$r" --out /out "${decompose[@]}"
       done
     done ;;
   compose-ab)
@@ -199,6 +225,19 @@ POINTS
         run bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task P10-05 --id "p10-05-local-$rate-$r" --repetition "$r" --out measurements
       done
     done ;;
+  instrument-ab)
+    # P15-01: the instrument against itself, interleaved: the generator in the hosts' process and in its
+    # own, each untraced and traced, at RAFT_BENCH_RATES.
+    for r in $(seq 1 "$reps"); do
+      for rate in $rates; do
+        for m in local separate; do
+          for t in untraced traced; do
+            tr=(); [ "$t" = traced ] && tr=(--decompose 1 ${RAFT_BENCH_TAIL_OVER:+--tail-over "$RAFT_BENCH_TAIL_OVER"})
+            load_in "$PWD" "$m" --rate "$rate" --seconds 10 --warmup 3 --task P15-01 --id "p15-01-$m-$t-$rate-$r" --repetition "$r" --out /out "${tr[@]}"
+          done
+        done
+      done
+    done ;;
   load-ab)
     # Phase 10's head, exported (this tree stays as it is), both hosts built in Release.
     # The task is P11-05's unless RAFT_BENCH_AB_TASK names another (P12-04: the generator, against P12-03's head).
@@ -211,8 +250,8 @@ POINTS
       for rate in ${RAFT_BENCH_AB_RATES:-625 1250 3125}; do
         for side in fix base; do
           dir="$PWD"; at=$commit; [ "$side" = base ] && { dir="$old"; at=$base; }
-          measured=$at run_in "$dir" bench load --local /tmp/cluster --rate "$rate" --seconds 10 --warmup 3 --task "$ab_task" \
-            --id "$(lc "$ab_task")$tag-ab-$side-$rate-$r" --repetition "$r" --out /out
+          measured=$at load_in "$dir" "$mode" --rate "$rate" --seconds 10 --warmup 3 --task "$ab_task" \
+            --id "$(lc "$ab_task")$tag-ab-$side-$rate-$r" --repetition "$r" --out /out "${decompose[@]}"
         done
       done
     done ;;

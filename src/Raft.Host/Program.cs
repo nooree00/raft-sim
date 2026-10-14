@@ -144,6 +144,8 @@ public static class Program
                 break;
             case "load":
                 return await LoadAsync(o).ConfigureAwait(false);
+            case "cluster":
+                return await ClusterAsync(o).ConfigureAwait(false);
             case "record":
                 // A measurement taken by a script (P10-06's soak timings): the results passed in, the
                 // configuration read here, as for every other record.
@@ -182,15 +184,28 @@ public static class Program
         int? clients = o.TryGetValue("--clients", out var cl) ? int.Parse(cl, CultureInfo.InvariantCulture) : null;
         var decompose = o.ContainsKey("--decompose");
         LocalCluster? local = null;
+        IClusterProbe? probe = null;
         IReadOnlyDictionary<NodeId, DnsEndPoint> nodes;
         string where;
         if (o.TryGetValue("--local", out var root))
         {
             local = new LocalCluster(root);
             local.Start(traced: decompose);
-            await local.LeaderAsync(TimeSpan.FromSeconds(15), CancellationToken.None).ConfigureAwait(false);
+            probe = new LocalProbe(local);
+            await probe.LeaderAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
             nodes = local.Clients;
-            where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded" + (decompose ? ", hand-offs traced" : "");
+            where = $"in-process cluster of 3 hosts on loopback, data in {root}, events discarded" + (decompose ? ", hand-offs traced" : "") + ", the load generator in the hosts' process";
+        }
+        else if (o.TryGetValue("--cluster", out var control))
+        {
+            // P15-01: the same in-process cluster in a process of its own (`bench cluster`), asked through its
+            // control port, so the generator shares nothing with the hosts but the machine.
+            var colon = control.LastIndexOf(':');
+            probe = await ControlProbe.ConnectAsync(new DnsEndPoint(control[..colon], int.Parse(control[(colon + 1)..], CultureInfo.InvariantCulture)), TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+            await probe.LeaderAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+            nodes = probe.Clients;
+            where = $"in-process cluster of 3 hosts on loopback in a process of its own (`bench cluster`, pid {probe.ProcessId}), data in {o.GetValueOrDefault("--cluster-data", "/tmp/cluster")}, events discarded" + (decompose ? ", hand-offs traced" : "") + $", the load generator in another process (pid {Environment.ProcessId})";
+            root = o.GetValueOrDefault("--cluster-data", "/tmp/cluster");
         }
         else
         {
@@ -200,12 +215,7 @@ public static class Program
 
         try
         {
-            var before = local is null ? [] : local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1))).ToArray();
-            var sentBefore = local is null ? [] : local.Hosts.Select(h => h.Sent).ToArray();
-            var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
-            var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
-            var loopBefore = local is null ? [] : local.Hosts.Select(h => h.LoopTimes).ToArray();
-            var batchesBefore = local is null ? [] : local.Hosts.Select(h => h.LoopBatches).ToArray();
+            var countersBefore = probe is null ? null : await probe.CountersAsync().ConfigureAwait(false);
             var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
@@ -235,8 +245,8 @@ public static class Program
             // P13-02: every host's role changes from the measured window's start to the run's end (its
             // drain included), each election explained by a silence past the election timeout or counted.
             var windowStart = started + (long)(warmup * Stopwatch.Frequency);
-            var changes = local is not null
-                ? local.Hosts.Select((h, i) => (Node: i + 1, Changes: h.RoleChanges)).ToList()
+            var changes = probe is not null
+                ? await probe.RolesAsync().ConfigureAwait(false)
                 : await FetchRolesAsync(nodes).ConfigureAwait(false);
             var roles = changes.SelectMany(n => n.Changes.Where(c => c.At >= windowStart && c.At <= ended)
                     .Select(c => new RoleRecord(n.Node, Math.Round(Bench.Micros(c.At - windowStart) / 1000, 1), c.From.ToString(), c.To.ToString(), c.Term, Math.Round(c.SilenceMs, 1), c.TickMs, c.Explained(RaftOptions.Default))))
@@ -244,51 +254,18 @@ public static class Program
             results["role_changes"] = roles.Count;
             results["elections"] = roles.Count(c => c.To == nameof(Role.Candidate) && c.From != nameof(Role.Candidate));
             results["elections_unexplained"] = roles.Count(c => !c.Explained);
-            if (local is not null && r.Answered > 0)
+            if (probe is not null)
             {
-                var leader = await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
-                var syncs = local.Hosts.Select((_, i) => local.Syncs(new NodeId(i + 1)) - before[i]).ToArray();
-                results["leader_syncs_per_write"] = Math.Round((double)syncs[leader.Value - 1] / r.Answered, 3);
+                results["generator_own_process"] = GeneratorOwnProcess(probe);
+            }
 
-                // P11-06: the leader's sync busy fraction over the run, from its own syncs' timings.
-                var syncMicros = local.SyncMicros(leader) - syncMicrosBefore[leader.Value - 1];
-                if (syncs[leader.Value - 1] > 0)
+            if (probe is not null && countersBefore is not null && r.Answered > 0)
+            {
+                var leader = await probe.LeaderAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                var countersAfter = await probe.CountersAsync().ConfigureAwait(false);
+                foreach (var (key, value) in LeaderFields(countersBefore, countersAfter, leader, r.Answered, wallMicros, r.Latencies.Count > 0 ? r.Latencies.Average() : 0))
                 {
-                    results["leader_sync_us"] = Math.Round(syncMicros / syncs[leader.Value - 1], 1);
-                    results["leader_sync_busy"] = Math.Round(syncMicros / wallMicros, 3);
-                }
-                results["follower_syncs_per_write"] = Math.Round(syncs.Where((_, i) => i != leader.Value - 1).Average() / r.Answered, 3);
-                var sent = local.Hosts[leader.Value - 1].Sent;
-                results["leader_messages_per_write"] = Math.Round((double)(sent.Messages - sentBefore[leader.Value - 1].Messages) / r.Answered, 2);
-                results["leader_bytes_per_write"] = Math.Round((double)(sent.Bytes - sentBefore[leader.Value - 1].Bytes) / r.Answered, 0);
-
-                // P13-03: the leader's loop, per write: the node's handling, the effects' execution (its syncs
-                // among them), and how much of the loop's busy time (the wall less its wait) the two cover.
-                var loop = local.Hosts[leader.Value - 1].LoopTimes;
-                var lb = loopBefore[leader.Value - 1];
-                var (handle, execute, wait) = (loop.HandleMicros - lb.HandleMicros, loop.ExecuteMicros - lb.ExecuteMicros, loop.WaitMicros - lb.WaitMicros);
-                results["leader_loop_handle_us_per_write"] = Math.Round(handle / r.Answered, 1);
-                results["leader_loop_execute_us_per_write"] = Math.Round(execute / r.Answered, 1);
-                results["leader_loop_inputs_per_write"] = Math.Round((double)(loop.Inputs - lb.Inputs) / r.Answered, 2);
-                // P14-03: the group commit's batches, their mean size in inputs.
-                var batches = local.Hosts[leader.Value - 1].LoopBatches - batchesBefore[leader.Value - 1];
-                results["leader_loop_inputs_per_batch"] = Math.Round((double)(loop.Inputs - lb.Inputs) / Math.Max(1, batches), 2);
-                results["leader_loop_busy"] = Math.Round((wallMicros - wait) / wallMicros, 3);
-                results["leader_loop_parts_cover"] = Math.Round((handle + execute) / Math.Max(1, wallMicros - wait), 3);
-                if (syncs[leader.Value - 1] > 0)
-                {
-                    results["leader_loop_sync_share"] = Math.Round(syncMicros / Math.Max(1, handle + execute), 3);
-                }
-
-                // P10-05: the time the leader's sends waited behind its own persists, per such effect list,
-                // and as a share of the run's mean commit latency.
-                var barrier = local.Hosts[leader.Value - 1].Barrier;
-                var lists = barrier.Lists - barrierBefore[leader.Value - 1].Lists;
-                if (lists > 0 && r.Latencies.Count > 0)
-                {
-                    var perList = (barrier.Micros - barrierBefore[leader.Value - 1].Micros) / lists;
-                    results["leader_barrier_us"] = Math.Round(perList, 1);
-                    results["leader_barrier_share_of_mean"] = Math.Round(perList / r.Latencies.Average(), 3);
+                    results[key] = value;
                 }
             }
 
@@ -296,8 +273,8 @@ public static class Program
             // the hosts' traces, in Compose fetched from each node with `Trace|`; both through the same bytes.
             if (decompose && r.Answered > 0)
             {
-                var (traces, leader) = local is not null
-                    ? (local.Traces.ToDictionary(t => t.Key, t => HandOffTrace.Write(t.Value.Snapshot())), await local.LeaderAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false))
+                var (traces, leader) = probe is not null
+                    ? (await probe.TracesAsync().ConfigureAwait(false), await probe.LeaderAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
                     : await FetchTracesAsync(nodes).ConfigureAwait(false);
                 results["trace_bytes"] = traces.Values.Sum(t => (long)t.Length);
                 var d = Decomposition.Compute(traces.ToDictionary(t => t.Key, t => HandOffTrace.Read(t.Value)), leader, [.. writes]);
@@ -358,6 +335,89 @@ public static class Program
                 await local.DisposeAsync().ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// P15-01: 1 when the load generator ran in a process of its own, the cluster's process id against its
+    /// own, else 0. Sabotage S-proc-1 (a separate mode claimed without comparing them).
+    /// </summary>
+    public static double GeneratorOwnProcess(IClusterProbe probe)
+    {
+        ArgumentNullException.ThrowIfNull(probe);
+        return probe.ProcessId != Environment.ProcessId ? 1 : 0;
+    }
+
+    /// <summary>
+    /// The leader's fields of a load record (P10-04 to P14-03), from each host's counters read before and
+    /// after the run (P15-01: the same reading whichever process the hosts run in): what the leader did in
+    /// between, per answered write. Sabotage S-proc-2 (a single reading, not a difference).
+    /// </summary>
+    public static Dictionary<string, double> LeaderFields(IReadOnlyList<HostCounters> before, IReadOnlyList<HostCounters> after, NodeId leader, long answered, double wallMicros, double meanLatency)
+    {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(after);
+        var run = after.Select((c, i) => c.Minus(before[i])).ToList();
+        var l = run[leader.Value - 1];
+        var results = new Dictionary<string, double>(StringComparer.Ordinal)
+        {
+            ["leader_syncs_per_write"] = Math.Round((double)l.Syncs / answered, 3),
+        };
+
+        // P11-06: the leader's sync busy fraction over the run, from its own syncs' timings.
+        if (l.Syncs > 0)
+        {
+            results["leader_sync_us"] = Math.Round(l.SyncMicros / l.Syncs, 1);
+            results["leader_sync_busy"] = Math.Round(l.SyncMicros / wallMicros, 3);
+        }
+
+        results["follower_syncs_per_write"] = Math.Round(run.Where((_, i) => i != leader.Value - 1).Average(c => (double)c.Syncs) / answered, 3);
+        results["leader_messages_per_write"] = Math.Round((double)l.Messages / answered, 2);
+        results["leader_bytes_per_write"] = Math.Round((double)l.Bytes / answered, 0);
+
+        // P13-03: the leader's loop, per write: the node's handling, the effects' execution (its syncs
+        // among them), and how much of the loop's busy time (the wall less its wait) the two cover.
+        results["leader_loop_handle_us_per_write"] = Math.Round(l.HandleMicros / answered, 1);
+        results["leader_loop_execute_us_per_write"] = Math.Round(l.ExecuteMicros / answered, 1);
+        results["leader_loop_inputs_per_write"] = Math.Round((double)l.Inputs / answered, 2);
+        // P14-03: the group commit's batches, their mean size in inputs.
+        results["leader_loop_inputs_per_batch"] = Math.Round((double)l.Inputs / Math.Max(1, l.Batches), 2);
+        results["leader_loop_busy"] = Math.Round((wallMicros - l.WaitMicros) / wallMicros, 3);
+        results["leader_loop_parts_cover"] = Math.Round((l.HandleMicros + l.ExecuteMicros) / Math.Max(1, wallMicros - l.WaitMicros), 3);
+        if (l.Syncs > 0)
+        {
+            results["leader_loop_sync_share"] = Math.Round(l.SyncMicros / Math.Max(1, l.HandleMicros + l.ExecuteMicros), 3);
+        }
+
+        // P10-05: the time the leader's sends waited behind its own persists, per such effect list,
+        // and as a share of the run's mean commit latency.
+        if (l.BarrierLists > 0 && meanLatency > 0)
+        {
+            var perList = l.BarrierMicros / l.BarrierLists;
+            results["leader_barrier_us"] = Math.Round(perList, 1);
+            results["leader_barrier_share_of_mean"] = Math.Round(perList / meanLatency, 3);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// `bench cluster --local DIR --control-port P [--base-port B] [--decompose 1]` (P15-01): the in-process cluster in a
+    /// process of its own, for a load generator in another to drive (`bench load --cluster
+    /// 127.0.0.1:P`); it runs until `Stop|` is asked on its control port.
+    /// </summary>
+    private static async Task<int> ClusterAsync(Dictionary<string, string> o)
+    {
+        var cluster = new LocalCluster(o.GetValueOrDefault("--local", "/tmp/cluster"), int.Parse(o.GetValueOrDefault("--base-port", "27000"), CultureInfo.InvariantCulture));
+        await using (cluster.ConfigureAwait(false))
+        {
+            cluster.Start(traced: o.ContainsKey("--decompose"));
+            using var control = new ClusterControl(cluster, int.Parse(o.GetValueOrDefault("--control-port", "27299"), CultureInfo.InvariantCulture));
+            control.Start();
+            await Console.Out.WriteLineAsync($"bench cluster: pid {Environment.ProcessId}, control port open").ConfigureAwait(false);
+            await control.Stopped.ConfigureAwait(false);
+        }
+
+        return 0;
     }
 
     /// <summary>
