@@ -1,6 +1,36 @@
 # Phase 13 — report
 
-**Status: for review.** The leader's loop, against the restated target (spec §11 phase 13, P13-00's
+**Status: accepted** (reviewer, on run 38505470762, the report's head `0abc3e4`). The negative result
+is the valuable one: the loop 0.94 busy to 0.06, the effect thread to 0.95, the median up 25%; the
+serial work per write is the same wherever it runs. Edits at acceptance, by the reviewer's direction:
+- **the effect thread is reverted** (decision 1): a quarter of the median, a hand-off per write,
+  coupling between nodes sharing a processor, and nothing measured in return; keeping it because it
+  exists would be sunk cost. Recorded as a result, not a failed task: moving serial work does not
+  reduce it, and the host was never the cap. §4's "the node never waits" stands as the contract it
+  already was, which the simulator has always met. The revert is phase 14's first task (P14-01),
+  not an edit here: it retires three sabotage entries, which the breakdown gate allows only by a
+  mechanism, and its consequence is measured;
+- **the next remedy is the group commit** (decision 2), reached by elimination rather than by a
+  threshold: the 80% gate said no, the corrected gate was undecided at 1.6%, and this phase
+  established that the serial work per write is the cap (spec §2). Phase 14 is the group commit,
+  against the restated criteria (spec §11, `docs/phases/P14/breakdown.md`);
+- **both latency criteria are restated** (decision 3): neither is grounded once the summing and the
+  halving were dropped and the allowance's model falsified. Phase 14 restates them before its group
+  commit is judged (P14-02; the method is for approval with its breakdown). That the allowance's two
+  wrong inputs cancelled is its own finding: a model validated by its output is not validated;
+- **the four rows go to phase 14** (decision 4): the leader's serial work per write is its subject;
+- **the two commits never verified are accepted** (decision 5), as before: both failed, nothing went
+  unrun, and both are tabled with their causes;
+- **two containers on one machine are not Compose's hosts** (decision 6): they share a kernel, a page
+  cache and a processor, and this phase measured what processor contention does to nodes sharing a
+  machine. Compose is a wiring and integration check, not a distributed measurement; its comparisons
+  hold to 2,000 writes a second on this machine, and a number for separate machines needs separate
+  machines, out of scope. Compose's criterion from P13-06 is withdrawn (`docs/design/performance-target.md`);
+- the hand-kept-input registry finding its own problems on its first run (15 records off the branch,
+  two inputs nothing checked) is the generic mechanism paying for itself, the argument for one
+  mechanism over four bespoke checks (a line in the findings).
+
+The leader's loop, against the restated target (spec §11 phase 13, P13-00's
 row): P13-00 to P13-09 as approved, with the amendments each outcome records. Every number in this
 report's tables cites its record (`m:`) or its CI run (`run:`). This report certifies the commit
 that contains it; `gates reports` checks that commit's CI run on the next push. **It is pushed

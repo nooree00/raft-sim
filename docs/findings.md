@@ -1381,7 +1381,8 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   had measured the split before the change: the handling was 4.5% of the loop's work and the effects
   95%. *Rule:* before moving work between threads, ask whether the work, not the thread, is the
   queue's server; a measured split that puts 95% of the time in what moves says the queue moves too.
-- **A model whose two errors cancel looks grounded.** The restated allowance (M/D/1, the sync
+- **A model validated by its output is not validated** (the reviewer's title, at phase 13's
+  acceptance; drafted as "a model whose two errors cancel looks grounded"). The restated allowance (M/D/1, the sync
   alone, Poisson arrivals) predicted 127 µs at the median, close to the waits later measured. Both
   inputs were wrong: the serial work is 1.43 times the sync, which alone puts the model's median wait
   at 1,961 µs, and the generator's arrivals are evenly spaced, which alone puts it at nothing. The
@@ -1397,7 +1398,9 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   observer failed 15 phase-10 records naming two commits rewritten before that phase's push, after
   phase 12's relabelling had been taken as having left none; the registry found two premises nothing
   checks, one written by phase 12's own audit after it audited the inputs (`margins.tsv`). The class
-  entry's rule held: the gate reading the records had read them as true for three phases.
+  entry's rule held: the gate reading the records had read them as true for three phases. At
+  acceptance the reviewer named it the argument for one mechanism over four bespoke checks: the
+  generic mechanism paid for itself on its first run.
 - **A control that names "the leader" once and acts on it later tests a moment that has passed.**
   S-lead-1's control read the leader, waited, and stalled that node, asserting an election after the
   stall. On a slow runner a second election came first, the node stalled no longer led, and the new
@@ -1428,3 +1431,20 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   the election test read the event log the moment it saw the role, and once on GitHub found no
   announcement. Not reproduced here (forty runs on one processor beside a busy loop); read from the
   code. *Rule:* a test of an effect waits for the effect, not for a state published beside it.
+- **Moving serial work does not reduce it, and the host was never the cap** (the reviewer, at phase
+  13's acceptance). The effect thread was reverted: a quarter of the median, a hand-off a write and
+  coupling between nodes sharing a processor, with nothing measured in return. Keeping it because it
+  existed would have been sunk cost; "the node never waits" stands as the contract it already was,
+  which the simulator has always met. Recorded as a result, not a failed task.
+- **A remedy reached by elimination is better justified than one reached by a threshold.** Three
+  phases were spent on the group commit's gate: the 80% rule said no at phase 11, the corrected rule
+  was undecided at 1.6% at phase 12, and phase 13, by moving the leader's serial work off its loop and
+  watching it stay, established that the serial work per write is the cap. The group commit is chosen
+  on that, not on a reading near a line. *Rule:* when a gate keeps failing to decide, test the
+  alternatives it would choose between; what survives them needs no threshold.
+- **Two containers on one machine are a wiring check, not a distributed measurement** (the reviewer).
+  They share a kernel, a page cache and a processor, and phase 13 measured what contention for a
+  processor does to nodes sharing a machine: persist segments moved by up to a millisecond. Compose
+  comparisons hold to 2,000 writes a second on the machine that ran them. *Rule:* name a test
+  environment by what its nodes share; a number from nodes that share a machine is not a number for
+  nodes that do not.
