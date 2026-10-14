@@ -81,6 +81,152 @@ public sealed class DiskExecutorTests : IDisposable
 
     private static ReadOnlyMemory<byte> B(string s) => Encoding.ASCII.GetBytes(s);
 
+    /// <summary>Every send, response and event in the log comes after the writes before it are synced, and after the directory once it changed.</summary>
+    private static void AssertNothingLeavesEarly(List<string> log)
+    {
+    var pending = new HashSet<string>(StringComparer.Ordinal);
+    var directory = false;
+    foreach (var step in log)
+    {
+        var p = step.Split(' ');
+        switch (p[0])
+        {
+            case "write":
+                pending.Add(p[1]);
+                break;
+            case "sync":
+                pending.Remove(p[1]);
+                break;
+            case "rename":
+                pending.Remove(p[2]);
+                directory = true;
+                break;
+            case "delete":
+                directory = true;
+                break;
+            case "sync-dir":
+                directory = false;
+                break;
+            default:
+                Assert.True(pending.Count == 0 && !directory, $"'{step}' released with {string.Join(", ", pending)} unsynced{(directory ? " and the directory unsynced" : "")}: {string.Join(" / ", log)}");
+                break;
+        }
+    }
+    }
+
+    /// <summary>A file system whose sync of one file fails, as a disk error would (P10-07).</summary>
+    private sealed class FailingSync(IFileSystem inner, string failing) : IFileSystem
+    {
+        public IReadOnlyList<string> List() => inner.List();
+
+        public byte[]? Read(string name) => inner.Read(name);
+
+        public bool Exists(string name) => inner.Exists(name);
+
+        public void Append(string name, ReadOnlySpan<byte> data) => inner.Append(name, data);
+
+        public void WriteAt(string name, long offset, ReadOnlySpan<byte> data) => inner.WriteAt(name, offset, data);
+
+        public void Truncate(string name, long length) => inner.Truncate(name, length);
+
+        public void Rename(string source, string target) => inner.Rename(source, target);
+
+        public void Delete(string name) => inner.Delete(name);
+
+        public void Sync(string name)
+        {
+            if (name == failing)
+            {
+                throw new IOException($"sync of {name} failed");
+            }
+
+            inner.Sync(name);
+        }
+
+        public void SyncDirectory() => inner.SyncDirectory();
+    }
+
+    private (DiskExecutor Executor, List<string> Log) Batched(Func<IFileSystem, IFileSystem>? wrap = null)
+    {
+        var log = new List<string>();
+        IFileSystem files = new Recording(new DirectoryFileSystem(_dir), log);
+        files = wrap?.Invoke(files) ?? files;
+        return (new DiskExecutor(files, s => log.Add("send " + s.To), c => log.Add("respond " + c.RequestId), e => log.Add("emit " + e.Name)), log);
+    }
+
+    /// <summary>P14-03: a batch of lists holds every send, response and event until the batch's persists are durable. Sabotage S-group-2.</summary>
+    [Fact]
+    public void ABatchReleasesNothingBeforeItsSyncs()
+    {
+        var (executor, log) = Batched();
+        executor.ExecuteBatch(
+        [
+            [new PersistAppend("entries.log", B("a")), new Send(new NodeId(2), B("m1"))],
+            [new PersistAppend("entries.log", B("b")), new ClientResponse(7, B("ok"))],
+            [new PersistWriteAt("term.log", 0, B("t")), new Emit("vote", []), new Send(new NodeId(3), B("m2"))],
+        ]);
+
+        AssertNothingLeavesEarly(log);
+        Assert.Equal(["send n2", "respond 7", "emit vote", "send n3"], log.Where(l => !l.StartsWith("write", StringComparison.Ordinal) && !l.StartsWith("sync", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// P14-03: a batch syncs each file it wrote once, in the order the files were first written, so a
+    /// term record written before an append is durable before it, as executing the lists one at a time
+    /// made it. Sabotage S-group-3.
+    /// </summary>
+    [Fact]
+    public void ABatchSyncsEachFileOnceInTheOrderTheyWereFirstWritten()
+    {
+        var files = new DirectoryFileSystem(_dir);
+        files.Append("term.log", B("0").Span);
+        files.Append("entries.log", B("0").Span);
+        var (executor, log) = Batched();
+        executor.ExecuteBatch(
+        [
+            [new PersistWriteAt("term.log", 0, B("t")), new Send(new NodeId(2), B("m1"))],
+            [new PersistAppend("entries.log", B("a")), new Send(new NodeId(3), B("m2"))],
+            [new PersistAppend("entries.log", B("b")), new ClientResponse(7, B("ok"))],
+        ]);
+
+        Assert.Equal(["sync term.log", "sync entries.log"], log.Where(l => l.StartsWith("sync ", StringComparison.Ordinal)));
+        Assert.Equal(B("0ab").ToArray(), new DirectoryFileSystem(_dir).Read("entries.log"));
+    }
+
+    /// <summary>P14-03 with P10-07: a batch whose sync fails releases none of what it held. Sabotage S-group-4.</summary>
+    [Fact]
+    public void ABatchWhoseSyncFailsReleasesNothing()
+    {
+        var (executor, log) = Batched(files => new FailingSync(files, "entries.log"));
+        Assert.Throws<IOException>(() => executor.ExecuteBatch(
+        [
+            [new PersistAppend("entries.log", B("a")), new Send(new NodeId(2), B("m1"))],
+            [new PersistAppend("entries.log", B("b")), new ClientResponse(7, B("ok"))],
+        ]));
+
+        Assert.DoesNotContain(log, l => l.StartsWith("send", StringComparison.Ordinal) || l.StartsWith("respond", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// P14-03 with P7-05's two-way barrier: a rename inside a batch is a boundary, so the writes before
+    /// it are durable before the file it renames replaces anything. Sabotage S-group-5.
+    /// </summary>
+    [Fact]
+    public void ARenameInABatchComesAfterTheSyncsOfTheWritesBeforeIt()
+    {
+        var (executor, log) = Batched();
+        executor.ExecuteBatch(
+        [
+            [new PersistAppend("a.log", B("x")), new Send(new NodeId(2), B("m1"))],
+            [new PersistWriteAt("tmp.1", 0, B("snap")), new PersistRename("tmp.1", "snap")],
+        ]);
+
+        var synced = log.IndexOf("sync a.log");
+        var renamed = log.IndexOf("rename tmp.1 snap");
+        Assert.True(synced >= 0 && renamed > synced, $"the rename came before a.log's sync: {string.Join(" / ", log)}");
+        AssertNothingLeavesEarly(log);
+    }
+
     /// <summary>
     /// Every release (a send, a client response, an event) follows the sync of every persist before
     /// it in the list, and every rename is followed by a directory sync before anything after it.
@@ -106,34 +252,7 @@ public sealed class DiskExecutorTests : IDisposable
             new Send(new NodeId(3), B("m2")),
         ]);
 
-        var pending = new HashSet<string>(StringComparer.Ordinal);
-        var directory = false;
-        foreach (var step in log)
-        {
-            var p = step.Split(' ');
-            switch (p[0])
-            {
-                case "write":
-                    pending.Add(p[1]);
-                    break;
-                case "sync":
-                    pending.Remove(p[1]);
-                    break;
-                case "rename":
-                    pending.Remove(p[2]);
-                    directory = true;
-                    break;
-                case "delete":
-                    directory = true;
-                    break;
-                case "sync-dir":
-                    directory = false;
-                    break;
-                default:
-                    Assert.True(pending.Count == 0 && !directory, $"'{step}' released with {string.Join(", ", pending)} unsynced{(directory ? " and the directory unsynced" : "")}: {string.Join(" / ", log)}");
-                    break;
-            }
-        }
+        AssertNothingLeavesEarly(log);
 
         Assert.Contains("send n3", log);
         Assert.Equal(B("snap").ToArray(), new DirectoryFileSystem(_dir).Read("entries.log"));

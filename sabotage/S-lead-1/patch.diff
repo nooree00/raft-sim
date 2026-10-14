@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
-index 49e0e82..a9793fa 100644
+index 2196458..3b755e7 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -324,7 +324,7 @@ public sealed class NodeHost : IAsyncDisposable
-             }
- 
-             var role = _node!.Role;
--            if ((int)role != _role)
-+            if (false && (int)role != _role)
-             {
-                 // P13-02: the change and the host's evidence, read on the loop, for a load run's record.
-                 var now = Stopwatch.GetTimestamp();
+@@ -350,7 +350,7 @@ public sealed class NodeHost : IAsyncDisposable
+                         // per input, so a batch with two changes records both. The term is the one the change's
+                         // event announces: the batch's events are emitted only after its sync.
+                         var now = Stopwatch.GetTimestamp();
+-                        _roleChanges.Enqueue(new RoleChange(now, role, _node.Role, TermIn(effects) ?? Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, next is Tick t ? t.Elapsed : 0));
++                        _ = (new RoleChange(now, role, _node.Role, TermIn(effects) ?? Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, next is Tick t ? t.Elapsed : 0));
+                         role = _node.Role;
+                     }
+                 }

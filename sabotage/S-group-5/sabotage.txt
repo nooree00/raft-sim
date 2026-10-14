@@ -1,0 +1,7 @@
+description: A rename inside a batch runs before the batch's earlier writes are synced, so the snapshot's two-way barrier no longer holds inside a batch (P7-05, P14-03)
+mechanism: the boundary's flush before a rename removed
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.ARenameInABatchComesAfterTheSyncsOfTheWritesBeforeIt
+reason: the rename came before
+expect: caught

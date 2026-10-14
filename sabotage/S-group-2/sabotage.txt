@@ -1,0 +1,7 @@
+description: A batch releases its sends, responses and events before its persists are synced, so a message can leave ahead of the entry it announces (node-interface §4's barrier broken across a batch, P14-03)
+mechanism: the batch's outputs released before its sync
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.ABatchReleasesNothingBeforeItsSyncs
+reason: released with
+expect: caught

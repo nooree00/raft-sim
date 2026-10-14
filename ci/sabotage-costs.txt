@@ -375,3 +375,8 @@ S-shard-12 5.0
 S-soak-12 5.0
 S-lead-1 15.0
 S-retire-1 5.0
+S-group-1 25.0
+S-group-2 8.0
+S-group-3 8.0
+S-group-4 8.0
+S-group-5 8.0

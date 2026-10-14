@@ -1,0 +1,6 @@
+description: A batch whose sync fails still answers its clients, acknowledging writes whose durability is unknown (P10-07's stop broken for a batch, P14-03)
+mechanism: the batch's responses released after a failed sync
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.ABatchWhoseSyncFailsReleasesNothing
+expect: caught

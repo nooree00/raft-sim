@@ -1,0 +1,12 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+index b42a9dc..3ebff32 100644
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -123,7 +123,6 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+                         persisted = true;
+                         break;
+                     case PersistRename r:
+-                        Flush();
+                         files.Sync(r.File);
+                         files.Rename(r.File, r.To);
+                         files.SyncDirectory();

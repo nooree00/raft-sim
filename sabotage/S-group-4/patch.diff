@@ -1,0 +1,29 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+index b42a9dc..05e610f 100644
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -143,7 +143,23 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+             }
+         }
+ 
+-        Flush();
++        try
++        {
++            Flush();
++        }
++        catch (Exception)
++        {
++            foreach (var lost in held)
++            {
++                if (lost is ClientResponse cr)
++                {
++                    respond(cr);
++                }
++            }
++
++            throw;
++        }
++
+         if (sendAfterPersist)
+         {
+             // P10-05's barrier time, per batch: how long its sends waited behind the batch's persists.

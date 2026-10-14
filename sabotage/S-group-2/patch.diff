@@ -1,0 +1,28 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+index b42a9dc..9191212 100644
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -143,6 +143,23 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+             }
+         }
+ 
++        foreach (var early in held)
++        {
++            switch (early)
++            {
++                case Send x:
++                    send(x);
++                    break;
++                case ClientResponse y:
++                    respond(y);
++                    break;
++                case Emit z:
++                    emit(z);
++                    break;
++            }
++        }
++
++        held.Clear();
+         Flush();
+         if (sendAfterPersist)
+         {

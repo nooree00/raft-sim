@@ -1,0 +1,13 @@
+diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
+index 2196458..5bb1fa8 100644
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -307,7 +307,7 @@ public sealed class NodeHost : IAsyncDisposable
+ 
+             batch.Clear();
+             batch.Add(input);
+-            while (batch.Count < BatchLimit && reader.TryRead(out var more))
++            while (batch.Count < 1 && reader.TryRead(out var more))
+             {
+                 batch.Add(more);
+             }

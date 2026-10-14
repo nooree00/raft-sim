@@ -98,6 +98,7 @@ public sealed class NodeHost : IAsyncDisposable
     private long _loopHandleTicks;
     private long _loopExecuteTicks;
     private long _loopInputs;
+    private long _loopBatches;
 
     public NodeHost(HostConfig config, TextWriter events)
     {
@@ -141,6 +142,9 @@ public sealed class NodeHost : IAsyncDisposable
     /// </summary>
     public (double WaitMicros, double HandleMicros, double ExecuteMicros, long Inputs) LoopTimes =>
         (Bench.Micros(Interlocked.Read(ref _loopWaitTicks)), Bench.Micros(Interlocked.Read(ref _loopHandleTicks)), Bench.Micros(Interlocked.Read(ref _loopExecuteTicks)), Interlocked.Read(ref _loopInputs));
+
+    /// <summary>The batches the loop has executed (P14-03): the inputs over this is the batch's mean size.</summary>
+    public long LoopBatches => Interlocked.Read(ref _loopBatches);
 
     /// <summary>Every change of the node's role since the host started, in order (P13-02).</summary>
     public IReadOnlyList<RoleChange> RoleChanges => [.. _roleChanges];
@@ -265,9 +269,19 @@ public sealed class NodeHost : IAsyncDisposable
         _stop.Dispose();
     }
 
+    /// <summary>
+    /// The inputs the loop takes at once, after the one it waited for (P14-03, the group commit): every
+    /// input already queued, up to this many, run through the node in order and their effect lists
+    /// executed as one batch with one sync (<see cref="DiskExecutor.ExecuteBatch"/>). An idle loop takes
+    /// batches of one.
+    /// </summary>
+    public const int BatchLimit = 64;
+
     private void Loop()
     {
         var reader = _inputs.Reader;
+        var batch = new List<Input>(BatchLimit);
+        var lists = new List<IReadOnlyList<Effect>>(BatchLimit);
         while (!_stop.IsCancellationRequested)
         {
             Input input;
@@ -291,6 +305,13 @@ public sealed class NodeHost : IAsyncDisposable
                 return;
             }
 
+            batch.Clear();
+            batch.Add(input);
+            while (batch.Count < BatchLimit && reader.TryRead(out var more))
+            {
+                batch.Add(more);
+            }
+
             Stall();
             var once = Interlocked.Exchange(ref _stallOnceTicks, 0);
             if (once > 0)
@@ -300,46 +321,80 @@ public sealed class NodeHost : IAsyncDisposable
 
             if (_config.Trace is { } trace)
             {
-                switch (input)
+                foreach (var taken in batch)
                 {
-                    case ClientRequest c:
-                        trace.Add(HandOffTrace.Kind.ClientTaken, c.RequestId, null);
-                        break;
-                    case Receive r:
-                        trace.Add(HandOffTrace.Kind.PeerTaken, r.From.Value, Decomposition.ArrayOf(r.Payload));
-                        break;
+                    switch (taken)
+                    {
+                        case ClientRequest c:
+                            trace.Add(HandOffTrace.Kind.ClientTaken, c.RequestId, null);
+                            break;
+                        case Receive r:
+                            trace.Add(HandOffTrace.Kind.PeerTaken, r.From.Value, Decomposition.ArrayOf(r.Payload));
+                            break;
+                    }
                 }
             }
 
+            var role = (Role)_role;
             try
             {
                 var handling = Stopwatch.GetTimestamp();
-                var effects = _node!.Handle(input);
+                lists.Clear();
+                foreach (var next in batch)
+                {
+                    var effects = _node!.Handle(next);
+                    lists.Add(effects);
+                    if (_node.Role != role)
+                    {
+                        // P13-02: the change and the host's evidence, read on the loop, for a load run's record;
+                        // per input, so a batch with two changes records both. The term is the one the change's
+                        // event announces: the batch's events are emitted only after its sync.
+                        var now = Stopwatch.GetTimestamp();
+                        _roleChanges.Enqueue(new RoleChange(now, role, _node.Role, TermIn(effects) ?? Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, next is Tick t ? t.Elapsed : 0));
+                        role = _node.Role;
+                    }
+                }
+
                 var executing = Stopwatch.GetTimestamp();
-                _executor!.Execute(effects);
+                _executor!.ExecuteBatch(lists);
                 Interlocked.Add(ref _loopHandleTicks, executing - handling);
                 Interlocked.Add(ref _loopExecuteTicks, Stopwatch.GetTimestamp() - executing);
-                Interlocked.Increment(ref _loopInputs);
+                Interlocked.Add(ref _loopInputs, batch.Count);
+                Interlocked.Increment(ref _loopBatches);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
-                // report success over lost pages), so the host stops at once. The failed list's remaining
-                // effects are not executed, so nothing is sent or answered after the failure.
+                // report success over lost pages), so the host stops at once. Nothing the batch held back
+                // is sent or answered after the failure (P14-03).
                 FailStop(e);
                 return;
             }
 
-            var role = _node!.Role;
-            if ((int)role != _role)
-            {
-                // P13-02: the change and the host's evidence, read on the loop, for a load run's record.
-                var now = Stopwatch.GetTimestamp();
-                _roleChanges.Enqueue(new RoleChange(now, (Role)_role, role, Interlocked.Read(ref _term), Bench.Micros(now - Interlocked.Read(ref _lastLeaderRead)) / 1000, input is Tick t ? t.Elapsed : 0));
-            }
-
+            // Published after the batch's effects ran, so a leader's announcement is written before a
+            // reader can see its role (P14-01).
             _role = (int)role;
         }
+    }
+
+    /// <summary>The term an effect list announces (a role change's event carries it), read before the list runs.</summary>
+    private static long? TermIn(IReadOnlyList<Effect> effects)
+    {
+        foreach (var e in effects)
+        {
+            if (e is Emit emit)
+            {
+                foreach (var f in emit.Fields)
+                {
+                    if (f.Key == "term" && long.TryParse(f.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var t))
+                    {
+                        return t;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

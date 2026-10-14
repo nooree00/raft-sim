@@ -1,0 +1,16 @@
+diff --git a/src/Raft.Host/DiskExecutor.cs b/src/Raft.Host/DiskExecutor.cs
+index b42a9dc..b5f6a89 100644
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -71,9 +71,9 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
+         var sendAfterPersist = false;
+         void Flush()
+         {
+-            foreach (var file in dirty)
++            for (var k = dirty.Count - 1; k >= 0; k--)
+             {
+-                files.Sync(file);
++                files.Sync(dirty[k]);
+             }
+ 
+             if (created)

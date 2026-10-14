@@ -41,6 +41,133 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
         return loaded;
     }
 
+    /// <summary>
+    /// P14-03, the group commit: the effect lists of several inputs executed as one batch. Every persist
+    /// is written in the order the node emitted it, without a sync; then each file written is synced
+    /// once, in the order the files were first written (a term record before an append stays durable
+    /// before it), and the directory after a file was created; then every send, response and event is
+    /// released in emitted order. A rename, a delete or a truncate is a boundary: the writes before it
+    /// are synced first and it keeps its own syncs, as in <see cref="Execute"/> (the snapshot's two-way
+    /// barrier, P7-05). Holding a send for a later list's persist is within node-interface §4, which
+    /// says when a message may leave, not that it must. A failed write or sync throws before anything
+    /// held is released (P10-07). A batch of one list is executed as <see cref="Execute"/> executes it,
+    /// so an idle loop waits for nothing it waited for before.
+    /// </summary>
+    public void ExecuteBatch(IReadOnlyList<IReadOnlyList<Effect>> lists)
+    {
+        ArgumentNullException.ThrowIfNull(lists);
+        if (lists.Count == 1)
+        {
+            Execute(lists[0]);
+            return;
+        }
+
+        var start = Stopwatch.GetTimestamp();
+        var held = new List<Effect>();
+        var dirty = new List<string>();
+        var durable = new List<(string File, ReadOnlyMemory<byte> Data)>();
+        var created = false;
+        var persisted = false;
+        var sendAfterPersist = false;
+        void Flush()
+        {
+            foreach (var file in dirty)
+            {
+                files.Sync(file);
+            }
+
+            if (created)
+            {
+                files.SyncDirectory();
+            }
+
+            foreach (var (file, data) in durable)
+            {
+                Durable?.Invoke(file, data);
+            }
+
+            (created, dirty, durable) = (false, [], []);
+        }
+
+        void Wrote(string file)
+        {
+            if (!dirty.Contains(file))
+            {
+                dirty.Add(file);
+            }
+        }
+
+        foreach (var effects in lists)
+        {
+            foreach (var effect in effects)
+            {
+                switch (effect)
+                {
+                    case PersistAppend a:
+                        created |= !files.Exists(a.File);
+                        files.Append(a.File, a.Data.Span);
+                        Wrote(a.File);
+                        durable.Add((a.File, a.Data));
+                        persisted = true;
+                        break;
+                    case PersistWriteAt w:
+                        created |= !files.Exists(w.File);
+                        files.WriteAt(w.File, w.Offset, w.Data.Span);
+                        Wrote(w.File);
+                        persisted = true;
+                        break;
+                    case PersistTruncate t:
+                        Flush();
+                        files.Truncate(t.File, t.Length);
+                        files.Sync(t.File);
+                        persisted = true;
+                        break;
+                    case PersistRename r:
+                        Flush();
+                        files.Sync(r.File);
+                        files.Rename(r.File, r.To);
+                        files.SyncDirectory();
+                        persisted = true;
+                        break;
+                    case PersistDelete d:
+                        Flush();
+                        files.Delete(d.File);
+                        files.SyncDirectory();
+                        persisted = true;
+                        break;
+                    default:
+                        sendAfterPersist |= persisted && effect is Send;
+                        held.Add(effect);
+                        break;
+                }
+            }
+        }
+
+        Flush();
+        if (sendAfterPersist)
+        {
+            // P10-05's barrier time, per batch: how long its sends waited behind the batch's persists.
+            Interlocked.Add(ref _barrierTicks, Stopwatch.GetTimestamp() - start);
+            Interlocked.Increment(ref _barrierLists);
+        }
+
+        foreach (var effect in held)
+        {
+            switch (effect)
+            {
+                case Send s:
+                    send(s);
+                    break;
+                case ClientResponse c:
+                    respond(c);
+                    break;
+                case Emit e:
+                    emit(e);
+                    break;
+            }
+        }
+    }
+
     public void Execute(IReadOnlyList<Effect> effects)
     {
         ArgumentNullException.ThrowIfNull(effects);

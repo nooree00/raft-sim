@@ -205,6 +205,7 @@ public static class Program
             var barrierBefore = local is null ? [] : local.Hosts.Select(h => h.Barrier).ToArray();
             var syncMicrosBefore = local is null ? [] : local.Hosts.Select((_, i) => local.SyncMicros(new NodeId(i + 1))).ToArray();
             var loopBefore = local is null ? [] : local.Hosts.Select(h => h.LoopTimes).ToArray();
+            var batchesBefore = local is null ? [] : local.Hosts.Select(h => h.LoopBatches).ToArray();
             var writes = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
             var config = new LoadConfig(nodes, rate, TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(warmup), ClosedClients: clients, Trace: decompose ? writes.Add : null);
             var wall = Stopwatch.StartNew();
@@ -269,6 +270,9 @@ public static class Program
                 results["leader_loop_handle_us_per_write"] = Math.Round(handle / r.Answered, 1);
                 results["leader_loop_execute_us_per_write"] = Math.Round(execute / r.Answered, 1);
                 results["leader_loop_inputs_per_write"] = Math.Round((double)(loop.Inputs - lb.Inputs) / r.Answered, 2);
+                // P14-03: the group commit's batches, their mean size in inputs.
+                var batches = local.Hosts[leader.Value - 1].LoopBatches - batchesBefore[leader.Value - 1];
+                results["leader_loop_inputs_per_batch"] = Math.Round((double)(loop.Inputs - lb.Inputs) / Math.Max(1, batches), 2);
                 results["leader_loop_busy"] = Math.Round((wallMicros - wait) / wallMicros, 3);
                 results["leader_loop_parts_cover"] = Math.Round((handle + execute) / Math.Max(1, wallMicros - wait), 3);
                 if (syncs[leader.Value - 1] > 0)

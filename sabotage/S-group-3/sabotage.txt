@@ -1,0 +1,6 @@
+description: A batch syncs its files in reverse of the order it first wrote them, so after a crash an append can be durable above a lost term record (P14-03)
+mechanism: the batch's files synced in reverse first-write order
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.ABatchSyncsEachFileOnceInTheOrderTheyWereFirstWritten
+expect: caught

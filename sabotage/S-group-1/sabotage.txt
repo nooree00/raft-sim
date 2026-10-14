@@ -1,0 +1,7 @@
+description: The host's loop takes one input at a time again, so the leader syncs once a write however many writes are queued: the group commit undone (P14-03)
+mechanism: the loop's batch limited to one input
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.GroupCommitTests.UnderABurstTheLeaderSyncsFewerTimesThanItWrites
+reason: is not grouping its persists
+expect: caught
