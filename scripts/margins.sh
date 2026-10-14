@@ -11,7 +11,7 @@
 # Usage: scripts/in-sdk.sh scripts/margins.sh [runs] [out]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-runs="${1:-5}"; out="${2:-docs/phases/P12/margins-bench.tsv}"
+runs="${1:-5}"; out="${2:-docs/phases/P14/margins-bench.tsv}"
 test -z "$(git status --porcelain -- src tests)" || { echo "margins: src or tests has changes"; exit 1; }
 bin=tests/Raft.Host.Slow.Tests/bin/Debug/net10.0
 declare -A vals
@@ -61,6 +61,10 @@ read_handoff() {
   [ "$1" = u ] && add handoff-high u "$(ratio "$queue" "$set")"
   return 0
 }
+read_group() {
+  add group-syncs "$1" "$(pick '\K[0-9.]+(?= syncs per write)' bench-group)"
+  return 0
+}
 
 # Unpatched: the whole class, alone, beside three busy processes, and beside the two suites.
 neighbours; build
@@ -69,6 +73,9 @@ for mode in alone busy suite; do
   for r in $(seq 1 "$runs"); do
     test_run --filter-class '*BenchControlTests'
     read_stall u; read_slowdown u; read_barrier u; read_lateness u; read_handoff u
+    # P14-07: the group commit's control, a class of its own.
+    test_run --filter-class '*GroupCommitTests'
+    read_group u
   done
   idle
 done
@@ -76,7 +83,7 @@ done
 # Patched: each control's sabotage, its target in the same three modes.
 for pair in S-bench-1:APlantedStallShowsOpenLoopAndHidesClosedLoop:stall S-bench-2:APlantedSlowdownMovesTheMedianByTheModelsAmount:slowdown \
             S-bench-3:TheBarrierMeasuredIsTheLeadersOwnSync:barrier S-bench-4:TheGeneratorDispatchesEachWriteAtItsTime:lateness \
-            S-lat-1:APlantedHandOffDelayAppearsInItsSegmentOnly:handoff; do
+            S-lat-1:APlantedHandOffDelayAppearsInItsSegmentOnly:handoff S-group-1:UnderABurstTheLeaderSyncsFewerTimesThanItWrites:group; do
   IFS=: read -r id method control <<< "$pair"
   git apply "sabotage/$id/patch.diff"
   build
@@ -135,6 +142,7 @@ row() { # check bound above|below timing|ratio note
   row handoff-low 0.5 above ratio "follower-queue's 5th-percentile rise over the delay set; S-lat-1"
   row handoff-high 3.0 below ratio "the same, its upper bound"
   row handoff-others 0.4 below ratio "the largest other host segment's 5th-percentile rise over the delay set; S-lat-1"
+  row group-syncs 0.5 below ratio "the leader's syncs per write under 64 closed-loop clients (P14-03); S-group-1"
   row cost-ratio-8 2 below ratio "entries sent a follower per committed entry, 8 in flight; S-repl-11"
   row cost-ratio-32 2 below ratio "the same, 32 in flight; S-repl-11"
   row cost-committed-8 100 above ratio "entries committed, the reading's guard, 8 in flight; S-cost-1"
