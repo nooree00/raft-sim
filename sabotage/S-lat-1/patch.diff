@@ -1,13 +1,13 @@
 diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
-index b695961..ddc82c5 100644
+index 2da1965..e79e5aa 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -551,8 +551,8 @@ public sealed class NodeHost : IAsyncDisposable
+@@ -611,8 +611,8 @@ public sealed class NodeHost : IAsyncDisposable
                          Interlocked.Exchange(ref _lastLeaderRead, Stopwatch.GetTimestamp());
                      }
  
 -                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
-                     SpinHandOffDelay();
+                     DelayHandOff();
 +                    _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
                      _inputs.Writer.TryWrite(new Receive(from, payload));
                  }

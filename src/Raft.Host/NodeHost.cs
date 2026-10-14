@@ -157,7 +157,7 @@ public sealed class NodeHost : IAsyncDisposable
 
     /// <summary>
     /// A measurement's hook (P12-03, the decomposition's control): every peer message waits this long,
-    /// spinning, between its read from the socket and its hand-off to the loop, so a delay of known
+    /// never less, between its read from the socket and its hand-off to the loop, so a delay of known
     /// size and place can be planted in one segment.
     /// </summary>
     public TimeSpan PeerHandOffDelay
@@ -397,8 +397,13 @@ public sealed class NodeHost : IAsyncDisposable
         return null;
     }
 
-    /// <summary>The planted hand-off delay (<see cref="PeerHandOffDelay"/>), spun rather than slept, so it is the size planted.</summary>
-    private void SpinHandOffDelay()
+    /// <summary>
+    /// The planted hand-off delay (<see cref="PeerHandOffDelay"/>): never shorter than planted, slept to
+    /// within 80 µs of its end and spun the rest, as the generator waits (<see cref="Pacing.WaitUntil"/>),
+    /// so a millisecond planted on two followers' readers at 300 messages a second holds a twentieth of
+    /// a processor, not three fifths of one (the control's planted amount, raised at P13-04's CI fix).
+    /// </summary>
+    private void DelayHandOff()
     {
         var ticks = Interlocked.Read(ref _peerHandOffDelayTicks);
         if (ticks <= 0)
@@ -407,12 +412,8 @@ public sealed class NodeHost : IAsyncDisposable
         }
 
         var start = Stopwatch.GetTimestamp();
-        var until = start + (ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond);
-        while (Stopwatch.GetTimestamp() < until)
-        {
-            Thread.SpinWait(20);
-        }
-
+        Pacing.Prepare();
+        Pacing.WaitUntil(start + (ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond));
         Interlocked.Add(ref _handOffSpunTicks, Stopwatch.GetTimestamp() - start);
         Interlocked.Increment(ref _handOffSpins);
     }
@@ -611,7 +612,7 @@ public sealed class NodeHost : IAsyncDisposable
                     }
 
                     _config.Trace?.Add(HandOffTrace.Kind.PeerRead, from.Value, payload);
-                    SpinHandOffDelay();
+                    DelayHandOff();
                     _inputs.Writer.TryWrite(new Receive(from, payload));
                 }
             }

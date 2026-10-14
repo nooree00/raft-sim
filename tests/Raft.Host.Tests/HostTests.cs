@@ -22,7 +22,12 @@ public sealed class HostTests
 
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(10);
 
-    /// <summary>Nobody calls anything: three hosts start, and one of them announces it leads. Sabotage S-host-1.</summary>
+    /// <summary>
+    /// Nobody calls anything: three hosts start, and one of them announces it leads. Sabotage S-host-1.
+    /// The announcement is an effect, and since P13-04 the effect thread writes it while the loop
+    /// publishes the role, so it is waited for: read the moment the role was seen, it was missing once
+    /// on GitHub (run 38493194546, at `5e11dd5`), the poll having landed between the two.
+    /// </summary>
     [Fact]
     public async Task ThreeHostsElectALeaderWithNobodyCallingAnything()
     {
@@ -31,8 +36,15 @@ public sealed class HostTests
         var leader = await c.LeaderAsync(Wait, Ct);
 
         Assert.True(leader is not null, "no host became leader within 10 s: " + string.Join(" / ", c.Events.Lines.TakeLast(5)));
-        Assert.Contains(c.Events.Lines, l => JsonDocument.Parse(l).RootElement.GetProperty("Event").GetString() == "leader"
+        bool Announced() => c.Events.Lines.Any(l => JsonDocument.Parse(l).RootElement.GetProperty("Event").GetString() == "leader"
             && JsonDocument.Parse(l).RootElement.GetProperty("Node").GetString() == leader!.Value.ToString());
+        var until = DateTime.UtcNow + Wait;
+        while (!Announced() && DateTime.UtcNow < until)
+        {
+            await Task.Delay(20, Ct);
+        }
+
+        Assert.True(Announced(), $"{leader} leads and wrote no leader event within 10 s: " + string.Join(" / ", c.Events.Lines.TakeLast(5)));
     }
 
     /// <summary>

@@ -151,7 +151,8 @@ public sealed class BenchControlTests
     /// its read from the socket and its hand-off to the loop, must appear in that segment
     /// (follower-queue), between half and three times its planted amount, and in no other segment by
     /// more than 0.4 of it (the generator's own lateness aside, which is before any host). One traced cluster
-    /// alternates windows with the delay off and on, three of each, each window's stamps joined alone.
+    /// alternates windows with the delay off and on, ten of each and a second long, each window's
+    /// stamps joined alone (<see cref="HandOffWindows"/>).
     /// A segment's rise is its 5th percentile's, delay on against off, over the delay set: a spin never
     /// ends before its set time, so the delay moves the segment's lower tail by the amount set, and a
     /// neighbour's burst, which lengthens waits, moves the upper part. Judged by the median, the control
@@ -186,7 +187,7 @@ public sealed class BenchControlTests
         var writes = 0;
         var joined = 0;
         var left = 0;
-        for (var round = 0; round < 6; round++)
+        for (var round = 0; round < HandOffWindows; round++)
         {
             var on = round % 2 == 1;
             foreach (var f in c.Nodes.Where(n => n != leader))
@@ -200,7 +201,7 @@ public sealed class BenchControlTests
             }
 
             var stamps = new System.Collections.Concurrent.ConcurrentBag<WriteStamp>();
-            await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: ControlRate, Duration: TimeSpan.FromSeconds(4), Warmup: TimeSpan.FromSeconds(1), Trace: stamps.Add), Ct);
+            await LoadGenerator.RunAsync(new LoadConfig(Endpoints(c), Rate: ControlRate, Duration: TimeSpan.FromSeconds(1.25), Warmup: TimeSpan.FromSeconds(0.25), Trace: stamps.Add), Ct);
             var d = Decomposition.Compute(c.Nodes.ToDictionary(n => n, n => c.Trace(n).Drain()), leader, [.. stamps]);
             writes += d.Writes;
             joined += d.Joined;
@@ -317,7 +318,26 @@ public sealed class BenchControlTests
         }
     }
 
-    private const double PlantedMicros = 500;
+    private const double PlantedMicros = 2_000;
+
+    /// <summary>
+    /// The hand-off control's windows, alternating off and on: twenty of a second's counted writes (300),
+    /// not six of three seconds; and its planted amount, 2 ms, not 500 µs (<see cref="PlantedMicros"/>).
+    /// Since P13-04 a persist waits on the effect thread's wake, and on a machine with no processor
+    /// free the three nodes' effect threads, in one process, wait on one another: a delay in the
+    /// followers' path moves their persists away from the leader's, and the persist segments moved with
+    /// it. On two processors beside two busy loops, at 500 µs in six windows, follower-persist's 5th
+    /// percentile moved -581 to +1,036 µs between the modes and leader-persist -1,146 to -10 (ten
+    /// failures in eighteen runs), where phase 12's host, the same way, kept every persist within 85 µs
+    /// (six runs); on GitHub it read leader-persist 226 µs against the bound of 200 (run 38493194546,
+    /// `5e11dd5`). Twenty windows put a contention that drifts over seconds into both modes (at least
+    /// three failures in eight); what is left does not grow as the delay does (1 ms: one failure in
+    /// eight, follower-persist 458 µs), so 2 ms puts it under the bound (eight runs, none failing, the
+    /// largest other rise 647 µs, 0.32 of the delay), while S-lat-1 still moves the whole delay into
+    /// network-out. The delay is slept to its last 80 µs (NodeHost.DelayHandOff), so the longer one
+    /// holds no more of a processor. The bound is unchanged.
+    /// </summary>
+    private const int HandOffWindows = 20;
     private const double ControlRate = 300;
 }
 
