@@ -69,6 +69,16 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   corrected, it has not yet decided a case. The cap it pointed to, the
   leader's single loop running its syncs inline, is phase 13's, and it is not
   a group commit.
+  **At phase 13's acceptance the group commit is chosen, by elimination**
+  (reviewer). Phase 13 moved the leader's effects off its loop: the loop went
+  from 0.94 busy to 0.06 and the new effect thread to 0.95, and the median at
+  3,125 writes a second rose 25%. The serial work per write is the same
+  wherever it runs, so the loop was never the cap; the serial work per write
+  is, and what reduces it is a group commit. Neither gate reading selected it
+  (the 80% gate said no; the corrected one was undecided at 1.6%). It is
+  reached by exhausting the alternatives over three phases rather than by a
+  threshold, which is the better kind of justification. The effect thread is
+  reverted, and phase 14 builds the group commit against restated criteria.
 - PreVote and CheckQuorum (Ongaro's thesis). The paper's §6 disruption rule
   is in scope (§5); the thesis extensions are not. Excluded with its
   consequence measured (P4-06): under a one-way partition that never heals,
@@ -599,6 +609,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
 | 12 | Commit latency, then the group commit by the corrected gate | The latency of a commit decomposed along its path from timestamps the hosts and the generator take (§9), at a rate below the knee and at the criterion's rate, the segments summing to the end-to-end latency; the load generator's own lateness measured and bounded before any host change is judged; the host's largest segments that are not the design's (two syncs and a round trip) removed or explained, and the curve measured again against L, in process and in Compose: the latency criterion met, or the remaining gap attributed segment by segment, each remaining segment beside its measured floor; the corrected gate (§2) applied to the new curve, a group commit proposed as phase 13 at 80% or more and the row closed with the measurement under it; every check comparing a run-to-run quantity with a threshold measured on both sides, patched and unpatched, and any within a factor of 1.5 of its threshold moved or redesigned |
 | 13 | The leader's loop, against the restated target | Proposed at phase 12's acceptance (reviewer): the median at 3,125 writes a second about 1.3 times the target restated from the measured floors (`docs/design/performance-target.md`, 1,066 µs), the 99th percentile met nowhere (3.38 ms), and the cap the leader's single loop running its syncs inline. Done when the host executes each node's effect lists off its loop, on one thread, in the order the node emitted them, so the node never waits for a sync (§4), with the persist barrier, the stop on a failed write or sync, and every invariant, soak, Compose and checker result unchanged; the curve is measured again against the restated target, interleaved against phase 12's head, in process and in Compose: the median and 99th-percentile criteria at 3,125 writes a second met, or the gap attributed segment by segment beside the measured floors and the allowance's model; Compose's hop floor is measured and a Compose criterion restated from it; every hand-kept input a gate reads is registered with what verifies it, the four phase 12 found (a record's commit, the touched estimate, the cost file, the Budget seeds) compared with what they describe by one mechanism, and any other that nothing verifies a register row; and every row promised to phase 13 is closed: the stall control redesigned so its sabotage cannot pass, leader changes in load runs explained or counted, the target's operating point and sustained-rate definition declared conventions, its halving and percentile summing grounded or dropped, and its allowance's sensitivity reported |
+| 14 | The group commit, against restated criteria | Proposed at phase 13's acceptance (reviewer): moving the leader's serial work off its loop did not reduce it (the loop 0.94 busy to 0.06, the effect thread 0.95, the median at 3,125 writes a second up 25%), so the effect thread is reverted and the serial work per write, the cap by elimination, is reduced by a group commit; both latency criteria are restated, neither being grounded after phase 13; Compose is a wiring and integration check, its comparisons holding to 2,000 writes a second on the machine that ran it. The done criterion is written by the phase-14 breakdown's first task, at its approval |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
@@ -619,7 +630,10 @@ a tenth to a sixth of the design's capacity. Phase 12 was added at phase 11's
 acceptance: the group-commit gate corrected, and latency put before the group
 commit the corrected gate would otherwise select. Phase 13 was added at phase
 12's acceptance: the target restated from the measured floors, and the loop
-phase 12 named as the cap addressed against it.)
+phase 12 named as the cap addressed against it. Phase 14 was added at phase
+13's acceptance: the effect thread reverted, a result rather than a failed
+task, and the group commit, reached by elimination, against restated
+criteria.)
 
 ## 12. Working agreement
 

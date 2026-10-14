@@ -179,6 +179,9 @@ the loop also reads requests and answers.
 
 ## Compose's criterion, from its own hop floor (P13-06)
 
+*Withdrawn at phase 13's acceptance* (below): two containers on one machine are a wiring and
+integration check, not a distributed measurement. The section stands as what P13-06 measured.
+
 Until phase 13 no Compose criterion was grounded: Compose's hops cross containers, and no floor had
 been measured for them. P13-06 measured one: a cold one-way frame from one container of the node
 image to a reader asleep on its own thread in another, on a bridge network of their own (Compose's
@@ -264,3 +267,21 @@ generator's arrivals are evenly spaced, not Poisson, where the same service give
 before a persist and 213 µs before a response at their medians (m:p13-05-ab-fix-3125-*), between the
 two. The restated allowance came close because its two errors cancel: an agreement with no
 mechanism behind it.
+
+## At phase 13's acceptance (reviewer)
+
+- **Both latency criteria are to be restated.** Neither 1,066 µs nor 3.38 ms is grounded: the floor
+  they add to was a sum of parts, which P13-08 dropped, and the allowance's model was falsified
+  input by input, its agreement with the measured waits a cancellation of two wrong inputs. They
+  are what phase 13's numbers were reported against; phase 14 restates them before its group commit
+  is judged, by a method its breakdown proposes for approval.
+- **Compose is a wiring and integration check, not a distributed measurement.** Its two containers
+  share a kernel, a page cache and a processor, and phase 13 measured what processor contention does
+  to nodes sharing a machine (the hand-off control's persists coupled by up to a millisecond).
+  Compose's criterion above is withdrawn. Compose comparisons hold to 2,000 writes a second on the
+  machine that ran them, and say so; a number for nodes on separate machines needs separate
+  machines, and is out of scope.
+- **The effect thread is reverted** (phase 14's first task): it moved the leader's serial work and did
+  not reduce it, and the host was never the cap. The sustained rate it raised by one step (3,500
+  against 3,125) goes with it.
+
