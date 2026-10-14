@@ -178,4 +178,24 @@ public sealed class EachCommitMatrixTests
         Assert.Equal(["1/1"], EachCommitMatrix.ShardsOf(g.Repo, before));
         Assert.Equal(["1/2", "2/2"], EachCommitMatrix.ShardsOf(g.Repo, after));
     }
+
+    /// <summary>
+    /// A retired entry is not a harness entry at its commit (P14-01): four live entries and one retired,
+    /// two a shard, are two shards, as the harness there counts them, not three. Sabotage S-retire-2.
+    /// </summary>
+    [Fact]
+    public void ARetiredEntryIsNotCountedInACommitsShards()
+    {
+        using var g = new GitFixture();
+        g.Write("Raft.slnx", "<Solution />").Write("ci/sabotage-shard-size.txt", "2\n");
+        foreach (var id in new[] { "S-a-1", "S-a-2", "S-a-3", "S-a-4" })
+        {
+            g.Write($"sabotage/{id}/sabotage.txt", "kind: test\n").Write($"sabotage/{id}/patch.diff", "");
+        }
+
+        g.Write("sabotage/S-r-1/sabotage.txt", "kind: test\nretired: 0abc3e4 its target was removed\n").Write("sabotage/S-r-1/patch.diff", "");
+        var sha = g.Commit("one entry retired");
+
+        Assert.Equal(["1/2", "2/2"], EachCommitMatrix.ShardsOf(g.Repo, sha));
+    }
 }

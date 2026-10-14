@@ -280,7 +280,9 @@ internal static class ShardPlan
 
     /// <summary>
     /// The plan at a commit, read from its tree: null if the commit predates sharding (no
-    /// <see cref="SizeFile"/>), else the harness entries and the shard count.
+    /// <see cref="SizeFile"/>), else the harness entries and the shard count. A retired entry is not a
+    /// harness entry (P14-01), as the harness at that commit reads it; counting one gave three commits
+    /// of run 38527995236 thirteen shards where their own harness made twelve. Sabotage S-retire-2.
     /// </summary>
     public static (IReadOnlyList<string> Ids, int Of)? AtCommit(Repo repo, string sha)
     {
@@ -292,7 +294,7 @@ internal static class ShardPlan
 
         var ids = repo.Git("ls-tree", "--name-only", $"{sha}:sabotage").StdOut
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Where(id => !IsHost(repo.Git("show", $"{sha}:sabotage/{id}/sabotage.txt").StdOut))
+            .Where(id => repo.Git("show", $"{sha}:sabotage/{id}/sabotage.txt").StdOut is var text && !IsHost(text) && !IsRetired(text))
             .ToList();
         return (ids, Count(ids.Count, ParseSize(size.StdOut)));
     }
@@ -302,4 +304,7 @@ internal static class ShardPlan
 
     private static bool IsHost(string sabotageTxt) =>
         sabotageTxt.Split('\n').Any(l => l.Trim() == "runner: host");
+
+    private static bool IsRetired(string sabotageTxt) =>
+        sabotageTxt.Split('\n').Any(l => l.StartsWith("retired: ", StringComparison.Ordinal));
 }

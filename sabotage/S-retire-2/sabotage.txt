@@ -1,0 +1,6 @@
+description: The per-commit matrix counts a commit's retired entries as harness entries, so a commit after a retirement gets more shards than its own harness makes, and every one of its jobs fails (run 38527995236, P14-01)
+mechanism: retired entries counted in a commit's shard plan
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitMatrixTests.ARetiredEntryIsNotCountedInACommitsShards
+expect: caught

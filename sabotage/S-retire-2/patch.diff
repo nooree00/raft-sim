@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/ShardPlan.cs
++++ b/tools/Raft.Gates/ShardPlan.cs
+@@ -294,7 +294,7 @@
+ 
+         var ids = repo.Git("ls-tree", "--name-only", $"{sha}:sabotage").StdOut
+             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+-            .Where(id => repo.Git("show", $"{sha}:sabotage/{id}/sabotage.txt").StdOut is var text && !IsHost(text) && !IsRetired(text))
++            .Where(id => repo.Git("show", $"{sha}:sabotage/{id}/sabotage.txt").StdOut is var text && !IsHost(text))
+             .ToList();
+         return (ids, Count(ids.Count, ParseSize(size.StdOut)));
+     }
