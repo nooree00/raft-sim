@@ -1,6 +1,32 @@
 # Phase 14 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run 38542098523, the report's head `c842d65`). **The margins check
+failing 8 of phase 13's 11 bench rows is this report's most important result** (the reviewer): that
+audit was evidence the reviewer accepted, and it was measured at `3a1056b`, against code `7f4b02c`
+changed afterwards, a current-looking audit of a stale tree. A premise check firing on its first
+application against a report already approved is what it is for. Edits at acceptance, by the
+reviewer's direction:
+- **the tail's reading is §13.30 in a new place** (the CRDT project's rule): the rule written before
+  measuring could read only traced runs, whose 42 to 52 ms is mostly the trace's cost against 9 to 14
+  ms untraced. Reporting the composition as unmeasured, rather than quoting the traced figure, stands;
+- **the leader's queue is phase 15's subject, measured first** (decision 1): the hypothesis that a
+  batch holds every output until its one sync is a mechanism, and it gets a check that fails on
+  today's code before anything is built against it, the shape of P11-01, which caught the resend
+  defect;
+- **the untraced tail: the generator in a process of its own** (decision 2). The trace is now the
+  dominant term in what it measures, the class of phase 12's generator lateness, with the same fix;
+- **the broad-target rule is replaced, not patched** (decision 3). Its premise was that entries run
+  whole projects, and P11-09 removed that; a rule that flags three narrow tests instead of its twelve
+  listed measures something else. Phase 15 states what breadth meant, whether it is still worth
+  detecting, and either defines it against per-class runs or retires it. A rule kept because it
+  exists is the sunk cost rejected for the effect thread;
+- **the operating point is re-derived** (decision 4): a declared convention, but half of a capacity
+  that has since doubled, and a convention pinned to a moving quantity drifts silently. Phase 15
+  restates it at half the new capacity or pins it to an absolute rate with the reason;
+- **the median 10 to 17% above the reverted host's at 1,250 and 2,000 writes a second**, reported
+  rather than smoothed, is carried into phase 15 as a known unexplained observation: if the queue's
+  mechanism explains it, that corroborates it; if not, it is a second thing.
+Phase 15's breakdown is `docs/phases/P15/breakdown.md`; spec §11 has its row.
 
 The group commit, against restated criteria (spec §11 phase 14, P14-00's row): P14-00 to P14-08 as
 approved, with the amendments each outcome records. Every number in this report's tables cites its
@@ -10,7 +36,20 @@ phase's work** (`3dd776c`, run:38527995236), whose run found two faults, each fi
 here: the per-commit matrix counted retired entries (P14-01's mechanism missed a reader), and P14-05's
 observer found three unlisted tests on its first reading (under P14-05 and deviations).
 
-## First: the group commit moved the cap, not the latency at the operating point (P14-03, P14-04)
+## First: a current-looking audit of a stale tree (P14-06)
+
+Phase 13's report was accepted with a margin audit as its evidence for the bench controls. P14-06 ties
+each row of a margins table to the commit it measured and fails a phase report when a row's control's
+sources changed after it. **Applied to phase 13's report at `0abc3e4`, it fails 8 of the 11 bench
+rows:** they were measured at `3a1056b`, and `7f4b02c` changed the host after them; only the three
+hand-off rows, measured again at `7f4b02c`, pass. The audit the reviewer accepted described a tree that
+no longer existed when the report was approved. Nothing said so until this check, on its first
+application. Each row names its measurement commit (the header's, or a `# at <commit>: <checks>`
+line), and `gates margins --currency` runs on every push, failing only at a report. Applied to this
+phase before P14-07 it noted all eleven bench rows stale (the host changed at `3c07607`); after
+P14-07, none of eighteen.
+
+## Second: the group commit moved the cap, not the latency at the operating point (P14-03, P14-04)
 
 The followers already grouped their commits (0.38 syncs a write at 3,125 writes a second, 0.13 at
 4,000) while the leader synced once a write at every rate, and moving its serial work off its loop
@@ -56,10 +95,11 @@ the knee the group commit costs nothing at 625 and 100 (batches of one). It cost
   its one sync adds to an output whose own list had no persist. The records fit that reading; they
   do not test it.
 
-## Second: two premises closed by mechanism, and what the first reading of one found (P14-05, P14-06)
+## Third: the broad-target rule's first reading measured something else (P14-05)
 
-The registry's first run (P13-01) found two inputs nothing checked; each now has an observer and a
-currency line in `ci/inputs.txt`, and both register rows are closed.
+The registry's first run (P13-01) found two inputs nothing checked, the margins tables (above) and the
+broad-target list; each now has an observer and a currency line in `ci/inputs.txt`, and both register
+rows are closed.
 
 - **The broad targets against the harness's own red neighbours (P14-05).** Each head shard's notice
   names the tests red beside an entry's target and how many entries turned each red. build-collect
@@ -77,13 +117,6 @@ currency line in `ci/inputs.txt`, and both register rows are closed.
   class's entries, so the rule measures how many of them reach it, not breadth. The three are listed,
   as the rule asks (`a2b074a`), and the two entries targeting them now state their reasons (a decision
   below).
-- **The margins tables tied to the commits they measured (P14-06).** Each row names its measurement
-  commit (the header's, or a `# at <commit>: <checks>` line), and `gates margins --currency` fails a
-  phase report when a row's control's sources changed after it. Applied to phase 13's report at
-  `0abc3e4`, it passes the three hand-off rows (measured at `7f4b02c`) and fails the other eight
-  bench rows (measured at `3a1056b`, before `7f4b02c` changed the host): phase 13's report would have
-  needed its audit again. Applied to this phase before P14-07 it noted all eleven bench rows stale
-  (the host changed at `3c07607`); after P14-07, none of eighteen.
 
 ## The result of the phase
 
@@ -328,19 +361,27 @@ Checker 173 (173), Simulation 110 (110), Core 852 (852), Scale 26 (26), Budget 3
 Closed: the leader's serial work per write (P14-03, P14-04), `ci/broad-targets.txt`'s premise
 (P14-05), `docs/phases/P12/margins.tsv`'s premise (P14-06), and the target's figures (P14-02).
 Opened: the median's miss at 3,125 as the rule's (ii) reads it, and the tail's miss with the
-instrument that read it (P14-04). Their homes are yours at acceptance.
+instrument that read it (P14-04). **Homed to phase 15 at acceptance,** with three rows opened there:
+the operating point pinned to a moving quantity, the broad-target rule whose premise P11-09 removed,
+and the median above the reverted host's at 1,250 and 2,000 writes a second.
 
 ## Findings added this phase
 
-In `docs/findings.md` under phase 14, in order:
+In `docs/findings.md` under phase 14, in order (the first retitled and the last three added at
+acceptance, by the reviewer):
+- a current-looking audit of a stale tree (drafted as "the first application of a currency check
+  found its phase's predecessor stale");
 - a group commit with no timer runs its loop saturated, so it moves the cap, not the latency at its
   edge;
-- a rule stated before the measurement reads the instrument's tail if the instrument has one;
+- a rule stated before the measurement reads the instrument's tail if the instrument has one (§13.30
+  in a new place);
 - a channel's capacity is a premise;
 - a mechanism that changes what an entry is must reach every reader, including those reading
   history;
 - under class-scoped runs, a breadth rule measures reach within a class;
-- the first application of a currency check found its phase's predecessor stale.
+- a rule kept because it exists is sunk cost;
+- a convention pinned to a moving quantity drifts silently;
+- an unexplained difference reported is a result, not a gap.
 
 ## Still the person's
 

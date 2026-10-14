@@ -1451,6 +1451,13 @@ The first three were written during phase 10's acceptance push and P11-08, befor
 
 ## Phase 14
 
+- **A current-looking audit of a stale tree** (the reviewer's title, at phase 14's acceptance: the
+  report's most important result). Applied to phase 13's report, P14-06's observer fails eight of its
+  eleven bench rows: they were measured at `3a1056b`, and `7f4b02c` changed the host after them. The
+  reviewer had accepted that audit as evidence. It described a tree that no longer existed when the
+  report was approved, and nothing said so until a premise check ran on its first application. *Rule:*
+  evidence is about the commit it measured; before it is accepted, check that what it describes has
+  not changed since, and make that check a mechanism, not a reading.
 - **A group commit with no timer runs its loop saturated, so it moves the cap, not the latency at
   the cap's edge.** The batch is whatever queued while the loop was busy. At 3,125 writes a second
   the loop stayed 0.96 busy in batches of 1.9 inputs, each sync slower than one write's, and the
@@ -1463,8 +1470,11 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   P14-04's tail rule was defined on the traced decomposition. The traced runs' 99th percentile was
   41.6 to 51.7 ms against the untraced 8.9 to 14.2, almost all of it the generator's lateness in the
   process it shares with the traced hosts. The rule read (iii) on a tail the trace made. P12-03 had
-  measured the trace's cost at the median, not at the tail. *Rule:* before a rule reads a percentile
-  through an instrument, measure the instrument's effect on that percentile.
+  measured the trace's cost at the median, not at the tail. At acceptance the reviewer named it the
+  CRDT project's §13.30 in a new place: the trace had become the dominant term in what it measured,
+  the class of phase 12's generator lateness, and reporting the composition as unmeasured, rather than
+  quoting the traced figure, was the right reading. *Rule:* before a rule reads a percentile through
+  an instrument, measure the instrument's effect on that percentile.
 - **A channel's capacity is a premise.** GitHub keeps 4,096 characters of an annotation's message and
   drops notices past ten a step. P13-01's whole-run entry times had been cut at exactly 4,096 for a
   phase, unnoticed because the log holds the rest. P14-05's first design would have read its counts
@@ -1482,7 +1492,18 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   beside under half), and found three focused tests at exactly half of four or six. *Rule:* an
   observation can only judge what the harness exposes it to; check what a rule can see before
   deciding what its threshold means.
-- **The first application of a currency check found its phase's predecessor stale.** Applied to
-  phase 13's report, P14-06's observer fails eight of eleven bench rows: measured at `3a1056b`, before
-  `7f4b02c` changed the host. Phase 13's report would have needed its audit again after its last host
-  change, and nothing said so.
+- **A rule kept because it exists is sunk cost** (the reviewer, at phase 14's acceptance). The
+  broad-target rule's premise was that each entry runs its whole project; P11-09 removed that, and a
+  rule that then flags three narrow tests instead of its twelve listed measures something else.
+  Listing them, as the rule asked, was obedience to the rule, not evidence for it. *Rule:* when a
+  rule's premise changes, restate what the rule was for and decide again whether it is worth having;
+  replace it or retire it, do not patch it.
+- **A convention pinned to a moving quantity drifts silently** (the reviewer). The operating point
+  was declared as half of C_design, the capacity of a design with one leader sync a write; the group
+  commit doubled the measured capacity, and the convention went on naming 3,125 writes a second as
+  half of something it no longer was. *Rule:* a declared convention states what it is pinned to; when
+  that moves, the convention is derived again or re-pinned with a reason.
+- **An unexplained difference reported is a result, not a gap.** The group commit's median is 10 to
+  17% above the reverted host's at 1,250 and 2,000 writes a second, its tail lower there. Reported
+  rather than smoothed, it is carried into phase 15 as an observation the queue's measurement can
+  explain, which would corroborate that mechanism, or fail to, which would make it a second thing.
