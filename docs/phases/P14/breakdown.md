@@ -5,21 +5,39 @@ done criterion is P14-00's to write, at this breakdown's approval). Format as in
 `docs/phases/P13/breakdown.md`, parsed by `gates breakdown`; outcomes will say `(evidence)` or
 `(forcing)`.
 
-**Draft, for review.** No task starts before approval.
+**Approved** (reviewer), all three decisions, with amendments made here before any task starts; stop
+and report after the phase. With the approval:
+- **the revert is P14-01's, not an edit at acceptance:** removing the effect thread removes the code
+  three sabotages test, and no entry had ever been retired, so the first retirement had no safe path.
+  "Retiring an entry whose target still exists fails" is the guard that stops retirement becoming a
+  way to drop an inconvenient check;
+- **the case leads with the followers** (below, and P14-00's spec text): the batching mechanism already
+  works in this system, and the leader is the only party not using it; the three-phase history
+  follows it;
+- **the floors follow the revert:** P14-02 takes its floors from P14-01's reverted-side records, after
+  P14-01 has landed and been measured. If the revert's own measurement moves them from phase 13's
+  figures (846 µs, 2,402 µs, 234 µs), the criteria move with it;
+- **a missed tail is decided in advance** (P14-04's prediction): what it implies is fixed now, by the
+  decomposition and a rule written before the measurement, so that a missed tail cannot become an
+  argument for phase 15 by default rather than by elimination;
+- not choosing the queueing model is the phase-13 finding applied rather than recorded (the reviewer):
+  the circularity that falsified the last allowance after the fact, caught before measuring.
 
-**Why a group commit, and why now: by elimination.** Phase 11's gate (the leader's sync 80% busy at
-the highest sustained rate) said no, at 61 to 67%. Phase 12's corrected gate was undecided: 0.787
-against 0.8 needed a filter chosen after seeing the data, and a gate that does not decide answers
-no. Phase 13 moved the leader's effects off its loop and showed what the cap is: the loop went from
-0.94 busy to 0.06, the effect thread to 0.95, and the median at 3,125 writes a second rose 25%. The
-serial work per write is the same wherever it runs. On phase 12's host at 3,125 it is 302 µs (the
-node's handling 13 µs, the effects 289 µs, the sync 234 µs of them), one sync a write
-(`m:p13-05-ab-base-3125-*`). **The followers already group their commits and the leader does not:**
-the leader syncs 1.00 times a write at every rate, while each follower syncs 0.99 times a write at
-625 writes a second, 0.84 at 2,000, 0.38 at 3,125 and 0.13 at 4,000, because the leader's
-AppendEntries carries several entries under load and a follower syncs once a message. The remedy the
-data name is the same grouping at the leader. It was reached by exhausting the alternatives over
-three phases, not by a threshold (the reviewer, at phase 13's acceptance; spec §2).
+**Why a group commit: the followers already do it, and the leader does not.** Each follower syncs
+0.99 times a write at 625 writes a second, 0.84 at 2,000, 0.38 at 3,125 and 0.13 at 4,000, because
+under load the leader's AppendEntries carries several entries and a follower syncs once a message;
+the leader syncs 1.00 times a write at every rate (`m:p13-05-ab-base-*`). The batching mechanism
+already works in this system, and the leader is the only party not using it.
+
+**And by elimination.** On phase 12's host at 3,125 writes a second the leader's serial work per
+write is 302 µs (the node's handling 13 µs, the effects 289 µs, the sync 234 µs of them), one sync a
+write. Phase 11's gate (the leader's sync 80% busy at the highest sustained rate) said no, at 61 to
+67%. Phase 12's corrected gate was undecided: 0.787 against 0.8 needed a filter chosen after seeing
+the data, and a gate that does not decide answers no. Phase 13 moved the leader's effects off its loop
+and showed what the cap is: the loop went from 0.94 busy to 0.06, the effect thread to 0.95, and the
+median at 3,125 writes a second rose 25%. The serial work per write is the same wherever it runs. The
+group commit was reached by exhausting the alternatives over three phases, not by a threshold (the
+reviewer, at phase 13's acceptance; spec §2).
 
 **Where latency stands: against no grounded criterion.** On phase 12's host, the host this phase
 starts from once the effect thread is reverted, at 3,125 writes a second in process: the median
@@ -146,11 +164,11 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
 
 ### P14-00 — The spec's phase-14 row and §4 back to its contract
 
-- **Task:** Spec §11's phase-14 row gets its done criterion (decision 1). §4's bullet "The host runs the effects off its loop (phase 13)" is replaced by one saying the host runs each effect list on its loop, its syncs inline, and from P14-03 a batch of lists with one sync; "the node never waits" stays the node's contract, kept by the simulator's world and by the host's barrier. The register's rows promised to phase 14 cite the row.
+- **Task:** Spec §11's phase-14 row gets its done criterion (decision 1), its lead rewritten to start from the followers' batching (0.38 and 0.13 syncs per write at 3,125 and 4,000 writes a second, the leader's 1.00), the elimination after it; §2's paragraph recording the group commit leads the same way. §4's bullet "The host runs the effects off its loop (phase 13)" is replaced by one saying the host runs each effect list on its loop, its syncs inline, and from P14-03 a batch of lists with one sync; "the node never waits" stays the node's contract, kept by the simulator's world and by the host's barrier. The register's rows promised to phase 14 cite the row.
 - **Vacuity:** A spec that keeps the effect thread's bullet while the code no longer has one states a host that does not exist; guarded by P14-01 landing after this amendment, so the two never disagree on a pushed commit for longer than one push, and by `gates register`, which reads the phase row.
 - **Sabotage:** ; manual: the diff checked against the decisions (§4 and §11 only)
 - **Verifiable here:** partial — the diff and the register gate here; its approval the reviewer's
-- **Prediction:** The amendment changes §4 (the one bullet) and §11 (the row's done criterion), and no other section: §2's paragraph recording the group commit chosen by elimination was written at acceptance and needs nothing more. `docs/design/node-interface.md` §4 needs no change, as it needed none for phase 13. **Observable:** the diff.
+- **Prediction:** The amendment changes §2 (the paragraph recording the group commit, its lead), §4 (the one bullet) and §11 (the row's lead and its done criterion), and no other section. `docs/design/node-interface.md` §4 needs no change, as it needed none for phase 13. **Observable:** the diff.
 - **Outcome:** pending
 
 ### P14-01 — The effect thread reverted, measured against phase 13's head
@@ -164,7 +182,7 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
 
 ### P14-02 — Both latency criteria restated from floors measured end to end
 
-- **Task:** Decision 3, as approved, written into `docs/design/performance-target.md` from P14-01's reverted-side records: the median's floor, the tail's floor and the leader's sync at 3,125, each cited; the allowance declared with its arbitrariness; Compose with no criterion (a wiring check); every figure from phases 12 and 13 superseded where it stands.
+- **Task:** Decision 3, as approved, written into `docs/design/performance-target.md` from P14-01's reverted-side records, taken after P14-01 has landed and been measured; where they differ from phase 13's figures (846 µs, 2,402 µs, 234 µs), the criteria use them: the median's floor, the tail's floor and the leader's sync at 3,125, each cited; the allowance declared with its arbitrariness; Compose with no criterion (a wiring check); every figure from phases 12 and 13 superseded where it stands.
 - **Vacuity:** Floors taken after the group commit exists could be chosen to suit it; guarded by writing them from P14-01's records before P14-03's first commit (the prediction-order check holds the order). A floor taken from one rate's lucky run is noise; guarded by each floor being the median over five runs at its rate.
 - **Sabotage:** ; manual: each figure checked against its cited records
 - **Verifiable here:** partial — computed here from P14-01's records; whether each declaration is honest is the reviewer's
@@ -186,7 +204,7 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
 - **Vacuity:** A batch counted per input rather than per sync hides whether grouping happened; guarded by every record's leader syncs per write. A curve compared with an older record measures the day; guarded by interleaving.
 - **Sabotage:** ; manual: the comparison checked against the records' syncs per write and loop busy
 - **Verifiable here:** partial — measured here; GitHub's runners are not the measuring machine
-- **Prediction:** At 3,125 writes a second the leader syncs 0.3 to 0.6 times a write (the followers sync 0.29 to 0.44 at that rate today), its loop is 0.55 to 0.80 busy, and the median is 0.85 to 1.0 ms, meeting the restated median criterion in at least four runs of five; the 99th percentile falls to 4 to 12 ms and misses the tail criterion. At 625 and below the median is within 5% of the reverted host's (batches of one). The highest rate sustained in every run rises from 3,125 to 4,000 to 5,000. The remaining tail is attributed by the decomposition at 3,125 to the persists' segments and the machine's own pauses, not to the loop's queues. **Observable:** the records and the decomposition.
+- **Prediction:** At 3,125 writes a second the leader syncs 0.3 to 0.6 times a write (the followers sync 0.29 to 0.44 at that rate today), its loop is 0.55 to 0.80 busy, and the median is 0.85 to 1.0 ms, meeting the restated median criterion in at least four runs of five; the 99th percentile falls to 4 to 12 ms and misses the tail criterion. At 625 and below the median is within 5% of the reverted host's (batches of one). The highest rate sustained in every run rises from 3,125 to 4,000 to 5,000. **If the tail misses, what it implies is decided now**, by the decomposition at 3,125 (traced): for the writes over the tail criterion, their excess over the median write, summed segment by segment. (i) If the persist segments (leader-persist, follower-persist) hold more than half of it, the tail is the disk's own, a sync slower than its median, which a group commit cannot shorten and no host remedy reaches: what follows is a measurement of the sync's tail under load beside the tail criterion's floor, not a remedy for phase 15. (ii) If the loop's queue segments (leader-queue, leader-queue-answer, commit-respond) hold more than half, the serial work still queues in bursts at the leader despite the batching, and that queue, named by its segments, is the next subject. (iii) If neither holds more than half, the excess spread across segments and the generator's lateness rising with it, the tail is the machine's pauses, reported against a criterion this machine does not meet, with no remedy proposed. I expect (i). If the median misses too, the same rule is applied to the median write's segments against the floor. **Observable:** the records and the decomposition.
 - **Outcome:** pending
 
 ### P14-05 — The broad targets checked against the harness's own runs
