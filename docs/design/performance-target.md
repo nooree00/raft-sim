@@ -285,3 +285,35 @@ mechanism behind it.
   not reduce it, and the host was never the cap. The sustained rate it raised by one step (3,500
   against 3,125) goes with it.
 
+## The criteria restated from floors measured end to end (P14-02)
+
+Phase 14's decision 3, as approved: each criterion is a floor measured end to end on the reverted host
+(phase 12's host, the effect thread removed at `a00e4df`) plus one declared allowance, taken from
+P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs at each rate.
+
+| Figure | Value | How it is set | Records |
+|---|---|---|---|
+| The median's floor | 949 µs (879 to 1,186), at 1,250 writes a second | measured: the lowest median the host reaches below its knee (100, 625, 1,250 and 2,000 were sustained in every run: 1,640, 1,155, 949 and 1,101 µs) | m:p14-01-ab-fix-1250-1 to -5 |
+| The tail's floor | 4,802 µs (4,043 to 5,258), at 100 writes a second | measured: the lowest 99th percentile at any measured rate (6,137 µs at 625, 8,923 at 1,250) | m:p14-01-ab-fix-100-1 to -5 |
+| The allowance | 249 µs | declared: one leader sync at the operating point, measured there (248 to 255 µs) | m:p14-01-ab-fix-3125-1 to -5 |
+| **The median criterion at 3,125 writes a second** | **1,198 µs** | the median's floor plus the allowance | the three above |
+| **The 99th-percentile criterion at 3,125 writes a second** | **5,051 µs** | the tail's floor plus the allowance | the three above |
+
+- **The allowance is declared, not derived.** A write that arrives while its leader is syncing waits for
+  that sync before its own; with a group commit it waits for at most one. That is the queue any design
+  with one disk keeps. Zero would demand no queue at all; two would admit the queue the group commit
+  exists to remove. It is a convention, with that arbitrariness recorded, and it is the only figure
+  here not measured.
+- **The floors moved with the revert's day** (the approval's amendment): phase 13's figures were 846 µs,
+  2,402 µs and 234 µs; on P14-01's day the machine's syncs were about 6% slower and its tail twice as
+  long at low load, and its knee fell below 3,125 writes a second for both hosts (P14-01). The
+  criteria are this day's; P14-04 is interleaved on a day of its own against the reverted host, and
+  its result is judged against these figures as written here, before the group commit exists.
+- **Not chosen:** a queueing model with measured inputs, because its service time depends on the design
+  being judged (the phase-13 finding applied before measuring rather than recorded after); and latency
+  reported with no criterion.
+- **Compose has no criterion:** a wiring and integration check (phase 13's acceptance).
+- **Superseded:** the restated 1,066 µs and 3.38 ms (phase 12's acceptance), the Compose figures of
+  P13-06, and the allowance's model of P13-08 stand above as history; from P14-02 on, latency is judged
+  against 1,198 µs and 5,051 µs.
+
