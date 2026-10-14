@@ -33,7 +33,9 @@ internal static partial class Breakdown
 
         var tasks = LoadAll(repo, f);
         var started = Trailers.Commits(repo).SelectMany(c => c.Tasks).ToHashSet(StringComparer.Ordinal);
-        var sabotages = SabotageSpec.LoadAll(repo, f).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+        var specs = SabotageSpec.LoadAll(repo, f);
+        var sabotages = specs.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+        var retired = specs.Where(s => s.Retired is not null).ToDictionary(s => s.Id, s => s.Retired!, StringComparer.Ordinal);
         var referenced = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var t in tasks)
@@ -42,6 +44,7 @@ internal static partial class Breakdown
             // Task: trailer), and for every task at the end of the phase.
             var mustResolve = started.Contains(t.Id) || final is not null;
             CheckTask(t, sabotages, referenced, f, mustResolve);
+            CheckRetired(t, retired, f);
             if (final is not null && t.Phase == final)
             {
                 f.Require(t.Fields.GetValueOrDefault("Outcome") != "pending", $"{t.Id}: outcome still pending at the end of {final}");
@@ -153,6 +156,24 @@ internal static partial class Breakdown
 
         Flush();
         return tasks;
+    }
+
+    /// <summary>
+    /// P14-01: a retired entry no longer runs, so only a task whose outcome is written may name it; a
+    /// task in progress cannot lean on a check that has stopped checking.
+    /// </summary>
+    internal static void CheckRetired(BreakdownTask t, IReadOnlyDictionary<string, string> retired, Findings f)
+    {
+        if (!t.Fields.TryGetValue("Sabotage", out var sab) || t.Fields.GetValueOrDefault("Outcome") is not "pending")
+        {
+            return;
+        }
+
+        var (ids, shared, _) = SabotageIds(sab);
+        foreach (var sid in ids.Concat(shared).Where(retired.ContainsKey))
+        {
+            f.Fail($"{t.Id}: sabotage {sid} is retired ({retired[sid]}), and only a task with a final outcome may name a retired entry");
+        }
     }
 
     internal static void CheckTask(BreakdownTask t, IReadOnlySet<string> sabotages, ISet<string> referenced, Findings f, bool mustResolve)

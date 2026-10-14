@@ -24,9 +24,10 @@ public sealed class HostTests
 
     /// <summary>
     /// Nobody calls anything: three hosts start, and one of them announces it leads. Sabotage S-host-1.
-    /// The announcement is an effect, and since P13-04 the effect thread writes it while the loop
-    /// publishes the role, so it is waited for: read the moment the role was seen, it was missing once
-    /// on GitHub (run 38493194546, at `5e11dd5`), the poll having landed between the two.
+    /// The announcement is an effect, and phase 13's effect thread wrote it while the loop published the
+    /// role, so it is waited for: read the moment the role was seen, it was missing once on GitHub (run
+    /// 38493194546, at `5e11dd5`), the poll having landed between the two. With the thread reverted
+    /// (P14-01) the loop writes it before it publishes the role, and the wait ends at once.
     /// </summary>
     [Fact]
     public async Task ThreeHostsElectALeaderWithNobodyCallingAnything()

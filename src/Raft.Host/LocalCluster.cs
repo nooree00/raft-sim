@@ -43,7 +43,7 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
         {
             var dir = Path.Combine(root, n.ToString());
             var config = new HostConfig(n, peers, new IPEndPoint(IPAddress.Loopback, basePort + n.Value), new IPEndPoint(IPAddress.Loopback, basePort + 100 + n.Value), dir, options ?? RaftOptions.Default,
-                FileSystem: d => _files[n] = new CountingFileSystem(new DirectoryFileSystem(d)), Trace: Traces.GetValueOrDefault(n), TimeEffects: true);
+                FileSystem: d => _files[n] = new CountingFileSystem(new DirectoryFileSystem(d)), Trace: Traces.GetValueOrDefault(n));
             var host = new NodeHost(config, TextWriter.Null);
             host.Start();
             _hosts.Add(host);

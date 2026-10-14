@@ -1,11 +1,11 @@
 diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
-index 8a24581..062b650 100644
+index 49e0e82..a9793fa 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -335,7 +335,7 @@ public sealed class NodeHost : IAsyncDisposable
-             Interlocked.Add(ref _loopHandOverTicks, Stopwatch.GetTimestamp() - handed);
-             Interlocked.Increment(ref _loopInputs);
-             var role = _node.Role;
+@@ -324,7 +324,7 @@ public sealed class NodeHost : IAsyncDisposable
+             }
+ 
+             var role = _node!.Role;
 -            if ((int)role != _role)
 +            if (false && (int)role != _role)
              {

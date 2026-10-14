@@ -67,7 +67,7 @@ internal static class EachCommitMatrix
     /// <summary>The head's harness shards, from the working tree's manifest (as the harness itself reads it).</summary>
     public static IReadOnlyList<string> HeadShards(Repo repo, Findings f)
     {
-        var ids = SabotageSpec.LoadAll(repo, f).Where(s => !s.RunsOnHost).Select(s => s.Id).ToList();
+        var ids = SabotageSpec.LoadLive(repo, f).Where(s => !s.RunsOnHost).Select(s => s.Id).ToList();
         var n = ShardPlan.Count(ids.Count, ShardPlan.ParseSize(File.ReadAllText(repo.PathOf(ShardPlan.SizeFile))));
         return Enumerable.Range(1, n).Select(i => $"{i}/{n}").ToList();
     }

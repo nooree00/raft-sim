@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Raft.Gates;
 
@@ -17,6 +18,11 @@ namespace Raft.Gates;
 /// the patch with its mechanism removed, under which the target must stay green (`control-expect:
 /// red` only for the harness's own control). An entry whose target is on the broad-target list
 /// (ci/broad-targets.txt: tests any behaviour change turns red) needs a reason or a control.
+/// P14-01: an entry is retired by `retired: <commit> <reason>`, the commit it last ran at, when the code its target tests is
+/// removed. The harness, the patch gate, the cost file and the per-commit matrix skip it
+/// (<see cref="LoadLive"/>); the breakdown gate lets only a task with a final outcome name it; and
+/// retiring an entry whose target still exists fails, so retiring cannot silence a live check
+/// (S-retire-1). Only a test entry can be retired: its target is a method whose absence can be read.
 /// </summary>
 internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, string> Fields, string PatchPath, string? ControlPath)
 {
@@ -50,6 +56,12 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
 
     public string? Get(string key) => Fields.TryGetValue(key, out var v) ? v : null;
 
+    /// <summary>The retirement, `<commit> <reason>`, or null for a live entry (P14-01).</summary>
+    public string? Retired => Get("retired");
+
+    /// <summary>Every entry that still runs: the retired ones left out (P14-01).</summary>
+    public static IReadOnlyList<SabotageSpec> LoadLive(Repo repo, Findings f) => [.. LoadAll(repo, f).Where(s => s.Retired is null)];
+
     public static IReadOnlyList<SabotageSpec> LoadAll(Repo repo, Findings f)
     {
         var dir = repo.PathOf("sabotage");
@@ -63,7 +75,29 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         var broad = File.Exists(broadPath) ? ParseBroadTargets(File.ReadAllText(broadPath)) : [];
         f.Require(broad.Count > 0, $"{BroadTargetsFile} is missing or lists nothing: every target would count as narrow");
         return Directory.GetDirectories(dir).Order(StringComparer.Ordinal)
-            .Select(d => Load(Path.GetFileName(d), d, broad, f)).OfType<SabotageSpec>().ToList();
+            .Select(d => Load(Path.GetFileName(d), d, broad, f, (project, target) => TargetExists(repo, project, target))).OfType<SabotageSpec>().ToList();
+    }
+
+    /// <summary>
+    /// Whether a test target's method is still in its project's sources: a file under the project that
+    /// declares the target's class and the method (a theory's arguments left off).
+    /// </summary>
+    public static bool TargetExists(Repo repo, string project, string target)
+    {
+        var name = target.Split('(')[0];
+        var parts = name.Split('.');
+        if (parts.Length < 2 || !Directory.Exists(repo.PathOf(project)))
+        {
+            return false;
+        }
+
+        var (cls, method) = (parts[^2], parts[^1]);
+        var sep = Path.DirectorySeparatorChar;
+        return Directory.EnumerateFiles(repo.PathOf(project), "*.cs", SearchOption.AllDirectories)
+            .Where(p => !p.Contains($"{sep}bin{sep}", StringComparison.Ordinal) && !p.Contains($"{sep}obj{sep}", StringComparison.Ordinal))
+            .Select(File.ReadAllText)
+            .Any(text => Regex.IsMatch(text, $@"\bclass\s+{Regex.Escape(cls)}\b")
+                && Regex.IsMatch(text, $@"\b{Regex.Escape(method)}\s*\("));
     }
 
     /// <summary>One test name (or name prefix) per line; '#' starts a comment.</summary>
@@ -75,7 +109,7 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         diff.Split('\n').Where(l => l.StartsWith("+++ b/", StringComparison.Ordinal) || l.StartsWith("--- a/", StringComparison.Ordinal))
             .Select(l => l[6..].Trim()).ToHashSet(StringComparer.Ordinal);
 
-    internal static SabotageSpec? Load(string id, string dir, IReadOnlyList<string> broad, Findings f)
+    internal static SabotageSpec? Load(string id, string dir, IReadOnlyList<string> broad, Findings f, Func<string, string, bool>? targetExists = null)
     {
         var txt = Path.Combine(dir, "sabotage.txt");
         var patch = Path.Combine(dir, "patch.diff");
@@ -133,6 +167,16 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         {
             f.Require(spec.Get("command") is { Length: > 0 }, $"{id}: kind command needs command");
             f.Require(spec.Expect != "caught" || spec.Get("message") is { Length: > 0 }, $"{id}: an expected catch needs a message, or any non-zero exit would count");
+        }
+
+        if (spec.Retired is { } retired)
+        {
+            f.Require(Regex.IsMatch(retired, @"^[0-9a-f]{7,40} \S"), $"{id}: retired must be '<commit> <reason>', got '{retired}'");
+            f.Require(spec.Kind == "test", $"{id}: only a test entry can be retired: its target is a method whose absence can be read");
+            if (spec.Kind == "test" && targetExists is not null && spec.Get("project") is { } project && spec.Get("target") is { } retiredTarget)
+            {
+                f.Require(!targetExists(project, retiredTarget), $"{id}: retired, but its target {retiredTarget} still exists in {project}: retiring a live check would silence it");
+            }
         }
 
         return spec;

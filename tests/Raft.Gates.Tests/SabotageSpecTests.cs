@@ -89,6 +89,60 @@ public sealed partial class SabotageSpecTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// P14-01: an entry is retired only when its target is gone, so retiring cannot silence a live check
+    /// (S-retire-1). The lookup is the caller's, so the rule is tested apart from the file system.
+    /// </summary>
+    [Fact]
+    public void RetiringAnEntryWhoseTargetStillExistsFails()
+    {
+        var f = new Findings();
+        var entry = Path.Combine(_dir, "S-x-1");
+        Directory.CreateDirectory(entry);
+        File.WriteAllText(Path.Combine(entry, "sabotage.txt"), Test("Raft.X.Tests.C.M", "retired: 0abc3e4 its code removed\n"));
+        File.WriteAllText(Path.Combine(entry, "patch.diff"), Patch);
+        SabotageSpec.Load("S-x-1", entry, [Broad], f, (_, _) => true);
+        Assert.Contains(f.Failures, e => e.Contains("still exists in tests/P", StringComparison.Ordinal));
+        var gone = new Findings();
+        Assert.Equal("0abc3e4 its code removed", SabotageSpec.Load("S-x-1", entry, [Broad], gone, (_, _) => false)!.Retired);
+        Assert.Empty(gone.Failures);
+    }
+
+    [Theory]
+    [InlineData("retired: its code removed\n", "must be '<commit> <reason>'")]
+    [InlineData("retired: 0abc3e4\n", "must be '<commit> <reason>'")]
+    public void ARetirementNamesTheCommitItLastRanAtAndWhy(string line, string expected) =>
+        Assert.Contains(Load(Test("Raft.X.Tests.C.M", line)), e => e.Contains(expected, StringComparison.Ordinal));
+
+    [Fact]
+    public void OnlyATestEntryCanBeRetired() =>
+        Assert.Contains(Load("description: d\nmechanism: m\nkind: command\ncommand: false\nmessage: x\nexpect: caught\nretired: 0abc3e4 gone\n"),
+            e => e.Contains("only a test entry can be retired", StringComparison.Ordinal));
+
+    /// <summary>The lookup itself, on the tree: a test that exists is found and a removed one is not, so a lookup that never finds anything (every retirement allowed) fails here.</summary>
+    [Fact]
+    public void ATargetIsFoundInItsProjectOnlyWhileItsMethodIsThere()
+    {
+        var repo = Repo.Locate(null);
+        Assert.True(SabotageSpec.TargetExists(repo, "tests/Raft.Gates.Tests", "Raft.Gates.Tests.SabotageSpecTests.AWellFormedEntryLoadsCleanly"));
+        Assert.True(SabotageSpec.TargetExists(repo, "tests/Raft.Gates.Tests", "Raft.Gates.Tests.SabotageSpecTests.ARetirementNamesTheCommitItLastRanAtAndWhy(line: \"x\", expected: \"y\")"));
+        Assert.False(SabotageSpec.TargetExists(repo, "tests/Raft.Gates.Tests", "Raft.Gates.Tests.SabotageSpecTests.NoSuchTest"));
+        Assert.False(SabotageSpec.TargetExists(repo, "tests/Raft.Host.Tests", "Raft.Host.Tests.EffectThreadTests.NothingRunsAfterAFailedSync"));
+    }
+
+    /// <summary>The harness, the patch gate and the cost file read the live entries: the committed retirements are loaded, and left out of them.</summary>
+    [Fact]
+    public void TheRetiredEntriesAreLoadedButDoNotRun()
+    {
+        var repo = Repo.Locate(null);
+        var all = SabotageSpec.LoadAll(repo, new Findings());
+        var live = SabotageSpec.LoadLive(repo, new Findings()).Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
+        var retired = all.Where(s => s.Retired is not null).Select(s => s.Id).ToList();
+        Assert.NotEmpty(retired);
+        Assert.All(retired, id => Assert.DoesNotContain(id, live));
+        Assert.Equal(all.Count - retired.Count, live.Count);
+    }
+
     [Fact]
     public void TheCommittedManifestLoadsWithoutFailures()
     {

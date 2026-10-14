@@ -110,7 +110,7 @@ internal static class TestCount
             f.Fail(problem);
         }
 
-        foreach (var problem in TargetsNotExecuted(SabotageSpec.LoadAll(repo, f).Where(s => s.Kind == "test")
+        foreach (var problem in TargetsNotExecuted(SabotageSpec.LoadLive(repo, f).Where(s => s.Kind == "test")
             .Where(s => expected.Contains(Path.GetFileName((s.Get("project") ?? "").TrimEnd('/')), StringComparer.Ordinal))
             .Select(s => (s.Id, Project: s.Get("project") ?? "", Target: s.Get("target") ?? "")), executed))
         {

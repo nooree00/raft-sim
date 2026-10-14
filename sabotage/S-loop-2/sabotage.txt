@@ -4,3 +4,4 @@ kind: test
 project: tests/Raft.Host.Tests
 target: Raft.Host.Tests.EffectThreadTests.NothingRunsAfterAFailedSync
 expect: caught
+retired: 0abc3e4 the effect thread reverted at phase 13's acceptance (P14-01): its tests removed with it; last run at this commit

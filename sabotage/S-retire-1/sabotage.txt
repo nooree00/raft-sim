@@ -1,0 +1,6 @@
+description: A sabotage entry can be retired while its target still exists, so a check that still runs can be dropped from the harness by a line in its sabotage.txt (P14-01)
+mechanism: the target-exists refusal skipped
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.SabotageSpecTests.RetiringAnEntryWhoseTargetStillExistsFails
+expect: caught

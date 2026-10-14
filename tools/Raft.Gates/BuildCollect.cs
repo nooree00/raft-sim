@@ -180,7 +180,7 @@ internal static class SabotagePlan
 
         // P10-00: the plan's costs, refused when an entry has none or a cost names no entry, and
         // each shard's modelled time, so a plan near the ceiling is visible before a shard runs.
-        var specs = SabotageSpec.LoadAll(repo, f).Where(s => !s.RunsOnHost).ToList();
+        var specs = SabotageSpec.LoadLive(repo, f).Where(s => !s.RunsOnHost).ToList();
         var costs = ShardCosts.Parse(File.ReadAllText(repo.PathOf(ShardPlan.CostFile)));
         foreach (var problem in ShardPlan.CostProblems(specs.Select(s => s.Id), costs))
         {

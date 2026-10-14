@@ -32,6 +32,28 @@ public sealed class BreakdownTests
     public void AWellFormedTaskPasses() =>
         Assert.Empty(Check(GitFixture.Breakdown()).Failures);
 
+    /// <summary>P14-01: a retired entry no longer runs, so a task still in progress may not name it; a task whose outcome is written may.</summary>
+    [Fact]
+    public void OnlyATaskWithAFinalOutcomeMayNameARetiredEntry()
+    {
+        var retired = new Dictionary<string, string>(StringComparer.Ordinal) { ["S-widget-1"] = "0abc3e4 its code removed" };
+        var pending = new Findings();
+        foreach (var t in Breakdown.Parse("b.md", GitFixture.Breakdown().Split('\n'), pending))
+        {
+            Breakdown.CheckRetired(t, retired, pending);
+        }
+
+        Assert.Contains(pending.Failures, e => e.Contains("sabotage S-widget-1 is retired", StringComparison.Ordinal));
+        var final = new Findings();
+        var done = GitFixture.Breakdown().Replace("- **Outcome:** pending", "- **Outcome:** right (evidence) — the widget held", StringComparison.Ordinal);
+        foreach (var t in Breakdown.Parse("b.md", done.Split('\n'), final))
+        {
+            Breakdown.CheckRetired(t, retired, final);
+        }
+
+        Assert.Empty(final.Failures);
+    }
+
     [Theory]
     [InlineData("- **Vacuity:** It could pass with no widget.\n", "missing field Vacuity")]
     [InlineData("- **Vacuity:** It could pass with no widget.", "placeholder")]

@@ -335,7 +335,8 @@ public sealed class BenchControlTests
     /// eight, follower-persist 458 µs), so 2 ms puts it under the bound (eight runs, none failing, the
     /// largest other rise 647 µs, 0.32 of the delay), while S-lat-1 still moves the whole delay into
     /// network-out. The delay is slept to its last 80 µs (NodeHost.DelayHandOff), so the longer one
-    /// holds no more of a processor. The bound is unchanged.
+    /// holds no more of a processor. The bound is unchanged. The effect thread was reverted (P14-01);
+    /// the windows and the planted amount stay, and P14-07's audit measures them on the loop's host.
     /// </summary>
     private const int HandOffWindows = 20;
     private const double ControlRate = 300;

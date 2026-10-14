@@ -18,7 +18,7 @@ internal static class PatchCheck
     public static Findings Run(Repo repo, string[] args)
     {
         var f = new Findings();
-        var specs = SabotageSpec.LoadAll(repo, f);
+        var specs = SabotageSpec.LoadLive(repo, f);
         f.Require(specs.Count > 0, "no sabotage entries to check");
         var checkedCount = 0;
         foreach (var spec in specs)

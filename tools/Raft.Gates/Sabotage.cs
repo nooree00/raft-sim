@@ -61,7 +61,7 @@ internal static class Sabotage
             return f;
         }
 
-        var all = SabotageSpec.LoadAll(repo, f).Where(s => only is null || only.Contains(s.Id)).ToList();
+        var all = SabotageSpec.LoadLive(repo, f).Where(s => only is null || only.Contains(s.Id)).ToList();
         var hosted = all.Where(s => s.RunsOnHost).Select(s => s.Id).ToList();
         if (hosted.Count > 0)
         {

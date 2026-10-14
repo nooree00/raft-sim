@@ -1,5 +1,5 @@
 description: A failed sync is caught and the host goes on, as a host that retries fsync does
-mechanism: the effect queue's failure is swallowed rather than stopping the host (P13-04: the failure arrives from the effect thread)
+mechanism: the loop swallows the IOException and handles the next input
 kind: test
 project: tests/Raft.Host.Slow.Tests
 target: Raft.Host.Slow.Tests.FsyncFailureTests.ANodeWhoseSyncFailsStopsAndAnswersNothingAfter

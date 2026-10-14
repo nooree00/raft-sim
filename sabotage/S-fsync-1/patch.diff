@@ -1,13 +1,19 @@
 diff --git a/src/Raft.Host/NodeHost.cs b/src/Raft.Host/NodeHost.cs
-index 8a24581..8550cfc 100644
+index 49e0e82..8abde17 100644
 --- a/src/Raft.Host/NodeHost.cs
 +++ b/src/Raft.Host/NodeHost.cs
-@@ -201,7 +201,7 @@ public sealed class NodeHost : IAsyncDisposable
-         members.Sort((a, b) => a.Value.CompareTo(b.Value));
-         _node = new RaftNode(new NodeContext(_config.Id, peers, new SystemRandom(), DiskExecutor.Load(files), members), _config.Options, new KvStateMachine());
-         _executor = new DiskExecutor(files, Send, Respond, Emit);
--        _effects = new EffectThread(_executor.Execute, FailStop, measure: _config.TimeEffects);
-+        _effects = new EffectThread(_executor.Execute, e => { if (e.Message.Length < 0) { FailStop(e); } }, measure: _config.TimeEffects);
-         if (_config.Trace is { } trace)
-         {
-             _executor.Durable = (file, data) =>
+@@ -319,8 +319,12 @@ public sealed class NodeHost : IAsyncDisposable
+                 // P10-07, decision 7: a sync that fails leaves the file's state unknown (a retried sync can
+                 // report success over lost pages), so the host stops at once. The failed list's remaining
+                 // effects are not executed, so nothing is sent or answered after the failure.
+-                FailStop(e);
+-                return;
++                if (e.Message.Length < 0)
++                {
++                    FailStop(e);
++                }
++
++                continue;
+             }
+ 
+             var role = _node!.Role;
