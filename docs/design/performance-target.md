@@ -317,3 +317,20 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
   P13-06, and the allowance's model of P13-08 stand above as history; from P14-02 on, latency is judged
   against 1,198 µs and 5,051 µs.
 
+
+## At phase 14's acceptance (reviewer)
+
+- **The operating point is re-derived in phase 15.** It is a declared convention (P13-08), but it was
+  half of C_design, the capacity of a design with one leader sync a write, and the group commit has
+  since moved the measured sustained rate from 3,125 writes a second to beyond 6,250, the curve's
+  highest (m:p14-04-ab-fix-6250-1 to -5). A convention pinned to a moving quantity drifts silently.
+  Phase 15 restates it at half the newly measured capacity, or pins it to an absolute rate with the
+  reason; until then the criteria stand at 3,125 writes a second as written above.
+- **C_design no longer describes the design.** With a group commit the leader's sync carries a batch,
+  so 1 / S is not this design's capacity; at 3,125 writes a second the leader's loop is 0.96 busy in
+  batches of 1.9 inputs, its serial work per write 290 µs (m:p14-04-ab-fix-3125-1 to -5). The
+  model above stays as history.
+- **The tail's composition is unmeasured.** P14-04's rule read the traced runs, whose 99th
+  percentile (41.6 to 51.7 ms) is mostly the trace's own cost against 8.9 to 14.2 ms untraced
+  (m:p14-04-traced-local-3125-1 to -5, m:p14-04-ab-fix-3125-1 to -5). Phase 15 runs the load
+  generator in a process of its own before the rule reads a tail again.
