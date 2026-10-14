@@ -80,7 +80,10 @@ cluster="raft-cluster-$$"
 load_in() {
   local dir="$1" mode="$2"; shift 2
   if [ "$mode" = separate ]; then
-    local traced=(); for a in "$@"; do [ "$a" = --decompose ] && traced=(--decompose 1 ${RAFT_BENCH_TRACE_SAMPLE:+--trace-sample "$RAFT_BENCH_TRACE_SAMPLE"}); done
+    # The cluster traces when the run decomposes, keeping the run's sample (its own --trace-sample, else RAFT_BENCH_TRACE_SAMPLE).
+    local traced=() sample="${RAFT_BENCH_TRACE_SAMPLE:-}" prev=""
+    for a in "$@"; do [ "$a" = --decompose ] && traced=(--decompose 1); [ "$prev" = --trace-sample ] && sample="$a"; prev="$a"; done
+    [ ${#traced[@]} -gt 0 ] && [ -n "$sample" ] && traced+=(--trace-sample "$sample")
     docker rm -f "$cluster" >/dev/null 2>&1 || true
     docker run -d --name "$cluster" --network none -v "$dir:/src" -w /src -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" \
       dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench cluster --local /tmp/cluster --control-port 27299 "${traced[@]}" >/dev/null
@@ -88,7 +91,7 @@ load_in() {
       -e RAFT_SDK="$sdk" -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 "$image" dotnet src/Raft.Host/bin/Release/net10.0/Raft.Host.dll bench load --cluster 127.0.0.1:27299 "$@"
     docker rm -f "$cluster" >/dev/null 2>&1 || true
   else
-    local sampled=(); for a in "$@"; do [ "$a" = --decompose ] && sampled=(${RAFT_BENCH_TRACE_SAMPLE:+--trace-sample "$RAFT_BENCH_TRACE_SAMPLE"}); done
+    local sampled=(); for a in "$@"; do [ "$a" = --decompose ] && [ -n "${RAFT_BENCH_TRACE_SAMPLE:-}" ] && sampled=(--trace-sample "$RAFT_BENCH_TRACE_SAMPLE"); done
     run_in "$dir" bench load --local /tmp/cluster "$@" "${sampled[@]}"
   fi
 }
@@ -229,12 +232,14 @@ POINTS
     done ;;
   instrument-ab)
     # P15-01: the instrument against itself, interleaved: the generator in the hosts' process and in its
-    # own, each untraced and traced, at RAFT_BENCH_RATES.
+    # own, each untraced, traced, and traced keeping one write in RAFT_BENCH_SAMPLE_N (default 10), at
+    # RAFT_BENCH_RATES.
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
         for m in local separate; do
-          for t in untraced traced; do
-            tr=(); [ "$t" = traced ] && tr=(--decompose 1 ${RAFT_BENCH_TAIL_OVER:+--tail-over "$RAFT_BENCH_TAIL_OVER"})
+          for t in untraced traced sampled; do
+            tr=(); [ "$t" != untraced ] && tr=(--decompose 1 ${RAFT_BENCH_TAIL_OVER:+--tail-over "$RAFT_BENCH_TAIL_OVER"})
+            [ "$t" = sampled ] && tr+=(--trace-sample "${RAFT_BENCH_SAMPLE_N:-10}")
             load_in "$PWD" "$m" --rate "$rate" --seconds 10 --warmup 3 --task P15-01 --id "p15-01-$m-$t-$rate-$r" --repetition "$r" --out /out "${tr[@]}"
           done
         done
