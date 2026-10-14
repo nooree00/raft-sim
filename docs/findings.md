@@ -1448,3 +1448,41 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   comparisons hold to 2,000 writes a second on the machine that ran them. *Rule:* name a test
   environment by what its nodes share; a number from nodes that share a machine is not a number for
   nodes that do not.
+
+## Phase 14
+
+- **A group commit with no timer runs its loop saturated, so it moves the cap, not the latency at
+  the cap's edge.** The batch is whatever queued while the loop was busy. At 3,125 writes a second
+  the loop stayed 0.96 busy in batches of 1.9 inputs, each sync slower than one write's, and the
+  serial work per write fell 4%. The median held between 2.0 and 2.3 ms from 3,125 to 6,250 while
+  syncs per write fell from 0.77 to 0.33, and the sustained rate rose past the curve's top. The
+  prediction (0.3 to 0.6 syncs a write, the loop 0.55 to 0.80 busy) priced the batch from the
+  throughput it would give, not from the queue that forms it. *Rule:* a batching remedy predicts its
+  batch from the queue at the operating point; with no timer, that queue is the latency.
+- **A rule stated before the measurement reads the instrument's tail if the instrument has one.**
+  P14-04's tail rule was defined on the traced decomposition. The traced runs' 99th percentile was
+  41.6 to 51.7 ms against the untraced 8.9 to 14.2, almost all of it the generator's lateness in the
+  process it shares with the traced hosts. The rule read (iii) on a tail the trace made. P12-03 had
+  measured the trace's cost at the median, not at the tail. *Rule:* before a rule reads a percentile
+  through an instrument, measure the instrument's effect on that percentile.
+- **A channel's capacity is a premise.** GitHub keeps 4,096 characters of an annotation's message and
+  drops notices past ten a step. P13-01's whole-run entry times had been cut at exactly 4,096 for a
+  phase, unnoticed because the log holds the rest. P14-05's first design would have read its counts
+  through the same cut. *Rule:* measure what a channel carries before a check reads through it, and
+  make the check fail when the channel is full rather than read what is left.
+- **A mechanism that changes what an entry is must reach every reader, including those reading
+  history.** P14-01's retirement made each reader of the working tree's manifest skip a retired entry,
+  and listed them. The per-commit matrix reads each commit's manifest from git, a path the list
+  missed, so three commits got thirteen shards where their own harness made twelve, and 39 jobs failed.
+  *Rule:* when an entry gains a state, find the readers by what they read (the manifest, in any
+  tree), not by what one remembers reading it.
+- **Under class-scoped runs, a breadth rule measures reach within a class.** Since P11-09 an entry
+  runs only its target's class, so a test is seen only beside its own class's entries. P14-05's rule
+  found none of the twelve listed broad tests (seven seen beside fewer than four entries, five red
+  beside under half), and found three focused tests at exactly half of four or six. *Rule:* an
+  observation can only judge what the harness exposes it to; check what a rule can see before
+  deciding what its threshold means.
+- **The first application of a currency check found its phase's predecessor stale.** Applied to
+  phase 13's report, P14-06's observer fails eight of eleven bench rows: measured at `3a1056b`, before
+  `7f4b02c` changed the host. Phase 13's report would have needed its audit again after its last host
+  change, and nothing said so.
