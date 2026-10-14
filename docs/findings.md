@@ -1507,3 +1507,16 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   17% above the reverted host's at 1,250 and 2,000 writes a second, its tail lower there. Reported
   rather than smoothed, it is carried into phase 15 as an observation the queue's measurement can
   explain, which would corroborate that mechanism, or fail to, which would make it a second thing.
+
+## Phase 15
+
+- **Mechanism substitution arrives in performance measurements too** (the reviewer, at phase 15's
+  approval). Phase 14 read commit-respond and leader-to-send each growing by about one leader sync as
+  the batch holding every output until its one sync. Drafting phase 15 found a second mechanism with
+  the same signature: since P11-02 the leader keeps one append in flight per follower, so a new entry
+  can wait a round trip for the append that carries it. The trace stamps an output on release only,
+  so it cannot separate them. It is the shape of the CRDT project's invalidation-against-TTL case:
+  two mechanisms meeting one requirement, and a test of the requirement testing neither. A remedy
+  built against the first hypothesis might have worked for the other reason. *Rule:* before building
+  against a measured effect, list every mechanism that produces that effect, and make the instrument
+  separate them first.

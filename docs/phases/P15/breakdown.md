@@ -5,7 +5,25 @@ phase 15, added at phase 14's acceptance; its done criterion is P15-00's to writ
 breakdown's approval). Format as in `docs/phases/P14/breakdown.md`, parsed by `gates breakdown`;
 outcomes will say `(evidence)` or `(forcing)`.
 
-**Draft for review.** Nothing below is implemented.
+**Approved** (reviewer), all four decisions, with amendments made here before any task starts; stop
+and report after the phase. With the approval:
+- **the second candidate mechanism is the find** (the reviewer): one append in flight per follower
+  since P11-02 makes leader-to-send grow by about one sync, as the batch's hold does, and a trace that
+  stamps on release cannot separate them. That is mechanism substitution arriving in a performance
+  measurement, the shape of the CRDT project's invalidation-against-TTL case, where two mechanisms met
+  one requirement and a test of the requirement tested neither. A remedy built against the single
+  hypothesis might have worked for the other reason. **The emission stamp comes first because the
+  observable has two causes,** not as an improvement to the trace (P15-03 says so);
+- **what a miss of the remedy's rule implies is written now** (decision 2), as P14-04 wrote the tail's
+  before measuring;
+- **P15-03's prediction has two observables** (the bar at the operating point, the gap at 1,250 and
+  2,000), and each of its four combinations has a stated reading;
+- **the operating point is pinned at 3,125 writes a second** (decision 4), on the circularity: a point
+  tied to capacity moves when a remedy moves capacity, so the criterion would change under the remedy
+  judging it. That every curve since phase 10 sits there is the secondary benefit, not the argument;
+- **the broad-run observer is retired, the list kept as judgement, class reach defined under its own
+  name** (decision 5): the property found a real gap, and checking it under an honest name beats
+  keeping a rule whose premise P11-09 removed.
 
 **Where phase 14 left the latency.** The group commit moved the sustained rate in process from 3,125
 writes a second to beyond 6,250, the curve's highest, and halved the median at 3,125 (1,973 µs against
@@ -83,9 +101,21 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
    written and run on phase 14's head before any remedy, and its failure recorded; it lands green with
    the remedy, or not at all. **The rule, stated now:** a remedy is built only if the holds of classes
    B and C account for at least half of the growth in commit-respond and leader-to-send together at
-   the operating point over 1,250 writes a second (531 µs at 3,125 in phase 14's runs). Otherwise no
-   remedy is built against the batch, and the rest is named by the split: the pipeline's wait or
-   something else, a row. **The remedy, if admitted:** outputs that no persist precedes in their batch
+   the operating point over 1,250 writes a second (531 µs at 3,125 in phase 14's runs). **What a miss
+   implies, written now:** if the holds of B and C come in under half, no remedy is built against the
+   batch in this phase, and the split names what is left. (i) If the time before emission holds more
+   than half of the 531 µs, the queue is the replication pipeline: entries waiting a follower's round
+   trip for the append that carries them (P11-02's one in flight). What follows is a measurement of
+   that wait against the round trip at 3,125, and the pipeline's window named as the next subject; a
+   wider window is not built here, since it reverses P11-02 and must be judged with P11-01's check
+   holding. (ii) If neither the holds nor the time before emission holds more than half, the growth is
+   the loop's own queue (leader-queue, leader-queue-answer) at 0.96 busy: the serial work per write is
+   still the cap, and no remedy is proposed. **The two observables read together:** the bar met and
+   the gap at 1,250 and 2,000 explained corroborates the batch's hold; the bar met and the gap not
+   explained builds the remedy and makes the gap a second thing, a row; the gap explained and the bar
+   missed makes the hold the group commit's own cost at middle rates but not the operating point's
+   queue, so no remedy is built here, and the gap's cause is recorded as found with its remedy named,
+   a row; both missed rejects the hypothesis. **The remedy, if admitted:** outputs that no persist precedes in their batch
    leave before the batch's writes (C), and the loop hands a batch's peer messages to the node before
    its client requests, in their arrival order per source, so answers' outputs come before the
    requests' persists (turning B into C). Core and the simulator unchanged. **Not chosen:** relaxing
@@ -102,15 +132,14 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
    untraced tail some other way (nothing else joins a write's path across the three hosts).
 4. **The operating point** (P15-02). Either way the group commit's capacity is measured first, five
    runs a side at rates from 6,250 to 18,750 writes a second, generator separate.
-   - **Proposed: pinned to 3,125 writes a second, absolute, with the reason recorded.** A latency
+   - **Decided: pinned to 3,125 writes a second, absolute, with the reason recorded.** A latency
      criterion judges remedies at a load. Pinned to a capacity, the operating point moves whenever a
      remedy moves the capacity, so the criterion would change under the remedy it is judging. That is
      the circularity P14-02 refused for the queueing model, whose service time depends on the design
-     under test. 3,125 is also where every curve since phase 10 was measured. The capacity is reported
-     beside it with no criterion, as the sustained rate is.
-   - **Not proposed, yours to choose:** half the newly measured capacity, restated whenever a phase
-     moves the capacity, with the allowance (one leader sync) measured again at the new point and the
-     floors unchanged.
+     under test. That 3,125 is where every curve since phase 10 was measured keeps the comparisons
+     holding: the secondary benefit, not the argument. The capacity is reported beside it with no
+     criterion, as the sustained rate is.
+   - **Not chosen:** half the newly measured capacity, restated whenever a phase moves the capacity.
 5. **The broad-target rule** (P15-06). **What breadth meant** (P3-01): a test that almost any behaviour
    change turns red, so an entry targeting it is caught whatever its patch breaks, and must say why it
    fails (a reason or a control). P14-05 observed breadth from the harness's own runs. Since P11-09
@@ -118,13 +147,13 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
    observed there at any threshold. What the rule measured is reach within a class. **Is breadth still
    worth detecting?** The few cross-class broad tests (the golden values, the coverage and checker
    aggregates, the allowlists) are chosen by reading them and change rarely; a judgement list held as
-   a decision in the registry is enough. **Proposed:** retire the broad-run observer; keep
+   a decision in the registry is enough. **Decided:** retire the broad-run observer; keep
    `ci/broad-targets.txt` as that judgement list, a `decision` input; and define the within-class
    property under its own name, *class reach*. A test red beside at least half of its class's other
    entries, and at least four, is specific to none of them, so an entry targeting it needs a reason or
    a control. It found such a target with no reason stated: S-member-2's, red beside 3 of 6 sibling
-   patches. The three tests P14-05 added move to the class-reach list. **Not proposed, yours to
-   choose:** retire both, the within-class property unguarded.
+   patches. The three tests P14-05 added move to the class-reach list. **Not chosen:** retire both, the
+   within-class property unguarded.
 
 ## Tasks
 
@@ -148,7 +177,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 
 ### P15-02 — The group commit's capacity, and the operating point
 
-- **Task:** Decision 4: phase 14's head, generator separate, untraced, five runs at 6,250, 7,500, 9,375, 12,500, 15,625 and 18,750 writes a second; the highest rate sustained in every run. The operating point declared in `docs/design/performance-target.md` as decided, with its reason, the capacity beside it.
+- **Task:** Decision 4: phase 14's head, generator separate, untraced, five runs at 6,250, 7,500, 9,375, 12,500, 15,625 and 18,750 writes a second; the highest rate sustained in every run. The operating point declared in `docs/design/performance-target.md` pinned at 3,125 writes a second, with its reason, the capacity beside it.
 - **Vacuity:** A capacity read past the generator's own limit measures the generator; guarded by the records' generator lateness and offered-against-dispatched rate at each point, a rate whose generator falls behind reported as the generator's.
 - **Sabotage:** ; manual: the highest sustained rate checked against each run's completed rate and 99th percentile
 - **Verifiable here:** partial — measured here; GitHub's runners are not the measuring machine
@@ -157,7 +186,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 
 ### P15-03 — The queue's mechanism, measured before any remedy
 
-- **Task:** Decision 2: the trace's emission stamp and the decomposition's split of commit-respond and leader-to-send into before emission and hold; the executor's classes A, B and C with counts and hold times in untraced records; the hypothesis's check, run on phase 14's head and its failure recorded. Measured on phase 14's head, generator separate: traced at 1,250, 2,000 and the operating point, untraced at the same rates, five runs each. The rule of decision 2 applied, and the regression at 1,250 and 2,000 set against the same split.
+- **Task:** Decision 2. The observable has two causes: the batch's hold and the replication pipeline's wait (one append in flight per follower, P11-02) each make leader-to-send grow by about one sync, and a trace stamping on release cannot tell them apart, so the emission stamp comes before any remedy, as the means of telling them apart. The trace's emission stamp and the decomposition's split of commit-respond and leader-to-send into before emission and hold; the executor's classes A, B and C with counts and hold times in untraced records; the hypothesis's check, run on phase 14's head and its failure recorded. Measured on phase 14's head, generator separate: traced at 1,250, 2,000 and the operating point, untraced at the same rates, five runs each. The rule of decision 2 applied, and the regression at 1,250 and 2,000 set against the same split.
 - **Vacuity:** A split that stamps emission and release at the same moment shows no hold whatever the code does; guarded by a recording-file-system test where a planted sync delay must appear in the hold and not before emission (S-held-1). A classifier that calls every hold needless inflates the case for a remedy; guarded by a test of a batch with one output of each class (S-held-2).
 - **Sabotage:** S-held-1, S-held-2
 - **Verifiable here:** yes — the host suites and the runs on this machine
@@ -184,7 +213,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 
 ### P15-06 — The broad-target rule replaced or retired
 
-- **Task:** Decision 5: P14-05's broad-run observer retired through P14-01's mechanism (S-broad-1 retired with its target); `ci/broad-targets.txt` a `decision` input, its twelve judgement entries kept; the class-reach list and observer (`class-reach`: red beside at least half of the class's other entries, and at least four), the three P14-05 additions moved to it, its registry line a `currency` line; or, if the reviewer chooses, both retired.
+- **Task:** Decision 5: P14-05's broad-run observer retired through P14-01's mechanism (S-broad-1 retired with its target); `ci/broad-targets.txt` a `decision` input, its twelve judgement entries kept; the class-reach list and observer (`class-reach`: red beside at least half of the class's other entries, and at least four), the three P14-05 additions moved to it, its registry line a `currency` line.
 - **Vacuity:** An observer reading its observation from its own list compares the list with itself; guarded by S-reach-1. A class-reach rule that counts an entry's own target as its neighbour reaches every test; guarded by the test that the entry's own method is excluded, carried from P14-05.
 - **Sabotage:** S-reach-1
 - **Verifiable here:** partial — the counting here; the run's counts on GitHub
