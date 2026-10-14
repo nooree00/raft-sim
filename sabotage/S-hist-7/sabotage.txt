@@ -3,4 +3,5 @@ mechanism: Append replaces the value in the KV model
 kind: test
 project: tests/Raft.Checker.Tests
 target: Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway
+reason: the oracle rejects the twin
 expect: caught

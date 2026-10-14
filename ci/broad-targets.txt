@@ -19,3 +19,8 @@ Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOn
 Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
 # P6-07: an aggregate over 200 generated executions with removals, each standing removed server's run repeated without the rule.
 Raft.Membership.Tests.MembershipSimulationTests.RemovedServersDoNotDisruptTheNewConfiguration
+# P14-05: found by broad-run on its first run (run 38527995236), each red beside half of the entries
+# that ran it: focused tests that most sabotages of their own class reach.
+Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway
+Raft.Core.Tests.MembershipTests.ACandidateDuringJointConsensusNeedsAMajorityOfBoth
+Raft.Core.Tests.TermVoteLogTests.ATornRecordFollowedByARecordWhoseCutWasLostRecoversTheRecord
