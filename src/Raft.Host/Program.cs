@@ -318,6 +318,22 @@ public static class Program
                     results[$"seg_{name}_p50_us"] = p50;
                     results[$"seg_{name}_p99_us"] = p99;
                 }
+
+                // P14-04's rule for a missed tail, written before the measurement: for the writes over the tail
+                // criterion (--tail-over, else the run's own 99th percentile), their excess over the median write,
+                // summed segment by segment, and the shares of the persists, the loop's queues and the rest.
+                var tail = Decomposition.TailShares(d.Micros, o.TryGetValue("--tail-over", out var over) ? double.Parse(over, CultureInfo.InvariantCulture) : null);
+                results["tail_over_us"] = Math.Round(tail.Over, 1);
+                results["tail_writes"] = tail.Writes;
+                foreach (var (group, share) in tail.Groups)
+                {
+                    results[$"tail_share_{group}"] = Math.Round(share, 3);
+                }
+
+                foreach (var (name, share) in tail.Segments)
+                {
+                    results[$"tail_share_seg_{name}"] = Math.Round(share, 3);
+                }
             }
 
             var load = clients is null

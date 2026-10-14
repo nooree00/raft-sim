@@ -184,6 +184,52 @@ public static class Decomposition
         return new Result(writes.Count, joined, violations, gap, micros) { NegativeBy = negative, Mismatched = mismatched };
     }
 
+    /// <summary>The segments P14-04's rule reads as the persists' (the disk's own time).</summary>
+    public static readonly string[] PersistSegments = ["leader-persist", "follower-persist"];
+
+    /// <summary>The segments P14-04's rule reads as the loop's queues.</summary>
+    public static readonly string[] QueueSegments = ["leader-queue", "leader-queue-answer", "commit-respond"];
+
+    /// <summary>
+    /// P14-04's rule for a missed tail, stated before the measurement: the writes whose latency (the sum of
+    /// their segments) is over <paramref name="over"/> (the run's own 99th percentile when null), and their
+    /// excess over the median write, summed segment by segment, as shares of the whole excess: by group
+    /// (persist, queue, other) and by segment. A segment below its median gives a negative excess, kept.
+    /// </summary>
+    public static (double Over, int Writes, IReadOnlyDictionary<string, double> Groups, IReadOnlyDictionary<string, double> Segments) TailShares(IReadOnlyDictionary<string, IReadOnlyList<double>> micros, double? over)
+    {
+        ArgumentNullException.ThrowIfNull(micros);
+        var count = micros[Segments[0]].Count;
+        var totals = Enumerable.Range(0, count).Select(i => Segments.Sum(s => micros[s][i])).ToList();
+        var threshold = over ?? (count == 0 ? 0 : Stats(totals).P99);
+        var medians = Segments.ToDictionary(s => s, s => micros[s].Count == 0 ? 0 : Stats(micros[s]).P50, StringComparer.Ordinal);
+        var excess = Segments.ToDictionary(s => s, _ => 0.0, StringComparer.Ordinal);
+        var writes = 0;
+        for (var i = 0; i < count; i++)
+        {
+            if (totals[i] <= threshold)
+            {
+                continue;
+            }
+
+            writes++;
+            foreach (var s in Segments)
+            {
+                excess[s] += micros[s][i] - medians[s];
+            }
+        }
+
+        var all = excess.Values.Sum();
+        double Share(IEnumerable<string> names) => all <= 0 ? 0 : names.Sum(n => excess[n]) / all;
+        var groups = new Dictionary<string, double>(StringComparer.Ordinal)
+        {
+            ["persist"] = Share(PersistSegments),
+            ["queue"] = Share(QueueSegments),
+            ["other"] = Share(Segments.Except(PersistSegments).Except(QueueSegments)),
+        };
+        return (threshold, writes, groups, Segments.ToDictionary(s => s, s => Share([s]), StringComparer.Ordinal));
+    }
+
     /// <summary>The number in a write's command, `Put|k..|v{n}`, or null for anything else.</summary>
     internal static int? WriteNumber(ReadOnlySpan<byte> command)
     {

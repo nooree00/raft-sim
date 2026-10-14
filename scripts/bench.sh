@@ -51,6 +51,8 @@ inputs_task="${RAFT_BENCH_INPUTS_TASK:-P10-02}"; load_task="${RAFT_BENCH_LOAD_TA
 lc() { echo "$1" | tr 'A-Z' 'a-z'; }
 tag="${RAFT_BENCH_ID_TAG:+-$RAFT_BENCH_ID_TAG}"
 decompose=(); [ "${RAFT_BENCH_DECOMPOSE:-0}" = 1 ] && decompose=(--decompose 1)
+# P14-04: the tail criterion the decomposition's tail rule reads the writes over (the run's own 99th percentile when unset).
+[ -n "${RAFT_BENCH_TAIL_OVER:-}" ] && decompose+=(--tail-over "$RAFT_BENCH_TAIL_OVER")
 test -z "$(git status --porcelain -- src)" || { echo "bench: src has uncommitted changes; a record names the commit it measured"; exit 1; }
 volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
 # Built once, in Release, through the same container as every other build (restore needs the

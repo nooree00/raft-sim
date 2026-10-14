@@ -142,4 +142,28 @@ public sealed class DecompositionTests
         Assert.Equal((3, 0, 0), (d.Joined, d.Violations, d.Mismatched));
         Assert.Equal(Decomposition.Compute(traces, Leader, writes).Micros.SelectMany(m => m.Value), d.Micros.SelectMany(m => m.Value));
     }
+
+    /// <summary>
+    /// P14-04's rule for a missed tail, on hand-made segments: a hundred writes of 10 us a segment, three
+    /// with one segment longer. The two over the criterion (500 us) give their excess over each segment's
+    /// median, 1,000 us of leader persist, 100 of follower queue and 600 of commit respond; the third,
+    /// 440 us in all, is under the criterion and gives none.
+    /// </summary>
+    [Fact]
+    public void TheTailRuleSharesTheExcessOfTheWritesOverTheCriterion()
+    {
+        var micros = Decomposition.Segments.ToDictionary(s => s, _ => Enumerable.Repeat(10.0, 100).ToList());
+        micros["leader-persist"][0] = 1_010;
+        micros["follower-queue"][0] = 110;
+        micros["leader-queue"][1] = 310;
+        micros["commit-respond"][2] = 610;
+
+        var tail = Decomposition.TailShares(micros.ToDictionary(m => m.Key, m => (IReadOnlyList<double>)m.Value), 500);
+
+        Assert.Equal((500.0, 2), (tail.Over, tail.Writes));
+        Assert.Equal(1_000.0 / 1_700, tail.Groups["persist"], 6);
+        Assert.Equal(600.0 / 1_700, tail.Groups["queue"], 6);
+        Assert.Equal(100.0 / 1_700, tail.Groups["other"], 6);
+        Assert.Equal(0, tail.Segments["leader-queue"], 6);
+    }
 }
