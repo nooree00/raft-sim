@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -41,6 +42,8 @@ internal static class BuildCollect
         {
             var api = Api.FromEnvironment(rest);
             CheckCosts(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), ShardCosts.Parse(repo.ReadText(ShardPlan.CostFile)), f);
+            var targets = SabotageSpec.LoadLive(repo, f).Where(e => e.Kind == "test").Select(e => e.Get("target")!).ToList();
+            CheckBroad(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), SabotageSpec.ParseBroadTargets(repo.ReadText(SabotageSpec.BroadTargetsFile)), targets, f);
         }
 
         return f;
@@ -89,6 +92,130 @@ internal static class BuildCollect
         Currency.Factor(Currency.GitHubRun, [($"the run's {times.Count} entries", claimed, observed)], CostFactor, costs.StaleFloor, f,
             (_, _) => $"Refresh the file's entry lines from this run's notice below (and its predecessors'), as P12-08 did");
         Console.WriteLine("::notice::sabotage entry times, the whole run%0A" + string.Join("%0A", times.Select(t => FormattableString.Invariant($"{t.Key} {t.Value:F1}"))));
+    }
+
+    /// <summary>The entries that ran a test beside their target, at least this many, for the test to be judged (P14-05).</summary>
+    public const int BroadMinimum = 4;
+
+    /// <summary>
+    /// P14-05, the observer <see cref="Currency.BroadRun"/>: every head shard's notice of the tests red
+    /// beside each entry's target, summed over the run. A test red beside at least half of the entries
+    /// that ran it, and at least <see cref="BroadMinimum"/> of them, goes red at almost any change to
+    /// what it tests, so it must be in the broad-target list (an entry targeting it then needs a reason
+    /// or a control, P3-01). Since P11-09 an entry runs its target's whole class, so the entries that ran
+    /// a test are the run's test entries targeting another method of its class (<paramref name="targets"/>,
+    /// the live manifest's): a shard reports only its reds, because a notice listing every test that
+    /// ran passes GitHub's cap of 4,096 characters, and a list of reds alone would lose the runs of a
+    /// test red in no entry of a shard. Vacuity risk: an observation taken from the list compares the
+    /// list with itself (S-broad-1); a total over the shards (or parts) that reported counts less than
+    /// the run did, guarded by requiring every part of every head shard's notice.
+    /// </summary>
+    internal static void CheckBroad(IReadOnlyList<string> shards, string jobsJson, Func<long, string> annotations, IReadOnlyList<string> broad, IReadOnlyList<string> targets, Findings f)
+    {
+        using var doc = JsonDocument.Parse(jobsJson);
+        var red = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var shard in shards)
+        {
+            var job = doc.RootElement.GetProperty("jobs").EnumerateArray().Single(j => j.GetProperty("name").GetString() == "sabotage " + shard);
+            var (notice, problem) = NeighbourNotice(annotations(job.GetProperty("id").GetInt64()));
+            if (notice is null)
+            {
+                f.Fail($"sabotage {shard}: {problem ?? $"no '{Sabotage.NeighbourTitle}' notice"}, so the run's red neighbours cannot be compared with {SabotageSpec.BroadTargetsFile}");
+                continue;
+            }
+
+            foreach (var (test, n) in notice)
+            {
+                red[test] = red.GetValueOrDefault(test) + n;
+            }
+        }
+
+        if (f.Failures.Count > 0)
+        {
+            return;
+        }
+
+        var found = red.Select(r => (Test: r.Key, Red: r.Value, Ran: RanBeside(r.Key, targets)))
+            .Where(t => t.Ran >= BroadMinimum && 2 * t.Red >= t.Ran)
+            .Select(t => (t.Test, $"red beside {t.Red} of the {t.Ran} entries that ran it"));
+        Currency.Listed(Currency.BroadRun, found, test => broad.Any(b => test.StartsWith(b, StringComparison.Ordinal)),
+            $"every test red beside at least half of the entries that ran it, and at least {BroadMinimum}", f, test => $"Add the line: {test}");
+    }
+
+    /// <summary>The run's test entries that ran a test beside their target: those targeting another method of its class (P11-09).</summary>
+    internal static int RanBeside(string test, IReadOnlyList<string> targets)
+    {
+        var cls = test[..test.LastIndexOf('.')];
+        return targets.Count(t => Sabotage.TargetClass(t) == cls && Sabotage.TargetMethod(t) != test);
+    }
+
+    /// <summary>
+    /// A shard's red neighbours from its annotations, every part of its notice summed (<see cref="Sabotage.NeighbourNotices"/>);
+    /// null with no problem when it wrote none; null with the problem when a part is missing (a step
+    /// keeps ten notices and drops the rest silently), a part is at the cap (cut), or a line is unreadable.
+    /// </summary>
+    internal static (IReadOnlyDictionary<string, int>? Red, string? Problem) NeighbourNotice(string annotationsJson)
+    {
+        using var doc = JsonDocument.Parse(annotationsJson);
+        var parts = new SortedDictionary<int, string>();
+        var counts = new SortedSet<int>();
+        foreach (var a in doc.RootElement.EnumerateArray())
+        {
+            var message = a.TryGetProperty("message", out var m) ? m.GetString() ?? "" : "";
+            if (!message.StartsWith(Sabotage.NeighbourTitle + " ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var first = message.Split('\n')[0];
+            var number = first[(Sabotage.NeighbourTitle.Length + 1)..].Split('/');
+            if (number.Length != 2 || !int.TryParse(number[0], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || !int.TryParse(number[1], NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+            {
+                return (null, $"a red-neighbours notice without its part number ('{first}')");
+            }
+
+            if (message.Length >= Sabotage.AnnotationCap)
+            {
+                return (null, $"red-neighbours part {k}/{n} is {message.Length} characters, GitHub's cap, so it was cut");
+            }
+
+            parts[k] = message;
+            counts.Add(n);
+        }
+
+        if (parts.Count == 0)
+        {
+            return (null, null);
+        }
+
+        if (counts.Count != 1 || Enumerable.Range(1, counts.Min).Any(k => !parts.ContainsKey(k)) || parts.Count != counts.Min)
+        {
+            return (null, $"red-neighbours parts {string.Join(", ", parts.Keys)} of {string.Join(" or ", counts)}: a part is missing");
+        }
+
+        var red = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var message in parts.Values)
+        {
+            string? cls = null;
+            foreach (var line in message.Split('\n').Skip(1).Where(l => l.Length > 0))
+            {
+                if (line.StartsWith('@'))
+                {
+                    cls = line[1..];
+                    continue;
+                }
+
+                var p = line.Split(' ');
+                if (cls is null || p.Length != 2 || !int.TryParse(p[1], NumberStyles.None, CultureInfo.InvariantCulture, out var count))
+                {
+                    return (null, $"an unreadable red-neighbours line ('{line}')");
+                }
+
+                red[$"{cls}.{p[0]}"] = red.GetValueOrDefault($"{cls}.{p[0]}") + count;
+            }
+        }
+
+        return (red, null);
     }
 
     /// <summary>An annotations response's entry times, or null when it holds no entry-time notice.</summary>

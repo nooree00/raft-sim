@@ -1,0 +1,6 @@
+description: The broad targets' observer takes the listed tests as what the harness saw go red, so a test red beside most entries but unlisted passes (P14-05)
+mechanism: the observation taken from the list
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.BuildCollectBroadTests.ATestRedBesideMostOfTheEntriesThatRanItMustBeListed
+expect: caught

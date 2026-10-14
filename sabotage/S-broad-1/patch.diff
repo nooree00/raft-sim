@@ -1,0 +1,14 @@
+diff --git a/tools/Raft.Gates/BuildCollect.cs b/tools/Raft.Gates/BuildCollect.cs
+--- a/tools/Raft.Gates/BuildCollect.cs
++++ b/tools/Raft.Gates/BuildCollect.cs
+@@ -135,9 +135,7 @@
+             return;
+         }
+ 
+-        var found = red.Select(r => (Test: r.Key, Red: r.Value, Ran: RanBeside(r.Key, targets)))
+-            .Where(t => t.Ran >= BroadMinimum && 2 * t.Red >= t.Ran)
+-            .Select(t => (t.Test, $"red beside {t.Red} of the {t.Ran} entries that ran it"));
++        var found = broad.Select(b => (b, "listed"));
+         Currency.Listed(Currency.BroadRun, found, test => broad.Any(b => test.StartsWith(b, StringComparison.Ordinal)),
+             $"every test red beside at least half of the entries that ran it, and at least {BroadMinimum}", f, test => $"Add the line: {test}");
+     }

@@ -138,6 +138,7 @@ internal static class Sabotage
         var byId = specs.ToDictionary(s => s.Id, StringComparer.Ordinal);
         var shares = ShardPlan.WorkerShares(specs.Select(PlanEntryOf).ToList(), workers, costs).Select(share => share.Select(e => byId[e.Id]).ToList()).ToList();
         var timings = new System.Collections.Concurrent.ConcurrentDictionary<string, double>(StringComparer.Ordinal);
+        RedBeside.Clear();
 
         // Baseline checks once per shard (P4-12): each target project, and each command group, is
         // checked by one worker, against all of the shard's targets in it.
@@ -213,6 +214,21 @@ internal static class Sabotage
         if (shardOption is not null)
         {
             CheckCosts(timings, costs, f, workers);
+            // P14-05: the tests red beside each entry's target and how many entries turned them red, as
+            // numbered notices under GitHub's cap, for build-collect to compare with the broad-target list
+            // over the whole run.
+            var notices = NeighbourNotices(RedBeside);
+            if (notices is null)
+            {
+                f.Fail($"the red neighbours need more than {NeighbourParts} notices of under {AnnotationCap} characters; a step keeps ten notices, so build-collect could not read them all");
+            }
+            else if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+            {
+                foreach (var notice in notices)
+                {
+                    Console.WriteLine("::notice::" + notice.Replace("%", "%25", StringComparison.Ordinal).Replace("\n", "%0A", StringComparison.Ordinal));
+                }
+            }
         }
 
         // Fixed cost: worktrees, baseline builds and baseline checks, until the slowest worker is
@@ -469,6 +485,11 @@ internal static class Sabotage
                 return Done("target-not-run", spec.Get("target")!);
             }
 
+            foreach (var test in RedNeighbours(results.Select(r => (r.Name, r.Outcome)), spec.Get("target")!))
+            {
+                RedBeside.AddOrUpdate(test, 1, (_, n) => n + 1);
+            }
+
             var neighbours = results.Where(r => r.Outcome == "Failed" && !mine.Contains(r)).Select(r => r.Name).ToList();
             var detail = neighbours.Count == 0 ? "" : $"neighbours also red: {string.Join(", ", neighbours.Take(3))}{(neighbours.Count > 3 ? $" (+{neighbours.Count - 3})" : "")}";
             var failed = mine.Where(r => r.Outcome == "Failed").ToList();
@@ -501,6 +522,68 @@ internal static class Sabotage
     }
 
     private sealed record TestResult(string Name, string Outcome, string Message);
+
+    /// <summary>
+    /// P14-05: for each test red beside an entry's target in this run, how many entries turned it red.
+    /// How many entries ran it is the manifest's (an entry runs its target's whole class, P11-09), so a
+    /// shard reports only its reds: a notice listing every test that ran does not fit GitHub's cap.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> RedBeside = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// An entry's red neighbours: the methods of its target's class other than the target's own method,
+    /// each once, red when any of its cases failed.
+    /// </summary>
+    internal static IEnumerable<string> RedNeighbours(IEnumerable<(string Name, string Outcome)> results, string target) =>
+        results.Where(r => TargetMethod(r.Name) != TargetMethod(target)).GroupBy(r => TargetMethod(r.Name), StringComparer.Ordinal)
+            .Where(g => g.Any(r => r.Outcome == "Failed")).Select(g => g.Key);
+
+    /// <summary>GitHub's cap on an annotation's message: a longer one is cut (run 38517402423's whole-run entry times, 4,096 characters).</summary>
+    internal const int AnnotationCap = 4096;
+
+    /// <summary>The notices a shard's red neighbours may take: a step keeps ten, and drops the rest silently; one is the entry times.</summary>
+    internal const int NeighbourParts = 8;
+
+    internal const string NeighbourTitle = "sabotage red neighbours";
+
+    /// <summary>
+    /// The red neighbours as notice messages, each under the cap: a first line "sabotage red neighbours
+    /// k/n", then, by class, a line "@Class" and a line "Method red" for each of its methods (a part
+    /// starting inside a class repeats its "@" line). With no red neighbour, one part with no lines,
+    /// because build-collect requires every shard's notice. Null when they need more than
+    /// <see cref="NeighbourParts"/> parts.
+    /// </summary>
+    internal static IReadOnlyList<string>? NeighbourNotices(IReadOnlyDictionary<string, int> red)
+    {
+        const int budget = AnnotationCap - 100;
+        var parts = new List<List<string>>();
+        var current = new List<string>();
+        var size = 0;
+        string? cls = null;
+        foreach (var (test, n) in red.OrderBy(r => r.Key, StringComparer.Ordinal))
+        {
+            var dot = test.LastIndexOf('.');
+            var (c, line) = (test[..dot], FormattableString.Invariant($"{test[(dot + 1)..]} {n}"));
+            if (current.Count > 0 && size + line.Length + c.Length + 3 > budget)
+            {
+                parts.Add(current);
+                (current, size, cls) = ([], 0, null);
+            }
+
+            if (c != cls)
+            {
+                current.Add("@" + c);
+                size += c.Length + 2;
+                cls = c;
+            }
+
+            current.Add(line);
+            size += line.Length + 1;
+        }
+
+        parts.Add(current);
+        return parts.Count > NeighbourParts ? null : [.. parts.Select((p, i) => $"{NeighbourTitle} {i + 1}/{parts.Count}\n" + string.Join("\n", p))];
+    }
 
     private static List<TestResult> RunTests(string wt, string project, IReadOnlyList<string>? only = null)
     {
