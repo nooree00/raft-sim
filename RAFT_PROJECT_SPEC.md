@@ -69,12 +69,17 @@ Out of scope. Do not build these, and do not add abstractions in anticipation:
   corrected, it has not yet decided a case. The cap it pointed to, the
   leader's single loop running its syncs inline, is phase 13's, and it is not
   a group commit.
-  **At phase 13's acceptance the group commit is chosen, by elimination**
-  (reviewer). Phase 13 moved the leader's effects off its loop: the loop went
-  from 0.94 busy to 0.06 and the new effect thread to 0.95, and the median at
-  3,125 writes a second rose 25%. The serial work per write is the same
-  wherever it runs, so the loop was never the cap; the serial work per write
-  is, and what reduces it is a group commit. Neither gate reading selected it
+  **At phase 13's acceptance the group commit is chosen** (reviewer). The
+  followers already group their commits: each syncs 0.99 times a write at 625
+  writes a second, 0.38 at 3,125 and 0.13 at 4,000, because under load the
+  leader's AppendEntries carries several entries, while the leader syncs 1.00
+  times a write at every rate. The batching already works in this system, and
+  the leader is the only party not using it. And by elimination: phase 13
+  moved the leader's effects off its loop, the loop went from 0.94 busy to
+  0.06 and the new effect thread to 0.95, and the median at 3,125 writes a
+  second rose 25%. The serial work per write is the same wherever it runs, so
+  the loop was never the cap; the serial work per write is, and what reduces
+  it is a group commit. Neither gate reading selected it
   (the 80% gate said no; the corrected one was undecided at 1.6%). It is
   reached by exhausting the alternatives over three phases rather than by a
   threshold, which is the better kind of justification. The effect thread is
@@ -164,15 +169,18 @@ What this decision does and does not remove:
   honour it, and the simulator must be able to violate it deliberately, as a
   sabotage. (Disk acknowledgements as inputs are more faithful and more
   complex; that is a register item, not a phase-1 design.)
-- **The host runs the effects off its loop** (phase 13). Each host executes
-  its node's effect lists on one thread of their own, in the order the node
-  emitted them, so the node never waits for a sync: its loop hands a list over
-  and takes its next input. The barrier then holds across lists as well as
-  within one, as `docs/design/node-interface.md` §4 states it (a `Send` or
-  `ClientResponse` waits for every persist the same node emitted before it),
-  which is what the simulator's world has always done. A failed write or sync
-  stops the host before any later effect runs; the loop waits only when the
-  queue of lists is full.
+- **The host runs each effect list on its loop** (phase 13's effect thread
+  was reverted at its acceptance, P14-01: it moved the leader's serial work
+  and did not reduce it). "The node never waits" is the node's contract
+  (`docs/design/node-interface.md` §4), kept by the simulator's world and, in
+  the host, by running each list's effects in order before the next input, so
+  a `Send` or `ClientResponse` leaves only after every persist before it is
+  durable. From phase 14 the loop takes the inputs already queued and runs
+  their lists as one batch (P14-03): the persists written in the order the
+  node emitted them, each file synced once, in the order the files were first
+  written, a rename, delete or truncate a boundary, and the batch's sends and
+  responses released after its syncs. A failed write or sync stops the host
+  before any later effect runs.
 - **Logging is an output.** Core emits structured events; drivers record them
   (the simulator in its canonical trace).
 - **The state machine is injected** as a pure interface (apply, snapshot,
@@ -609,7 +617,7 @@ own commit, and reviewed. At the end of each, stop and report.
 | 11 | Replication's cost, then linearizability-checking cost | The resend defect fixed: entries sent to each follower per committed entry bounded whatever the backlog, by a simulator check shown failing on the code before the fix; every invariant and both soaks still hold; phase 10's offered-load curve measured again against the design's own model; a group commit built only if the leader's sync is at least 80% busy at the new highest sustained rate, else the row closed with the measurement. Then: a structural quantity of a key's sub-history separates the histories the WGL checker decides within its budget from those it cannot, with a threshold that holds on every decided and every undecided key of the soak, or the spec states the limit without one; every recorded known limit explained by it or re-recorded |
 | 12 | Commit latency, then the group commit by the corrected gate | The latency of a commit decomposed along its path from timestamps the hosts and the generator take (§9), at a rate below the knee and at the criterion's rate, the segments summing to the end-to-end latency; the load generator's own lateness measured and bounded before any host change is judged; the host's largest segments that are not the design's (two syncs and a round trip) removed or explained, and the curve measured again against L, in process and in Compose: the latency criterion met, or the remaining gap attributed segment by segment, each remaining segment beside its measured floor; the corrected gate (§2) applied to the new curve, a group commit proposed as phase 13 at 80% or more and the row closed with the measurement under it; every check comparing a run-to-run quantity with a threshold measured on both sides, patched and unpatched, and any within a factor of 1.5 of its threshold moved or redesigned |
 | 13 | The leader's loop, against the restated target | Proposed at phase 12's acceptance (reviewer): the median at 3,125 writes a second about 1.3 times the target restated from the measured floors (`docs/design/performance-target.md`, 1,066 µs), the 99th percentile met nowhere (3.38 ms), and the cap the leader's single loop running its syncs inline. Done when the host executes each node's effect lists off its loop, on one thread, in the order the node emitted them, so the node never waits for a sync (§4), with the persist barrier, the stop on a failed write or sync, and every invariant, soak, Compose and checker result unchanged; the curve is measured again against the restated target, interleaved against phase 12's head, in process and in Compose: the median and 99th-percentile criteria at 3,125 writes a second met, or the gap attributed segment by segment beside the measured floors and the allowance's model; Compose's hop floor is measured and a Compose criterion restated from it; every hand-kept input a gate reads is registered with what verifies it, the four phase 12 found (a record's commit, the touched estimate, the cost file, the Budget seeds) compared with what they describe by one mechanism, and any other that nothing verifies a register row; and every row promised to phase 13 is closed: the stall control redesigned so its sabotage cannot pass, leader changes in load runs explained or counted, the target's operating point and sustained-rate definition declared conventions, its halving and percentile summing grounded or dropped, and its allowance's sensitivity reported |
-| 14 | The group commit, against restated criteria | Proposed at phase 13's acceptance (reviewer): moving the leader's serial work off its loop did not reduce it (the loop 0.94 busy to 0.06, the effect thread 0.95, the median at 3,125 writes a second up 25%), so the effect thread is reverted and the serial work per write, the cap by elimination, is reduced by a group commit; both latency criteria are restated, neither being grounded after phase 13; Compose is a wiring and integration check, its comparisons holding to 2,000 writes a second on the machine that ran it. The done criterion is written by the phase-14 breakdown's first task, at its approval |
+| 14 | The group commit, against restated criteria | Proposed at phase 13's acceptance (reviewer): the followers already group their commits (0.38 syncs per write at 3,125 writes a second, 0.13 at 4,000) while the leader syncs 1.00 times a write at every rate, and moving the leader's serial work off its loop did not reduce it (the loop 0.94 busy to 0.06, the effect thread 0.95, the median up 25%), so the serial work per write is the cap, by elimination. Done when the effect thread is reverted, the host running each effect list on its loop again (§4), the three sabotage entries whose targets go with it retired by a recorded mechanism that refuses an entry whose target still exists, and the reverted host measured against phase 13's head; both latency criteria are restated from floors measured end to end on the reverted host after the revert, each plus one declared allowance, a leader sync; a group commit is built in the host, Core and the simulator unchanged, with the persist barrier, the persists' order, the stop on a failed write or sync, and every invariant, soak, Compose and checker result unchanged; the curve is measured again against the restated criteria, interleaved against the reverted host, in process: the criteria at 3,125 writes a second met, or the gap attributed segment by segment beside the floors, a missed tail read by the rule stated before the measurement; Compose runs as a wiring and integration check, its comparisons to 2,000 writes a second; every bench control's margins are measured again after the host's changes; and every row promised to phase 14 is closed: the leader's serial work per write, the broad-targets premise and the margins tables' premise each checked by a mechanism, and the target's figures restated |
 
 Phase 1 before any Raft is deliberate and is the main structural difference
 from how most people build this. Writing the simulator against nodes that are
