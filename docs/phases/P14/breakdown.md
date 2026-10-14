@@ -151,7 +151,13 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
    patch turns red beside its target. Each shard's notice carries them; build-collect counts, over
    the run's entries, how many turned each test red; and a test red beside ten or more entries must
    be in `ci/broad-targets.txt` (`Currency.Member`, observer `broad-run`). The registry's row becomes
-   a currency line and the register row closes.
+   a currency line and the register row closes. *Amended before P14-05 started:* since P11-09 an
+   entry runs only its target's class, so a test is seen only beside entries targeting its own class,
+   and a count over the run cannot reach ten for a class with few entries. The notice carries, for
+   each test, the entries that ran it beside their target and the entries that turned it red; the rule
+   is a test red beside at least half of the entries that ran it, and at least four of them; and the
+   failure is reported through a policy of its own, `Currency.Listed` (each item the observation finds
+   in the input), since `Member` runs the other way.
 7. **The margins tables' premise** (P14-06): each row of a margins table carries the commit it was
    measured at (a table's header gives one for every row, and a `# at <commit>: <checks>` line
    overrides it for the checks it names, as P13's hand-off rows already need). `gates margins` reads
@@ -178,7 +184,7 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
 - **Sabotage:** S-retire-1
 - **Verifiable here:** yes — the host suites, the gates and the interleaved runs on this machine
 - **Prediction:** On the reverted side at 3,125 the leader's loop is 0.92 to 0.96 busy and the median is 15 to 30% under the effect thread's side, within 10% of phase 12's host as P13-05 measured it (1,124 µs); at 625 the reverted median is 5 to 10% lower (one hand-off fewer, about 78 µs on P13-04's measure); the highest rate sustained in every run falls from 3,500 to 3,125. Every soak, invariant and Compose result unchanged; the soaks identical to the count, Core and the simulator untouched. Host.Tests' count falls by the three `EffectThreadTests`. The hand-off control, run as at `7f4b02c` on two processors beside two busy loops, keeps every other segment within 0.1 of the 2-ms delay in five runs (the effect threads' coupling gone; phase 12's host kept 85 µs at 500). **Observable:** the records, the control's reports, the gates and the test counts.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — below the knee as predicted, but the knee itself moved: on the day, this machine reached capacity before 3,125 writes a second on both hosts, so every prediction about 3,125 is wrong. Interleaved in process against `0abc3e4`, five runs a side at each rate (m:p14-01-ab-fix-*, m:p14-01-ab-base-*). **Right:** at 625 the reverted median is 9.7% lower, 1,155 µs against 1,279 (one hand-off fewer); below the knee the reverted host is faster at every rate, 1,640 against 1,784 µs at 100, 949 against 1,237 at 1,250, 1,101 against 1,191 at 2,000. Host.Tests' count fell by the three `EffectThreadTests` (38 to 35). The hand-off control, on two processors beside two busy loops at `a00e4df`, passed five runs of five with every other segment within 166 µs of the 2-ms delay (0.08; the persists within 45 µs), the effect threads' coupling gone. The retirement refuses an entry whose target exists (S-retire-1 caught). **Wrong:** at 3,125 both hosts went past capacity in two runs of five; the reverted median is 3,278 µs (2,130 to 26,693) against the effect thread's 2,745 (2,087 to 4,349), 19% higher, not 15 to 30% lower, and three times phase 13's 1,124 µs on its day; the reverted loop 0.975 busy, over 0.92 to 0.96; and the highest rate sustained in every run is 2,000 on both hosts, not 3,500 falling to 3,125. The day's syncs are slower than phase 13's (249 µs at 3,125 against 234, 284 at 1,250 against 266), and the leader's work per write is 300 µs at 3,125 against 289: the operating point now sits past this machine's knee, which P14-04's interleaving will meet on the same day. The soaks and the Compose run are CI's.
 
 ### P14-02 — Both latency criteria restated from floors measured end to end
 
@@ -209,11 +215,11 @@ before the audit (P14-07) so the audit's table is the first it holds. The cost i
 
 ### P14-05 — The broad targets checked against the harness's own runs
 
-- **Task:** Decision 6: the shards' notices carry each entry's red neighbours; build-collect counts them over the run and requires every test red beside ten or more entries to be listed in `ci/broad-targets.txt` (`broad-run`, a member observer); the registry's `row` becomes a `currency` line; the register row closes.
+- **Task:** Decision 6, as amended before the task started: each shard's notice carries, for each test that ran beside an entry's target, the entries that ran it and the entries that turned it red (a theory's cases as its method); build-collect sums them over the run and requires every test red beside at least half of the entries that ran it, and at least four, to be listed in `ci/broad-targets.txt` (`broad-run`, through `Currency.Listed`); the registry's `row` becomes a `currency` line; the register row closes.
 - **Vacuity:** An observer reading its observation from the file compares the file with itself; guarded by S-broad-1. A run with a shard's neighbours missing counts less than the run did; guarded by requiring every head shard's notice, as the cost observer does.
 - **Sabotage:** S-broad-1
 - **Verifiable here:** partial — the counting on written notices here; the run's counts on GitHub
-- **Prediction:** On the phase's first run with it, the tests red beside ten or more entries are the twelve listed and at most three more, each an aggregate over generated executions in the Simulation or Scale suites; no listed test falls under ten. **Observable:** build-collect's note on that run.
+- **Prediction:** On the phase's first run with it (amended with the rule, before the task started), the tests the rule finds are among the twelve listed plus at most three more, each an aggregate over generated executions in the Simulation or Scale suites; and at least four of the twelve listed are found by the rule, the others too seldom beside an entry targeting their class to be judged. **Observable:** build-collect's note on that run.
 - **Outcome:** pending
 
 ### P14-06 — The margins tables tied to the commits they measured
