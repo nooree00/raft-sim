@@ -1412,3 +1412,19 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   rewritten. *Rule:* a commit that writes an outcome runs the breakdown gate before the next commit
   builds on it. Not scripted: I have run the fast gates before each such commit since, which is
   the kind of rule spec §10 predicts will not hold.
+- **A hand-off off the loop couples the nodes that share a processor.** The hand-off control plants a
+  delay in the followers' path and requires no other segment to rise by more than 0.4 of it. After
+  P13-04 it failed once on GitHub (leader-persist 226 µs against 200, the report's first push), and on
+  two processors beside two busy loops in ten runs of eighteen, the persist segments moving -1,146 to
+  +1,036 µs between the modes, where phase 12's host, the same way, kept them within 85 µs. A persist
+  now waits on the effect thread's wake, and with no processor free the three nodes' effect threads,
+  in one process, wait on one another: moving the followers' persists away from the leader's changes
+  how long each waits. Fixed by sharing drift between the modes (twenty windows, not six) and by a
+  planted delay the coupling does not keep pace with (2 ms, not 500 µs). *Rule:* a control that plants
+  a delay in one node and reads another's segments assumes the nodes do not compete; where they share
+  a machine, the signal must exceed what moving work in time costs, measured where they compete.
+- **A state one thread publishes and an effect another runs are ordered by nothing a reader sees.**
+  The host enqueues the new leader's announcement for the effect thread and then publishes the role;
+  the election test read the event log the moment it saw the role, and once on GitHub found no
+  announcement. Not reproduced here (forty runs on one processor beside a busy loop); read from the
+  code. *Rule:* a test of an effect waits for the effect, not for a state published beside it.

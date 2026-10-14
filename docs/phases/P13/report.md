@@ -3,7 +3,9 @@
 **Status: for review.** The leader's loop, against the restated target (spec §11 phase 13, P13-00's
 row): P13-00 to P13-09 as approved, with the amendments each outcome records. Every number in this
 report's tables cites its record (`m:`) or its CI run (`run:`). This report certifies the commit
-that contains it; `gates reports` checks that commit's CI run on the next push.
+that contains it; `gates reports` checks that commit's CI run on the next push. **It is pushed
+again with two fixes** that its first push's run (run:38493194546) found after that push, both in
+tests the effect thread broke on GitHub and not here (under P13-09 and deviations).
 
 ## First: moving the syncs off the loop moved the queue, not the load (P13-03 to P13-05)
 
@@ -256,6 +258,10 @@ run:37830104156 and run:37845882191. This report's own push is not in them.
   it: its verdict was printed 0.07 s after the soak's report.
 - **One per-commit job failed**, `4ca269b`'s shard 9: S-lead-1's control, unpatched (below). Every
   other (commit, shard) passed, and the head's jobs passed; the run is red on that one job.
+- **The report's first push** (`96fae37`, run:38493194546): every job given a runner and run, 52
+  per-commit jobs and the head's; the slowest head shard 350 s; the soaks' own steps 490 and 436 s.
+  Two per-commit jobs failed, both at `5e11dd5` (shards 10 and 13): the hand-off control's other
+  segments and the election test's announcement, each failing unpatched (below). The head passed.
 - **The local run before the push** took about 35 minutes: the report rule, preflight, build, gates
   and tests (about 8), the host sabotages with the secret scan and the README walk (about 20), and
   the touched entries (46 in 382 s).
@@ -267,7 +273,10 @@ run:37830104156 and run:37845882191. This report's own push is not in them.
    median at 3,125 writes a second and one hand-off at every rate, for one step of sustained rate.
    Reverting means amending §4's new bullet back. The contract change (a response released at its
    own entry's durability, decision 2's option not chosen) needs the effect thread, and would remove
-   at most the response's wait (213 µs at the median).
+   at most the response's wait (213 µs at the median). On a machine with no processor free, the
+   hand-off also couples the three nodes in one process: a delay in the followers' path moved the
+   persist segments by up to a millisecond, where phase 12's host moved them by 85 µs (the hand-off
+   control's fix, below). Deployed one node to a machine, that coupling is not there; in tests it is.
 2. **The next remedy.** The data name the leader's serial work per write as the cap (0.95 busy at
    3,125, wherever it runs). Less of it per write is the group commit the corrected gate did not
    decide; the headline's named consequence (the contract change) did not follow. A register row,
@@ -308,6 +317,20 @@ run:37830104156 and run:37845882191. This report's own push is not in them.
   `4ca269b`, and about once in sixty runs here), and allows P13-02's election rule the clock's
   interval. The second change came after P13-02's outcome was written; the outcome says so, and no
   stored verdict changed. Sixty runs of the control since, none failed.
+- **Two fixes after the report's first push** (run:38493194546), found on GitHub, after a push, on the
+  branch, in one commit (`7f4b02c`), so that no commit of this push carries either fault:
+  - The election test waits for the new leader's announcement. Since P13-04 the effect
+    thread writes it while the loop publishes the role, and the test, reading the log the moment it
+    saw the role, once found none. Read from the code; forty contended runs here did not reproduce it.
+  - The hand-off control runs in twenty alternating windows of a second, not six of three, and
+    with 2 ms planted, not 500 µs, slept to its last 80 µs rather than spun (`NodeHost.DelayHandOff`).
+    Its other segments had risen past 0.4 of the delay (leader-persist 226 µs on GitHub): with no
+    processor free, the planted delay moves the followers' persists away from the leader's, and the
+    effect threads' wakes wait on one another. Reproduced on two processors beside two busy loops (ten
+    failures in eighteen runs, phase 12's host none in six); after the change, none in eight. The bound
+    is unchanged; its rows were audited again, both sides in the three modes, at `7f4b02c`: follower-queue
+    rose 1.0005 to 1.0050 of the delay unpatched and at most 0.0035 with S-lat-1, the other segments at
+    most 0.059 unpatched and at least 0.9905 with it, every margin 2.0 or more (`docs/phases/P13/margins-bench.tsv`).
 - **Fifteen phase-10 records relabelled** by P13-01's first run (above), to on-branch commits whose
   measured trees are byte-identical; the alternative was to retake phase 10's measurements.
 
@@ -391,7 +414,9 @@ In `docs/findings.md` under phase 13, in order:
 - a floor that depends on the rate is not a sum of parts;
 - the currency mechanism's first run found what memory missed for three phases;
 - a control that names "the leader" once and acts on it later tests a moment that has passed;
-- a format rule found late costs a replay.
+- a format rule found late costs a replay;
+- a hand-off off the loop couples the nodes that share a processor;
+- a state one thread publishes and an effect another runs are ordered by nothing a reader sees.
 
 ## Still the person's
 
@@ -403,13 +428,14 @@ In `docs/findings.md` under phase 13, in order:
 
 ## Commits never verified in CI
 
-One pushed commit of the phase never had a green verdict of its own: `4ca269b`, of the phase's one
-push (run:38482181300). **It failed; none never ran**: every (commit, shard) job of the run was
-given a runner and ran its checks, 163 per-commit jobs and the head's thirteen shards, and the other
-twelve commits passed on every shard. **Accepted as never verified** (reviewer, at phase 10's
-acceptance), as in phases 7, 9 to 12, unless you say otherwise: rewriting it would force-push, which
-`each-commit-list` refuses by design. The cause, read from the job's log:
+Two pushed commits of the phase never had a green verdict of their own: `4ca269b`, of its first push
+(run:38482181300), and `5e11dd5`, of the report's first push (run:38493194546). **Both failed; none
+never ran**: every (commit, shard) job of both runs was given a runner and ran its checks, 163 and 52
+per-commit jobs and each head's thirteen shards, and every other commit passed on every shard. **Accepted as never verified** (reviewer, at phase 10's
+acceptance), as in phases 7, 9 to 12, unless you say otherwise: rewriting them would force-push, which
+`each-commit-list` refuses by design. The causes, read from the jobs' logs:
 
 | Commit | Run | Result | Jobs | Cause |
 |---|---|---|---|---|
 | `4ca269b` | run:38482181300 | failed | shard 9 of 13 | S-lead-1's target unpatched: no follower took office after the leader was stalled, because a second election had made another node leader before the stall; fixed at `1f25f3d`, pushed with this report. S-lead-1's ten other runs in the run passed |
+| `5e11dd5` | run:38493194546 | failed | shards 10 and 13 of 13 | S-lat-1's target unpatched: leader-persist rose 226 µs against the bound of 200, the effect threads coupled on a busy runner, fixed at `7f4b02c`; S-host-1's target unpatched: a leader found with no announcement yet written, fixed there too. Documentation only; the same source passed at `ad38cdf`, `715500a` and the head |
