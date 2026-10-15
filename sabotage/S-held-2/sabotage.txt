@@ -1,0 +1,6 @@
+description: Every output a batch holds is classed as held needlessly (C), so the case for releasing early is inflated by the holds §4 requires (P15-03)
+mechanism: every output classed as behind no persist
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.OutputClassesTests.EachOutputIsClassedByThePersistsBeforeItInItsBatch
+expect: caught

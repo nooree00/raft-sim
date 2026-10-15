@@ -60,7 +60,31 @@ public static class Decomposition
 
         /// <summary>Writes left out because their index led to a stamp of an entry carrying another command: a wrong join.</summary>
         public int Mismatched { get; init; }
+
+        /// <summary>
+        /// P15-03: for each joined write, in <see cref="Micros"/>' order, leader-to-send and commit-respond each split
+        /// at the output's emission (<see cref="SplitNames"/>): the time before it (for leader-to-send counted from
+        /// the entry's durability, so the replication pipeline's wait; for commit-respond the answer's handling) and
+        /// the hold after it, with the hold's class (0, 1, 2 for A, B, C; -1 when the trace has no emission).
+        /// </summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<double>> Splits { get; init; } = new Dictionary<string, IReadOnlyList<double>>();
     }
+
+    /// <summary>The split parts (P15-03), each a list per joined write.</summary>
+    public static readonly string[] SplitNames =
+    [
+        "leader-to-send.before", "leader-to-send.hold", "leader-to-send.class",
+        "commit-respond.before", "commit-respond.hold", "commit-respond.class",
+    ];
+
+    /// <summary>The class an emission stamp's kind names: 0, 1, 2 for A, B, C (P15-03), else null.</summary>
+    private static int? ClassOf(HandOffTrace.Kind kind) => kind switch
+    {
+        HandOffTrace.Kind.EmittedOwn => 0,
+        HandOffTrace.Kind.EmittedEarlier => 1,
+        HandOffTrace.Kind.EmittedNone => 2,
+        _ => null,
+    };
 
     /// <summary>A stamp joined by index: when, the array it read (for a peer message's take), and the write number its entry carries (null for an answer, which carries none).</summary>
     private readonly record struct AtIndex(long At, byte[]? Array, int? Number);
@@ -111,6 +135,31 @@ public static class Decomposition
         var answersRead = followers.ToDictionary(f => f, f => Cover(lead.Where(s => s.Kind == HandOffTrace.Kind.PeerRead && s.Id == f.Value).Select(s => (s, Message(s.Payload as byte[]))), appends: false));
         var peerTaken = traces.ToDictionary(t => t.Key, t => PeerTaken(t.Value));
 
+        // P15-03: the leader's emissions: appends by the index they first carry per follower, responses by request.
+        var emittedAppends = followers.ToDictionary(f => f, f =>
+        {
+            var first = new Dictionary<long, (long At, int Class)>();
+            foreach (var s in lead.Where(s => ClassOf(s.Kind) is not null && s.Id == f.Value && s.Payload is ReadOnlyMemory<byte>).OrderBy(s => s.At))
+            {
+                if (MessageCodec.Decode(((ReadOnlyMemory<byte>)s.Payload!).ToArray()) is AppendEntries ae)
+                {
+                    for (var i = 0; i < ae.Entries.Count; i++)
+                    {
+                        first.TryAdd(ae.PrevLogIndex + 1 + i, (s.At, ClassOf(s.Kind)!.Value));
+                    }
+                }
+            }
+
+            return first;
+        });
+        var emittedResponses = new Dictionary<long, (long At, int Class)>();
+        foreach (var s in lead.Where(s => ClassOf(s.Kind) is not null && s.Payload is null))
+        {
+            emittedResponses.TryAdd(s.Id, (s.At, ClassOf(s.Kind)!.Value));
+        }
+
+        var splits = SplitNames.ToDictionary(n => n, _ => (IReadOnlyList<double>)new List<double>(), StringComparer.Ordinal);
+
         var micros = Segments.ToDictionary(s => s, _ => (IReadOnlyList<double>)new List<double>(), StringComparer.Ordinal);
         int joined = 0, violations = 0, mismatched = 0;
         var negative = Segments.ToDictionary(s => s, _ => 0, StringComparer.Ordinal);
@@ -124,6 +173,7 @@ public static class Decomposition
             }
 
             long[]? best = null;
+            NodeId? bestFollower = null;
             var wrong = leaderDurable.Number != w.N;
             foreach (var f in followers)
             {
@@ -135,6 +185,7 @@ public static class Decomposition
                     if (best is null || lTaken < best[12])
                     {
                         best = [w.Due, w.Dispatched, w.Sent, read.At, leaderTaken, leaderDurable.At, sent.At, fRead.At, fTaken, fDurable.At, answered.At, lRead.At, lTaken, leaderResponded, w.Answered];
+                        bestFollower = f;
                     }
                 }
             }
@@ -176,12 +227,40 @@ public static class Decomposition
                 ((List<double>)micros[Segments[k]]).Add(segments[k]);
             }
 
+            // P15-03: leader-to-send split at the append's emission (before it, only the time after the entry is
+            // durable counts); commit-respond at the response's emission.
+            void Split(string name, double before, double hold, int cls)
+            {
+                ((List<double>)splits[name + ".before"]).Add(before);
+                ((List<double>)splits[name + ".hold"]).Add(hold);
+                ((List<double>)splits[name + ".class"]).Add(cls);
+            }
+
+            var (durableAt, sentAt, takenAt, respondedAt) = (best[5], best[6], best[12], best[13]);
+            if (emittedAppends[bestFollower!.Value].TryGetValue(index, out var ea))
+            {
+                Split("leader-to-send", Bench.Micros(Math.Max(0, ea.At - durableAt)), Bench.Micros(sentAt - Math.Max(ea.At, durableAt)), ea.Class);
+            }
+            else
+            {
+                Split("leader-to-send", 0, Bench.Micros(sentAt - durableAt), -1);
+            }
+
+            if (emittedResponses.TryGetValue(read.Id, out var er))
+            {
+                Split("commit-respond", Bench.Micros(er.At - takenAt), Bench.Micros(respondedAt - er.At), er.Class);
+            }
+            else
+            {
+                Split("commit-respond", 0, Bench.Micros(respondedAt - takenAt), -1);
+            }
+
             stampLatency += Bench.Micros(w.Answered - w.Due);
             generatorLatency += w.LatencyMicros;
         }
 
         var gap = joined == 0 || generatorLatency == 0 ? 1 : Math.Abs(stampLatency - generatorLatency) / generatorLatency;
-        return new Result(writes.Count, joined, violations, gap, micros) { NegativeBy = negative, Mismatched = mismatched };
+        return new Result(writes.Count, joined, violations, gap, micros) { NegativeBy = negative, Mismatched = mismatched, Splits = splits };
     }
 
     /// <summary>The segments P14-04's rule reads as the persists' (the disk's own time).</summary>

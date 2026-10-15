@@ -212,4 +212,36 @@ public sealed class DecompositionTests
             Assert.Equal((node, covering), (node, sampled[node].Count(s => AppendOf(s) is not null)));
         }
     }
+
+    /// <summary>
+    /// P15-03: leader-to-send and commit-respond split at their outputs' emission. Each write's append to the
+    /// fast follower is emitted 5 us after its take (before its persist is durable, so nothing waits before it
+    /// and the whole segment is the hold, class A); its response 3 us after the answer's take (class C), the
+    /// rest of commit-respond its hold.
+    /// </summary>
+    [Fact]
+    public void LeaderToSendAndCommitRespondSplitAtTheirOutputsEmission()
+    {
+        var (traces, writes) = Build();
+        var lead = traces[Leader].ToList();
+        for (var n = 1; n <= 3; n++)
+        {
+            double At(int j) => (n * 10_000) + (10 * j * (j + 1) / 2);
+            var index = n + 1;
+            var append = new AppendEntries(T1, Leader, index - 1, T1, [new LogEntry(T1, Command(n))], index - 1);
+            lead.Add(new HandOffTrace.Stamp(Ticks(At(4) + 5), HandOffTrace.Kind.EmittedOwn, Fast.Value, new ReadOnlyMemory<byte>(MessageCodec.Encode(append))));
+            lead.Add(new HandOffTrace.Stamp(Ticks(At(12) + 3), HandOffTrace.Kind.EmittedNone, 100 + n, null));
+        }
+
+        traces[Leader] = lead;
+        var d = Decomposition.Compute(traces, Leader, writes);
+
+        Assert.Equal(3, d.Joined);
+        Assert.All(d.Splits["leader-to-send.before"], v => Assert.Equal(0, v, 1));
+        Assert.All(d.Splits["leader-to-send.hold"], v => Assert.Equal(60, v, 1));
+        Assert.All(d.Splits["leader-to-send.class"], v => Assert.Equal(0, v));
+        Assert.All(d.Splits["commit-respond.before"], v => Assert.Equal(3, v, 1));
+        Assert.All(d.Splits["commit-respond.hold"], v => Assert.Equal(127, v, 1));
+        Assert.All(d.Splits["commit-respond.class"], v => Assert.Equal(2, v));
+    }
 }

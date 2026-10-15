@@ -99,6 +99,8 @@ public sealed class NodeHost : IAsyncDisposable
     private long _loopExecuteTicks;
     private long _loopInputs;
     private long _loopBatches;
+    private readonly long[] _heldCounts = new long[6];
+    private readonly long[] _heldTicks = new long[6];
 
     public NodeHost(HostConfig config, TextWriter events)
     {
@@ -145,6 +147,13 @@ public sealed class NodeHost : IAsyncDisposable
 
     /// <summary>The batches the loop has executed (P14-03): the inputs over this is the batch's mean size.</summary>
     public long LoopBatches => Interlocked.Read(ref _loopBatches);
+
+    /// <summary>
+    /// P15-03: the outputs the loop has released, by kind and class (sends A, B, C, then responses A, B, C;
+    /// <see cref="OutputClasses"/>), and the microseconds each class was held in all.
+    /// </summary>
+    public (long[] Counts, double[] Micros) HeldOutputs =>
+        ([.. _heldCounts.Select((_, i) => Interlocked.Read(ref _heldCounts[i]))], [.. _heldTicks.Select((_, i) => Bench.Micros(Interlocked.Read(ref _heldTicks[i])))]);
 
     /// <summary>Every change of the node's role since the host started, in order (P13-02).</summary>
     public IReadOnlyList<RoleChange> RoleChanges => [.. _roleChanges];
@@ -282,6 +291,7 @@ public sealed class NodeHost : IAsyncDisposable
         var reader = _inputs.Reader;
         var batch = new List<Input>(BatchLimit);
         var lists = new List<IReadOnlyList<Effect>>(BatchLimit);
+        var handled = new List<long>(BatchLimit);
         while (!_stop.IsCancellationRequested)
         {
             Input input;
@@ -340,10 +350,12 @@ public sealed class NodeHost : IAsyncDisposable
             {
                 var handling = Stopwatch.GetTimestamp();
                 lists.Clear();
+                handled.Clear();
                 foreach (var next in batch)
                 {
                     var effects = _node!.Handle(next);
                     lists.Add(effects);
+                    handled.Add(Stopwatch.GetTimestamp());
                     if (_node.Role != role)
                     {
                         // P13-02: the change and the host's evidence, read on the loop, for a load run's record;
@@ -355,10 +367,18 @@ public sealed class NodeHost : IAsyncDisposable
                     }
                 }
 
+                // P15-03: each output's emission, at its list's handling, with what it waits for.
+                if (_config.Trace is { } emitted)
+                {
+                    OutputClasses.Stamp(emitted, lists, handled);
+                }
+
                 var executing = Stopwatch.GetTimestamp();
                 _executor!.ExecuteBatch(lists);
+                var released = Stopwatch.GetTimestamp();
+                OutputClasses.Count(lists, handled, released, _heldCounts, _heldTicks);
                 Interlocked.Add(ref _loopHandleTicks, executing - handling);
-                Interlocked.Add(ref _loopExecuteTicks, Stopwatch.GetTimestamp() - executing);
+                Interlocked.Add(ref _loopExecuteTicks, released - executing);
                 Interlocked.Add(ref _loopInputs, batch.Count);
                 Interlocked.Increment(ref _loopBatches);
             }

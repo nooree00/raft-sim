@@ -25,6 +25,23 @@ and report after the phase. With the approval:
   name** (decision 5): the property found a real gap, and checking it under an honest name beats
   keeping a rule whose premise P11-09 removed.
 
+**Amended during the phase**, each before the runs it concerns:
+- P15-01: processes told apart by a token each draws, not a pid; the hosts' counters through the
+  cluster's control port, not `Stats|`; decision 3's contingency built twice (a trace keeping one write in
+  N, then without its per-message cost), with S-proc-3 to S-proc-5;
+- P15-03, before its runs: **decision 2's rule read as differences of means.** The growth is the two
+  segments' mean at the operating point less their mean at 1,250, and what the holds of B and C
+  account for is their mean per write (in both segments) at the operating point less theirs at 1,250,
+  both from the same traced runs' split, the median of five runs each. Means because a share of a sum
+  is read by adding, and medians do not add; the medians' growth is reported beside. The gap at 1,250
+  and 2,000 is read the same way: the B and C holds' mean per write at that rate against the group
+  commit's median excess over the reverted host there (117 and 191 µs, P14-04's), the reverted host
+  holding nothing beyond each list's own persists. S-held-1's guard is the stamp's time in a unit test
+  (each emission at its list's handling) and the split on a hand-built trace, not a recording file
+  system with a planted sync delay; the loop stamps from the times it takes as it handles each input,
+  before the batch executes;
+- P15-06: S-reach-2, the loader's rule for class-reach targets.
+
 **Where phase 14 left the latency.** The group commit moved the sustained rate in process from 3,125
 writes a second to beyond 6,250, the curve's highest, and halved the median at 3,125 (1,973 µs against
 the reverted host's 4,119; m:p14-04-ab-fix-3125-1 to -5, m:p14-04-ab-base-3125-1 to -5). Both restated
@@ -255,7 +272,8 @@ before it is pushed.
   stamps were held until the response).
 - **S-proc-5:** the sampled trace reads an append's previous index from the field after it (added with
   S-proc-4, when messages came to be read in place instead of decoded).
-- **S-held-1:** an output's emission stamp taken at its release, so no hold appears.
+- **S-held-1:** an output's emission stamp taken late (when the stamps are written, after the batch's handling),
+  so its hold shrinks (amended: see the header).
 - **S-held-2:** every held output classed as needless.
 - **S-early-1:** outputs no persist precedes held until the batch's sync again (the remedy undone).
 - **S-early-2:** an output after a persist in its batch released before the batch's sync.

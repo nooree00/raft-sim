@@ -49,6 +49,18 @@ public sealed class HandOffTrace(int sample = 1)
 
         /// <summary>A response written and flushed to its client (Id: the request id).</summary>
         Responded,
+
+        /// <summary>
+        /// A send or response the node emitted behind a persist of its own list (P15-03, class A), stamped at
+        /// the time its list was handled (Id: the peer, Payload: the message; or Id: the request id, no payload).
+        /// </summary>
+        EmittedOwn,
+
+        /// <summary>The same, behind only an earlier list's persist in its batch (class B).</summary>
+        EmittedEarlier,
+
+        /// <summary>The same, behind no persist in its batch (class C: §4 lets it leave at the batch's start).</summary>
+        EmittedNone,
     }
 
     /// <summary>One stamp: when, where, which request or peer, and the bytes it concerns.</summary>
@@ -64,6 +76,9 @@ public sealed class HandOffTrace(int sample = 1)
     public int Sample { get; } = Math.Max(1, sample);
 
     public void Add(Kind kind, long id, object? payload) => Take(Stopwatch.GetTimestamp(), kind, id, payload);
+
+    /// <summary>A stamp at a time already taken (P15-03: an output's emission, stamped once its batch is handled).</summary>
+    public void AddAt(long at, Kind kind, long id, object? payload) => Take(at, kind, id, payload);
 
     /// <summary>A stamp taken elsewhere (a recorded trace replayed through the sample), kept as <see cref="Add"/> would keep it.</summary>
     public void Offer(Stamp stamp)
@@ -133,6 +148,17 @@ public sealed class HandOffTrace(int sample = 1)
                 return true;
             case Kind.Sent:
                 return payload is byte[] { Length: >= 8 } frame && MessageKeeps(kind, id, frame.AsSpan(4, frame.Length - 8));
+            case Kind.EmittedOwn or Kind.EmittedEarlier or Kind.EmittedNone:
+                // A response's emission (no payload, the request's id) is kept when its write is sampled, as its
+                // client stamps will be at its response (the leader's durable append came before: the response
+                // waits on a follower's answer to an append sent after it); a send's only if it is an append
+                // carrying a kept index (the join reads the leader's appends and responses).
+                return payload switch
+                {
+                    null => _held.TryGetValue(id, out var held) && held.Line is { } line && Decomposition.WriteNumber(line) is { } n && _sampledWrites.ContainsKey(n),
+                    ReadOnlyMemory<byte> message => AppendCovers(message.Span),
+                    _ => false,
+                };
             default:
                 return false;
         }
@@ -146,15 +172,13 @@ public sealed class HandOffTrace(int sample = 1)
     /// cover one, read in place from <see cref="MessageCodec"/>'s wire form (node-interface §6): an append
     /// is type 3, then term (8), leader (4), previous index (8), previous term (8), commit (8), round (8)
     /// and its entry count (4); an answer is type 4, then term (8), success (1), match index (8) and
-    /// round (8). Nothing is decoded or copied. Sabotage S-proc-5.
+    /// round (8). Nothing is decoded or copied.
     /// </summary>
     private bool MessageKeeps(Kind kind, long peer, ReadOnlySpan<byte> message)
     {
         if (message.Length >= 49 && message[0] == 3)
         {
-            var previous = BinaryPrimitives.ReadInt64BigEndian(message[13..]);
-            var count = BinaryPrimitives.ReadInt32BigEndian(message[45..]);
-            return count > 0 && Covers(previous, previous + count);
+            return AppendCovers(message);
         }
 
         if (message.Length == 26 && message[0] == 4 && message[9] == 1)
@@ -171,6 +195,19 @@ public sealed class HandOffTrace(int sample = 1)
         }
 
         return false;
+    }
+
+    /// <summary>Whether a message is an append covering an index the sample keeps, read in place (<see cref="MessageKeeps"/>). Sabotage S-proc-5.</summary>
+    private bool AppendCovers(ReadOnlySpan<byte> message)
+    {
+        if (message.Length < 49 || message[0] != 3)
+        {
+            return false;
+        }
+
+        var previous = BinaryPrimitives.ReadInt64BigEndian(message[13..]);
+        var count = BinaryPrimitives.ReadInt32BigEndian(message[45..]);
+        return count > 0 && Covers(previous, previous + count);
     }
 
     /// <summary>

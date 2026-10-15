@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/OutputClasses.cs
++++ b/src/Raft.Host/OutputClasses.cs
+@@ -41,7 +41,7 @@
+                         own = true;
+                         break;
+                     case Send or ClientResponse:
+-                        yield return (k, e, own ? Hold.Own : earlier ? Hold.Earlier : Hold.None);
++                        yield return (k, e, Hold.None);
+                         break;
+                 }
+             }

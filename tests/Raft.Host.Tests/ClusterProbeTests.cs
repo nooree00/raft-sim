@@ -18,7 +18,7 @@ namespace Raft.Host.Tests;
 public sealed class ClusterProbeTests
 {
     private static HostCounters Counters(long syncs, long messages, long inputs, long batches) =>
-        new(syncs, syncs * 250.0, messages, messages * 80, 10, 1_000, 5_000, 2_000, syncs * 300.0, inputs, batches);
+        new(syncs, syncs * 250.0, messages, messages * 80, 10, 1_000, 5_000, 2_000, syncs * 300.0, inputs, batches, [inputs, 0, 1, 2, 3, 4], [inputs * 2.0, 0, 1, 2, 3, 4]);
 
     /// <summary>Sabotage S-proc-2: before the run each host has a history (the election, a warm-up); the record is what the leader did after it.</summary>
     [Fact]
@@ -34,12 +34,14 @@ public sealed class ClusterProbeTests
         Assert.Equal(0.6, fields["leader_messages_per_write"], 6);
         Assert.Equal(1.5, fields["leader_loop_inputs_per_batch"], 6);
         Assert.Equal(250, fields["leader_sync_us"], 6);
+        Assert.Equal(0.6, fields["held_send_a_per_write"], 6);
+        Assert.Equal(2, fields["held_send_a_us"], 6);
     }
 
     [Fact]
     public void HostCountersCrossTheControlPortUnchanged()
     {
-        var c = new HostCounters(12, 3_456.75, 789, 63_120, 41, 12_345.5, 9_876_543.25, 1_234.5, 6_789.125, 2_222, 1_111);
+        var c = new HostCounters(12, 3_456.75, 789, 63_120, 41, 12_345.5, 9_876_543.25, 1_234.5, 6_789.125, 2_222, 1_111, [1, 2, 3, 4, 5, 6], [10.5, 20.25, 30, 40, 50, 60.125]);
 
         Assert.Equal(c, HostCounters.Decode(c.Encode()));
     }

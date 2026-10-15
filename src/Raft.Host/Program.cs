@@ -298,6 +298,31 @@ public static class Program
                     results[$"seg_{name}_p99_us"] = p99;
                 }
 
+                // P15-03: leader-to-send and commit-respond split at the output's emission, each hold's class, and
+                // per write the holds of classes B and C in the two segments together (the remedy rule's measure).
+                foreach (var name in Decomposition.SplitNames.Where(n => !n.EndsWith(".class", StringComparison.Ordinal)))
+                {
+                    var (mean, p50, _) = Decomposition.Stats(d.Splits[name]);
+                    results[$"split_{name}_p50_us"] = p50;
+                    results[$"split_{name}_mean_us"] = mean;
+                }
+
+                foreach (var seg in new[] { "leader-to-send", "commit-respond" })
+                {
+                    var classes = d.Splits[seg + ".class"];
+                    foreach (var (label, value) in new[] { ("a", 0.0), ("b", 1.0), ("c", 2.0), ("none", -1.0) })
+                    {
+                        results[$"split_{seg}.class_{label}_share"] = Math.Round(classes.Count(c => c == value) / (double)Math.Max(1, classes.Count), 3);
+                    }
+                }
+
+                var bc = Enumerable.Range(0, d.Joined).Select(i =>
+                    (d.Splits["leader-to-send.class"][i] is 1 or 2 ? d.Splits["leader-to-send.hold"][i] : 0)
+                    + (d.Splits["commit-respond.class"][i] is 1 or 2 ? d.Splits["commit-respond.hold"][i] : 0)).ToList();
+                var (bcMean, bcP50, _) = Decomposition.Stats(bc);
+                results["split_bc_hold_p50_us"] = bcP50;
+                results["split_bc_hold_mean_us"] = bcMean;
+
                 // P14-04's rule for a missed tail, written before the measurement: for the writes over the tail
                 // criterion (--tail-over, else the run's own 99th percentile), their excess over the median write,
                 // summed segment by segment, and the shares of the persists, the loop's queues and the rest.
@@ -390,6 +415,16 @@ public static class Program
         if (l.Syncs > 0)
         {
             results["leader_loop_sync_share"] = Math.Round(l.SyncMicros / Math.Max(1, l.HandleMicros + l.ExecuteMicros), 3);
+        }
+
+        // P15-03: the leader's released outputs by kind and class, per write, and each class's mean hold.
+        for (var i = 0; i < HostCounters.HeldNames.Length; i++)
+        {
+            results[$"held_{HostCounters.HeldNames[i]}_per_write"] = Math.Round((double)l.HeldCounts[i] / answered, 3);
+            if (l.HeldCounts[i] > 0)
+            {
+                results[$"held_{HostCounters.HeldNames[i]}_us"] = Math.Round(l.HeldMicros[i] / l.HeldCounts[i], 1);
+            }
         }
 
         // P10-05: the time the leader's sends waited behind its own persists, per such effect list,

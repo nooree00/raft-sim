@@ -15,34 +15,44 @@ namespace Raft.Host;
 
 /// <summary>
 /// The counters a load record reads from each host (P15-01), whichever process the hosts run in: its
-/// syncs and their time, the messages and bytes it sent, its persist barrier, and its loop's timers.
+/// syncs and their time, the messages and bytes it sent, its persist barrier, its loop's timers, and the
+/// outputs its loop released by kind and class with the time each class was held (P15-03; sends A, B, C,
+/// then responses A, B, C).
 /// </summary>
 public sealed record HostCounters(long Syncs, double SyncMicros, long Messages, long Bytes, long BarrierLists, double BarrierMicros,
-    double WaitMicros, double HandleMicros, double ExecuteMicros, long Inputs, long Batches)
+    double WaitMicros, double HandleMicros, double ExecuteMicros, long Inputs, long Batches, IReadOnlyList<long> HeldCounts, IReadOnlyList<double> HeldMicros)
 {
+    private const int Scalars = 11;
+
+    /// <summary>The six output classes: sends A, B, C, then responses A, B, C (<see cref="OutputClasses"/>).</summary>
+    public static readonly string[] HeldNames = ["send_a", "send_b", "send_c", "response_a", "response_b", "response_c"];
+
     /// <summary>This reading less an earlier one: what the host did between them.</summary>
     public HostCounters Minus(HostCounters before)
     {
         ArgumentNullException.ThrowIfNull(before);
         return new(Syncs - before.Syncs, SyncMicros - before.SyncMicros, Messages - before.Messages, Bytes - before.Bytes, BarrierLists - before.BarrierLists,
             BarrierMicros - before.BarrierMicros, WaitMicros - before.WaitMicros, HandleMicros - before.HandleMicros, ExecuteMicros - before.ExecuteMicros,
-            Inputs - before.Inputs, Batches - before.Batches);
+            Inputs - before.Inputs, Batches - before.Batches,
+            [.. HeldCounts.Select((c, i) => c - before.HeldCounts[i])], [.. HeldMicros.Select((m, i) => m - before.HeldMicros[i])]);
     }
 
     /// <summary>One host's counters as `Counters|` carries them: comma-separated, invariant.</summary>
     public string Encode() => string.Join(",", new double[] { Syncs, SyncMicros, Messages, Bytes, BarrierLists, BarrierMicros, WaitMicros, HandleMicros, ExecuteMicros, Inputs, Batches }
+        .Concat(HeldCounts.Select(c => (double)c)).Concat(HeldMicros)
         .Select(v => v.ToString("R", CultureInfo.InvariantCulture)));
 
     public static HostCounters Decode(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         var v = text.Split(',').Select(p => double.Parse(p, NumberStyles.Float, CultureInfo.InvariantCulture)).ToArray();
-        if (v.Length != 11)
+        if (v.Length != Scalars + 2 * HeldNames.Length)
         {
-            throw new FormatException($"host counters need 11 values: {text}");
+            throw new FormatException($"host counters need {Scalars + 2 * HeldNames.Length} values: {text}");
         }
 
-        return new((long)v[0], v[1], (long)v[2], (long)v[3], (long)v[4], v[5], v[6], v[7], v[8], (long)v[9], (long)v[10]);
+        return new((long)v[0], v[1], (long)v[2], (long)v[3], (long)v[4], v[5], v[6], v[7], v[8], (long)v[9], (long)v[10],
+            [.. v.Skip(Scalars).Take(HeldNames.Length).Select(x => (long)x)], [.. v.Skip(Scalars + HeldNames.Length)]);
     }
 
     /// <summary>A host's counters now.</summary>
@@ -51,8 +61,17 @@ public sealed record HostCounters(long Syncs, double SyncMicros, long Messages, 
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(files);
         var loop = host.LoopTimes;
-        return new(files.Syncs, files.SyncMicros, host.Sent.Messages, host.Sent.Bytes, host.Barrier.Lists, host.Barrier.Micros, loop.WaitMicros, loop.HandleMicros, loop.ExecuteMicros, loop.Inputs, host.LoopBatches);
+        var held = host.HeldOutputs;
+        return new(files.Syncs, files.SyncMicros, host.Sent.Messages, host.Sent.Bytes, host.Barrier.Lists, host.Barrier.Micros, loop.WaitMicros, loop.HandleMicros, loop.ExecuteMicros, loop.Inputs, host.LoopBatches,
+            held.Counts, held.Micros);
     }
+
+    public bool Equals(HostCounters? other) =>
+        other is not null && (Syncs, SyncMicros, Messages, Bytes, BarrierLists, BarrierMicros, WaitMicros, HandleMicros, ExecuteMicros, Inputs, Batches)
+            == (other.Syncs, other.SyncMicros, other.Messages, other.Bytes, other.BarrierLists, other.BarrierMicros, other.WaitMicros, other.HandleMicros, other.ExecuteMicros, other.Inputs, other.Batches)
+        && HeldCounts.SequenceEqual(other.HeldCounts) && HeldMicros.SequenceEqual(other.HeldMicros);
+
+    public override int GetHashCode() => HashCode.Combine(Syncs, Messages, Inputs, Batches);
 }
 
 /// <summary>

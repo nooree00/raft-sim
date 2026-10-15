@@ -1,0 +1,23 @@
+--- a/src/Raft.Host/OutputClasses.cs
++++ b/src/Raft.Host/OutputClasses.cs
+@@ -1,5 +1,6 @@
+ using System;
+ using System.Collections.Generic;
++using System.Diagnostics;
+ using System.Threading;
+ using Raft.Core;
+ 
+@@ -65,11 +66,11 @@
+             };
+             if (output is Send s)
+             {
+-                trace.AddAt(handled[k], kind, s.To.Value, s.Payload);
++                trace.AddAt(Stopwatch.GetTimestamp(), kind, s.To.Value, s.Payload);
+             }
+             else if (output is ClientResponse r)
+             {
+-                trace.AddAt(handled[k], kind, r.RequestId, null);
++                trace.AddAt(Stopwatch.GetTimestamp(), kind, r.RequestId, null);
+             }
+         }
+     }

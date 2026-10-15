@@ -1,0 +1,6 @@
+description: Each output's emission is stamped when the stamps are written, after the whole batch is handled, not at its own list's handling, so its hold shrinks and the time before emission grows by the same amount (P15-03)
+mechanism: the emission stamp taken late
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.OutputClassesTests.AnEmissionIsStampedAtItsListsHandlingWithItsClass
+expect: caught
