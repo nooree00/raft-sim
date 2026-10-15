@@ -1520,3 +1520,49 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   built against the first hypothesis might have worked for the other reason. *Rule:* before building
   against a measured effect, list every mechanism that produces that effect, and make the instrument
   separate them first.
+- **The second mechanism was real, and smaller** (P15-03). With each output stamped at its emission, the
+  batch's holds were 0.73 of the leader's growth in commit-respond and leader-to-send from 1,250 to
+  3,125 writes a second, and the replication pipeline's wait 0.27. The remedy built against the holds
+  took the median at 3,125 down 204 µs; what it left of those two segments' growth is 0.68 the pipeline.
+  Built against the single hypothesis, the remedy would have worked, and the pipeline's share would have
+  been read as the remedy's shortfall rather than as the other mechanism.
+- **A process told apart by its pid is told apart by nothing in a container** (P15-01). The record's
+  guard for the generator's own process compared the cluster's pid with the generator's. Each ran in a
+  container of its own, where every process is pid 1, so the first separate runs read as one process
+  (20 records discarded as the wrong instrument). The guard was right about what to check and wrong
+  about which identity answers it: a pid names a process only within its namespace. *Rule:* an identity
+  compared across a boundary must be drawn for the comparison (a token), not borrowed from a scope the
+  boundary splits.
+- **An instrument's cost that does not move with its parameter is not the cost the parameter controls**
+  (P15-01). The sampled trace was built on the guess that the traced tail was the trace's retained
+  stamps. Keeping one write in a million left the 99th percentile at 2.9 times the untraced (23.7
+  against 8.2 ms), against 2.5 at one in ten (22.1 against 8.7). The cost was per message (every client
+  stamp kept, every message copied and decoded), which the sample did not touch. *Rule:* before tuning
+  a parameter that should reduce a cost, measure at its extreme; if the cost does not fall there, the
+  parameter is not the lever.
+- **A rule fixed in advance can be wrong in its branches, not only in its threshold** (P15-04, the
+  reviewer). P14-04's tail rule named two places a tail's excess could concentrate, the persists and
+  the loop's queues, and called everything else the machine's pauses, "the generator's lateness rising
+  with it". The traced runs within the threshold satisfied that third branch's numbers (neither group
+  over half) while the generator's lateness held 0.03 of the excess and the rest sat in the leader's
+  hand-offs: no branch covered the measurement. Taking the least-bad branch would have made the rule a
+  formality, the measurement read through a rule it contradicts, and the value of fixing the rule before
+  measuring lost. *Rule:* the tell is an answer that satisfies a branch while contradicting the branch's
+  description; when it appears, report the rule as wrong, say where the effect is, and write what the
+  rule should have said.
+- **The measurement and the verification compete for the machine** (P15-01, P15-05, the reviewer). The
+  generator was moved out of the hosts' process, the trace's cost cut, and the push held while a curve
+  ran, three times for one reason: whatever else runs on this machine during a measurement is part of
+  it, the local CI run included. They cannot both be running; that is a property of measuring here at
+  all, not a scheduling choice.
+- **Under a group commit, a busy loop is not a saturated one** (P15-02). The leader's loop was 0.94 to
+  0.98 busy at every rate from 3,125 to 9,375 writes a second while its work per write fell to a third
+  (303 to 103 µs), and it was less busy past the capacity than at it. With batching the loop is in a
+  sync whenever there is work, so a busy fraction near one says it is never idle, not that it is the
+  limit. *Rule:* under batching, read the limit from the queue's growth and the batch's size, not from
+  the busy fraction.
+- **Rewording a measured commit orphans its records** (P15-01). The trailer gate found two commits whose
+  `Task:` line was a paragraph above the attribution lines rather than among them; rewording them
+  changed one commit's id after nineteen records named it. The tree was byte-identical, and the
+  measurements gate's own failure text names the remedy (relabel to a commit with the same tree), as
+  phase 12 did. *Rule:* run the trailer gate on a commit before measuring at it.
