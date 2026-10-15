@@ -11,7 +11,7 @@
 # Usage: scripts/in-sdk.sh scripts/margins.sh [runs] [out]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-runs="${1:-5}"; out="${2:-docs/phases/P14/margins-bench.tsv}"
+runs="${1:-5}"; out="${2:-docs/phases/P15/margins-bench.tsv}"
 test -z "$(git status --porcelain -- src tests)" || { echo "margins: src or tests has changes"; exit 1; }
 bin=tests/Raft.Host.Slow.Tests/bin/Debug/net10.0
 declare -A vals

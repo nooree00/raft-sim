@@ -244,7 +244,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 - **Sabotage:** ; manual: `gates margins` over the table, and `gates margins --currency` at the report
 - **Verifiable here:** partial — the audit runs here; GitHub's runners give other margins, seen only when a control fails there
 - **Prediction:** Every row keeps the audit's 1.5 on both sides; the group commit's control stays under a third of its bound unpatched and at 1.00 with S-group-1; if P15-05 is built, the group commit's syncs per write move by under 0.01. **Observable:** the table and the gates.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — `scripts/margins.sh` at `37582c7`, whose host is the phase's last change (`c7618d2`), in the three modes, five runs a side (`docs/phases/P15/margins-bench.tsv`): `gates margins` passes every row with the audit's 1.5 on both sides (the tightest unpatched the cost backlog at 32 in flight, 1.62, and the barrier's per-list lower bound, 1.70; the tightest patched the group commit's control, 2.00), and `gates margins --currency` finds none of the eighteen rows stale. The group commit's control is 0.054 to 0.067 unpatched against its bound of 0.5, under a third, and 1.0017 to 1.0020 with S-group-1; with the remedy its median moves from 0.0672 (phase 14's table) to 0.0614, under 0.01. No row was added: P15-01's process check and counters' differences are exact, not timed, and P15-03's classes gate nothing.
 
 ### P15-08 — The phase's cost in CI
 
