@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/HandOffTrace.cs
++++ b/src/Raft.Host/HandOffTrace.cs
+@@ -92,7 +92,7 @@
+                 held.TakenAt = at;
+                 break;
+             case Kind.Responded:
+-                if (_held.TryRemove(id, out var h) && h.Line is { } line && Decomposition.WriteNumber(line) is { } n && _sampledWrites.TryRemove(n, out _))
++                if (_held.TryRemove(id, out var h) && h.Line is { } line && Decomposition.WriteNumber(line) is { } n)
+                 {
+                     _stamps.Enqueue(new Stamp(h.ReadAt, Kind.ClientRead, id, line));
+                     if (h.TakenAt != 0)

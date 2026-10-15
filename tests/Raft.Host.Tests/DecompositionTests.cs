@@ -169,8 +169,10 @@ public sealed class DecompositionTests
 
     /// <summary>
     /// P15-01: a trace that keeps one write in two, by entry index, decomposes the writes it keeps (indices
-    /// 2 and 4) exactly as the full trace does, and leaves the other out. Sabotage S-proc-3 (the loop's takes
-    /// of the reads it kept dropped, so nothing joins).
+    /// 2 and 4) exactly as the full trace does, and leaves the other out, holding no client stamp of the
+    /// write it leaves out. Sabotages S-proc-3 (the loop's takes of the reads it kept dropped, so nothing
+    /// joins), S-proc-4 (every write's client stamps kept) and S-proc-5 (an append's previous index read
+    /// from the field after it).
     /// </summary>
     [Fact]
     public void ASampledTraceDecomposesItsSampledWritesAsTheFullTraceDoes()
@@ -194,6 +196,20 @@ public sealed class DecompositionTests
         foreach (var name in Decomposition.Segments)
         {
             Assert.Equal(new[] { full.Micros[name][0], full.Micros[name][2] }, d.Micros[name]);
+        }
+
+        foreach (var kind in new[] { HandOffTrace.Kind.ClientRead, HandOffTrace.Kind.ClientTaken, HandOffTrace.Kind.Responded })
+        {
+            Assert.Equal((3, 2), (traces[Leader].Count(s => s.Kind == kind), sampled[Leader].Count(s => s.Kind == kind)));
+        }
+
+        // The appends kept are the ones the codec reads as covering a sampled index: the sample reads them in place.
+        static AppendEntries? AppendOf(HandOffTrace.Stamp s) => s is { Kind: HandOffTrace.Kind.Sent or HandOffTrace.Kind.PeerRead, Payload: byte[] a }
+            ? MessageCodec.Decode(s.Kind == HandOffTrace.Kind.Sent ? a[4..^4] : a) as AppendEntries : null;
+        foreach (var (node, stamps) in traces)
+        {
+            var covering = stamps.Count(s => AppendOf(s) is { } ae && Enumerable.Range(1, ae.Entries.Count).Any(i => (ae.PrevLogIndex + i) % 2 == 0));
+            Assert.Equal((node, covering), (node, sampled[node].Count(s => AppendOf(s) is not null)));
         }
     }
 }

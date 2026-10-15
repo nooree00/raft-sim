@@ -1,0 +1,6 @@
+description: The sampled trace reads an append's previous index from the field after it (the previous term), so it keeps the appends of other indices than the sample's and its writes join wrongly or not at all (P15-01)
+mechanism: the append's header read at the wrong offset
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DecompositionTests.ASampledTraceDecomposesItsSampledWritesAsTheFullTraceDoes
+expect: caught

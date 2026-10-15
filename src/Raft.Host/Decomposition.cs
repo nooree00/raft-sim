@@ -230,12 +230,12 @@ public static class Decomposition
         return (threshold, writes, groups, Segments.ToDictionary(s => s, s => Share([s]), StringComparer.Ordinal));
     }
 
-    /// <summary>The number in a write's command, `Put|k..|v{n}`, or null for anything else.</summary>
+    /// <summary>The number in a write's command, `Put|k..|v{n}`, or null for anything else; read in place (a sampled trace reads it per response, P15-01).</summary>
     internal static int? WriteNumber(ReadOnlySpan<byte> command)
     {
-        var text = Encoding.ASCII.GetString(command).TrimEnd('\n', '\r');
-        var at = text.LastIndexOf("|v", StringComparison.Ordinal);
-        return text.StartsWith("Put|", StringComparison.Ordinal) && at > 0 && int.TryParse(text.AsSpan(at + 2), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
+        var text = command.TrimEnd("\n\r"u8);
+        var at = text.LastIndexOf("|v"u8);
+        return text.StartsWith("Put|"u8) && at > 0 && int.TryParse(text[(at + 2)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
     }
 
     /// <summary>A node's first durable time per index and the write its record carries, read from the entry-log records each persist appended (EntryLog's framing: length, index, term, previous term, command, checksum).</summary>

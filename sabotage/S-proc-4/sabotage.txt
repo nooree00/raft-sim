@@ -1,0 +1,6 @@
+description: The sampled trace keeps every request's client stamps at its response, sampled write or not, so its heap grows with every write of the run as the first sampled trace's did (P15-01)
+mechanism: the held client stamps kept without the sample's test
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DecompositionTests.ASampledTraceDecomposesItsSampledWritesAsTheFullTraceDoes
+expect: caught

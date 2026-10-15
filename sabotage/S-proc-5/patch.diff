@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/HandOffTrace.cs
++++ b/src/Raft.Host/HandOffTrace.cs
+@@ -152,7 +152,7 @@
+     {
+         if (message.Length >= 49 && message[0] == 3)
+         {
+-            var previous = BinaryPrimitives.ReadInt64BigEndian(message[13..]);
++            var previous = BinaryPrimitives.ReadInt64BigEndian(message[21..]);
+             var count = BinaryPrimitives.ReadInt32BigEndian(message[45..]);
+             return count > 0 && Covers(previous, previous + count);
+         }

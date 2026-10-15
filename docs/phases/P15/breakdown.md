@@ -170,7 +170,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 
 - **Task:** Decision 3: `bench cluster` runs three hosts in one process with traces on; `bench load --nodes` from another process drives them on loopback and fetches their counters with `Stats|` and their traces with `Trace|`; `bench.sh load-local` and `load-ab` gain the separate mode, and the record names whether the generator shared the hosts' process. Measured on phase 14's head at 3,125 writes a second, five runs each way, interleaved: in process and separate, traced and untraced.
 - **Vacuity:** A separate mode that quietly runs in one process measures the old instrument; guarded by the record's process ids, the cluster's from `Stats|` against the generator's own (S-proc-1). Counters read once and differenced against nothing give totals, not a run's share; guarded by a test comparing `Stats|` deltas with the in-process counters over the same run (S-proc-2).
-- **Sabotage:** S-proc-1, S-proc-2, S-proc-3
+- **Sabotage:** S-proc-1, S-proc-2, S-proc-3, S-proc-4, S-proc-5
 - **Verifiable here:** yes — the host suites and the interleaved runs on this machine
 - **Prediction:** Separate, untraced, the median at 3,125 is within 5% and the 99th percentile within 25% of in process (1,973 µs, 9.2 ms in phase 14's runs). Traced, the generator's lateness at its 99th percentile falls under 3 ms (31 to 40 ms in process), and the traced 99th percentile comes within 1.5 times the untraced, so the tail rule may read it. The trace's cost inside the hosts keeps the traced median 5 to 15% above the untraced. **Observable:** the records' latency, generator lateness and process fields.
 - **Outcome:** pending
@@ -250,6 +250,11 @@ before it is pushed.
 - **S-proc-2:** the hosts' counters taken from one reading, not differenced over the run.
 - **S-proc-3:** the sampled trace drops the loop's takes of the reads it kept (added during P15-01, when
   decision 3's contingency, a trace keeping one write in N, was needed).
+- **S-proc-4:** the sampled trace keeps every request's client stamps, sampled write or not (added during
+  P15-01, when the first sampled trace's floor stayed beyond the threshold at any N, and its client
+  stamps were held until the response).
+- **S-proc-5:** the sampled trace reads an append's previous index from the field after it (added with
+  S-proc-4, when messages came to be read in place instead of decoded).
 - **S-held-1:** an output's emission stamp taken at its release, so no hold appears.
 - **S-held-2:** every held output classed as needless.
 - **S-early-1:** outputs no persist precedes held until the batch's sync again (the remedy undone).

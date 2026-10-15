@@ -16,9 +16,13 @@ namespace Raft.Host;
 /// allocation and an enqueue per hand-off. <see cref="Decomposition"/> reads it after the run. No
 /// stamp is taken inside <c>RaftNode</c>.
 /// With <paramref name="sample"/> above 1 (P15-01) the trace keeps one write in that many, by entry
-/// index, so that what it holds does not grow the hosts' heap with every message of the run: client
-/// stamps, and the durable appends, appends, first-covering answers and takes that concern an index the
-/// sample keeps. A sampled write decomposes exactly as it would in a full trace; the others are not joined.
+/// index, so that what it holds does not grow the hosts' heap with every message of the run: the durable
+/// appends, appends, first-covering answers and takes that concern an index the sample keeps, and the
+/// client stamps of the writes those appends carry. A sampled write decomposes exactly as it would in a
+/// full trace; the others are not joined. Its per-message cost is a read of the message's header in place
+/// and, per client request, a stamp held until the response: the first sampled trace kept every client
+/// stamp and decoded every message, and its 99th percentile stayed beyond decision 3's threshold however
+/// few writes it kept (P15-01's floor runs).
 /// </summary>
 public sealed class HandOffTrace(int sample = 1)
 {
@@ -53,55 +57,82 @@ public sealed class HandOffTrace(int sample = 1)
     private readonly ConcurrentQueue<Stamp> _stamps = new();
     private readonly ConcurrentDictionary<byte[], byte> _keptReads = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentDictionary<(Kind Kind, long Peer), long> _answered = new();
+    private readonly ConcurrentDictionary<long, Held> _held = new();
+    private readonly ConcurrentDictionary<int, byte> _sampledWrites = new();
 
     /// <summary>One write in this many is traced, by entry index (1: every write).</summary>
     public int Sample { get; } = Math.Max(1, sample);
 
-    public void Add(Kind kind, long id, object? payload)
-    {
-        if (Sample == 1 || Keeps(kind, id, payload))
-        {
-            _stamps.Enqueue(new Stamp(Stopwatch.GetTimestamp(), kind, id, payload));
-        }
-    }
+    public void Add(Kind kind, long id, object? payload) => Take(Stopwatch.GetTimestamp(), kind, id, payload);
 
     /// <summary>A stamp taken elsewhere (a recorded trace replayed through the sample), kept as <see cref="Add"/> would keep it.</summary>
     public void Offer(Stamp stamp)
     {
         ArgumentNullException.ThrowIfNull(stamp);
-        if (Sample == 1 || Keeps(stamp.Kind, stamp.Id, stamp.Payload))
+        Take(stamp.At, stamp.Kind, stamp.Id, stamp.Payload);
+    }
+
+    private void Take(long at, Kind kind, long id, object? payload)
+    {
+        if (Sample == 1)
         {
-            _stamps.Enqueue(stamp);
+            _stamps.Enqueue(new Stamp(at, kind, id, payload));
+            return;
+        }
+
+        // A request's stamps are held until its response: its write's index is not known when its line is
+        // read, and is known by then from the leader's durable append (the response follows it, §4).
+        // Sabotage S-proc-4.
+        switch (kind)
+        {
+            case Kind.ClientRead:
+                _held[id] = new Held(at, payload as byte[]);
+                break;
+            case Kind.ClientTaken when _held.TryGetValue(id, out var held):
+                held.TakenAt = at;
+                break;
+            case Kind.Responded:
+                if (_held.TryRemove(id, out var h) && h.Line is { } line && Decomposition.WriteNumber(line) is { } n && _sampledWrites.TryRemove(n, out _))
+                {
+                    _stamps.Enqueue(new Stamp(h.ReadAt, Kind.ClientRead, id, line));
+                    if (h.TakenAt != 0)
+                    {
+                        _stamps.Enqueue(new Stamp(h.TakenAt, Kind.ClientTaken, id, null));
+                    }
+
+                    _stamps.Enqueue(new Stamp(at, Kind.Responded, id, null));
+                }
+
+                break;
+            default:
+                if (Keeps(kind, id, payload))
+                {
+                    _stamps.Enqueue(new Stamp(at, kind, id, payload));
+                }
+
+                break;
         }
     }
 
     /// <summary>
-    /// Whether the sample keeps a stamp (P15-01): every client stamp (a write's index is not known when its
-    /// line is read, and the three are small); a durable append, or an append, that carries an index the
-    /// sample keeps; a successful answer that is the first from its peer to cover one (as the
-    /// decomposition's join reads answers); and the loop's take of a read the sample kept. Sabotage S-proc-3.
+    /// Whether the sample keeps a stamp of the hosts' own (P15-01): a durable append, or an append, that
+    /// carries an index the sample keeps; a successful answer that is the first from its peer to cover one
+    /// (as the decomposition's join reads answers); and the loop's take of a read the sample kept.
+    /// Sabotage S-proc-3.
     /// </summary>
     private bool Keeps(Kind kind, long id, object? payload)
     {
         switch (kind)
         {
-            case Kind.ClientRead or Kind.ClientTaken or Kind.Responded:
-                return true;
             case Kind.Durable:
                 return payload is ReadOnlyMemory<byte> records && DurableKeeps(records.Span);
             case Kind.PeerTaken:
                 return payload is byte[] array && _keptReads.TryRemove(array, out _);
-            case Kind.PeerRead:
-                var read = payload as byte[];
-                var keep = MessageKeeps(kind, id, read);
-                if (keep && read is not null)
-                {
-                    _keptReads[read] = 0;
-                }
-
-                return keep;
+            case Kind.PeerRead when payload is byte[] read && MessageKeeps(kind, id, read):
+                _keptReads[read] = 0;
+                return true;
             case Kind.Sent:
-                return payload is byte[] { Length: >= 8 } frame && MessageKeeps(kind, id, frame[4..^4]);
+                return payload is byte[] { Length: >= 8 } frame && MessageKeeps(kind, id, frame.AsSpan(4, frame.Length - 8));
             default:
                 return false;
         }
@@ -110,52 +141,68 @@ public sealed class HandOffTrace(int sample = 1)
     /// <summary>Whether an index in (low, high] is one the sample keeps.</summary>
     private bool Covers(long low, long high) => high > low && high / Sample > low / Sample;
 
-    private bool MessageKeeps(Kind kind, long peer, byte[]? message)
+    /// <summary>
+    /// Whether an append covers an index the sample keeps, or an answer is the first from its peer to
+    /// cover one, read in place from <see cref="MessageCodec"/>'s wire form (node-interface §6): an append
+    /// is type 3, then term (8), leader (4), previous index (8), previous term (8), commit (8), round (8)
+    /// and its entry count (4); an answer is type 4, then term (8), success (1), match index (8) and
+    /// round (8). Nothing is decoded or copied. Sabotage S-proc-5.
+    /// </summary>
+    private bool MessageKeeps(Kind kind, long peer, ReadOnlySpan<byte> message)
     {
-        if (message is null)
+        if (message.Length >= 49 && message[0] == 3)
         {
-            return false;
+            var previous = BinaryPrimitives.ReadInt64BigEndian(message[13..]);
+            var count = BinaryPrimitives.ReadInt32BigEndian(message[45..]);
+            return count > 0 && Covers(previous, previous + count);
         }
 
-        switch (MessageCodec.Decode(message))
+        if (message.Length == 26 && message[0] == 4 && message[9] == 1)
         {
-            case AppendEntries ae when ae.Entries.Count > 0:
-                return Covers(ae.PrevLogIndex, ae.PrevLogIndex + ae.Entries.Count);
-            case AppendEntriesResponse { Success: true } r:
-                var high = _answered.GetValueOrDefault((kind, peer));
-                if (r.MatchIndex <= high)
-                {
-                    return false;
-                }
-
-                _answered[(kind, peer)] = r.MatchIndex;
-                return Covers(high, r.MatchIndex);
-            default:
+            var match = BinaryPrimitives.ReadInt64BigEndian(message[10..]);
+            var high = _answered.GetValueOrDefault((kind, peer));
+            if (match <= high)
+            {
                 return false;
+            }
+
+            _answered[(kind, peer)] = match;
+            return Covers(high, match);
         }
+
+        return false;
     }
 
-    /// <summary>Whether an entry-log append holds a record whose index the sample keeps (EntryLog's framing: length, index, ...).</summary>
+    /// <summary>
+    /// Whether an entry-log append holds a record whose index the sample keeps (EntryLog's framing: length,
+    /// index, term, previous term, command, checksum); the writes those records carry are the ones whose
+    /// client stamps are kept at their response.
+    /// </summary>
     private bool DurableKeeps(ReadOnlySpan<byte> data)
     {
+        var keep = false;
         for (var off = 0; off + 12 <= data.Length;)
         {
             var length = BinaryPrimitives.ReadInt32BigEndian(data[off..]);
             if (length < 24 || off + 4 + length + 4 > data.Length)
             {
-                return false;
+                break;
             }
 
             var index = BinaryPrimitives.ReadInt64BigEndian(data[(off + 4)..]);
             if (index > 0 && index % Sample == 0)
             {
-                return true;
+                keep = true;
+                if (Decomposition.WriteNumber(data.Slice(off + 4 + 24, length - 24)) is { } n)
+                {
+                    _sampledWrites[n] = 0;
+                }
             }
 
             off += 4 + length + 4;
         }
 
-        return false;
+        return keep;
     }
 
     /// <summary>Every stamp so far, in the order they were taken (within a thread; across threads by their clock).</summary>
@@ -252,5 +299,15 @@ public sealed class HandOffTrace(int sample = 1)
     {
         arrays.Add(array);
         return array;
+    }
+
+    /// <summary>A request's client stamps, held until its response shows whether its write is sampled.</summary>
+    private sealed class Held(long readAt, byte[]? line)
+    {
+        public long ReadAt { get; } = readAt;
+
+        public byte[]? Line { get; } = line;
+
+        public long TakenAt { get; set; }
     }
 }

@@ -386,3 +386,5 @@ S-retire-2 10.0
 S-proc-1 8.0
 S-proc-2 8.0
 S-proc-3 8.0
+S-proc-4 8.0
+S-proc-5 8.0
