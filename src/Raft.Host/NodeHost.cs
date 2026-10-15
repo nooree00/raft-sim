@@ -286,12 +286,44 @@ public sealed class NodeHost : IAsyncDisposable
     /// </summary>
     public const int BatchLimit = 64;
 
+    /// <summary>
+    /// P15-05: a batch's client requests handed to the node after its other inputs, each group in its
+    /// arrival order, so an answer's outputs (a commit's responses, the next appends) come before the
+    /// requests' persists in the batch and leave at its start (class B becomes C, <see cref="OutputClasses"/>).
+    /// Handing a request over later is its arrival a little later, which the node accepts in any order;
+    /// each source's inputs keep theirs. <paramref name="requests"/> is the caller's, reused. Sabotages
+    /// S-early-3, S-early-4.
+    /// </summary>
+    public static void ClientRequestsLast(List<Input> batch, List<Input> requests)
+    {
+        requests.Clear();
+        var kept = 0;
+        for (var i = 0; i < batch.Count; i++)
+        {
+            if (batch[i] is ClientRequest)
+            {
+                requests.Add(batch[i]);
+            }
+            else
+            {
+                batch[kept++] = batch[i];
+            }
+        }
+
+        if (requests.Count > 0)
+        {
+            batch.RemoveRange(kept, batch.Count - kept);
+            batch.AddRange(requests);
+        }
+    }
+
     private void Loop()
     {
         var reader = _inputs.Reader;
         var batch = new List<Input>(BatchLimit);
         var lists = new List<IReadOnlyList<Effect>>(BatchLimit);
         var handled = new List<long>(BatchLimit);
+        var requests = new List<Input>(BatchLimit);
         while (!_stop.IsCancellationRequested)
         {
             Input input;
@@ -322,6 +354,7 @@ public sealed class NodeHost : IAsyncDisposable
                 batch.Add(more);
             }
 
+            ClientRequestsLast(batch, requests);
             Stall();
             var once = Interlocked.Exchange(ref _stallOnceTicks, 0);
             if (once > 0)
@@ -376,7 +409,7 @@ public sealed class NodeHost : IAsyncDisposable
                 var executing = Stopwatch.GetTimestamp();
                 _executor!.ExecuteBatch(lists);
                 var released = Stopwatch.GetTimestamp();
-                OutputClasses.Count(lists, handled, released, _heldCounts, _heldTicks);
+                OutputClasses.Count(lists, handled, executing, released, _heldCounts, _heldTicks);
                 Interlocked.Add(ref _loopHandleTicks, executing - handling);
                 Interlocked.Add(ref _loopExecuteTicks, released - executing);
                 Interlocked.Add(ref _loopInputs, batch.Count);

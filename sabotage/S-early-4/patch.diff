@@ -1,0 +1,10 @@
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -310,6 +310,7 @@
+             }
+         }
+ 
++        batch.Reverse(0, kept);
+         if (requests.Count > 0)
+         {
+             batch.RemoveRange(kept, batch.Count - kept);

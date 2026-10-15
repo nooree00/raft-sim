@@ -45,8 +45,12 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
     /// P14-03, the group commit: the effect lists of several inputs executed as one batch. Every persist
     /// is written in the order the node emitted it, without a sync; then each file written is synced
     /// once, in the order the files were first written (a term record before an append stays durable
-    /// before it), and the directory after a file was created; then every send, response and event is
-    /// released in emitted order. A rename, a delete or a truncate is a boundary: the writes before it
+    /// before it), and the directory after a file was created; then every send, response and event held
+    /// is released in emitted order. Outputs before the batch's first persist are not held (P15-05): no
+    /// persist the node emitted before them is still to be made durable, so node-interface §4 lets them
+    /// leave as the executor reaches them, before the batch's writes (P15-03 found these holds, with those
+    /// behind an earlier list's persist, 0.73 of the leader's growth in commit-respond and leader-to-send
+    /// from 1,250 to 3,125 writes a second). A rename, a delete or a truncate is a boundary: the writes before it
     /// are synced first and it keeps its own syncs, as in <see cref="Execute"/> (the snapshot's two-way
     /// barrier, P7-05). Holding a send for a later list's persist is within node-interface §4, which
     /// says when a message may leave, not that it must. A failed write or sync throws before anything
@@ -136,7 +140,14 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
                         persisted = true;
                         break;
                     default:
-                        sendAfterPersist |= persisted && effect is Send;
+                        if (!persisted)
+                        {
+                            // P15-05: behind no persist in its batch (class C); sabotage S-early-1, S-early-2.
+                            Release(effect);
+                            break;
+                        }
+
+                        sendAfterPersist |= effect is Send;
                         held.Add(effect);
                         break;
                 }
@@ -153,18 +164,23 @@ public sealed class DiskExecutor(IFileSystem files, Action<Send> send, Action<Cl
 
         foreach (var effect in held)
         {
-            switch (effect)
-            {
-                case Send s:
-                    send(s);
-                    break;
-                case ClientResponse c:
-                    respond(c);
-                    break;
-                case Emit e:
-                    emit(e);
-                    break;
-            }
+            Release(effect);
+        }
+    }
+
+    private void Release(Effect effect)
+    {
+        switch (effect)
+        {
+            case Send s:
+                send(s);
+                break;
+            case ClientResponse c:
+                respond(c);
+                break;
+            case Emit e:
+                emit(e);
+                break;
         }
     }
 

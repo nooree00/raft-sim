@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/DiskExecutor.cs
++++ b/src/Raft.Host/DiskExecutor.cs
+@@ -140,7 +140,7 @@
+                         persisted = true;
+                         break;
+                     default:
+-                        if (!persisted)
++                        if (!persisted || effect is ClientResponse)
+                         {
+                             // P15-05: behind no persist in its batch (class C); sabotage S-early-1, S-early-2.
+                             Release(effect);

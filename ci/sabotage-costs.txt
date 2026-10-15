@@ -391,3 +391,7 @@ S-proc-4 8.0
 S-proc-5 8.0
 S-held-1 8.0
 S-held-2 8.0
+S-early-1 8.0
+S-early-2 8.0
+S-early-3 8.0
+S-early-4 8.0

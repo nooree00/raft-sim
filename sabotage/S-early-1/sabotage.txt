@@ -1,0 +1,6 @@
+description: The outputs no persist precedes in a batch are held until its syncs again, so the class-C hold P15-03 measured comes back (P15-05, the remedy undone)
+mechanism: outputs behind no persist held to the batch's end
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.AnOutputNoPersistPrecedesInItsBatchLeavesBeforeTheBatchsSync
+expect: caught

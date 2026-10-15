@@ -1,0 +1,6 @@
+description: The inputs moved ahead of a batch's client requests are handed over in reverse, so two messages from one peer reach the node out of their order (P15-05)
+mechanism: a source's inputs reordered
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.BatchOrderTests.EachSourcesInputsKeepTheirOrder
+expect: caught

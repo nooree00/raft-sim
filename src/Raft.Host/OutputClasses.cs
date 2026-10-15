@@ -77,9 +77,10 @@ public static class OutputClasses
     /// <summary>
     /// Counts each class's outputs and their holds, by kind (sends first, then responses, A, B, C each):
     /// an output's hold is from its list's handling to the batch's release, except an output behind no
-    /// persist in a batch of one list, which <see cref="DiskExecutor.Execute"/> releases as it reaches it.
+    /// persist, which the executor releases as it reaches it, before any write (P15-05; in a batch of one
+    /// list, <see cref="DiskExecutor.Execute"/> always did): its hold ends when the batch starts executing.
     /// </summary>
-    public static void Count(IReadOnlyList<IReadOnlyList<Effect>> lists, IReadOnlyList<long> handled, long released, long[] counts, long[] ticks)
+    public static void Count(IReadOnlyList<IReadOnlyList<Effect>> lists, IReadOnlyList<long> handled, long executing, long released, long[] counts, long[] ticks)
     {
         ArgumentNullException.ThrowIfNull(handled);
         ArgumentNullException.ThrowIfNull(counts);
@@ -88,7 +89,7 @@ public static class OutputClasses
         {
             var i = (output is Send ? 0 : 3) + (int)c;
             Interlocked.Increment(ref counts[i]);
-            Interlocked.Add(ref ticks[i], lists.Count == 1 && c == Hold.None ? 0 : released - handled[k]);
+            Interlocked.Add(ref ticks[i], (c == Hold.None ? executing : released) - handled[k]);
         }
     }
 }

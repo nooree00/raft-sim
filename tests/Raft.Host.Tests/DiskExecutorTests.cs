@@ -154,6 +154,46 @@ public sealed class DiskExecutorTests : IDisposable
         return (new DiskExecutor(files, s => log.Add("send " + s.To), c => log.Add("respond " + c.RequestId), e => log.Add("emit " + e.Name)), log);
     }
 
+    /// <summary>
+    /// P15-03, decision 2's hypothesis as a check: an output no persist precedes in its batch (class C) may
+    /// leave at the batch's start under node-interface §4, and leaves before the batch's sync. Run at
+    /// `ac1bc6e` (phase 14's host), it failed: `write entries.log / sync entries.log / sync-dir / respond 7
+    /// / send n2 / send n3`. It lands with P15-05's remedy. Sabotage S-early-1.
+    /// </summary>
+    [Fact]
+    public void AnOutputNoPersistPrecedesInItsBatchLeavesBeforeTheBatchsSync()
+    {
+        var (executor, log) = Batched();
+        executor.ExecuteBatch(
+        [
+            [new ClientResponse(7, B("ok")), new Send(new NodeId(2), B("m0"))],
+            [new PersistAppend("entries.log", B("a")), new Send(new NodeId(3), B("m1"))],
+        ]);
+
+        var firstSync = log.FindIndex(l => l.StartsWith("sync", StringComparison.Ordinal));
+        Assert.True(firstSync >= 0 && log.IndexOf("respond 7") is >= 0 and var r && r < firstSync && log.IndexOf("send n2") is >= 0 and var s && s < firstSync, string.Join(" / ", log));
+        AssertNothingLeavesEarly(log);
+    }
+
+    /// <summary>
+    /// P15-05: in a batch, outputs before its first persist leave as the executor reaches them; those after
+    /// it still wait for the batch's syncs. Sabotage S-early-2 (an output after a persist released early).
+    /// </summary>
+    [Fact]
+    public void OnlyTheOutputsBeforeABatchsFirstPersistLeaveBeforeItsSyncs()
+    {
+        var (executor, log) = Batched();
+        executor.ExecuteBatch(
+        [
+            [new ClientResponse(7, B("ok"))],
+            [new PersistAppend("entries.log", B("a")), new Send(new NodeId(2), B("m1"))],
+            [new ClientResponse(8, B("ok")), new Emit("x", [])],
+        ]);
+
+        AssertNothingLeavesEarly(log);
+        Assert.Equal(["respond 7", "write entries.log", "sync entries.log", "sync-dir", "send n2", "respond 8", "emit x"], log);
+    }
+
     /// <summary>P14-03: a batch of lists holds every send, response and event until the batch's persists are durable. Sabotage S-group-2.</summary>
     [Fact]
     public void ABatchReleasesNothingBeforeItsSyncs()

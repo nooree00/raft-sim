@@ -1,0 +1,6 @@
+description: A batch's inputs are handed to the node in arrival order again, so an answer's outputs stay behind the requests' persists (class B) (P15-05, the reorder undone)
+mechanism: the client requests not moved after the other inputs
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.BatchOrderTests.ABatchsClientRequestsAreHandedOverAfterItsOtherInputs
+expect: caught

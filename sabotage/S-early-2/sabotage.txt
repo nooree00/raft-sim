@@ -1,0 +1,6 @@
+description: A client response after a persist in its batch leaves before the batch's syncs: node-interface §4 broken while every latency improves (P15-05)
+mechanism: a held response released early
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.DiskExecutorTests.OnlyTheOutputsBeforeABatchsFirstPersistLeaveBeforeItsSyncs
+expect: caught

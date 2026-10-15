@@ -48,15 +48,15 @@ public sealed class OutputClassesTests
             trace.Snapshot().Select(s => (s.At, s.Kind, s.Id)));
     }
 
-    /// <summary>A hold runs from the list's handling to the batch's release; a batch of one list releases an output behind no persist as it reaches it.</summary>
+    /// <summary>A hold runs from the list's handling to the batch's release; an output behind no persist leaves as the batch starts executing (P15-05).</summary>
     [Fact]
     public void EachClassIsCountedWithItsHold()
     {
         var (counts, ticks) = (new long[6], new long[6]);
-        OutputClasses.Count(Batch, [100, 200, 300], 1_000, counts, ticks);
-        OutputClasses.Count([[new ClientResponse(9, B("ok")), new PersistAppend("entries.log", B("b"))]], [400], 1_000, counts, ticks);
+        OutputClasses.Count(Batch, [100, 200, 300], 400, 1_000, counts, ticks);
+        OutputClasses.Count([[new ClientResponse(9, B("ok")), new PersistAppend("entries.log", B("b"))]], [450], 450, 1_000, counts, ticks);
 
         Assert.Equal([1L, 0, 1, 1, 1, 1], counts);
-        Assert.Equal([900L, 0, 900, 700, 800, 0], ticks);
+        Assert.Equal([900L, 0, 300, 700, 800, 0], ticks);
     }
 }
