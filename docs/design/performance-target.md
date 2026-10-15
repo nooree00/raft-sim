@@ -325,7 +325,8 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
   since moved the measured sustained rate from 3,125 writes a second to beyond 6,250, the curve's
   highest (m:p14-04-ab-fix-6250-1 to -5). A convention pinned to a moving quantity drifts silently.
   Phase 15 restates it at half the newly measured capacity, or pins it to an absolute rate with the
-  reason; until then the criteria stand at 3,125 writes a second as written above.
+  reason; until then the criteria stand at 3,125 writes a second as written above. **Pinned by P15-02,**
+  absolute, with the reason (the last section).
 - **C_design no longer describes the design.** With a group commit the leader's sync carries a batch,
   so 1 / S is not this design's capacity; at 3,125 writes a second the leader's loop is 0.96 busy in
   batches of 1.9 inputs, its serial work per write 290 µs (m:p14-04-ab-fix-3125-1 to -5). The
@@ -334,3 +335,25 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
   percentile (41.6 to 51.7 ms) is mostly the trace's own cost against 8.9 to 14.2 ms untraced
   (m:p14-04-traced-local-3125-1 to -5, m:p14-04-ab-fix-3125-1 to -5). Phase 15 runs the load
   generator in a process of its own before the rule reads a tail again.
+
+
+## The operating point, pinned (P15-02, phase 15's decision 4)
+
+- **The operating point is 3,125 writes a second, absolute.** A latency criterion judges remedies at a
+  load. Pinned to a capacity, the operating point moves whenever a remedy moves the capacity, so the
+  criterion would change under the remedy it is judging: the circularity P14-02 refused for the queueing
+  model, whose service time depends on the design under test. That 3,125 is where every curve since
+  phase 10 was measured keeps the comparisons holding; that is the secondary benefit, not the argument.
+  It is no longer "half of C_design" (the model above stays as history) and is not restated when the
+  capacity moves.
+- **The capacity beside it, with no criterion:** with the load generator in a process of its own
+  (P15-01), the highest rate sustained in every run (completed within 5% of offered, the 99th
+  percentile under 100 ms) is **9,375 writes a second** on this machine (m:p15-02-cap-local-9375-1 to
+  -5: medians 2,304 to 2,955 µs, 99th percentiles 9.1 to 23.8 ms); at 12,500 every run completes the
+  offered rate but none keeps the 99th percentile under 100 ms (403 to 674 ms,
+  m:p15-02-cap-local-12500-1 to -5). The operating point is a third of it.
+- **What limits it is not yet named.** Past 9,375 the leader's loop is less busy than at 9,375 (0.88 to
+  0.90 against 0.955) while the queue grows, and the generator's lateness at its 99th percentile (5.6
+  to 25 ms) is far below the latency; the replication pipeline's one append in flight per follower
+  (P11-02) is the candidate P15-03's split can test.
+
