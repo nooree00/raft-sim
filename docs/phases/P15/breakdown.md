@@ -235,7 +235,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 - **Sabotage:** S-reach-1, S-reach-2
 - **Verifiable here:** partial — the counting here; the run's counts on GitHub
 - **Prediction:** On the phase's first run with it, class reach finds exactly the three tests P14-05 found and listed, and no others, the reds being deterministic in the patches; the retired observer's notice parts become the class-reach notice unchanged in size (largest under 3,100 characters). **Observable:** build-collect's note.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — on the phase's first run with it (run:38795000252, at `ac1bc6e`), build-collect's class reach found three tests, each in `ci/class-reach.txt`, none unlisted: the three P14-05 found and moved there, and no others. The red-neighbour notices are the retired observer's, unchanged: thirteen head shards, the largest part 2,758 characters (under 3,100). `ci/broad-targets.txt` is a `decision` line in the registry, and the run's 352 entries do not include the retired S-broad-1.
 
 ### P15-07 — The margin audit after the host's changes
 
