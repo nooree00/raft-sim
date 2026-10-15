@@ -1,0 +1,13 @@
+--- a/tools/Raft.Gates/BuildCollect.cs
++++ b/tools/Raft.Gates/BuildCollect.cs
+@@ -138,9 +138,7 @@
+             return;
+         }
+ 
+-        var found = red.Select(r => (Test: r.Key, Red: r.Value, Ran: RanBeside(r.Key, targets)))
+-            .Where(t => t.Ran >= ReachMinimum && 2 * t.Red >= t.Ran)
+-            .Select(t => (t.Test, $"red beside {t.Red} of its class's {t.Ran} other entries"));
++        var found = reach.Select(b => (b, "listed"));
+         Currency.Listed(Currency.ClassReach, found, test => reach.Any(b => test.StartsWith(b, StringComparison.Ordinal)),
+             $"every test red beside at least half of its class's other entries, and at least {ReachMinimum}", f, test => $"Add the line: {test}");
+     }

@@ -1,0 +1,6 @@
+description: The class-reach rule is dropped from the loader: an entry aimed at a test red beside most of its class's entries loads without a reason or a control (P15-06)
+mechanism: the loader stops requiring a reason or a control for a class-reach target
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.SabotageSpecTests.AClassReachTargetNeedsAReasonOrAControl
+expect: caught

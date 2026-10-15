@@ -4,3 +4,4 @@ kind: test
 project: tests/Raft.Gates.Tests
 target: Raft.Gates.Tests.BuildCollectBroadTests.ATestRedBesideMostOfTheEntriesThatRanItMustBeListed
 expect: caught
+retired: 1b0dff4 the broad-run observer retired at phase 14's acceptance (P15-06, decision 5): its test replaced by class reach's; last run at this commit

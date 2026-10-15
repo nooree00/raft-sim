@@ -1,6 +1,10 @@
 # Tests that almost any behaviour change turns red (P3-01). An entry whose target starts with one
 # of these lines needs a `reason:` (text its target's failure message must contain) or a
 # `control.diff` (the patch with its mechanism removed, under which the target must stay green).
+# A judgement, held as a decision (P15-06, decision 5): since P11-09 an entry runs only its target's
+# class, so no run shows a test going red at another class's patches, and breadth across the code is
+# chosen by reading the test. What the runs can show, a test red beside most of its own class's
+# entries, is ci/class-reach.txt's, observed.
 # Golden values: any change to what the simulator or the streams produce.
 Raft.Simulation.Tests.DeterminismTests.TheGoldenTraceIsReproducedExactly
 Raft.Simulation.Tests.RandomnessTests.GoldenValuesAreStableAcrossProcessesAndVersions
@@ -19,8 +23,3 @@ Raft.Architecture.Tests.SimulationAmbientDependencyTests.EveryReferencedTypeIsOn
 Raft.Membership.Tests.MembershipSimulationTests.TheMembershipSampleHoldsEveryInvariant
 # P6-07: an aggregate over 200 generated executions with removals, each standing removed server's run repeated without the rule.
 Raft.Membership.Tests.MembershipSimulationTests.RemovedServersDoNotDisruptTheNewConfiguration
-# P14-05: found by broad-run on its first run (run 38527995236), each red beside half of the entries
-# that ran it: focused tests that most sabotages of their own class reach.
-Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway
-Raft.Core.Tests.MembershipTests.ACandidateDuringJointConsensusNeedsAMajorityOfBoth
-Raft.Core.Tests.TermVoteLogTests.ATornRecordFollowedByARecordWhoseCutWasLostRecoversTheRecord

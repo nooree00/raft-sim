@@ -1,0 +1,14 @@
+--- a/tools/Raft.Gates/SabotageSpec.cs
++++ b/tools/Raft.Gates/SabotageSpec.cs
+@@ -158,11 +158,6 @@
+             f.Require(spec.Get("reason") is not null || spec.ControlPath is not null,
+                 $"{id}: target {target} is a broad test ({BroadTargetsFile}); it goes red at almost any change, so the entry needs a reason or a control");
+         }
+-        else if (target is not null && (reach ?? []).Any(b => target.StartsWith(b, StringComparison.Ordinal)))
+-        {
+-            f.Require(spec.Get("reason") is not null || spec.ControlPath is not null,
+-                $"{id}: target {target} reaches its class ({ClassReachFile}); it goes red beside most of its class's entries, so the entry needs a reason or a control");
+-        }
+         f.Require(Kinds.Contains(spec.Kind), $"{id}: kind '{spec.Kind}' not one of {string.Join("/", Kinds)}");
+         f.Require(Expectations.Contains(spec.Expect), $"{id}: expect '{spec.Expect}' not one of {string.Join("/", Expectations)}");
+         f.Require(spec.Get("build") is null or "yes" or "no", $"{id}: build must be yes or no");

@@ -13,12 +13,14 @@ namespace Raft.Gates.Tests;
 /// why the target went red. Vacuity risk: a broad-target list that names no real test makes the
 /// rule pass by matching nothing; guarded by requiring every line to name a test method that
 /// exists. Sabotage S-audit-3 (the broad-target rule removed from the loader); S-audit-1 and
-/// S-audit-2 are the harness's own controls for `reason:` and `control.diff`.
+/// S-audit-2 are the harness's own controls for `reason:` and `control.diff`. P15-06: the class-reach
+/// list's targets need the same, S-reach-2 (its rule removed from the loader).
 /// </summary>
 public sealed partial class SabotageSpecTests : IDisposable
 {
     private const string Patch = "--- a/src/A.cs\n+++ b/src/A.cs\n@@ -1 +1 @@\n-x\n+y\n";
     private const string Broad = "Raft.Simulation.Tests.DeterminismTests.TheGoldenTraceIsReproducedExactly";
+    private const string Reach = "Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway";
     private readonly string _dir = Directory.CreateTempSubdirectory("sabotage-spec-").FullName;
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
@@ -35,7 +37,7 @@ public sealed partial class SabotageSpecTests : IDisposable
         }
 
         var f = new Findings();
-        SabotageSpec.Load("S-x-1", entry, [Broad], f);
+        SabotageSpec.Load("S-x-1", entry, [Broad], f, reach: [Reach]);
         return f.Failures;
     }
 
@@ -59,6 +61,15 @@ public sealed partial class SabotageSpecTests : IDisposable
         Assert.Empty(Load(Test(Broad), control: "--- a/src/A.cs\n+++ b/src/A.cs\n@@ -1 +1 @@\n-x\n+z\n"));
     }
 
+    /// <summary>P15-06: a test that reaches its class needs a reason or a control too. Sabotage S-reach-2.</summary>
+    [Fact]
+    public void AClassReachTargetNeedsAReasonOrAControl()
+    {
+        Assert.Contains(Load(Test(Reach)), e => e.Contains("reaches its class (ci/class-reach.txt)", StringComparison.Ordinal));
+        Assert.Empty(Load(Test(Reach, "reason: the oracle rejects the twin\n")));
+        Assert.Empty(Load(Test(Reach), control: "--- a/src/A.cs\n+++ b/src/A.cs\n@@ -1 +1 @@\n-x\n+z\n"));
+    }
+
     [Theory]
     [InlineData(" \n", "empty control")]
     [InlineData(Patch, "the patch itself")]
@@ -80,7 +91,7 @@ public sealed partial class SabotageSpecTests : IDisposable
         var repo = Repo.Locate(null);
         var lines = SabotageSpec.ParseBroadTargets(File.ReadAllText(repo.PathOf(SabotageSpec.BroadTargetsFile)));
         Assert.True(lines.Count >= 5, $"only {lines.Count} broad targets");
-        foreach (var line in lines)
+        foreach (var line in lines.Concat(SabotageSpec.ParseBroadTargets(File.ReadAllText(repo.PathOf(SabotageSpec.ClassReachFile)))))
         {
             var m = TestName().Match(line);
             Assert.True(m.Success, $"'{line}' is not Raft.<Project>.Tests.<Class>.<Method>");

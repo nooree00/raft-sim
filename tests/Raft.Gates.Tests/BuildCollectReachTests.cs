@@ -7,13 +7,13 @@ using Xunit;
 namespace Raft.Gates.Tests;
 
 /// <summary>
-/// P14-05: build-collect reads every head shard's notice of the tests red beside each entry's target
-/// and requires a test red beside at least half of the entries that ran it, and at least four, to be
-/// in the broad-target list (the observer broad-run). The entries that ran a test are the manifest's
-/// entries targeting another method of its class. Sabotage S-broad-1 (the observation taken from the
-/// list).
+/// P15-06 (P14-05's broad-run, renamed for what it can see): build-collect reads every head shard's
+/// notice of the tests red beside each entry's target and requires a test red beside at least half of
+/// its class's other entries, and at least four, to be in the class-reach list (the observer
+/// class-reach). The entries that ran a test are the manifest's entries targeting another method of its
+/// class. Sabotage S-reach-1 (the observation taken from the list).
 /// </summary>
-public sealed class BuildCollectBroadTests
+public sealed class BuildCollectReachTests
 {
     private static readonly string[] TwoShards = ["1/2", "2/2"];
 
@@ -32,20 +32,20 @@ public sealed class BuildCollectBroadTests
     private static Findings Check(Func<long, string> annotations)
     {
         var f = new Findings();
-        BuildCollect.CheckBroad(TwoShards, Jobs, annotations, [Listed], Targets, f);
+        BuildCollect.CheckReach(TwoShards, Jobs, annotations, [Listed], Targets, f);
         return f;
     }
 
-    /// <summary>Sabotage S-broad-1: summed over the shards, red beside 5 of the 6 entries that ran it, and not listed.</summary>
+    /// <summary>Sabotage S-reach-1: summed over the shards, red beside 5 of its class's 6 other entries, and not listed.</summary>
     [Fact]
-    public void ATestRedBesideMostOfTheEntriesThatRanItMustBeListed()
+    public void ATestRedBesideHalfOfItsClasssOtherEntriesMustBeListed()
     {
         var f = Check(id => id == 11 ? Annotations(Part(1, 1, "@Raft.X.Tests.C\nUnlisted 3")) : Annotations(Part(1, 1, "@Raft.X.Tests.C\nUnlisted 2")));
         var failure = Assert.Single(f.Failures);
-        Assert.StartsWith("ci/broad-targets.txt: Raft.X.Tests.C.Unlisted claims not listed; GitHub's head shards, the tests red beside each entry's target: red beside 5 of the 6 entries that ran it", failure, StringComparison.Ordinal);
+        Assert.StartsWith("ci/class-reach.txt: Raft.X.Tests.C.Unlisted claims not listed; GitHub's head shards, the tests red beside each entry's target in its class: red beside 5 of its class's 6 other entries", failure, StringComparison.Ordinal);
     }
 
-    /// <summary>A listed test passes however often it is red, and an unlisted one red beside 2 of 6 is not broad.</summary>
+    /// <summary>A listed test passes however often it is red, and an unlisted one red beside 2 of 6 does not reach its class.</summary>
     [Fact]
     public void AListedTestPassesAndSoDoesOneRarelyRed() =>
         Assert.Empty(Check(id => id == 11 ? Annotations(Part(1, 1, "@Raft.X.Tests.C\nListed 6\nRare 1")) : Annotations(Part(1, 1, "@Raft.X.Tests.C\nRare 1"))).Failures);

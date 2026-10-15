@@ -1,0 +1,6 @@
+description: The class-reach observer takes the listed tests as what the harness saw go red, so a test red beside most of its class's entries but unlisted passes (P15-06)
+mechanism: the observation taken from the list
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.BuildCollectReachTests.ATestRedBesideHalfOfItsClasssOtherEntriesMustBeListed
+expect: caught

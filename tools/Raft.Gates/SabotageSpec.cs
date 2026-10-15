@@ -17,7 +17,9 @@ namespace Raft.Gates;
 /// state a `reason:`, text its target's failure message must contain, and may carry `control.diff`,
 /// the patch with its mechanism removed, under which the target must stay green (`control-expect:
 /// red` only for the harness's own control). An entry whose target is on the broad-target list
-/// (ci/broad-targets.txt: tests any behaviour change turns red) needs a reason or a control.
+/// (ci/broad-targets.txt: tests any behaviour change turns red, a judgement) or the class-reach list
+/// (ci/class-reach.txt: tests red beside most of their class's entries, observed, P15-06) needs a
+/// reason or a control.
 /// P14-01: an entry is retired by `retired: <commit> <reason>`, the commit it last ran at, when the code its target tests is
 /// removed. The harness, the patch gate, the cost file and the per-commit matrix skip it
 /// (<see cref="LoadLive"/>); the breakdown gate lets only a task with a final outcome name it; and
@@ -27,6 +29,9 @@ namespace Raft.Gates;
 internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, string> Fields, string PatchPath, string? ControlPath)
 {
     public const string BroadTargetsFile = "ci/broad-targets.txt";
+
+    /// <summary>The tests the harness's runs show red beside at least half of their class's other entries (P15-06, the observer class-reach).</summary>
+    public const string ClassReachFile = "ci/class-reach.txt";
     public static readonly string[] Kinds = ["test", "command"];
     public static readonly string[] Expectations = ["caught", "survived", "build-error", "not-compiled-in", "wrong-reason"];
 
@@ -74,8 +79,10 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         var broadPath = repo.PathOf(BroadTargetsFile);
         var broad = File.Exists(broadPath) ? ParseBroadTargets(File.ReadAllText(broadPath)) : [];
         f.Require(broad.Count > 0, $"{BroadTargetsFile} is missing or lists nothing: every target would count as narrow");
+        var reachPath = repo.PathOf(ClassReachFile);
+        var reach = File.Exists(reachPath) ? ParseBroadTargets(File.ReadAllText(reachPath)) : [];
         return Directory.GetDirectories(dir).Order(StringComparer.Ordinal)
-            .Select(d => Load(Path.GetFileName(d), d, broad, f, (project, target) => TargetExists(repo, project, target))).OfType<SabotageSpec>().ToList();
+            .Select(d => Load(Path.GetFileName(d), d, broad, f, (project, target) => TargetExists(repo, project, target), reach)).OfType<SabotageSpec>().ToList();
     }
 
     /// <summary>
@@ -109,7 +116,7 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         diff.Split('\n').Where(l => l.StartsWith("+++ b/", StringComparison.Ordinal) || l.StartsWith("--- a/", StringComparison.Ordinal))
             .Select(l => l[6..].Trim()).ToHashSet(StringComparer.Ordinal);
 
-    internal static SabotageSpec? Load(string id, string dir, IReadOnlyList<string> broad, Findings f, Func<string, string, bool>? targetExists = null)
+    internal static SabotageSpec? Load(string id, string dir, IReadOnlyList<string> broad, Findings f, Func<string, string, bool>? targetExists = null, IReadOnlyList<string>? reach = null)
     {
         var txt = Path.Combine(dir, "sabotage.txt");
         var patch = Path.Combine(dir, "patch.diff");
@@ -150,6 +157,11 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         {
             f.Require(spec.Get("reason") is not null || spec.ControlPath is not null,
                 $"{id}: target {target} is a broad test ({BroadTargetsFile}); it goes red at almost any change, so the entry needs a reason or a control");
+        }
+        else if (target is not null && (reach ?? []).Any(b => target.StartsWith(b, StringComparison.Ordinal)))
+        {
+            f.Require(spec.Get("reason") is not null || spec.ControlPath is not null,
+                $"{id}: target {target} reaches its class ({ClassReachFile}); it goes red beside most of its class's entries, so the entry needs a reason or a control");
         }
         f.Require(Kinds.Contains(spec.Kind), $"{id}: kind '{spec.Kind}' not one of {string.Join("/", Kinds)}");
         f.Require(Expectations.Contains(spec.Expect), $"{id}: expect '{spec.Expect}' not one of {string.Join("/", Expectations)}");

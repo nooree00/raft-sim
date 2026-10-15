@@ -15,12 +15,13 @@
 ci/inputs.txt                   subject       this registry, compared by gates inputs with the inputs it finds
 
 # The four phase 12 found checked by nothing (P12-01's audit), each with an observer where its truth lives;
-# and the two premises this registry's first application found (P13-01), given observers by P14-05 and P14-06.
+# and the two premises this registry's first application found (P13-01), given observers by P14-05 and P14-06
+# (P14-05's broad-run became class-reach at P15-06, its list a new file; the broad-target list a decision below).
 measurements                    currency      record-commit: each record's commit among the head's ancestors (gates measurements)
 ci/sabotage-touched.txt         currency      touched-run: the touched stage's run within a factor of 3.25 of its estimate (gates sabotage --touched)
 ci/sabotage-costs.txt           currency      github-run: the run's total within a factor of 2 of the file's sum (build-collect); each entry within 5 and each shard within 3 in the harness
 ci/budget-seeds.txt             currency      soak-ranking: each seed among the baseline soak's ten hardest decided histories (the soak job)
-ci/broad-targets.txt            currency      broad-run: every test red beside at least half of the entries that ran it beside their target, and at least four, listed (build-collect, P14-05)
+ci/class-reach.txt              currency      class-reach: every test red beside at least half of its class's other entries, and at least four, listed (build-collect, P15-06)
 docs/phases/*/margins-bench.tsv currency      margins-commit: each bench row measured at or after its control's sources last changed (gates margins --currency; fails a report at the head, P14-06)
 
 # Current by construction: compared with what they describe, both ways, on every run.
@@ -34,6 +35,7 @@ global.json                     construction  preflight: the running SDK against
 ci/image.digest                 decision      the SDK image every job runs in, pinned by digest; preflight checks the form and that every workflow uses it
 ci/gitleaks.image               decision      the secret scanner's image, pinned by digest; preflight checks the form
 ci/sabotage-shard-size.txt      decision      entries per harness shard; each shard's 15-minute ceiling bounds the consequence
+ci/broad-targets.txt            decision      the tests any behaviour change turns red, chosen by reading them (P3-01); no run shows breadth across classes since P11-09, so nothing observes it (P15-06, decision 5)
 
 # What the gates check.
 .github/workflows               subject       what preflight checks: pins, and no suppressed failure

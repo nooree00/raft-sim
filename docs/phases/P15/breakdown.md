@@ -215,7 +215,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 
 - **Task:** Decision 5: P14-05's broad-run observer retired through P14-01's mechanism (S-broad-1 retired with its target); `ci/broad-targets.txt` a `decision` input, its twelve judgement entries kept; the class-reach list and observer (`class-reach`: red beside at least half of the class's other entries, and at least four), the three P14-05 additions moved to it, its registry line a `currency` line.
 - **Vacuity:** An observer reading its observation from its own list compares the list with itself; guarded by S-reach-1. A class-reach rule that counts an entry's own target as its neighbour reaches every test; guarded by the test that the entry's own method is excluded, carried from P14-05.
-- **Sabotage:** S-reach-1
+- **Sabotage:** S-reach-1, S-reach-2
 - **Verifiable here:** partial — the counting here; the run's counts on GitHub
 - **Prediction:** On the phase's first run with it, class reach finds exactly the three tests P14-05 found and listed, and no others, the reds being deterministic in the patches; the retired observer's notice parts become the class-reach notice unchanged in size (largest under 3,100 characters). **Observable:** build-collect's note.
 - **Outcome:** pending
@@ -262,6 +262,8 @@ before it is pushed.
 - **S-early-3:** a batch's inputs handed to the node in arrival order again (the reorder undone).
 - **S-early-4:** two messages from one peer handed to the node out of their order.
 - **S-reach-1:** the class-reach observer takes its own list as the observed set.
+- **S-reach-2:** the loader stops requiring a reason or a control for a class-reach target (added during P15-06,
+  when the class-reach list became a file of its own and the loader's rule had to read it).
 
 ## Register rows
 

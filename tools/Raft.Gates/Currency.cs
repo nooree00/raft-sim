@@ -33,12 +33,12 @@ internal static partial class Currency
 
     public static readonly Observer SoakRanking = new("soak-ranking", SeedsFile, "the baseline soak's ten hardest decided histories", "gates currency soak-ranking (the soak job)");
 
-    public static readonly Observer BroadRun = new("broad-run", SabotageSpec.BroadTargetsFile, "GitHub's head shards, the tests red beside each entry's target", "gates build-collect");
+    public static readonly Observer ClassReach = new("class-reach", SabotageSpec.ClassReachFile, "GitHub's head shards, the tests red beside each entry's target in its class", "gates build-collect");
 
     public static readonly Observer MarginsCommit = new("margins-commit", Margins.BenchTables, "git, the last change to each row's control", "gates margins --currency (fails a report at the head)");
 
     /// <summary>Every observer; the registry must name each exactly once, at its input.</summary>
-    public static readonly IReadOnlyList<Observer> Observers = [RecordCommit, TouchedRun, GitHubRun, SoakRanking, BroadRun, MarginsCommit];
+    public static readonly IReadOnlyList<Observer> Observers = [RecordCommit, TouchedRun, GitHubRun, SoakRanking, ClassReach, MarginsCommit];
 
     /// <summary>The Budget tests' seeds (P13-01: moved out of the test's source so the soak's ranking can be compared with them).</summary>
     public const string SeedsFile = "ci/budget-seeds.txt";

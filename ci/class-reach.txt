@@ -1,0 +1,8 @@
+# Tests red beside at least half of their class's other entries, and at least four (P15-06, the
+# observer class-reach in build-collect): specific to none of those entries, so an entry whose target
+# starts with one of these lines needs a `reason:` or a `control.diff`, as a broad target's does.
+# P14-05: found by broad-run, class reach's former name, on its first run (run 38527995236), each red
+# beside half of the entries that ran it.
+Raft.Checker.Tests.KnownHistoryTests.EveryRejectedHistoryHasAnAcceptedTwinOneOperationAway
+Raft.Core.Tests.MembershipTests.ACandidateDuringJointConsensusNeedsAMajorityOfBoth
+Raft.Core.Tests.TermVoteLogTests.ATornRecordFollowedByARecordWhoseCutWasLostRecoversTheRecord

@@ -43,7 +43,7 @@ internal static class BuildCollect
             var api = Api.FromEnvironment(rest);
             CheckCosts(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), ShardCosts.Parse(repo.ReadText(ShardPlan.CostFile)), f);
             var targets = SabotageSpec.LoadLive(repo, f).Where(e => e.Kind == "test").Select(e => e.Get("target")!).ToList();
-            CheckBroad(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), SabotageSpec.ParseBroadTargets(repo.ReadText(SabotageSpec.BroadTargetsFile)), targets, f);
+            CheckReach(shards, jobs, id => api.Get($"check-runs/{id}/annotations?per_page=100"), SabotageSpec.ParseBroadTargets(repo.ReadText(SabotageSpec.ClassReachFile)), targets, f);
         }
 
         return f;
@@ -94,23 +94,26 @@ internal static class BuildCollect
         Console.WriteLine("::notice::sabotage entry times, the whole run%0A" + string.Join("%0A", times.Select(t => FormattableString.Invariant($"{t.Key} {t.Value:F1}"))));
     }
 
-    /// <summary>The entries that ran a test beside their target, at least this many, for the test to be judged (P14-05).</summary>
-    public const int BroadMinimum = 4;
+    /// <summary>A test's class's other entries, at least this many, for its reach to be judged (P14-05, P15-06).</summary>
+    public const int ReachMinimum = 4;
 
     /// <summary>
-    /// P14-05, the observer <see cref="Currency.BroadRun"/>: every head shard's notice of the tests red
-    /// beside each entry's target, summed over the run. A test red beside at least half of the entries
-    /// that ran it, and at least <see cref="BroadMinimum"/> of them, goes red at almost any change to
-    /// what it tests, so it must be in the broad-target list (an entry targeting it then needs a reason
-    /// or a control, P3-01). Since P11-09 an entry runs its target's whole class, so the entries that ran
-    /// a test are the run's test entries targeting another method of its class (<paramref name="targets"/>,
-    /// the live manifest's): a shard reports only its reds, because a notice listing every test that
-    /// ran passes GitHub's cap of 4,096 characters, and a list of reds alone would lose the runs of a
-    /// test red in no entry of a shard. Vacuity risk: an observation taken from the list compares the
-    /// list with itself (S-broad-1); a total over the shards (or parts) that reported counts less than
-    /// the run did, guarded by requiring every part of every head shard's notice.
+    /// P15-06, the observer <see cref="Currency.ClassReach"/> (P14-05's broad-run, renamed for what it can
+    /// see): every head shard's notice of the tests red beside each entry's target, summed over the run.
+    /// Since P11-09 an entry runs its target's whole class, so a test is exposed only to its own class's
+    /// patches, and the entries that ran it are the run's test entries targeting another method of its
+    /// class (<paramref name="targets"/>, the live manifest's). A test red beside at least half of them,
+    /// and at least <see cref="ReachMinimum"/>, reaches its class: it is specific to none of its class's
+    /// entries, so it must be in the class-reach list, and an entry targeting it needs a reason or a
+    /// control, as a broad target's does (P3-01). Breadth across classes cannot be seen here at any
+    /// threshold; ci/broad-targets.txt holds it as a judgement (decision 5). A shard reports only its
+    /// reds, because a notice listing every test that ran passes GitHub's cap of 4,096 characters, and a
+    /// list of reds alone would lose the runs of a test red in no entry of a shard. Vacuity risk: an
+    /// observation taken from the list compares the list with itself (S-reach-1); a total over the shards
+    /// (or parts) that reported counts less than the run did, guarded by requiring every part of every
+    /// head shard's notice.
     /// </summary>
-    internal static void CheckBroad(IReadOnlyList<string> shards, string jobsJson, Func<long, string> annotations, IReadOnlyList<string> broad, IReadOnlyList<string> targets, Findings f)
+    internal static void CheckReach(IReadOnlyList<string> shards, string jobsJson, Func<long, string> annotations, IReadOnlyList<string> reach, IReadOnlyList<string> targets, Findings f)
     {
         using var doc = JsonDocument.Parse(jobsJson);
         var red = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -120,7 +123,7 @@ internal static class BuildCollect
             var (notice, problem) = NeighbourNotice(annotations(job.GetProperty("id").GetInt64()));
             if (notice is null)
             {
-                f.Fail($"sabotage {shard}: {problem ?? $"no '{Sabotage.NeighbourTitle}' notice"}, so the run's red neighbours cannot be compared with {SabotageSpec.BroadTargetsFile}");
+                f.Fail($"sabotage {shard}: {problem ?? $"no '{Sabotage.NeighbourTitle}' notice"}, so the run's red neighbours cannot be compared with {SabotageSpec.ClassReachFile}");
                 continue;
             }
 
@@ -136,10 +139,10 @@ internal static class BuildCollect
         }
 
         var found = red.Select(r => (Test: r.Key, Red: r.Value, Ran: RanBeside(r.Key, targets)))
-            .Where(t => t.Ran >= BroadMinimum && 2 * t.Red >= t.Ran)
-            .Select(t => (t.Test, $"red beside {t.Red} of the {t.Ran} entries that ran it"));
-        Currency.Listed(Currency.BroadRun, found, test => broad.Any(b => test.StartsWith(b, StringComparison.Ordinal)),
-            $"every test red beside at least half of the entries that ran it, and at least {BroadMinimum}", f, test => $"Add the line: {test}");
+            .Where(t => t.Ran >= ReachMinimum && 2 * t.Red >= t.Ran)
+            .Select(t => (t.Test, $"red beside {t.Red} of its class's {t.Ran} other entries"));
+        Currency.Listed(Currency.ClassReach, found, test => reach.Any(b => test.StartsWith(b, StringComparison.Ordinal)),
+            $"every test red beside at least half of its class's other entries, and at least {ReachMinimum}", f, test => $"Add the line: {test}");
     }
 
     /// <summary>The run's test entries that ran a test beside their target: those targeting another method of its class (P11-09).</summary>
