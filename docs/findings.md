@@ -1569,6 +1569,21 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   audit, which is the point: remembering which files a measurement depends on is what an author does not
   do, and an observer that reads the dependency from git does it every time. P14 built it; P15 is where
   it paid.
+- **A gate's schema can make an honest state unrepresentable** (P15-09; the reviewer, at the phase's
+  full acceptance: a first for either project). The register required every row to name a phase, so a
+  row the reviewer had just decided not to schedule had to claim a home, including one decided against:
+  the gate was forcing a false statement, and the pressure it applies is to misrepresent rather than to
+  widen the schema. Every other fix in both projects narrowed a gate; this one widened it, and that was
+  correct. The asymmetry: widening is right when the gate rejects a true statement, wrong when it rejects
+  an inconvenient one. *Rule:* before writing around a gate, ask whether the state you want to record is
+  true; if it is and the gate cannot hold it, widen the schema for that state alone, and keep rejected
+  every state it rightly rejected (an unhomed row must be open; a closed row still names its phase).
+- **Three breaks of one patch in one phase are a mechanism, not three slips** (P15-06, P15-09; the
+  reviewer). S-ran-2's patch edits `ci/test-baseline.txt`, so its context is other projects' counts, and
+  every change to a test count moved it: regenerated at P15-01, P15-06 and P15-09, each found by a gate,
+  each fixed by hand. A cost that recurs with every change of a kind compounds, and fixing each instance
+  hides the mechanism. *Rule:* when the same repair is made a second time, remove what makes it
+  necessary; for a sabotage patch, anchor it away from text that ordinary work changes.
 - **Rewording a measured commit orphans its records** (P15-01). The trailer gate found two commits whose
   `Task:` line was a paragraph above the attribution lines rather than among them; rewording them
   changed one commit's id after nineteen records named it. The tree was byte-identical, and the
