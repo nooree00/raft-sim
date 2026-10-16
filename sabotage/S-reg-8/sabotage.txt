@@ -1,0 +1,6 @@
+description: The register accepts an unhomed row whatever its status, so a done or dropped row can lose the phase that closed it (P15-09)
+mechanism: the unhomed marker allowed on closed rows
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.RegisterHomeTests.AnOpenRowMayBeUnhomedButNotAClosedOne
+expect: caught

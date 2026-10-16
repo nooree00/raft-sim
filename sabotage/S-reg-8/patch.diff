@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Register.cs
++++ b/tools/Raft.Gates/Register.cs
+@@ -137,7 +137,7 @@
+     /// </summary>
+     internal static void CheckHome(Row r, IReadOnlySet<string> phases, IReadOnlySet<string> completed, Findings f)
+     {
+-        if (r.Phase == Unhomed && r.Status == "open")
++        if (r.Phase == Unhomed)
+         {
+             return;
+         }

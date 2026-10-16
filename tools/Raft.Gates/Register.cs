@@ -48,11 +48,10 @@ internal static partial class Register
         var testMethods = new Lazy<HashSet<string>>(() => BuiltMethods(repo, "tests/", testsOnly: true));
         foreach (var r in rows)
         {
-            f.Require(phases.Contains(r.Phase), $"'{r.Item}': promised to unknown phase '{r.Phase}'");
+            CheckHome(r, phases, completed, f);
             switch (r.Status)
             {
                 case "open":
-                    f.Require(!completed.Contains(r.Phase), $"'{r.Item}': open, but promised to {r.Phase}, which is complete");
                     break;
                 case "done":
                     f.Require(testMethods.Value.Contains(r.Evidence), $"'{r.Item}': done, but no test named '{r.Evidence}' in the built test assemblies (a method marked [Fact] or [Theory]; any other method is not a test)");
@@ -127,6 +126,25 @@ internal static partial class Register
 
     [GeneratedRegex(@"^KL-\d+$")]
     private static partial Regex KnownLimitId();
+
+    /// <summary>The promised phase written for an open row that has no home (P15-09).</summary>
+    public const string Unhomed = "—";
+
+    /// <summary>
+    /// A row's home: a phase of spec §11, and for an open row a phase not yet complete. P15-09: an open
+    /// row may have no home (<see cref="Unhomed"/>), a deferred item the reviewer chose not to schedule;
+    /// a done or dropped row always names the phase that closed it. Sabotage S-reg-8.
+    /// </summary>
+    internal static void CheckHome(Row r, IReadOnlySet<string> phases, IReadOnlySet<string> completed, Findings f)
+    {
+        if (r.Phase == Unhomed && r.Status == "open")
+        {
+            return;
+        }
+
+        f.Require(phases.Contains(r.Phase), $"'{r.Item}': promised to unknown phase '{r.Phase}'" + (r.Phase == Unhomed ? $" (only an open row may be unhomed, and this one is {r.Status})" : ""));
+        f.Require(r.Status != "open" || !completed.Contains(r.Phase), $"'{r.Item}': open, but promised to {r.Phase}, which is complete");
+    }
 
     internal static HashSet<string> SpecPhases(Repo repo) =>
         repo.ReadText("RAFT_PROJECT_SPEC.md").Split('\n')

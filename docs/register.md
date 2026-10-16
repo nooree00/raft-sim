@@ -1,8 +1,10 @@
 # Register of deferred items
 
 Parsed by `gates register` (spec §12). Every deferred item has the phase it is promised to. An
-`open` row promised to a completed phase fails the build; a `done` row names the test that proves
-it; a `dropped` row cites the commit that changed the spec to drop it. Every method that throws
+`open` row promised to a completed phase fails the build; an `open` row may have no home, written `—`
+(a deferred item the reviewer chose not to schedule, P15-09), and a closed row always names the phase
+that closed it; a `done` row names the test that proves it; a `dropped` row cites the commit that
+changed the spec to drop it. Every method that throws
 `NotImplementedException` must be named, as `Namespace.Type.Method`, in an open row.
 
 | Item | Promised | Status | Evidence |
