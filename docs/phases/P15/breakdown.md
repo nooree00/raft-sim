@@ -255,6 +255,15 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 - **Prediction:** The phase adds nine entries if P15-05 is built (S-proc-1, S-proc-2, S-held-1, S-held-2, S-early-1 to S-early-4, S-reach-1) and five if not, and retires one (S-broad-1); no head shard passes 400 s against phase 14's slowest of 367; the soaks' work is identical to the count; every per-commit job is given a runner and none fails for a reason other than its own commit's code. **Observable:** the shards' slowest step, the manifest, the soaks' reports, the job list.
 - **Outcome:** partly (evidence) — the cost as predicted, the count not. The phase's two first-attempt runs, run:38795000252 at `ac1bc6e` (139 jobs) and run:38811415917 at `429c5b2` (100 jobs), against phase 14's report run, run:38542098523 (61 jobs): every job given a runner, with steps, and none failed. **Right:** no head shard's harness step passes 400 s: the slowest 344 s on the first run and 374 on the second (shard 4 of 13 both times), against phase 14's 368; the soaks' steps 775 and 797 s, then 780 and 771, against 800 and 884, and their effect counts phase 14's line for line; the Compose job 103 and 105 s against 111; one entry retired, S-broad-1. **Wrong:** the phase adds thirteen entries, not nine: S-proc-3 to S-proc-5 for the two sampled traces decision 3's contingency needed, and S-reach-2 for the loader's rule once the class-reach list became a file of its own; the manifest goes from 344 entries to 356. Outside the prediction: in the local touched-file run before the second push, S-fsync-1 once reported `target-not-run`; alone and in the whole touched set again it was caught, and the harness keeps no output to say why (a register row).
 
+### P15-09 — An open row with no home (added at the phase's acceptance)
+
+- **Task:** The reviewer left the rate's limit past the capacity open and unhomed (decision 3: recorded, not pursued by reversing P11-02), and `gates register` required every row to name a phase of §11. The register accepts `—` as the promised phase of an `open` row only; a `done` or `dropped` row still names the phase that closed it, and the register's header says so.
+- **Vacuity:** An unhomed marker any row can carry would let a closed row lose the phase that closed it; guarded by a test that an unhomed open row passes and an unhomed done row fails (S-reg-8).
+- **Sabotage:** S-reg-8
+- **Verifiable here:** yes — the gate's tests and its run on the register here
+- **Prediction:** The change touches the phase check of `gates register`, its test file and the register's header, and nothing else; at the acceptance commit the register holds one unhomed row, the limit past 9,375 writes a second, and the gate passes. **Observable:** the diff and the gate's run.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-proc (P15-01), S-held (P15-03), S-early (P15-05), S-reach (P15-06). Each id's
@@ -282,6 +291,7 @@ before it is pushed.
 - **S-reach-1:** the class-reach observer takes its own list as the observed set.
 - **S-reach-2:** the loader stops requiring a reason or a control for a class-reach target (added during P15-06,
   when the class-reach list became a file of its own and the loader's rule had to read it).
+- **S-reg-8:** the register accepts an unhomed row whatever its status (added at the phase's acceptance, with P15-09).
 
 ## Register rows
 
