@@ -262,7 +262,7 @@ The broad-target rule (P15-06) is independent and may run beside any of these. T
 - **Sabotage:** S-reg-8
 - **Verifiable here:** yes — the gate's tests and its run on the register here
 - **Prediction:** The change touches the phase check of `gates register`, its test file and the register's header, and nothing else; at the acceptance commit the register holds one unhomed row, the limit past 9,375 writes a second, and the gate passes. **Observable:** the diff and the gate's run.
-- **Outcome:** pending
+- **Outcome:** right (evidence) — `5496085` changes `gates register`'s home check (one method, `Register.CheckHome`), adds its test file (`RegisterHomeTests`) and two sentences to the register's header, besides the sabotage entry, cost line and test count every check's commit carries, and S-ran-2's patch, whose context is the baseline line the count moved (the local run before the push found it stale, the third time this phase a Gates count change moved it); nothing else. S-reg-8 is caught (the unhomed done row passes under it). At the acceptance commit the register holds one unhomed row, the rate's limit past 9,375 writes a second, and `gates register` passes.
 
 ## Sabotage ids
 

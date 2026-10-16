@@ -1533,13 +1533,14 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   about which identity answers it: a pid names a process only within its namespace. *Rule:* an identity
   compared across a boundary must be drawn for the comparison (a token), not borrowed from a scope the
   boundary splits.
-- **An instrument's cost that does not move with its parameter is not the cost the parameter controls**
-  (P15-01). The sampled trace was built on the guess that the traced tail was the trace's retained
-  stamps. Keeping one write in a million left the 99th percentile at 2.9 times the untraced (23.7
-  against 8.2 ms), against 2.5 at one in ten (22.1 against 8.7). The cost was per message (every client
-  stamp kept, every message copied and decoded), which the sample did not touch. *Rule:* before tuning
-  a parameter that should reduce a cost, measure at its extreme; if the cost does not fall there, the
-  parameter is not the lever.
+- **An instrument's cost model is itself a measurement** (P15-01; the reviewer, at the phase's
+  acceptance). The sampled trace was built on the guess that the traced tail was the trace's retained
+  stamps, so keeping fewer writes would cost less. Keeping one write in a million left the 99th
+  percentile at 2.9 times the untraced (23.7 against 8.2 ms), against 2.5 at one in ten (22.1 against
+  8.7): the cost was per message (every client stamp kept, every message copied and decoded), which the
+  sample did not touch, and the sampled trace had to be built twice. *Rule:* before tuning a parameter
+  that should reduce an instrument's cost, measure the instrument at the parameter's extreme; a cost that
+  does not fall there was never the parameter's, and the cost model was a guess, not a measurement.
 - **A rule fixed in advance can be wrong in its branches, not only in its threshold** (P15-04, the
   reviewer). P14-04's tail rule named two places a tail's excess could concentrate, the persists and
   the loop's queues, and called everything else the machine's pauses, "the generator's lateness rising
@@ -1561,6 +1562,13 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   sync whenever there is work, so a busy fraction near one says it is never idle, not that it is the
   limit. *Rule:* under batching, read the limit from the queue's growth and the batch's size, not from
   the busy fraction.
+- **A currency observer fired on its author's own edit** (P15-07; the reviewer, at the phase's
+  acceptance: the phase's best result). After the margins audit I changed `scripts/margins.sh`'s default
+  output path; the script is among every row's sources, so P14-06's observer marked all eighteen rows
+  stale at the next check, and the audit was run again. Nothing about the edit felt like it touched the
+  audit, which is the point: remembering which files a measurement depends on is what an author does not
+  do, and an observer that reads the dependency from git does it every time. P14 built it; P15 is where
+  it paid.
 - **Rewording a measured commit orphans its records** (P15-01). The trailer gate found two commits whose
   `Task:` line was a paragraph above the attribution lines rather than among them; rewording them
   changed one commit's id after nineteen records named it. The tree was byte-identical, and the

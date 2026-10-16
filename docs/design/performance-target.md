@@ -357,3 +357,20 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
   to 25 ms) is far below the latency; the replication pipeline's one append in flight per follower
   (P11-02) is the candidate P15-03's split can test.
 
+
+## At phase 15's acceptance (reviewer)
+
+- **The median criterion is out of reach with one sync at a time** (decision 1), a measured limit of
+  the design stated in spec §8: at 3,125 writes a second the median is 1,478 µs against 1,198 with
+  P15-05's remedy (m:p15-05-ab-fix-3125-1 to -5), and 0.71 of what remains of its growth from 1,250 is a
+  write or an answer waiting for the batch already in its sync. Overlapping the next batch's handling
+  with the sync is not built. The criterion stands as written, reported against, not chased.
+- **The tail at 3,125 is read after the leader's hand-offs are measured apart** (decision 2, phase 16):
+  client-to-leader and leader-to-send are its dominant terms, and the corrected tail rule governs no
+  reading before they are understood.
+- **The limit past the capacity is recorded, not pursued** (decision 3): the replication pipeline's one
+  append in flight per follower is the candidate, and widening it would reverse P11-02, a correctness
+  fix, for throughput past an operating point pinned at a third of the capacity.
+- **A traced tail is read only from runs each within 1.5 times the untraced** (decision 4): the gate is
+  per run, not set-wide; a set-wide gate would discard valid runs because others were out.
+

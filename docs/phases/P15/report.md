@@ -1,6 +1,31 @@
 # Phase 15 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run 38824440999, the report's head `00def9a`). **The margins check
+catching my own `margins.sh` change is the phase's best result** (the reviewer): a currency observer
+firing on its author's edit, correctly marking all eighteen rows stale, is what remembering cannot do;
+phase 14 built it, phase 15 is where it paid. The two-cause separation is the substance: the batch's
+holds 0.73, the pipeline's wait 0.27, the check failing on phase 14's code first, and separable only
+because of the emission stamp, P11-01's shape against a hypothesis with a rival. Decided at
+acceptance, by the reviewer's direction:
+- **the median gap is a measured limit of the design** (decision 1): a single-threaded sync loop has a
+  floor and the floor is above the criterion, stated in spec §8 with the number (`87197ba`); 280 µs on a
+  criterion restated twice, with 0.71 of the remainder in one mechanism, does not justify overlapping
+  the next batch with the sync;
+- **the hand-offs are measured apart first, then the corrected rule** (decision 2, phase 16):
+  client-to-leader and leader-to-send are the dominant terms of a reading the old rule could not
+  express, and a rule governing a reading before its dominant terms are understood is how the first
+  one went wrong;
+- **the replication pipeline is not phase 16's subject** (decision 3): widening it reverses P11-02, the
+  fix for the 200-times resend defect, for throughput past an operating point pinned at a third of the
+  capacity; recorded and left, its row open and unhomed (P15-09, added here, lets the register hold it);
+- **the 1.5-times gate stays per run** (decision 4): a set-wide gate discards valid runs because others
+  were out, and per run produced the only readings trusted;
+- **the rows:** the median gap closed by decision 1; the tail and hand-offs to phase 16; the limit past
+  9,375 open and unhomed; S-fsync-1's row reworded to keeping each entry's harness output, not
+  explaining this occurrence, and homed to phase 16 (the second unexplained harness result across both
+  projects blocked by the same missing output);
+- **a finding:** an instrument's cost model is itself a measurement.
+Phase 16's row is in spec §11; its breakdown is not yet written.
 
 The leader's queue, measured first (spec §11 phase 15, P15-00's row): P15-00 to P15-08 as approved,
 with the amendments the breakdown's header lists, each made before the runs it concerns. Every number
@@ -10,7 +35,16 @@ after two pushes of the phase's work**: `ac1bc6e` (run:38795000252, the instrume
 class reach) and `429c5b2` (run:38811415917, the remedy, its curve and the audit), both green on their
 first attempt.
 
-## First: two mechanisms, separated before building, and the remedy took the larger (P15-03, P15-05)
+## First: a currency observer fired on its author's edit (P15-07)
+
+After the first margins audit I changed `scripts/margins.sh`'s default output path. The script is among
+every row's sources, so P14-06's observer marked all eighteen rows stale at the next check, before the
+report, and the audit was run again at the head rather than relabelled. Nothing about the edit looked
+like it touched the audit; an observer that reads the dependency from git catches what its author does
+not remember. Phase 14 built the check after a stale audit had been accepted; this is the first time it
+fired on a live change, and the change was its author's own.
+
+## Second: two mechanisms, separated before building, and the remedy took the larger (P15-03, P15-05)
 
 Phase 14 read commit-respond and leader-to-send each growing by about one leader sync at 3,125 writes
 a second as a batch holding every output until its one sync. Drafting this phase found a second
@@ -58,7 +92,7 @@ write or an answer arriving while the loop is in the previous batch's sync waits
 on the loop. Of leader-to-send's and commit-respond's remaining growth, 0.68 is the pipeline's wait.
 Both are rows; their homes are yours.
 
-## Second: the rule fixed for the tail had no branch for what the tail is (P15-01, P15-04)
+## Third: the rule fixed for the tail had no branch for what the tail is (P15-01, P15-04)
 
 The load generator now runs in a process of its own. That took its lateness out of the traced tail
 (37 ms at the 99th percentile in the hosts' process, 0.4 ms in its own) and left the untraced figures
@@ -97,7 +131,7 @@ not decide it. With the remedy the composition is the same (m:p15-05-s10-r1-loca
 A rule fixed in advance can be wrong in its branches as well as in its threshold, and the tell is an
 answer that satisfies a branch while contradicting its description (the reviewer; a finding).
 
-## Third: the capacity, and an operating point that no longer moves (P15-02)
+## Fourth: the capacity, and an operating point that no longer moves (P15-02)
 
 With the generator separate, the highest rate sustained in every run is 9,375 writes a second; at
 12,500 every run completes the offered rate with its 99th percentile at 403 to 674 ms. The operating
@@ -141,7 +175,7 @@ loop's `ClientRequestsLast` (S-early-1 to S-early-4; S-group-2 and S-hostdisk-1 
 
 ### The tail (P15-04)
 
-Above, under Second.
+Above, under Third.
 
 ### Class reach (P15-06)
 
@@ -184,15 +218,19 @@ and S-held-2, S-early-1 to S-early-4, S-reach-1 and S-reach-2), S-broad-1 retire
    for the batch in its sync. The candidates are overlapping the next batch's handling with the sync
    (what phase 13's effect thread did, reverted by P14-01 for not raising capacity, which was then the
    question), or accepting that one sync at a time on the loop puts the criterion out of reach at this
-   rate. Which, if either, is phase 16's?
+   rate. Which, if either, is phase 16's? **Decided:** neither is built; the criterion is out of reach
+   with one sync at a time, a measured limit stated in spec §8.
 2. **The tail at 3,125** (a row): in the leader's hand-offs, client-to-leader the largest. P14-04's
    rule is reported as wrong; the rule it should have been is above. Is that the rule for the next
-   reading, or do you want the hand-offs measured apart first?
+   reading, or do you want the hand-offs measured apart first? **Decided:** the hand-offs measured apart
+   first, then the corrected rule (phase 16).
 3. **The rate's limit past 9,375** (a row): not the loop, not the generator; the replication pipeline
-   is the candidate, and widening it reverses P11-02 and must keep P11-01's check holding.
+   is the candidate, and widening it reverses P11-02 and must keep P11-01's check holding. **Decided:**
+   not phase 16's subject; recorded, left open and unhomed.
 4. **The 1.5-times gate per run:** the done criterion reads it per traced run, so the tail was read
    from six runs of ten. The runs beyond it show the same composition here, but a per-run filter can
-   select calm runs. Keep it per run, or require the set's aggregate within 1.5 times?
+   select calm runs. Keep it per run, or require the set's aggregate within 1.5 times? **Decided:** per
+   run.
 
 ## Deviations and choices
 
@@ -242,11 +280,12 @@ and S-held-2, S-early-1 to S-early-4, S-reach-1 and S-reach-2), S-broad-1 retire
   P15-06; met.
 - **Every bench control's margins measured again after the host's changes:** P15-07; met.
 - **Every row promised to phase 15 closed:** five closed (one dropped by the spec's pinned operating
-  point); four opened, their homes yours.
+  point); of the four opened, one dropped at acceptance by spec §8, two homed to phase 16, one open
+  and unhomed.
 
 ## Predictions
 
-**Evidence 9, forcing 0.** Right 3, partly 5, wrong 1.
+**Evidence 10, forcing 0.** Right 4, partly 5, wrong 1 (P15-09 added at acceptance).
 Each outcome is in the breakdown.
 
 - **P15-00, right.**
@@ -263,6 +302,7 @@ Each outcome is in the breakdown.
 - **P15-07, right.**
 - **P15-08, partly:** no shard past 400 s, the soaks identical, every job given a runner; thirteen
   entries added, not nine.
+- **P15-09, right** (added at acceptance): the home check alone changed; one unhomed row; the gate passes.
 
 ## What exists
 
@@ -283,20 +323,23 @@ Each outcome is in the breakdown.
   `SabotageSpec.ClassReachFile`; `BuildCollectReachTests`, `AClassReachTargetNeedsAReasonOrAControl`;
   S-reach-1, S-reach-2; S-broad-1 retired.
 - **P15-07:** `docs/phases/P15/margins-bench.tsv`.
+- **P15-09** (at acceptance): `Register.CheckHome`, `Register.Unhomed`; `RegisterHomeTests`; S-reg-8.
 
 ## Register
 
 Five rows were promised to phase 15. The median at 3,125 (closed by P15-03 and P15-05), the tail
 (P15-01 and P15-04), the median above the reverted host's (P15-03 and P15-05) and the broad-target
 rule (P15-06) are closed; the operating point is dropped by the spec's phase-15 row (`2cc1fd9`).
-Four rows are opened: the median's remaining gap (P15-05), the tail in the hosts' hand-offs
-(P15-04), the rate's limit past capacity (P15-02), and S-fsync-1's unexplained `target-not-run` (the
-harness keeps no output to read it from). Their homes are yours.
+Four rows were opened. At acceptance: the median's remaining gap (P15-05) is dropped by spec §8's
+measured limit (`87197ba`); the tail in the hosts' hand-offs (P15-04) and the harness's per-entry output
+(reworded from S-fsync-1's unexplained `target-not-run`) are homed to phase 16; the rate's limit past
+capacity (P15-02) is open and unhomed, not to be pursued by reversing P11-02.
 
 ## Findings added this phase
 
 In `docs/findings.md`, under phase 15: the second mechanism measured and smaller; a pid across
-namespaces; a cost that does not move with its parameter; a rule fixed in advance wrong in its
+namespaces; an instrument's cost model itself a measurement (the reviewer, at acceptance); a currency
+observer firing on its author's edit (the reviewer, at acceptance); a rule fixed in advance wrong in its
 branches, the tell an answer that satisfies a branch while contradicting its description (the
 reviewer); a busy loop under batching; the measurement and the verification competing for the
 machine (the reviewer); a reworded commit's records.
