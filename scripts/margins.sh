@@ -11,7 +11,7 @@
 # Usage: scripts/in-sdk.sh scripts/margins.sh [runs] [out]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-runs="${1:-5}"; out="${2:-docs/phases/P15/margins-bench.tsv}"
+runs="${1:-5}"; out="${2:-docs/phases/P16/margins-bench.tsv}"
 test -z "$(git status --porcelain -- src tests)" || { echo "margins: src or tests has changes"; exit 1; }
 bin=tests/Raft.Host.Slow.Tests/bin/Debug/net10.0
 declare -A vals
@@ -61,6 +61,18 @@ read_handoff() {
   [ "$1" = u ] && add handoff-high u "$(ratio "$queue" "$set")"
   return 0
 }
+# P16-07: the release's control (P16-01, a class of its own): the sender part's rise against the delay the
+# planted waits actually took, and the largest other part's, the generator's lateness excepted as the test does.
+read_release() {
+  local waited rises sender others
+  waited="$(pick '\K[0-9.]+(?= us waited)' bench-release)"
+  rises="$(grep -oP '5th percentile rise: \K.*' "$bin/bench-release.txt" | tr ',' '\n')"
+  sender="$(echo "$rises" | awk '$1 == "leader-to-send.sender" { print $2 }')"
+  others="$(echo "$rises" | awk '$1 != "leader-to-send.sender" && $1 != "generator-late" { if ($2 > m) m = $2 } END { print m + 0 }')"
+  add sender-low "$1" "$(ratio "$sender" "$waited")"; add sender-others "$1" "$(ratio "$others" "$waited")"
+  [ "$1" = u ] && add sender-high u "$(ratio "$sender" "$waited")"
+  return 0
+}
 read_group() {
   add group-syncs "$1" "$(pick '\K[0-9.]+(?= syncs per write)' bench-group)"
   return 0
@@ -76,6 +88,8 @@ for mode in alone busy suite; do
     # P14-07: the group commit's control, a class of its own.
     test_run --filter-class '*GroupCommitTests'
     read_group u
+    test_run --filter-class '*ReleaseControlTests'
+    read_release u
   done
   idle
 done
@@ -83,7 +97,8 @@ done
 # Patched: each control's sabotage, its target in the same three modes.
 for pair in S-bench-1:APlantedStallShowsOpenLoopAndHidesClosedLoop:stall S-bench-2:APlantedSlowdownMovesTheMedianByTheModelsAmount:slowdown \
             S-bench-3:TheBarrierMeasuredIsTheLeadersOwnSync:barrier S-bench-4:TheGeneratorDispatchesEachWriteAtItsTime:lateness \
-            S-lat-1:APlantedHandOffDelayAppearsInItsSegmentOnly:handoff S-group-1:UnderABurstTheLeaderSyncsFewerTimesThanItWrites:group; do
+            S-lat-1:APlantedHandOffDelayAppearsInItsSegmentOnly:handoff S-group-1:UnderABurstTheLeaderSyncsFewerTimesThanItWrites:group \
+            S-hand-2:APlantedSenderDelayAppearsInTheSendersPartOnly:release; do
   IFS=: read -r id method control <<< "$pair"
   git apply "sabotage/$id/patch.diff"
   build
@@ -143,6 +158,9 @@ row() { # check bound above|below timing|ratio note
   row handoff-high 3.0 below ratio "the same, its upper bound"
   row handoff-others 0.4 below ratio "the largest other host segment's 5th-percentile rise over the delay set; S-lat-1"
   row group-syncs 0.5 below ratio "the leader's syncs per write under 64 closed-loop clients (P14-03); S-group-1"
+  row sender-low 0.5 above ratio "the sender part's 5th-percentile rise over the delay waited (P16-01's release control); S-hand-2"
+  row sender-high 3.0 below ratio "the same, its upper bound"
+  row sender-others 0.4 below ratio "the largest other part's 5th-percentile rise over the delay waited; S-hand-2"
   row cost-ratio-8 2 below ratio "entries sent a follower per committed entry, 8 in flight; S-repl-11"
   row cost-ratio-32 2 below ratio "the same, 32 in flight; S-repl-11"
   row cost-committed-8 100 above ratio "entries committed, the reading's guard, 8 in flight; S-cost-1"
