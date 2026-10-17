@@ -41,7 +41,10 @@ public sealed class ClusterProbeTests
     [Fact]
     public void HostCountersCrossTheControlPortUnchanged()
     {
-        var c = new HostCounters(12, 3_456.75, 789, 63_120, 41, 12_345.5, 9_876_543.25, 1_234.5, 6_789.125, 2_222, 1_111, [1, 2, 3, 4, 5, 6], [10.5, 20.25, 30, 40, 50, 60.125]);
+        var c = new HostCounters(12, 3_456.75, 789, 63_120, 41, 12_345.5, 9_876_543.25, 1_234.5, 6_789.125, 2_222, 1_111, [1, 2, 3, 4, 5, 6], [10.5, 20.25, 30, 40, 50, 60.125])
+        {
+            Collector = (4_321.5, 77, 8, 1),
+        };
 
         Assert.Equal(c, HostCounters.Decode(c.Encode()));
     }

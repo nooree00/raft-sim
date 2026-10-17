@@ -449,6 +449,13 @@ public static class Program
             }
         }
 
+        // P16-01: the hosts' process's collector over the run: its pauses, as a share of the wall, and its collections.
+        results["process_gc_pause_ms"] = Math.Round(l.Collector.PauseMicros / 1000, 1);
+        results["process_gc_pause_share"] = Math.Round(l.Collector.PauseMicros / wallMicros, 4);
+        results["process_gc_gen0"] = l.Collector.Gen0;
+        results["process_gc_gen1"] = l.Collector.Gen1;
+        results["process_gc_gen2"] = l.Collector.Gen2;
+
         // P10-05: the time the leader's sends waited behind its own persists, per such effect list,
         // and as a share of the run's mean commit latency.
         if (l.BarrierLists > 0 && meanLatency > 0)
