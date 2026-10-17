@@ -80,12 +80,15 @@ public static class KernelArrival
 /// A client connection's lines, read with `recvmsg`, each with the kernel's receive time of its segment
 /// on the trace's clock (<see cref="Arrived"/>) when its read ended at its newline (<see cref="KernelArrival"/>);
 /// for a socket <see cref="KernelArrival.Enable"/> accepted. Reads as <see cref="StreamReader.ReadLine"/>
-/// does for lines ended by "\n" or "\r\n", and checks for the host's stop between waits.
+/// does for lines ended by "\n" or "\r\n", and checks for the host's stop between waits. Its buffers are
+/// on the pinned-object heap: a first version pinned them in the young generation through every wait, 64
+/// connections at once, and the traced 99th percentile at 3,125 writes a second rose 40% over the trace
+/// without it (m:p16-02-cost-r1-ab-fix-3125-1 to -r5).
 /// </summary>
 public sealed class KernelLineReader(Socket socket, CancellationToken stop) : TextReader
 {
-    private readonly byte[] _buffer = new byte[64 * 1024];
-    private readonly byte[] _control = new byte[128];
+    private readonly byte[] _buffer = GC.AllocateUninitializedArray<byte>(64 * 1024, pinned: true);
+    private readonly byte[] _control = GC.AllocateArray<byte>(128, pinned: true);
     private int _start;
     private int _end;
     private long? _stamp;
@@ -137,8 +140,9 @@ public sealed class KernelLineReader(Socket socket, CancellationToken stop) : Te
     /// <summary>
     /// One `recvmsg` into the buffer's free space: the bytes read, 0 at the stream's end or the host's stop;
     /// the read's timestamp kept only when the read did not fill the space (a read that filled it may have
-    /// stopped inside a segment that later data had joined). Waits for data in `poll`, a tenth of a second
-    /// at a time, whatever the socket's blocking mode.
+    /// stopped inside a segment that later data had joined). Waits for data in `poll` first, a tenth of a
+    /// second at a time, whatever the socket's blocking mode: a line is read when its wait ends, so two
+    /// system calls a line.
     /// </summary>
     private unsafe int Receive()
     {
@@ -153,6 +157,12 @@ public sealed class KernelLineReader(Socket socket, CancellationToken stop) : Te
             {
                 while (!stop.IsCancellationRequested)
                 {
+                    var poll = new NativeMethods.PollFd { Fd = fd, Events = NativeMethods.PollIn };
+                    if (NativeMethods.Poll(&poll, 1, 100) == 0)
+                    {
+                        continue;
+                    }
+
                     var iov = new NativeMethods.IoVec { Base = buffer + _end, Length = (nuint)space };
                     var message = new NativeMethods.MsgHdr { Iov = &iov, IovLength = 1, Control = control, ControlLength = (nuint)_control.Length };
                     var n = (int)NativeMethods.RecvMsg(fd, &message, NativeMethods.MsgDontWait);
@@ -178,9 +188,6 @@ public sealed class KernelLineReader(Socket socket, CancellationToken stop) : Te
                     {
                         throw new IOException($"recvmsg failed with error {error}");
                     }
-
-                    var poll = new NativeMethods.PollFd { Fd = fd, Events = NativeMethods.PollIn };
-                    _ = NativeMethods.Poll(&poll, 1, 100);
                 }
 
                 return 0;
