@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Raft.Core;
 using Raft.Host;
 using Raft.Host.Tests;
 using Xunit;
@@ -19,7 +20,10 @@ namespace Raft.Host.Slow.Tests;
 /// clients for two seconds after half a second's warm-up, the leader's syncs over the writes it
 /// answered. Without the batching the leader syncs once a write or more (its appends, its term
 /// records); the bound is half that. Sabotage S-group-1 (the loop takes one input at a time). The
-/// report is written before the assertion, so the margin audit reads both sides (P14-07).
+/// report is written before the assertion, so the margin audit reads both sides (P14-07). The cluster's
+/// election timeout is 1 to 2 s, as the bench controls' are (P16-08): on the default 150 to 300 ms, S-group-1's
+/// baseline in a harness shard answered 21 writes of the burst (run 39062045985), the burst most likely
+/// left without a leader by a pause on a crowded runner; the control counts syncs, not elections.
 /// </summary>
 public sealed class GroupCommitTests
 {
@@ -31,7 +35,7 @@ public sealed class GroupCommitTests
     public async Task UnderABurstTheLeaderSyncsFewerTimesThanItWrites()
     {
         var counters = new ConcurrentDictionary<string, CountingFileSystem>(StringComparer.Ordinal);
-        await using var c = new HostCluster(files: d => counters.GetOrAdd(Path.GetFileName(d), _ => new CountingFileSystem(new DirectoryFileSystem(d))));
+        await using var c = new HostCluster(RaftOptions.Default with { ElectionTimeoutMin = 1_000, ElectionTimeoutMax = 2_000 }, files: d => counters.GetOrAdd(Path.GetFileName(d), _ => new CountingFileSystem(new DirectoryFileSystem(d))));
         c.StartAll();
         var leader = (await c.LeaderAsync(TimeSpan.FromSeconds(15), Ct))!.Value;
         var syncs = counters[leader.ToString()];
