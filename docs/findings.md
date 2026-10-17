@@ -1620,3 +1620,12 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   provisional until that instrument's own cost has been measured at the percentile read and found
   smaller than the effect; and when an instrument's largest cost is removed, measure it again, because
   the next one down becomes the largest.
+- **A partial re-run cannot certify a run whose collector reads every job's notices** (P16-08). The
+  report's first run failed one harness shard on an intermittent control (S-group-1's baseline, the
+  group commit control on default election timeouts); re-running the failed jobs passed the shard, but
+  `build-collect` reads each shard's entry-time and red-neighbour notices from the attempt it runs in, and
+  the twelve shards not re-run had theirs only in the first, so the run stayed red (run:39062045985). A
+  re-run of the failed jobs is therefore no remedy for this workflow; only a full run is, and that is a
+  second re-run. *Rule:* fix what failed and push, rather than re-run part of a run whose collector
+  depends on all of it; and give every timing control the long election timeout the bench controls
+  have, since an election is not what any of them measures.

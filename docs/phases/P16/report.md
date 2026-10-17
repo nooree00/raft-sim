@@ -15,7 +15,13 @@ the rule's floor and phase 15's superseded lines: a commit that changes a report
 is pushed (a twelfth known-red, in the table): a commit that carries a report has its margin tables
 judged, and phase 15's was stale with phase 16's audit not yet measured (run:39057523276: `build-core`'s
 margins gate, twelve rows; its 13 shards, both soaks and Compose green). Phase 15's report is changed
-again here, so this report's run certifies it.
+again here, so this report's run certifies it. **And the report itself was pushed once before**, at
+`9719e96` (run:39062045985): its first attempt failed one harness shard, S-group-1's baseline answering
+21 writes of its burst, the group commit control running on the default 150 to 300 ms election timeout
+in a crowded shard; one re-run of the failed jobs passed that shard, but the collector reads the other
+shards' notices only from the attempt that ran them, so the run stayed red. The control now runs on the
+bench controls' 1 to 2 s (`0f75a29`), the margin audit was run again after it, and the report is
+pushed again at this head.
 
 ## First: the trace was the larger term, a third time (P16-01, P16-02)
 
@@ -135,6 +141,7 @@ name them, and `7b4d8ad` is the cost A/B's base.
 | `ef16618` | P16-02's second set | S-harness-6's patch; S-patch-1's baseline | 3 | run:38997459747 |
 | `8a55d6c` | the rule | S-harness-6's patch; S-patch-1's baseline | 3 | run:38997459747 |
 | `5872758` | the floor at 0.2; phase 15's superseded lines | pushed alone as its own head; it carries a report, so the margins gate judges phase 15's table, twelve rows stale since the host changed (phase 16's audit came after) | its head's `build-core` | run:39057523276 |
+| `9719e96` | this report, first pushed | its head's run: S-group-1's baseline once (the control on default election timeouts, fixed in `0f75a29`), then a partial re-run whose collector cannot read the other shards' notices | shard 8, then `build` | run:39062045985 |
 
 All in run:38997459747, 40 of its 182 per-commit jobs. *Rule, from this:* a commit that changes a file a
 sabotage patch names runs the patch gate at that commit before the next commit; checking a commit with
@@ -182,14 +189,13 @@ lines (S-out-1); since `9c3fe8d` a failing baseline command keeps the same, afte
 
 ### The margin audit (P16-07)
 
-`scripts/margins.sh` at the last host change, `1f6c10d` (the header set by hand to the commit the audit
-began at: the script writes the head at its end, and a documentation commit made while it ran was
-folded into this report's commit), three modes, five runs a side
+`scripts/margins.sh` at the last change to the controls, `0f75a29` (the group commit control's election
+timeout; a first audit at `1f6c10d` read the same), three modes, five runs a side
 (`docs/phases/P16/margins-bench.tsv`). Every row keeps 1.5 times its bound on both sides. The release
-control's new rows: the sender part's rise 1.81 times its lower bound and 2.97 inside its upper, the
-largest other part 9.37 times under its bound; with S-hand-2 the sender part never reaches its bound and
-the loop's hold crosses the others' by 2.28 times. No other row's unpatched median moved by more than
-0.027 of its bound against phase 15's table.
+control's new rows: the sender part's rise 1.83 times its lower bound and 2.97 inside its upper, the
+largest other part 8.95 times under its bound; with S-hand-2 the sender part never reaches its bound and
+the loop's hold crosses the others' by 2.28 times. The group commit control keeps 7.45 and 2.00. No
+other row's unpatched median moved by more than 0.040 of its bound against phase 15's table.
 
 ### The phase's cost in CI (P16-08)
 
@@ -238,6 +244,9 @@ S-patch-2, S-out-1), none retired.
   three; the records' ids name the condition, their configuration does not.
 - **A baseline command's failure keeps 80 lines** (`9c3fe8d`), extending P16-06 past entries, with no
   test of its own.
+- **The group commit control's cluster on a 1 to 2 s election timeout** (`0f75a29`), as the bench
+  controls' are, after its baseline failed once in the report's first run; the audit was run again after
+  it.
 - **No push while a measurement ran**, as at phase 15; two gate runs of a few seconds each (`register`, `breakdown`) overlapped the margin audit's unpatched rounds.
 
 ## Done criteria
@@ -309,7 +318,8 @@ past the capacity stays open and unhomed, out of this phase's scope.
 In `docs/findings.md`, under phase 16: an instrument's cost can land on the part it measures, and a gate
 on the total does not see where; a cause named in a commit before the test that could refute it (the
 reviewer: a commit message is a claim); this project has measured its own instruments three times, and
-each time the instrument was the larger term (the reviewer).
+each time the instrument was the larger term (the reviewer); a partial re-run cannot certify a run whose
+collector reads every job's notices.
 
 ## Still the person's
 
@@ -319,5 +329,6 @@ each time the instrument was the larger term (the reviewer).
 ## Commits never verified in CI
 
 None. Every commit of the phase's first push ran in its own per-commit jobs (run:38997459747), and
-`5872758` as the head of its own push; the red ones are the known-red commits above. The commits after
-`5872758` run in this report's run.
+`5872758` as the head of its own push; `9c3fe8d` and `1f6c10d` in their per-commit jobs of
+run:39062045985, all green, and `9719e96` as its head; the red ones are the known-red commits above.
+`0f75a29` runs in this report's run.

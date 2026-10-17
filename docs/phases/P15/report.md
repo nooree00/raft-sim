@@ -126,7 +126,7 @@ leader's hand-offs", measured the trace as much as the system. That P14-04's rul
 it found stands; what it found does not. The tail measured apart, and the corrected rule's reading of it,
 are in `docs/phases/P16/report.md`: beside one busy process, the reading this phase's composition was
 taken to predict, the hosts' thread hand-offs did not grow; the leader's queue did, while the loop was
-less busy (P16-04).
+less busy (P16-04; m:p16-04-busy-s10-r1-local-3125-1 to -r5, m:p16-04-plain-s10-r1-local-3125-1 to -r5).
 
 The tail rule read only the six traced runs within 1.5 times their set's untraced 99th percentile.
 Their tail writes put 0.14 of their excess over the median write in the persists and 0.24 in the
