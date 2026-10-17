@@ -1606,3 +1606,17 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   trace's own collections. The record of the wrong cause stays in history, corrected in `f81c74b`'s
   message. *Rule:* a commit says what it changes and what it is meant to test; it names a cause only when
   a measurement already in the tree supports it.
+- **This project has measured its own instruments three times, and each time the instrument was the
+  larger term** (the reviewer, on P16-01). P12-04: the load generator's `Task.Delay` schedule, whose
+  removal cut the median 62% at 625 writes a second and 74% at 3,125; phases 10 and 11's latencies are
+  marked superseded. P14-04 and P15-01: the traced tail was the generator's lateness in the hosts'
+  process (37 ms at its 99th percentile there, 0.4 in its own), then the trace's per-message cost (5
+  times the untraced fully traced). P16-01: the sampled trace's retained stamps, whose collections were
+  phase 15's "leader's reader" (client-to-leader 0.26 to 0.32 of the tail then, 0.03 with them gone);
+  phase 15's tail reading is marked superseded. P15-01 had ruled the retained stamps out, rightly then,
+  because the per-message cost was larger; with that removed they were the next term. Each time the
+  number had the system's name, every record carried its configuration, and nothing in the number showed
+  the instrument until the instrument itself was measured. *Rule:* a figure read through an instrument is
+  provisional until that instrument's own cost has been measured at the percentile read and found
+  smaller than the effect; and when an instrument's largest cost is removed, measure it again, because
+  the next one down becomes the largest.

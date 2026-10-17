@@ -115,6 +115,17 @@ runs within 1.5 times.
 | separate, untraced, beside the second | 1,922 µs | 8.3 ms | 0.50 ms | m:p15-01-trace2-untraced-r1-local-3125-1 to -r5 |
 | separate, second trace, one write in ten | 2,064 µs | 13.0 ms | 0.49 ms | m:p15-01-trace2-s10-r1-local-3125-1 to -r5 |
 
+**Superseded at phase 16 (P16-01, P16-02):** the composition in this paragraph was read through the
+second sampled trace, which kept each sampled stamp as an object until the run ended; at 3,125 writes a
+second its collections paused the hosts' process 125 to 133 ms a run against 38 to 46 untraced, behind a
+loop 0.93 busy, and the pauses showed as client-to-leader's tail (1.9 to 2.3 ms at its 99th percentile).
+With the stamps kept in arrays allocated at the trace's start, the traced tail is the untraced one and
+client-to-leader holds 0.03 of the excess, its 99th percentile 0.2 to 0.4 ms; the loop's queues hold
+0.40 (m:p16-02-gc-*, m:p16-02-gc2-*, m:p16-02-set2-*). The reading below, and decision 2's "in the
+leader's hand-offs", measured the trace as much as the system. That P14-04's rule had no branch for what
+it found stands; what it found does not. The tail measured apart, and the corrected rule's reading of it,
+are in `docs/phases/P16/report.md`.
+
 The tail rule read only the six traced runs within 1.5 times their set's untraced 99th percentile.
 Their tail writes put 0.14 of their excess over the median write in the persists and 0.24 in the
 loop's queues, so neither crosses half, and the rule's numbers select its third branch, "the machine's
@@ -220,7 +231,8 @@ and S-held-2, S-early-1 to S-early-4, S-reach-1 and S-reach-2), S-broad-1 retire
    question), or accepting that one sync at a time on the loop puts the criterion out of reach at this
    rate. Which, if either, is phase 16's? **Decided:** neither is built; the criterion is out of reach
    with one sync at a time, a measured limit stated in spec §8.
-2. **The tail at 3,125** (a row): in the leader's hand-offs, client-to-leader the largest. P14-04's
+2. **The tail at 3,125** (a row; *superseded at phase 16:* "in the leader's hand-offs" was largely the
+   trace's cost, see the third section): in the leader's hand-offs, client-to-leader the largest. P14-04's
    rule is reported as wrong; the rule it should have been is above. Is that the rule for the next
    reading, or do you want the hand-offs measured apart first? **Decided:** the hand-offs measured apart
    first, then the corrected rule (phase 16).

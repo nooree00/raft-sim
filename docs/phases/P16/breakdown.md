@@ -21,7 +21,9 @@ P11-02, the fix for the 200-times resend defect, for throughput past an operatin
 third of the capacity (phase 15's decision 3). Its register row stays open and unhomed. No task here
 changes the pipeline, and a reading that points at it is reported, not acted on.
 
-**Where phase 15 left the tail.** With the remedy (outputs no persist precedes released at a batch's
+**Where phase 15 left the tail.** *Superseded by P16-01's trace fix:* the composition below was
+largely the sampled trace's own cost, its collections landing on client-to-leader (P16-01's outcome; at
+P16-02, client-to-leader holds 0.03). With the remedy (outputs no persist precedes released at a batch's
 start, client requests handed over last), the 99th percentile at 3,125 writes a second is 8.8 ms
 untraced against the criterion's 5,051 µs (m:p15-05-ab-fix-3125-1 to -5). In the four traced runs within
 1.5 times the untraced (m:p15-05-s10-r1-local-3125-1 to -r4), the tail writes' excess over the median
@@ -192,7 +194,7 @@ approval), and what it implies.
    trip's median (network-out, follower-queue, follower-persist, follower-to-send, network-back). *Held
    out:* W grows in microseconds (the follower's side slows). *Implies:* the replication pipeline, out of
    scope by the breakdown's first statement: reported, not acted on; its row stays open.
-7. **No group holds half, the two largest together hold at least 0.5, each at least 0.15, and both have a
+7. **No group holds half, the two largest together hold at least 0.5, each at least 0.2, and both have a
    reading above.** *Reading:* the tail is shared by those two mechanisms; each group's own reading is
    checked as in its branch, and this branch is reported only if both checks pass. *Held out:* each
    group's own direction. *Implies:* the larger group's subject first, the second named with it. R has no
@@ -200,27 +202,32 @@ approval), and what it implies.
 8. **Otherwise, or a check failing:** no branch fits. The rule is reported as wrong, with what the parts
    show and what it should have said (phase 15's lesson), not read through its least-bad branch.
 
+**Branch 7's floor was moved after its choice was disclosed** (the reviewer, on the rule as sent). The
+rule went to the reviewer with a floor of 0.15 in branch 7, and with the statement that it was written
+knowing W at 0.18 and that 0.2 would send P16-02's numbers to branch 8: a threshold fitted to the data it
+judges, the circularity of phase 13's allowance model. It is set at 0.2, the round number chosen blind;
+branch 7 was the only threshold chosen with the answer in view, the half in branches 1 to 6 being
+P14-04's, fixed at phase 14. The disclosure is what made the rule usable, and the record of it stays.
+
 **What P16-02's numbers select, said before the reading.** Over P16-02's four runs at 3,125 the mean
 shares are Q 0.40, W 0.18, P 0.16, R 0.16, G 0.07, H 0.03, D 0.00 (the parts' ranges in P16-02's outcome).
-No group holds half; Q and W together hold 0.58, each over 0.15; Q's check passes in every run (the loop
-0.94 busy, leader-queue's 99th percentile 1.1 to 2.0 ms against mean syncs of 251 to 259 µs), and W's
-too (the time before emission's 99th percentile 1.0 to 2.4 ms against a round trip's median of 361 to
-379 µs). So the rule's answer on P16-02 is branch 7, **the loop's queues, then the pipeline's wait**. Two
-things about that answer are fragile, and are stated here so the reading cannot hide them:
-- **the second place is narrow:** W 0.18 against P and R at 0.16 each. Run by run the two largest
-  groups were Q and W, Q and P, Q and W, and G and W (one run's generator lateness 0.25). A resample that
-  puts P second selects the loop's queues, then the persists (P's check passes in all four runs); one that
-  puts R second fits no branch;
-- **the 0.15 floor in branch 7 is new, written knowing W at 0.18:** a floor of 0.2 would send P16-02's
-  numbers to branch 8. The half in branches 1 to 6 is P14-04's and was fixed before any of this.
+No group holds half, and the second largest, W, holds 0.18, under branch 7's floor, so **P16-02's
+composition fits no branch: branch 8**. The parts show the loop's queues largest (Q's check passes in
+every run: the loop 0.94 busy, leader-queue's 99th percentile 1.1 to 2.0 ms against mean syncs of 251 to
+259 µs), then three groups between 0.16 and 0.18, the pipeline's wait, the persists and the rest (W's
+check passes too: the time before emission's 99th percentile 1.0 to 2.4 ms against a round trip's median
+of 361 to 379 µs). Run by run the two largest groups were Q and W, Q and P, Q and W, and G and W (one
+run's generator lateness 0.25).
 
 **What each reading in P16-04 can test.** As decision 4 says: on fresh runs of P16-02's condition, the
-rule's answer is nearly determined by P16-02, so that reading tests whether the composition replicates
-and whether the selected readings pass their checks, not whether the rule is right. The held-out
-condition can test it: under branch 7 as selected, beside one busy process, **Q's share grows and the
-loop's busy fraction rises, W grows in microseconds, P's share falls, H stays under 0.1 and D under 0.05.**
-If H grows past half again or D past 0.05, the hand-offs are processor contention after all and the
-reading is wrong. Whether that held-out reading is taken, and what each is worth, is the reviewer's.
+rule's answer is nearly determined by P16-02, so that reading tests whether the composition replicates,
+not whether the rule is right; the reviewer judged it worth little. The held-out condition can test the
+readings: beside one busy process, **Q's share grows and the loop's busy fraction rises, W grows in
+microseconds, P's share falls, H stays under 0.1 and D under 0.05** (branches 4, 6, 5, 2 and 3's
+directions, the ones branch 7 joins). If H grows past half again or D past 0.05, the hand-offs are
+processor contention after all and those readings are wrong. **The reviewer took the held-out reading**:
+P16-04 runs it, with the operating point interleaved beside it as its baseline, so that each direction is
+read against runs of the same hours.
 
 ## Tasks
 

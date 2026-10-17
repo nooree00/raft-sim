@@ -367,7 +367,9 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
   with the sync is not built. The criterion stands as written, reported against, not chased.
 - **The tail at 3,125 is read after the leader's hand-offs are measured apart** (decision 2, phase 16):
   client-to-leader and leader-to-send are its dominant terms, and the corrected tail rule governs no
-  reading before they are understood.
+  reading before they are understood. *Superseded at phase 16:* those dominant terms were largely the
+  sampled trace's own collections (P16-01); measured apart with the trace fixed, client-to-leader holds
+  0.03 of the tail's excess and the loop's queues 0.40 (m:p16-02-set2-*).
 - **The limit past the capacity is recorded, not pursued** (decision 3): the replication pipeline's one
   append in flight per follower is the candidate, and widening it would reverse P11-02, a correctness
   fix, for throughput past an operating point pinned at a third of the capacity.
