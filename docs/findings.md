@@ -1589,3 +1589,20 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   changed one commit's id after nineteen records named it. The tree was byte-identical, and the
   measurements gate's own failure text names the remedy (relabel to a commit with the same tree), as
   phase 12 did. *Rule:* run the trailer gate on a commit before measuring at it.
+- **An instrument's cost can land on the part it measures, and a gate on the total does not see where**
+  (P16-01, P16-02). Phase 15's sampled trace kept each sampled stamp as an object until the run ended;
+  they outlived the young generation, and at 3,125 writes a second the hosts' process paused 125 to 133
+  ms a run against 38 to 46 untraced, behind a loop 0.93 busy that turns a pause into a backlog many times
+  its length. The pauses showed as client-to-leader's tail, 1.9 to 2.3 ms at its 99th percentile, the
+  part phase 15 read as the leader's reader; with the stamps kept in arrays allocated at the start, the
+  same part's 99th percentile is 0.2 to 0.3 ms and the traced tail is the untraced one (m:p16-02-gc-*,
+  m:p16-02-gc2-*). Phase 15's per-run 1.5× gate admitted runs carrying that cost, because it bounds the
+  total's distortion, not where it lands. *Rule:* measure an instrument's own cost where it is paid (here
+  the collector's pauses, now in every load record) before reading any part through it, and treat a part
+  that dominates only when traced as the instrument's until shown otherwise.
+- **A cause named in a commit before the test that could refute it** (P16-01). `0223f91` named the kernel
+  reader's pinned buffers as its cost; the A/B after it moved nothing (16.2 ms traced against 7.8 for the
+  trace before it), and the cost was the reader's wait in `poll` before each read, then, beneath both, the
+  trace's own collections. The record of the wrong cause stays in history, corrected in `f81c74b`'s
+  message. *Rule:* a commit says what it changes and what it is meant to test; it names a cause only when
+  a measurement already in the tree supports it.
