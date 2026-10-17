@@ -140,6 +140,88 @@ Then the margin audit at the last host change (P16-07) and the cost in CI (P16-0
    the loader refuses any patch or control naming `ci/test-baseline.txt`, so no entry can anchor there
    again.
 
+## The corrected tail rule (P16-03), sent to the reviewer before P16-04
+
+Written after P16-02's second set and from its numbers (m:p16-02-set2-*), committed here, pushed, and
+sent to the reviewer; P16-04 starts on the reviewer's answer, with whatever the reviewer changes.
+
+**What it reads.** At 3,125 writes a second, each traced run within 1.5 times the median of its
+condition's untraced 99th percentiles (per run, phase 15's decision 4): the writes over the run's own
+99th percentile, and their excess over the median write part by part (P16-01's seventeen parts, the
+records' `tail_share_part_*`), as shares of the whole excess; the shares averaged over the runs kept,
+each run's range beside them. The groups, fixed now:
+
+| Group | Parts |
+|---|---|
+| G, the generator's lateness | generator-late |
+| D, the kernel's delivery | client-to-leader.delivery |
+| H, the hosts' thread hand-offs | client-to-leader.reader, leader-to-send.sender |
+| Q, the loop's queues (P14-04's) | leader-queue, leader-queue-answer, commit-respond |
+| P, the persists (P14-04's) | leader-persist, follower-persist |
+| W, the pipeline's wait | leader-to-send.before |
+| R, the rest | connection-wait, leader-to-send.loop-hold, network-out, follower-queue, follower-to-send, network-back, response-to-client |
+
+**The branches.** The tests are taken in order and the first that holds is the rule's answer; "holds the
+tail" is P14-04's half, fixed at phase 14. Each branch's reading is written apart from its test, is
+checked against the parts it names before the branch is reported (a failed check sends the reading to
+vii), states the direction it predicts in the held-out condition (3,125 beside one busy process, fixed at
+approval), and what it implies.
+
+1. **G ≥ 0.5.** *Reading:* the generator's own lateness, the instrument's and not the system's. *Check:*
+   the generator's lateness at its 99th percentile is at least half the tail writes' mean excess.
+   *Held out:* G grows (the generator shares the processors). *Implies:* no host subject; the generator
+   is fixed first.
+2. **H + D ≥ 0.5 and H ≥ D.** *Reading:* the hosts' threads wait for a processor at their hand-offs, a
+   reader or a sender woken late. *Check:* the reader's or the sender's 99th percentile is at least 1 ms,
+   delivery's under 100 µs. *Held out:* H grows by at least half again in share, D stays under 0.05.
+   *Implies:* the hosts' threads (a reader per connection, the senders' wakes) are the next subject.
+3. **H + D ≥ 0.5 and D > H.** *Reading:* the kernel's delivery on loopback. *Check:* delivery's 99th
+   percentile is at least 1 ms. *Held out:* D grows, H does not. *Implies:* the kernel's networking,
+   outside the hosts' code; reported.
+4. **Q ≥ 0.5.** *Reading:* inputs wait in the leader's queue behind the batch in progress, whose sync is
+   one at a time (§8's limit), at a loop near saturation. *Check:* the leader's loop is at least 0.85
+   busy, and leader-queue's 99th percentile is at least twice the leader's mean sync. *Held out:* Q's share
+   grows and the loop's busy fraction rises; P's share falls (the disk is not the processor). *Implies:*
+   the tail follows the median's limit, the loop's service per write; a change to it is the one §8 states
+   as out of reach with one sync at a time, so its home is the reviewer's.
+5. **P ≥ 0.5.** *Reading:* the disk's own time. *Check:* the leader's persist at its 99th percentile is
+   at least three times its mean sync. *Held out:* P's excess unchanged in microseconds, its share
+   falling as others grow. *Implies:* the file system and its syncs.
+6. **W ≥ 0.5.** *Reading:* an append waits for the previous append's answer, one in flight per follower
+   (P11-02). *Check:* the time before emission at its 99th percentile is at least one replication round
+   trip's median (network-out, follower-queue, follower-persist, follower-to-send, network-back). *Held
+   out:* W grows in microseconds (the follower's side slows). *Implies:* the replication pipeline, out of
+   scope by the breakdown's first statement: reported, not acted on; its row stays open.
+7. **No group holds half, the two largest together hold at least 0.5, each at least 0.15, and both have a
+   reading above.** *Reading:* the tail is shared by those two mechanisms; each group's own reading is
+   checked as in its branch, and this branch is reported only if both checks pass. *Held out:* each
+   group's own direction. *Implies:* the larger group's subject first, the second named with it. R has no
+   reading (it is not one mechanism), so a pair that includes R cannot pass here.
+8. **Otherwise, or a check failing:** no branch fits. The rule is reported as wrong, with what the parts
+   show and what it should have said (phase 15's lesson), not read through its least-bad branch.
+
+**What P16-02's numbers select, said before the reading.** Over P16-02's four runs at 3,125 the mean
+shares are Q 0.40, W 0.18, P 0.16, R 0.16, G 0.07, H 0.03, D 0.00 (the parts' ranges in P16-02's outcome).
+No group holds half; Q and W together hold 0.58, each over 0.15; Q's check passes in every run (the loop
+0.94 busy, leader-queue's 99th percentile 1.1 to 2.0 ms against mean syncs of 251 to 259 µs), and W's
+too (the time before emission's 99th percentile 1.0 to 2.4 ms against a round trip's median of 361 to
+379 µs). So the rule's answer on P16-02 is branch 7, **the loop's queues, then the pipeline's wait**. Two
+things about that answer are fragile, and are stated here so the reading cannot hide them:
+- **the second place is narrow:** W 0.18 against P and R at 0.16 each. Run by run the two largest
+  groups were Q and W, Q and P, Q and W, and G and W (one run's generator lateness 0.25). A resample that
+  puts P second selects the loop's queues, then the persists (P's check passes in all four runs); one that
+  puts R second fits no branch;
+- **the 0.15 floor in branch 7 is new, written knowing W at 0.18:** a floor of 0.2 would send P16-02's
+  numbers to branch 8. The half in branches 1 to 6 is P14-04's and was fixed before any of this.
+
+**What each reading in P16-04 can test.** As decision 4 says: on fresh runs of P16-02's condition, the
+rule's answer is nearly determined by P16-02, so that reading tests whether the composition replicates
+and whether the selected readings pass their checks, not whether the rule is right. The held-out
+condition can test it: under branch 7 as selected, beside one busy process, **Q's share grows and the
+loop's busy fraction rises, W grows in microseconds, P's share falls, H stays under 0.1 and D under 0.05.**
+If H grows past half again or D past 0.05, the hand-offs are processor contention after all and the
+reading is wrong. Whether that held-out reading is taken, and what each is worth, is the reviewer's.
+
 ## Tasks
 
 ### P16-00 — The spec's phase-16 row
@@ -149,7 +231,7 @@ Then the margin audit at the last host change (P16-07) and the cost in CI (P16-0
 - **Sabotage:** ; manual: the diff checked against the decisions (§11 only)
 - **Verifiable here:** partial — the diff and the register gate here; its approval the reviewer's
 - **Prediction:** The amendment changes §11's phase-16 row and no other section; `docs/design/node-interface.md` is unchanged through the phase, the new stamps being bench-mode observation only. **Observable:** the diff, and the phase's diff of node-interface.md.
-- **Outcome:** right so far (evidence) — `011c044` changes §11's phase-16 row (its done criterion) and no other section of the spec, and the two register rows promised here cite it. `docs/design/node-interface.md` is unchanged through P16-01: the arrival and release stamps are bench-mode observation, the kernel's timestamp asked for only on a traced host's client sockets. Whether it stays unchanged is read again at the report.
+- **Outcome:** right (evidence) — `011c044` changes §11's phase-16 row (its done criterion) and no other section of the spec, and the two register rows promised here cite it. `docs/design/node-interface.md` is unchanged through P16-01: the arrival and release stamps are bench-mode observation, the kernel's timestamp asked for only on a traced host's client sockets. Whether it stays unchanged is read again at the report.
 
 ### P16-01 — The hand-offs' instrument: the kernel's arrival and the send's release
 
@@ -158,7 +240,7 @@ Then the margin audit at the last host change (P16-07) and the cost in CI (P16-0
 - **Sabotage:** S-hand-1, S-hand-2, S-hand-3
 - **Verifiable here:** yes — the host suites, the sabotages and the traced runs on this machine
 - **Prediction:** The containers' kernel delivers the receive timestamp for TCP; at 3,125 every joined write has its arrival and every append its release, with no causality violation; the traced runs stay within 1.5 times the untraced 99th percentile in at least three runs of five (P15-03's set was 1.40 on aggregate), the two stamps adding under 5% to the traced median. **Observable:** the records' joined counts, violations and percentiles.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the kernel delivers the timestamp and every joined write has its arrival and its release within its segment, but the instrument as first built did not stay within 1.5 times the untraced tail, and beneath the new stamps the trace's cost was its own. **Right:** the containers' kernel timestamps what TCP receives, with one condition: it turns the timestamps on for the machine in deferred work, so a connection's first segment can come unstamped (the socket tests wait for a stamped line); in all 45 traced runs of the phase's hosts every joined write had its arrival and its release, none outside its segment (m:p16-02-s10-*, m:p16-02-cost*-ab-fix-*, m:p16-02-gc*-s10-*, m:p16-02-set2-s10-*); the release's control moved the sender's part by 1.01 times the delay waited and no other part by more than 80 µs; with the instrument as it stands (`03cd5f7`) four traced runs of five are within 1.5 times at each rate (1.07 to 1.24 at 3,125), and the traced median is 3.2% over the untraced at 3,125 and 0.2% at 1,250, inside 5% (m:p16-02-set2-*). **Wrong:** as first built (`bcba8fc`) no traced run at 3,125 came within 1.5 times (1.57 to 25.6, three over 20 ms; m:p16-02-s10-r1-local-3125-1 to -r5). Interleaved against the trace before the arrival (phase 15's, at `7b4d8ad`), five pairs, its 99th percentile was 13.2 ms against 9.4, and 5.7 untraced (m:p16-02-cost-*); the leader's loop was as busy under both (0.93), and the difference was client-to-leader, 6.2 to 7.7 ms at its 99th percentile against 1.9 to 2.3. The reader's buffers moved off the young generation changed nothing (16.2 against 7.8, m:p16-02-cost2-*; `0223f91` named that cause before testing it, a finding); one blocking `recvmsg` a line, as the stream reader waits, brought it level with phase 15's trace (10.3 against 9.5, m:p16-02-cost3-*; `f81c74b`). Both traces were then about 1.8 times the untraced, the threshold out of reach, so the cost beneath was the trace's own: with the collector's pauses in the records (`71a5acd`), a traced run paused the hosts' process 125 to 133 ms with two collections of generation 2, against 38 to 46 ms and none untraced (m:p16-02-gc-*), the sampled trace keeping each stamp as an object until the run's end. Kept in arrays allocated at its start (`03cd5f7`), a traced run paused 40 to 47 ms and its 99th percentile was the untraced one (5.2 against 5.7 ms, m:p16-02-gc2-*). Three deviations from the task: the clock offset is read at each line, the tightest of three brackets, not once at the trace's start and checked at its end (the per-write causality count is the check); the release's control is a class of its own beside the bench controls, so their entries do not run it; and every load record now carries the hosts' process's collector pauses.
 
 ### P16-02 — The hand-offs measured apart
 
@@ -167,7 +249,7 @@ Then the margin audit at the last host change (P16-07) and the cost in CI (P16-0
 - **Sabotage:** ; manual: each part's sum against its segment, each run's 99th percentile against the threshold
 - **Verifiable here:** partial — measured here; its checks are by hand against the records
 - **Prediction:** Of client-to-leader's share of the tail's excess, the reader's part holds at least three quarters and delivery under 0.05 of the excess, delivery's median about 20 µs and the reader's 99th percentile over a millisecond: the reader's wake, not the network, is client-to-leader's tail. Of leader-to-send's share, the sender's part holds 0.05 to 0.10 of the excess, the time before emission 0.04 to 0.10 and the hold under 0.03. **Observable:** the records' part shares and percentiles.
-- **Outcome:** pending
+- **Outcome:** partly (evidence) — the parts are measured apart, and the hand-offs this phase split are not where the tail is once the trace stops paying for itself. The first set (`bcba8fc`, m:p16-02-s10-*, m:p16-02-untraced-*) measured an instrument that cost the tail it read, and is superseded by the second, at `03cd5f7`: five traced and five untraced at each rate, interleaved, generator separate (m:p16-02-set2-*). Four traced runs of five within 1.5 times at each rate (at 1,250 r1 is 1.66; at 3,125 r3 is 1.65). The parts sum to their segments by construction, as the segments sum to the latency (P12-03); the stamps' span against the generator's latency is within 0.13% in every run. **At 3,125,** the tail writes' excess over the median write, mean over the four runs (each run's range): the loop's queues 0.40 (0.19 to 0.57; leader-queue 0.37, its 99th percentile 1.1 to 2.0 ms), the time before the append's emission, the pipeline's wait, 0.18 (0.10 to 0.26; its 99th percentile 1.0 to 2.4 ms), the persists 0.16, the rest 0.16 (the follower's queue 0.05, the response 0.04), the generator's lateness 0.07 (one run 0.25), the reader 0.03 (0.002 to 0.09; its 99th percentile 175 to 381 µs), the loop's hold to the release 0.01, the sender 0.000 (its 99th percentile 9 to 17 µs: the sender runs on the loop's thread, the channel completing its wait inline), delivery 0.000 (its median 3 µs, its 99th percentile 15 to 25 µs). **At 1,250** the persists hold 0.30, the loop's queues 0.29, the reader 0.12, the generator's lateness 0.09 (one run 0.30), the response 0.08 and the pipeline's wait 0.07. **From 1,250 to 3,125** the mean write grows 457 µs: leader-queue +106, the pipeline's wait +94, leader-queue-answer +94, the leader's persist +73, the follower's +55, the loop's hold +20, the reader +5, the sender and delivery nothing. **Against the prediction:** the reader holds all of client-to-leader's share and delivery none (right), but client-to-leader's share is 0.03, delivery's median 3 µs, not about 20, and the reader's 99th percentile under 400 µs, not over a millisecond; the sender holds nothing, not 0.05 to 0.10, the time before emission 0.18, not 0.04 to 0.10, and the hold under 0.03 (right). The prediction was written from phase 15's composition, which was the trace's own cost landing on client-to-leader (a finding).
 
 ### P16-03 — The corrected tail rule, sent to the reviewer
 
