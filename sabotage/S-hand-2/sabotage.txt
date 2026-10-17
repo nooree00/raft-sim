@@ -1,0 +1,7 @@
+description: A send's release is stamped by the peer's sender task as it takes the frame, not at the executor's hand-off to the queue, so the sender's wait is read as the loop's hold and leader-to-send's split names the wrong thread (P16-01)
+mechanism: the Released stamp moved from the hand-off into the sender, beside its Sent stamp
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.ReleaseControlTests.APlantedSenderDelayAppearsInTheSendersPartOnly
+reason: Assert.InRange() Failure
+expect: caught

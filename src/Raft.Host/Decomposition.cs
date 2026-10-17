@@ -68,6 +68,12 @@ public static class Decomposition
         /// the hold after it, with the hold's class (0, 1, 2 for A, B, C; -1 when the trace has no emission).
         /// </summary>
         public IReadOnlyDictionary<string, IReadOnlyList<double>> Splits { get; init; } = new Dictionary<string, IReadOnlyList<double>>();
+
+        /// <summary>P16-01: the joined writes whose line's kernel arrival lies within client-to-leader, and those whose arrival lies outside it (a clock gone wrong; their split left whole to the reader).</summary>
+        public (int Within, int Outside) Arrivals { get; init; }
+
+        /// <summary>P16-01: the joined writes whose append's release lies within its hold, and those whose release lies outside it (their split left whole to the loop's hold).</summary>
+        public (int Within, int Outside) Releases { get; init; }
     }
 
     /// <summary>The split parts (P15-03), each a list per joined write.</summary>
@@ -75,7 +81,34 @@ public static class Decomposition
     [
         "leader-to-send.before", "leader-to-send.hold", "leader-to-send.class",
         "commit-respond.before", "commit-respond.hold", "commit-respond.class",
+        "client-to-leader.delivery", "client-to-leader.reader", "leader-to-send.loop-hold", "leader-to-send.sender",
     ];
+
+    /// <summary>
+    /// P16-01: the parts of a write's path, the segments with client-to-leader split at its line's kernel arrival
+    /// (delivery, then the reader) and leader-to-send at its append's emission and release (before the emission,
+    /// the loop's hold until the release, the sender after it; P15-03's hold is the last two). A write with no
+    /// arrival or release in the trace has the whole segment in its reader or its loop's hold.
+    /// </summary>
+    public static readonly string[] Parts =
+    [
+        .. Segments.SelectMany<string, string>(s => s switch
+        {
+            "client-to-leader" => ["client-to-leader.delivery", "client-to-leader.reader"],
+            "leader-to-send" => ["leader-to-send.before", "leader-to-send.loop-hold", "leader-to-send.sender"],
+            _ => [s],
+        }),
+    ];
+
+    /// <summary>Each part's microseconds per joined write (<see cref="Parts"/>), from a result's segments and splits.</summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<double>> PartMicros(Result result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return Parts.ToDictionary(p => p, p => result.Micros.TryGetValue(p, out var m) ? m : result.Splits[p], StringComparer.Ordinal);
+    }
+
+    /// <summary>Whether a stamp lies within the segment it splits (P16-01: an arrival between the generator's send and the leader's read; a release between its append's hold's start and its send). Sabotage S-hand-3's guard.</summary>
+    public static bool Within(long from, long at, long to) => at >= from && at <= to;
 
     /// <summary>The class an emission stamp's kind names: 0, 1, 2 for A, B, C (P15-03), else null.</summary>
     private static int? ClassOf(HandOffTrace.Kind kind) => kind switch
@@ -160,6 +193,21 @@ public static class Decomposition
 
         var splits = SplitNames.ToDictionary(n => n, _ => (IReadOnlyList<double>)new List<double>(), StringComparer.Ordinal);
 
+        // P16-01: the kernel's arrival of each request's line; each append's release, by the frame its send wrote.
+        var arrived = new Dictionary<long, long>();
+        foreach (var s in lead.Where(s => s.Kind == HandOffTrace.Kind.ClientArrived))
+        {
+            arrived.TryAdd(s.Id, s.At);
+        }
+
+        var released = new Dictionary<byte[], long>(ReferenceEqualityComparer.Instance);
+        foreach (var s in lead.Where(s => s.Kind == HandOffTrace.Kind.Released && s.Payload is byte[]))
+        {
+            released.TryAdd((byte[])s.Payload!, s.At);
+        }
+
+        int arrivalsWithin = 0, arrivalsOutside = 0, releasesWithin = 0, releasesOutside = 0;
+
         var micros = Segments.ToDictionary(s => s, _ => (IReadOnlyList<double>)new List<double>(), StringComparer.Ordinal);
         int joined = 0, violations = 0, mismatched = 0;
         var negative = Segments.ToDictionary(s => s, _ => 0, StringComparer.Ordinal);
@@ -237,14 +285,31 @@ public static class Decomposition
             }
 
             var (durableAt, sentAt, takenAt, respondedAt) = (best[5], best[6], best[12], best[13]);
+            var holdFrom = durableAt;
             if (emittedAppends[bestFollower!.Value].TryGetValue(index, out var ea))
             {
                 Split("leader-to-send", Bench.Micros(Math.Max(0, ea.At - durableAt)), Bench.Micros(sentAt - Math.Max(ea.At, durableAt)), ea.Class);
+                holdFrom = Math.Max(ea.At, durableAt);
             }
             else
             {
                 Split("leader-to-send", 0, Bench.Micros(sentAt - durableAt), -1);
             }
+
+            // P16-01: client-to-leader at the line's kernel arrival; the hold at the append's release.
+            var (generatorSent, leaderRead) = (best[2], best[3]);
+            var arrival = arrived.TryGetValue(read.Id, out var a) ? a : (long?)null;
+            var arrivalInside = arrival is { } at && Within(generatorSent, at, leaderRead);
+            arrivalsWithin += arrivalInside ? 1 : 0;
+            arrivalsOutside += arrival is not null && !arrivalInside ? 1 : 0;
+            ((List<double>)splits["client-to-leader.delivery"]).Add(arrivalInside ? Bench.Micros(arrival!.Value - generatorSent) : 0);
+            ((List<double>)splits["client-to-leader.reader"]).Add(Bench.Micros(leaderRead - (arrivalInside ? arrival!.Value : generatorSent)));
+            var release = released.TryGetValue(appendsSent[bestFollower.Value][index].Array!, out var r) ? r : (long?)null;
+            var releaseInside = release is { } rel && Within(holdFrom, rel, sentAt);
+            releasesWithin += releaseInside ? 1 : 0;
+            releasesOutside += release is not null && !releaseInside ? 1 : 0;
+            ((List<double>)splits["leader-to-send.loop-hold"]).Add(Bench.Micros((releaseInside ? release!.Value : sentAt) - holdFrom));
+            ((List<double>)splits["leader-to-send.sender"]).Add(releaseInside ? Bench.Micros(sentAt - release!.Value) : 0);
 
             if (emittedResponses.TryGetValue(read.Id, out var er))
             {
@@ -260,7 +325,11 @@ public static class Decomposition
         }
 
         var gap = joined == 0 || generatorLatency == 0 ? 1 : Math.Abs(stampLatency - generatorLatency) / generatorLatency;
-        return new Result(writes.Count, joined, violations, gap, micros) { NegativeBy = negative, Mismatched = mismatched, Splits = splits };
+        return new Result(writes.Count, joined, violations, gap, micros)
+        {
+            NegativeBy = negative, Mismatched = mismatched, Splits = splits,
+            Arrivals = (arrivalsWithin, arrivalsOutside), Releases = (releasesWithin, releasesOutside),
+        };
     }
 
     /// <summary>The segments P14-04's rule reads as the persists' (the disk's own time).</summary>
@@ -275,14 +344,19 @@ public static class Decomposition
     /// excess over the median write, summed segment by segment, as shares of the whole excess: by group
     /// (persist, queue, other) and by segment. A segment below its median gives a negative excess, kept.
     /// </summary>
-    public static (double Over, int Writes, IReadOnlyDictionary<string, double> Groups, IReadOnlyDictionary<string, double> Segments) TailShares(IReadOnlyDictionary<string, IReadOnlyList<double>> micros, double? over)
+    public static (double Over, int Writes, IReadOnlyDictionary<string, double> Groups, IReadOnlyDictionary<string, double> Segments) TailShares(IReadOnlyDictionary<string, IReadOnlyList<double>> micros, double? over) =>
+        TailShares(micros, Segments, over);
+
+    /// <summary>The same over other names that sum to a write's latency: P16-01's <see cref="Parts"/>, whose persists and queues are the segments'.</summary>
+    public static (double Over, int Writes, IReadOnlyDictionary<string, double> Groups, IReadOnlyDictionary<string, double> Segments) TailShares(IReadOnlyDictionary<string, IReadOnlyList<double>> micros, IReadOnlyList<string> names, double? over)
     {
         ArgumentNullException.ThrowIfNull(micros);
-        var count = micros[Segments[0]].Count;
-        var totals = Enumerable.Range(0, count).Select(i => Segments.Sum(s => micros[s][i])).ToList();
+        ArgumentNullException.ThrowIfNull(names);
+        var count = micros[names[0]].Count;
+        var totals = Enumerable.Range(0, count).Select(i => names.Sum(s => micros[s][i])).ToList();
         var threshold = over ?? (count == 0 ? 0 : Stats(totals).P99);
-        var medians = Segments.ToDictionary(s => s, s => micros[s].Count == 0 ? 0 : Stats(micros[s]).P50, StringComparer.Ordinal);
-        var excess = Segments.ToDictionary(s => s, _ => 0.0, StringComparer.Ordinal);
+        var medians = names.ToDictionary(s => s, s => micros[s].Count == 0 ? 0 : Stats(micros[s]).P50, StringComparer.Ordinal);
+        var excess = names.ToDictionary(s => s, _ => 0.0, StringComparer.Ordinal);
         var writes = 0;
         for (var i = 0; i < count; i++)
         {
@@ -292,21 +366,21 @@ public static class Decomposition
             }
 
             writes++;
-            foreach (var s in Segments)
+            foreach (var s in names)
             {
                 excess[s] += micros[s][i] - medians[s];
             }
         }
 
         var all = excess.Values.Sum();
-        double Share(IEnumerable<string> names) => all <= 0 ? 0 : names.Sum(n => excess[n]) / all;
+        double Share(IEnumerable<string> group) => all <= 0 ? 0 : group.Sum(n => excess[n]) / all;
         var groups = new Dictionary<string, double>(StringComparer.Ordinal)
         {
             ["persist"] = Share(PersistSegments),
             ["queue"] = Share(QueueSegments),
-            ["other"] = Share(Segments.Except(PersistSegments).Except(QueueSegments)),
+            ["other"] = Share(names.Except(PersistSegments).Except(QueueSegments)),
         };
-        return (threshold, writes, groups, Segments.ToDictionary(s => s, s => Share([s]), StringComparer.Ordinal));
+        return (threshold, writes, groups, names.ToDictionary(s => s, s => Share([s]), StringComparer.Ordinal));
     }
 
     /// <summary>The number in a write's command, `Put|k..|v{n}`, or null for anything else; read in place (a sampled trace reads it per response, P15-01).</summary>

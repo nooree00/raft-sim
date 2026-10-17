@@ -338,6 +338,28 @@ public static class Program
                 {
                     results[$"tail_share_seg_{name}"] = Math.Round(share, 3);
                 }
+
+                // P16-01: client-to-leader split at the line's kernel arrival, leader-to-send at the append's emission
+                // and release: how many writes each split covers, each part's median, mean and 99th percentile, and
+                // each part's share of the same tail writes' excess.
+                results["decomposition_arrivals"] = d.Arrivals.Within;
+                results["decomposition_arrivals_outside"] = d.Arrivals.Outside;
+                results["decomposition_releases"] = d.Releases.Within;
+                results["decomposition_releases_outside"] = d.Releases.Outside;
+                var parts = Decomposition.PartMicros(d);
+                foreach (var name in Decomposition.Parts.Where(p => !Decomposition.Segments.Contains(p)))
+                {
+                    var (mean, p50, p99) = Decomposition.Stats(parts[name]);
+                    results[$"part_{name}_mean_us"] = mean;
+                    results[$"part_{name}_p50_us"] = p50;
+                    results[$"part_{name}_p99_us"] = p99;
+                }
+
+                var partTail = Decomposition.TailShares(parts, Decomposition.Parts, tail.Over);
+                foreach (var (name, share) in partTail.Segments)
+                {
+                    results[$"tail_share_part_{name}"] = Math.Round(share, 3);
+                }
             }
 
             var load = clients is null

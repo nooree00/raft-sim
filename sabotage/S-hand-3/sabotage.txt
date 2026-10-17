@@ -1,0 +1,7 @@
+description: The kernel's receive time is taken as the trace's clock without the offset between the wall clock and the monotonic one, so every arrival lies outside its write (P16-01)
+mechanism: the offset dropped from the conversion
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.KernelArrivalTests.AnArrivalOnTheTracesClockLiesWithinItsWrite
+reason: outside its write
+expect: caught

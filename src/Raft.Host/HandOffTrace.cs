@@ -61,6 +61,15 @@ public sealed class HandOffTrace(int sample = 1)
 
         /// <summary>The same, behind no persist in its batch (class C: §4 lets it leave at the batch's start).</summary>
         EmittedNone,
+
+        /// <summary>
+        /// A client's line received by the kernel (P16-01, <see cref="KernelArrival"/>), on the trace's clock (Id: the
+        /// request id); taken only when the line's read held nothing after it.
+        /// </summary>
+        ClientArrived,
+
+        /// <summary>A frame handed to its peer's queue (P16-01; Id: the peer; Payload: the frame, the same array as its <see cref="Sent"/>).</summary>
+        Released,
     }
 
     /// <summary>One stamp: when, where, which request or peer, and the bytes it concerns.</summary>
@@ -106,6 +115,9 @@ public sealed class HandOffTrace(int sample = 1)
             case Kind.ClientTaken when _held.TryGetValue(id, out var held):
                 held.TakenAt = at;
                 break;
+            case Kind.ClientArrived when _held.TryGetValue(id, out var held):
+                held.ArrivedAt = at;
+                break;
             case Kind.Responded:
                 if (_held.TryRemove(id, out var h) && h.Line is { } line && Decomposition.WriteNumber(line) is { } n && _sampledWrites.TryRemove(n, out _))
                 {
@@ -113,6 +125,11 @@ public sealed class HandOffTrace(int sample = 1)
                     if (h.TakenAt != 0)
                     {
                         _stamps.Enqueue(new Stamp(h.TakenAt, Kind.ClientTaken, id, null));
+                    }
+
+                    if (h.ArrivedAt != 0)
+                    {
+                        _stamps.Enqueue(new Stamp(h.ArrivedAt, Kind.ClientArrived, id, null));
                     }
 
                     _stamps.Enqueue(new Stamp(at, Kind.Responded, id, null));
@@ -130,8 +147,8 @@ public sealed class HandOffTrace(int sample = 1)
     }
 
     /// <summary>
-    /// Whether the sample keeps a stamp of the hosts' own (P15-01): a durable append, or an append, that
-    /// carries an index the sample keeps; a successful answer that is the first from its peer to cover one
+    /// Whether the sample keeps a stamp of the hosts' own (P15-01): a durable append, or an append (sent or,
+    /// P16-01, released), that carries an index the sample keeps; a successful answer that is the first from its peer to cover one
     /// (as the decomposition's join reads answers); and the loop's take of a read the sample kept.
     /// Sabotage S-proc-3.
     /// </summary>
@@ -146,7 +163,7 @@ public sealed class HandOffTrace(int sample = 1)
             case Kind.PeerRead when payload is byte[] read && MessageKeeps(kind, id, read):
                 _keptReads[read] = 0;
                 return true;
-            case Kind.Sent:
+            case Kind.Sent or Kind.Released:
                 return payload is byte[] { Length: >= 8 } frame && MessageKeeps(kind, id, frame.AsSpan(4, frame.Length - 8));
             case Kind.EmittedOwn or Kind.EmittedEarlier or Kind.EmittedNone:
                 // A response's emission (no payload, the request's id) is kept when its write is sampled, as its
@@ -346,5 +363,7 @@ public sealed class HandOffTrace(int sample = 1)
         public byte[]? Line { get; } = line;
 
         public long TakenAt { get; set; }
+
+        public long ArrivedAt { get; set; }
     }
 }

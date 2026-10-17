@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/KernelArrival.cs
++++ b/src/Raft.Host/KernelArrival.cs
+@@ -62,7 +62,7 @@
+             }
+         }
+ 
+-        return Ticks(realtimeNanos - offset);
++        return Ticks(realtimeNanos);
+     }
+ 
+     private static long Nanos(long ticks) => Stopwatch.Frequency == 1_000_000_000 ? ticks : (long)((Int128)ticks * 1_000_000_000 / Stopwatch.Frequency);

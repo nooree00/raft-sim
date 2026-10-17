@@ -89,6 +89,9 @@ public sealed class NodeHost : IAsyncDisposable
     private long _peerHandOffDelayTicks;
     private long _handOffSpunTicks;
     private long _handOffSpins;
+    private long _senderDelayTicks;
+    private long _senderSpunTicks;
+    private long _senderSpins;
     private volatile int _role;
     private long _term;
     private long _stallOnceTicks;
@@ -175,6 +178,20 @@ public sealed class NodeHost : IAsyncDisposable
     /// the one set (the control's judge, as for the slowed sync's, P10-03).
     /// </summary>
     public (long Spins, double Micros) PeerHandOffSpun => (Interlocked.Read(ref _handOffSpins), Bench.Micros(Interlocked.Read(ref _handOffSpunTicks)));
+
+    /// <summary>
+    /// A measurement's hook (P16-01, the release's control): each time a peer's sender wakes to frames, it
+    /// waits this long, never less, off the loop's thread, before it takes them, so a delay of known size
+    /// lies between a frame's release (<see cref="HandOffTrace.Kind.Released"/>) and its send.
+    /// </summary>
+    public TimeSpan SenderDelay
+    {
+        get => TimeSpan.FromTicks(Interlocked.Read(ref _senderDelayTicks));
+        set => Interlocked.Exchange(ref _senderDelayTicks, value.Ticks);
+    }
+
+    /// <summary>The planted sender delays so far, and the time they actually took (as <see cref="PeerHandOffSpun"/>).</summary>
+    public (long Spins, double Micros) SenderSpun => (Interlocked.Read(ref _senderSpins), Bench.Micros(Interlocked.Read(ref _senderSpunTicks)));
 
     /// <summary>The persist barrier's cost so far (P10-05): see <see cref="DiskExecutor.Barrier"/>.</summary>
     public (long Lists, double Micros) Barrier => _executor?.Barrier ?? (0, 0);
@@ -495,6 +512,16 @@ public sealed class NodeHost : IAsyncDisposable
         Interlocked.Increment(ref _handOffSpins);
     }
 
+    /// <summary>The planted sender delay (<see cref="SenderDelay"/>), waited as <see cref="DelayHandOff"/> waits.</summary>
+    private void DelaySender()
+    {
+        var start = Stopwatch.GetTimestamp();
+        Pacing.Prepare();
+        Pacing.WaitUntil(start + (Interlocked.Read(ref _senderDelayTicks) * Stopwatch.Frequency / TimeSpan.TicksPerSecond));
+        Interlocked.Add(ref _senderSpunTicks, Stopwatch.GetTimestamp() - start);
+        Interlocked.Increment(ref _senderSpins);
+    }
+
     /// <summary>The planted stall (<see cref="StallEvery"/>): once per period, the loop sleeps out the pause.</summary>
     private void Stall()
     {
@@ -541,7 +568,10 @@ public sealed class NodeHost : IAsyncDisposable
         Interlocked.Add(ref _sentBytes, s.Payload.Length);
         if (!_holdOutbound && _outbound.TryGetValue(s.To, out var queue))
         {
-            queue.Writer.TryWrite(Frames.Encode(s.Payload.Span));
+            var frame = Frames.Encode(s.Payload.Span);
+            // P16-01: stamped as the frame is handed to the peer's queue; its sender may take it before the write returns.
+            _config.Trace?.Add(HandOffTrace.Kind.Released, s.To.Value, frame);
+            queue.Writer.TryWrite(frame);
         }
     }
 
@@ -612,6 +642,11 @@ public sealed class NodeHost : IAsyncDisposable
                 await stream.WriteAsync(hello, _stop.Token).ConfigureAwait(false);
                 while (await frames.WaitToReadAsync(_stop.Token).ConfigureAwait(false))
                 {
+                    if (Interlocked.Read(ref _senderDelayTicks) > 0)
+                    {
+                        await Task.Run(DelaySender, _stop.Token).ConfigureAwait(false);
+                    }
+
                     while (frames.TryRead(out var frame))
                     {
                         // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
@@ -707,7 +742,10 @@ public sealed class NodeHost : IAsyncDisposable
             try
             {
                 var stream = client.GetStream();
-                using var reader = new StreamReader(stream, Encoding.ASCII);
+                // P16-01: a traced host reads its clients' lines with the kernel's receive time of each.
+                using TextReader reader = _config.Trace is not null && KernelArrival.Enable(client.Client)
+                    ? new KernelLineReader(client.Client, _stop.Token)
+                    : new StreamReader(stream, Encoding.ASCII);
                 var writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\n" };
                 while (!_stop.IsCancellationRequested && reader.ReadLine() is { } line)
                 {
@@ -752,6 +790,10 @@ public sealed class NodeHost : IAsyncDisposable
                     _pending[id] = writer;
                     var command = Encoding.ASCII.GetBytes(line);
                     _config.Trace?.Add(HandOffTrace.Kind.ClientRead, id, command);
+                    if (reader is KernelLineReader { Arrived: { } arrived })
+                    {
+                        _config.Trace?.AddAt(arrived, HandOffTrace.Kind.ClientArrived, id, null);
+                    }
                     _inputs.Writer.TryWrite(new ClientRequest(id, command));
                 }
             }

@@ -14,7 +14,8 @@ namespace Raft.Host.Tests;
 /// (numbers 1 to 3, at indices 2 to 4, so a number taken for an index shows), each segment j of the
 /// committing follower's path lasting (j + 1) * 10 us; the other follower answers later, so it must
 /// not be the one decomposed. Sabotage S-lat-2 (each write joined to the next index, whose stamps are
-/// the next write's).
+/// the next write's). P16-01: each line's kernel arrival is 4 us after the generator's send (of
+/// client-to-leader's 30), and each append's release 7 us before its send (of leader-to-send's 60).
 /// </summary>
 public sealed class DecompositionTests
 {
@@ -50,13 +51,16 @@ public sealed class DecompositionTests
             var append = new AppendEntries(T1, Leader, index - 1, T1, [new LogEntry(T1, Command(n))], index - 1);
             var answer = new AppendEntriesResponse(T1, true, index);
             Add(Leader, at[3], HandOffTrace.Kind.ClientRead, request, Command(n));
+            Add(Leader, at[2] + 4, HandOffTrace.Kind.ClientArrived, request, null);
             Add(Leader, at[4], HandOffTrace.Kind.ClientTaken, request, null);
             Add(Leader, at[5], HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
             foreach (var (f, late) in new[] { (Fast, 0.0), (Slow, 500.0) })
             {
                 var appendRead = MessageCodec.Encode(append);
                 var answerRead = MessageCodec.Encode(answer);
-                Add(Leader, at[6], HandOffTrace.Kind.Sent, f.Value, Frames.Encode(MessageCodec.Encode(append)));
+                var frame = Frames.Encode(MessageCodec.Encode(append));
+                Add(Leader, at[6] - 7, HandOffTrace.Kind.Released, f.Value, frame);
+                Add(Leader, at[6], HandOffTrace.Kind.Sent, f.Value, frame);
                 Add(f, at[7], HandOffTrace.Kind.PeerRead, Leader.Value, appendRead);
                 Add(f, at[8], HandOffTrace.Kind.PeerTaken, Leader.Value, appendRead);
                 Add(f, at[9] + late, HandOffTrace.Kind.Durable, 0, new ReadOnlyMemory<byte>(EntryLog.Record(index, T1, T1, Command(n))));
@@ -198,14 +202,21 @@ public sealed class DecompositionTests
             Assert.Equal(new[] { full.Micros[name][0], full.Micros[name][2] }, d.Micros[name]);
         }
 
-        foreach (var kind in new[] { HandOffTrace.Kind.ClientRead, HandOffTrace.Kind.ClientTaken, HandOffTrace.Kind.Responded })
+        foreach (var kind in new[] { HandOffTrace.Kind.ClientRead, HandOffTrace.Kind.ClientTaken, HandOffTrace.Kind.ClientArrived, HandOffTrace.Kind.Responded })
         {
-            Assert.Equal((3, 2), (traces[Leader].Count(s => s.Kind == kind), sampled[Leader].Count(s => s.Kind == kind)));
+            Assert.Equal((kind, 3, 2), (kind, traces[Leader].Count(s => s.Kind == kind), sampled[Leader].Count(s => s.Kind == kind)));
+        }
+
+        // P16-01: the arrivals and releases of the writes kept, held and kept as their stamps are.
+        Assert.Equal((2, 0, 2, 0), (d.Arrivals.Within, d.Arrivals.Outside, d.Releases.Within, d.Releases.Outside));
+        foreach (var name in Decomposition.SplitNames)
+        {
+            Assert.Equal(new[] { full.Splits[name][0], full.Splits[name][2] }, d.Splits[name]);
         }
 
         // The appends kept are the ones the codec reads as covering a sampled index: the sample reads them in place.
-        static AppendEntries? AppendOf(HandOffTrace.Stamp s) => s is { Kind: HandOffTrace.Kind.Sent or HandOffTrace.Kind.PeerRead, Payload: byte[] a }
-            ? MessageCodec.Decode(s.Kind == HandOffTrace.Kind.Sent ? a[4..^4] : a) as AppendEntries : null;
+        static AppendEntries? AppendOf(HandOffTrace.Stamp s) => s is { Kind: HandOffTrace.Kind.Sent or HandOffTrace.Kind.Released or HandOffTrace.Kind.PeerRead, Payload: byte[] a }
+            ? MessageCodec.Decode(s.Kind == HandOffTrace.Kind.PeerRead ? a : a[4..^4]) as AppendEntries : null;
         foreach (var (node, stamps) in traces)
         {
             var covering = stamps.Count(s => AppendOf(s) is { } ae && Enumerable.Range(1, ae.Entries.Count).Any(i => (ae.PrevLogIndex + i) % 2 == 0));
@@ -243,5 +254,47 @@ public sealed class DecompositionTests
         Assert.All(d.Splits["commit-respond.before"], v => Assert.Equal(3, v, 1));
         Assert.All(d.Splits["commit-respond.hold"], v => Assert.Equal(127, v, 1));
         Assert.All(d.Splits["commit-respond.class"], v => Assert.Equal(2, v));
+    }
+
+    /// <summary>
+    /// P16-01: client-to-leader splits at the line's kernel arrival (delivery 4 us, the reader 26) and
+    /// leader-to-send at the append's release (the loop's hold 53 us, the sender 7; with no emission in the
+    /// trace, the hold is all of the segment), the parts summing to their segments; an arrival or a release
+    /// outside its segment is counted and leaves the segment whole to the reader or the loop's hold, and the
+    /// parts' tail shares are the segments' where nothing is split.
+    /// </summary>
+    [Fact]
+    public void ClientToLeaderAndLeaderToSendSplitAtTheArrivalAndTheRelease()
+    {
+        var (traces, writes) = Build();
+
+        var d = Decomposition.Compute(traces, Leader, writes);
+
+        Assert.Equal((3, 0, 3, 0), (d.Arrivals.Within, d.Arrivals.Outside, d.Releases.Within, d.Releases.Outside));
+        Assert.All(d.Splits["client-to-leader.delivery"], v => Assert.Equal(4, v, 1));
+        Assert.All(d.Splits["client-to-leader.reader"], v => Assert.Equal(26, v, 1));
+        Assert.All(d.Splits["leader-to-send.loop-hold"], v => Assert.Equal(53, v, 1));
+        Assert.All(d.Splits["leader-to-send.sender"], v => Assert.Equal(7, v, 1));
+        var parts = Decomposition.PartMicros(d);
+        Assert.Equal(Decomposition.Segments.Length + 3, Decomposition.Parts.Length);
+        for (var i = 0; i < d.Joined; i++)
+        {
+            Assert.Equal(Decomposition.Segments.Sum(s => d.Micros[s][i]), Decomposition.Parts.Sum(p => parts[p][i]), 6);
+        }
+
+        // The first write's arrival after its read, the second's release after its send (a clock gone wrong).
+        var (late, lateWrites) = Build((node, s, n) => (s.Kind, n) switch
+        {
+            (HandOffTrace.Kind.ClientArrived, 1) => s with { At = s.At + Ticks(100) },
+            (HandOffTrace.Kind.Released, 2) => s with { At = s.At + Ticks(100) },
+            _ => s,
+        });
+        var e = Decomposition.Compute(late, Leader, lateWrites);
+
+        Assert.Equal((3, 2, 1, 2, 1), (e.Joined, e.Arrivals.Within, e.Arrivals.Outside, e.Releases.Within, e.Releases.Outside));
+        Assert.Equal(new double[] { 0, 4, 4 }, e.Splits["client-to-leader.delivery"]);
+        Assert.Equal(new double[] { 30, 26, 26 }, e.Splits["client-to-leader.reader"]);
+        Assert.Equal(new double[] { 53, 60, 53 }, e.Splits["leader-to-send.loop-hold"]);
+        Assert.Equal(new double[] { 7, 0, 7 }, e.Splits["leader-to-send.sender"]);
     }
 }

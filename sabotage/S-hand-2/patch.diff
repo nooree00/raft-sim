@@ -1,0 +1,19 @@
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -569,8 +569,6 @@
+         if (!_holdOutbound && _outbound.TryGetValue(s.To, out var queue))
+         {
+             var frame = Frames.Encode(s.Payload.Span);
+-            // P16-01: stamped as the frame is handed to the peer's queue; its sender may take it before the write returns.
+-            _config.Trace?.Add(HandOffTrace.Kind.Released, s.To.Value, frame);
+             queue.Writer.TryWrite(frame);
+         }
+     }
+@@ -649,6 +647,7 @@
+ 
+                     while (frames.TryRead(out var frame))
+                     {
++                        _config.Trace?.Add(HandOffTrace.Kind.Released, peer.Value, frame);
+                         // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
+                         _config.Trace?.Add(HandOffTrace.Kind.Sent, peer.Value, frame);
+                         await stream.WriteAsync(frame, _stop.Token).ConfigureAwait(false);

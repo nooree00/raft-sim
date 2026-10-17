@@ -1,0 +1,11 @@
+--- a/src/Raft.Host/KernelArrival.cs
++++ b/src/Raft.Host/KernelArrival.cs
+@@ -101,7 +101,7 @@
+             if (newline >= 0)
+             {
+                 var line = Encoding.ASCII.GetString(_buffer, _start, newline - _start).TrimEnd('\r');
+-                Arrived = newline + 1 == _end ? _stamp : null;
++                Arrived = Stopwatch.GetTimestamp();
+                 _start = newline + 1;
+                 return line;
+             }

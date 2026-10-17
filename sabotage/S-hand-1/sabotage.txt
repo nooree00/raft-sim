@@ -1,0 +1,7 @@
+description: A client line's arrival is stamped when the reader returns it, not with the kernel's receive time, so the reader's part of client-to-leader is zero whatever the reader holds and its wait is read as delivery (P16-01)
+mechanism: the arrival taken from the trace's clock at the line's return
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.KernelArrivalTests.AReadersDelayIsInTheReadersPartNotInDelivery
+reason: the reader's part is
+expect: caught
