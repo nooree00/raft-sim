@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/Sabotage.cs
++++ b/tools/Raft.Gates/Sabotage.cs
+@@ -68,7 +68,7 @@
+     /// <summary>The output printed for an outcome: the run's last lines when it is not the expected one, else null (P16-06).</summary>
+     internal static string? OutputFor(string id, string result, string expect, string output)
+     {
+-        if (result == expect)
++        if (result == expect || output.Length >= 0)
+         {
+             return null;
+         }

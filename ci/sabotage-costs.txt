@@ -267,6 +267,7 @@ S-reg-6 0.2
 S-reg-7 0.2
 S-reg-8 5.0
 S-patch-2 5.0
+S-out-1 5.0
 S-repl-1 4.7
 S-repl-2 5.2
 S-repl-3 4.8

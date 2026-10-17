@@ -34,7 +34,48 @@ namespace Raft.Gates;
 /// </summary>
 internal static class Sabotage
 {
-    private sealed record Outcome(string Result, string Detail, TimeSpan Elapsed);
+    /// <summary>An entry's result, its detail, its time, and the output of the run that decided it (P16-06).</summary>
+    internal sealed record Outcome(string Result, string Detail, TimeSpan Elapsed, string Output = "");
+
+    /// <summary>A test run's results and what `dotnet test` printed, kept for an outcome nobody expected (P16-06).</summary>
+    internal sealed record EntryRun(List<TestResult> Results, string Output);
+
+    /// <summary>The lines of an entry's output printed when its outcome is not the expected one (P16-06).</summary>
+    public const int OutputLines = 80;
+
+    /// <summary>
+    /// An entry's (or its control's) line: noted when its outcome is the one it expects; failed when not,
+    /// and then followed by the last <see cref="OutputLines"/> lines of the run that decided it, under the
+    /// entry's id (P16-06), so a result the harness cannot classify can be read when it happens (phase 15's
+    /// S-fsync-1 reported `target-not-run` once and left nothing to read). An expected outcome prints none:
+    /// its output would bury the one that matters. Sabotage S-out-1.
+    /// </summary>
+    internal static void Report(Findings f, string id, Outcome outcome, string expect, string line)
+    {
+        if (outcome.Result == expect)
+        {
+            f.Note(line);
+            return;
+        }
+
+        f.Fail(line);
+        if (OutputFor(id, outcome.Result, expect, outcome.Output) is { } output)
+        {
+            f.Note(output);
+        }
+    }
+
+    /// <summary>The output printed for an outcome: the run's last lines when it is not the expected one, else null (P16-06).</summary>
+    internal static string? OutputFor(string id, string result, string expect, string output)
+    {
+        if (result == expect)
+        {
+            return null;
+        }
+
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd('\r')).TakeLast(OutputLines).ToList();
+        return $"entry output, {id} ({result}, expected {expect}), its last {lines.Count} lines:" + string.Concat(lines.Select(l => "\n    " + l));
+    }
 
     public static Findings Run(Repo repo, string[] args)
     {
@@ -296,16 +337,7 @@ internal static class Sabotage
         {
             var outcome = RunOne(wt, spec, baseline, projects, env);
             entryTimes.AddOrUpdate(spec.Id, outcome.Elapsed.TotalSeconds, (_, t) => t + outcome.Elapsed.TotalSeconds);
-            var ok = outcome.Result == spec.Expect;
-            var line = $"{spec.Id,-11} {outcome.Result,-15} expected {spec.Expect,-15} {outcome.Elapsed.TotalSeconds,5:F1}s  {outcome.Detail}";
-            if (ok)
-            {
-                f.Note(line);
-            }
-            else
-            {
-                f.Fail(line);
-            }
+            Report(f, spec.Id, outcome, spec.Expect, $"{spec.Id,-11} {outcome.Result,-15} expected {spec.Expect,-15} {outcome.Elapsed.TotalSeconds,5:F1}s  {outcome.Detail}");
 
             if (!Revert(wt, spec, baseline, projects, f))
             {
@@ -316,15 +348,7 @@ internal static class Sabotage
             {
                 var c = RunControl(wt, spec, control, baseline, projects);
                 entryTimes.AddOrUpdate(spec.Id, c.Elapsed.TotalSeconds, (_, t) => t + c.Elapsed.TotalSeconds);
-                var line2 = $"{spec.Id,-11} control {c.Result,-7} expected {spec.ControlExpect,-7} {c.Elapsed.TotalSeconds,5:F1}s  {c.Detail}";
-                if (c.Result == spec.ControlExpect)
-                {
-                    f.Note(line2);
-                }
-                else
-                {
-                    f.Fail(line2);
-                }
+                Report(f, spec.Id + " control", c, spec.ControlExpect, $"{spec.Id,-11} control {c.Result,-7} expected {spec.ControlExpect,-7} {c.Elapsed.TotalSeconds,5:F1}s  {c.Detail}");
 
                 if (!Revert(wt, spec, baseline, projects, f))
                 {
@@ -360,7 +384,7 @@ internal static class Sabotage
     private static Outcome RunControl(string wt, SabotageSpec spec, string control, IReadOnlyDictionary<string, string> baseline, IReadOnlyList<string> projects)
     {
         var clock = Stopwatch.StartNew();
-        Outcome Done(string result, string detail) => new(result, detail, clock.Elapsed);
+        Outcome Done(string result, string detail, string output = "") => new(result, detail, clock.Elapsed, output);
 
         var apply = Proc.Run("git", wt, "apply", "--whitespace=nowarn", control);
         if (!apply.Ok)
@@ -379,16 +403,17 @@ internal static class Sabotage
             return Done("not-compiled-in", "the control leaves every assembly byte-identical: it controls for nothing");
         }
 
-        var all = RunEntryTests(wt, spec);
+        var entry = RunEntryTests(wt, spec);
+        var all = entry.Results;
         if (BeyondClass(all.Select(r => r.Name), spec.Get("target")!) is { } stray)
         {
-            return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)");
+            return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)", entry.Output);
         }
 
         var mine = Matching(all, spec.Get("target")!);
         if (mine.Count == 0)
         {
-            return Done("target-not-run", spec.Get("target")!);
+            return Done("target-not-run", spec.Get("target")!, entry.Output);
         }
 
         var failed = mine.Where(r => r.Outcome == "Failed").ToList();
@@ -440,7 +465,7 @@ internal static class Sabotage
     private static Outcome RunOne(string wt, SabotageSpec spec, IReadOnlyDictionary<string, string> baseline, IReadOnlyList<string> projects, IReadOnlyDictionary<string, string> env)
     {
         var clock = Stopwatch.StartNew();
-        Outcome Done(string result, string detail) => new(result, detail, clock.Elapsed);
+        Outcome Done(string result, string detail, string output = "") => new(result, detail, clock.Elapsed, output);
 
         if (new FileInfo(spec.PatchPath).Length > 0)
         {
@@ -473,39 +498,8 @@ internal static class Sabotage
 
         if (spec.Kind == "test")
         {
-            var results = RunEntryTests(wt, spec);
-            if (BeyondClass(results.Select(r => r.Name), spec.Get("target")!) is { } stray)
-            {
-                return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)");
-            }
-
-            var mine = Matching(results, spec.Get("target")!);
-            if (mine.Count == 0)
-            {
-                return Done("target-not-run", spec.Get("target")!);
-            }
-
-            foreach (var test in RedNeighbours(results.Select(r => (r.Name, r.Outcome)), spec.Get("target")!))
-            {
-                RedBeside.AddOrUpdate(test, 1, (_, n) => n + 1);
-            }
-
-            var neighbours = results.Where(r => r.Outcome == "Failed" && !mine.Contains(r)).Select(r => r.Name).ToList();
-            var detail = neighbours.Count == 0 ? "" : $"neighbours also red: {string.Join(", ", neighbours.Take(3))}{(neighbours.Count > 3 ? $" (+{neighbours.Count - 3})" : "")}";
-            var failed = mine.Where(r => r.Outcome == "Failed").ToList();
-            if (failed.Count == 0)
-            {
-                return Done("survived", detail);
-            }
-
-            // Red is not enough: the target's own failure message is printed, and a stated reason must be in it.
-            var why = string.Join(" | ", failed.Select(r => r.Message));
-            if (spec.Get("reason") is { } reason && !why.Contains(reason, StringComparison.Ordinal))
-            {
-                return Done("wrong-reason", $"target failed without '{reason}': {Short(why)}");
-            }
-
-            return Done("caught", $"reason: {Short(why)}{(detail.Length == 0 ? "" : "; " + detail)}");
+            var entry = RunEntryTests(wt, spec);
+            return ClassifyTestRun(spec, entry, clock.Elapsed);
         }
 
         var run = Bash(wt, spec.Get("command")!, env);
@@ -513,15 +507,58 @@ internal static class Sabotage
         var output = run.StdOut + run.StdErr;
         if (run.Ok)
         {
-            return Done("survived", "command exited 0");
+            return Done("survived", "command exited 0", output);
         }
 
         return message is not null && output.Contains(message, StringComparison.Ordinal)
-            ? Done("caught", $"exit {run.ExitCode}, message found")
-            : Done("wrong-reason", $"exit {run.ExitCode} without '{message}': {Tail(run, 3)}");
+            ? Done("caught", $"exit {run.ExitCode}, message found", output)
+            : Done("wrong-reason", $"exit {run.ExitCode} without '{message}': {Tail(run, 3)}", output);
     }
 
-    private sealed record TestResult(string Name, string Outcome, string Message);
+    /// <summary>
+    /// A patched test entry's verdict from its run (P16-06, drawn out of the entry's run so it can be driven
+    /// in a test): beyond its class, its target not run, survived, red for the wrong reason, or caught; each
+    /// outcome carries the run's output, printed when it is not the one expected.
+    /// </summary>
+    internal static Outcome ClassifyTestRun(SabotageSpec spec, EntryRun entry, TimeSpan elapsed)
+    {
+        Outcome Done(string result, string detail) => new(result, detail, elapsed, entry.Output);
+
+        if (BeyondClass(entry.Results.Select(r => r.Name), spec.Get("target")!) is { } stray)
+        {
+            return Done("ran-beyond-class", $"{stray} ran, outside the target's class: the entry ran more than its class (P11-09)");
+        }
+
+        var mine = Matching(entry.Results, spec.Get("target")!);
+        if (mine.Count == 0)
+        {
+            return Done("target-not-run", spec.Get("target")!);
+        }
+
+        foreach (var test in RedNeighbours(entry.Results.Select(r => (r.Name, r.Outcome)), spec.Get("target")!))
+        {
+            RedBeside.AddOrUpdate(test, 1, (_, n) => n + 1);
+        }
+
+        var neighbours = entry.Results.Where(r => r.Outcome == "Failed" && !mine.Contains(r)).Select(r => r.Name).ToList();
+        var detail = neighbours.Count == 0 ? "" : $"neighbours also red: {string.Join(", ", neighbours.Take(3))}{(neighbours.Count > 3 ? $" (+{neighbours.Count - 3})" : "")}";
+        var failed = mine.Where(r => r.Outcome == "Failed").ToList();
+        if (failed.Count == 0)
+        {
+            return Done("survived", detail);
+        }
+
+        // Red is not enough: the target's own failure message is printed, and a stated reason must be in it.
+        var why = string.Join(" | ", failed.Select(r => r.Message));
+        if (spec.Get("reason") is { } reason && !why.Contains(reason, StringComparison.Ordinal))
+        {
+            return Done("wrong-reason", $"target failed without '{reason}': {Short(why)}");
+        }
+
+        return Done("caught", $"reason: {Short(why)}{(detail.Length == 0 ? "" : "; " + detail)}");
+    }
+
+    internal sealed record TestResult(string Name, string Outcome, string Message);
 
     /// <summary>
     /// P14-05: for each test red beside an entry's target in this run, how many entries turned it red.
@@ -594,11 +631,11 @@ internal static class Sabotage
             args.Add(method);
         }
 
-        return RunTestArgs(wt, args);
+        return RunTestArgs(wt, args).Results;
     }
 
     /// <summary>A patched entry's (or its control's) tests: its target's class only (P11-09).</summary>
-    private static List<TestResult> RunEntryTests(string wt, SabotageSpec spec) => RunTestArgs(wt, EntryTestArgs(spec));
+    private static EntryRun RunEntryTests(string wt, SabotageSpec spec) => RunTestArgs(wt, EntryTestArgs(spec));
 
     /// <summary>
     /// The arguments a test entry's patched run passes to `dotnet test` (P11-09): its project, and a
@@ -627,7 +664,7 @@ internal static class Sabotage
         return names.FirstOrDefault(n => !n.StartsWith(prefix, StringComparison.Ordinal) || TargetMethod(n[prefix.Length..]).Contains('.', StringComparison.Ordinal));
     }
 
-    private static List<TestResult> RunTestArgs(string wt, List<string> args)
+    private static EntryRun RunTestArgs(string wt, List<string> args)
     {
         var dir = Path.Combine(wt, "TestResults", "sabotage");
         if (Directory.Exists(dir))
@@ -636,13 +673,14 @@ internal static class Sabotage
         }
 
         args.AddRange(["--results-directory", dir]);
-        Proc.Run("dotnet", wt, [.. args]);
+        var run = Proc.Run("dotnet", wt, [.. args]);
         XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
-        return Directory.Exists(dir)
+        List<TestResult> results = Directory.Exists(dir)
             ? Directory.GetFiles(dir, "*.trx").SelectMany(t => XDocument.Load(t).Descendants(ns + "UnitTestResult"))
                 .Select(e => new TestResult((string?)e.Attribute("testName") ?? "", (string?)e.Attribute("outcome") ?? "",
                     e.Element(ns + "Output")?.Element(ns + "ErrorInfo")?.Element(ns + "Message")?.Value ?? "")).ToList()
             : [];
+        return new EntryRun(results, run.StdOut + run.StdErr);
     }
 
     private static List<TestResult> Matching(IEnumerable<TestResult> results, string target) =>
