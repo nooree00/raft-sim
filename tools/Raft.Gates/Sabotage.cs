@@ -453,7 +453,9 @@ internal static class Sabotage
             var r = Bash(wt, group.Key, env);
             if (!r.Ok)
             {
-                failures.Add($"{string.Join(", ", group.Select(s => s.Id))}: baseline command fails unpatched: {group.Key}\n{Tail(r)}");
+                // P16-06: the run's last lines, as for an entry's unexpected outcome; twelve lost the assertion of
+                // a Gates test that failed once in S-ci-1's baseline at 27744b7 (run 38997459747).
+                failures.Add($"{string.Join(", ", group.Select(s => s.Id))}: baseline command fails unpatched: {group.Key}\n{Tail(r, OutputLines)}");
             }
 
             timings.Add($"'{group.Key}' {unit.Elapsed.TotalSeconds:F0}s");
