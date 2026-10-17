@@ -124,7 +124,9 @@ client-to-leader holds 0.03 of the excess, its 99th percentile 0.2 to 0.4 ms; th
 0.40 (m:p16-02-gc-*, m:p16-02-gc2-*, m:p16-02-set2-*). The reading below, and decision 2's "in the
 leader's hand-offs", measured the trace as much as the system. That P14-04's rule had no branch for what
 it found stands; what it found does not. The tail measured apart, and the corrected rule's reading of it,
-are in `docs/phases/P16/report.md`.
+are in `docs/phases/P16/report.md`: beside one busy process, the reading this phase's composition was
+taken to predict, the hosts' thread hand-offs did not grow; the leader's queue did, while the loop was
+less busy (P16-04).
 
 The tail rule read only the six traced runs within 1.5 times their set's untraced 99th percentile.
 Their tail writes put 0.14 of their excess over the median write in the persists and 0.24 in the
