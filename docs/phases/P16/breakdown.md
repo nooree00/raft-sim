@@ -149,7 +149,7 @@ Then the margin audit at the last host change (P16-07) and the cost in CI (P16-0
 - **Sabotage:** ; manual: the diff checked against the decisions (§11 only)
 - **Verifiable here:** partial — the diff and the register gate here; its approval the reviewer's
 - **Prediction:** The amendment changes §11's phase-16 row and no other section; `docs/design/node-interface.md` is unchanged through the phase, the new stamps being bench-mode observation only. **Observable:** the diff, and the phase's diff of node-interface.md.
-- **Outcome:** pending
+- **Outcome:** right so far (evidence) — `011c044` changes §11's phase-16 row (its done criterion) and no other section of the spec, and the two register rows promised here cite it. `docs/design/node-interface.md` is unchanged through P16-01: the arrival and release stamps are bench-mode observation, the kernel's timestamp asked for only on a traced host's client sockets. Whether it stays unchanged is read again at the report.
 
 ### P16-01 — The hand-offs' instrument: the kernel's arrival and the send's release
 
