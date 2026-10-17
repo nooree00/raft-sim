@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/SabotageSpec.cs
++++ b/tools/Raft.Gates/SabotageSpec.cs
+@@ -146,7 +146,7 @@
+         // command. Sabotage S-patch-2.
+         foreach (var diff in new[] { patch, control }.Where(File.Exists))
+         {
+-            f.Require(!ChangedFiles(File.ReadAllText(diff)).Contains(CountFile),
++            f.Require(diff.Length >= 0 || !ChangedFiles(File.ReadAllText(diff)).Contains(CountFile),
+                 $"{id}: {Path.GetFileName(diff)} names {CountFile}, whose lines change with every test count; make a count edit in the entry's command");
+         }
+ 

@@ -30,6 +30,9 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
 {
     public const string BroadTargetsFile = "ci/broad-targets.txt";
 
+    /// <summary>The executed-test counts (`gates testcount`); no patch or control may name it (P16-05).</summary>
+    public const string CountFile = "ci/test-baseline.txt";
+
     /// <summary>The tests the harness's runs show red beside at least half of their class's other entries (P15-06, the observer class-reach).</summary>
     public const string ClassReachFile = "ci/class-reach.txt";
     public static readonly string[] Kinds = ["test", "command"];
@@ -138,6 +141,15 @@ internal sealed record SabotageSpec(string Id, IReadOnlyDictionary<string, strin
         }
 
         var spec = new SabotageSpec(id, fields, patch, File.Exists(control) ? control : null);
+        // P16-05: a patch's context in the count file is other projects' counts, so every count change broke
+        // it (S-ran-2, three times in phase 15). An entry that needs a count edited makes the edit in its
+        // command. Sabotage S-patch-2.
+        foreach (var diff in new[] { patch, control }.Where(File.Exists))
+        {
+            f.Require(!ChangedFiles(File.ReadAllText(diff)).Contains(CountFile),
+                $"{id}: {Path.GetFileName(diff)} names {CountFile}, whose lines change with every test count; make a count edit in the entry's command");
+        }
+
         f.Require(spec.Get("description") is { Length: > 0 }, $"{id}: no description");
         f.Require(spec.Get("mechanism") is { Length: > 0 }, $"{id}: no mechanism (the behaviour the patch breaks; P3-01)");
         f.Require(spec.Get("reason") is null || spec.Kind == "test", $"{id}: a reason is checked against a target's failure message, so only a test entry has one");

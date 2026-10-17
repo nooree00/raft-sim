@@ -61,6 +61,16 @@ public sealed partial class SabotageSpecTests : IDisposable
         Assert.Empty(Load(Test(Broad), control: "--- a/src/A.cs\n+++ b/src/A.cs\n@@ -1 +1 @@\n-x\n+z\n"));
     }
 
+    /// <summary>P16-05: no patch or control may name the count file, whose lines change with every test count. Sabotage S-patch-2.</summary>
+    [Fact]
+    public void APatchOrControlNamingTheCountFileIsRefused()
+    {
+        const string onCounts = "--- a/ci/test-baseline.txt\n+++ b/ci/test-baseline.txt\n@@ -1 +1 @@\n-Raft.X.Tests 3\n+Raft.X.Tests 2\n";
+        Assert.Empty(Load(Test("Raft.X.Tests.C.M")));
+        Assert.Contains(Load(Test("Raft.X.Tests.C.M"), patch: onCounts), e => e.Contains("patch.diff names ci/test-baseline.txt", StringComparison.Ordinal));
+        Assert.Contains(Load(Test("Raft.X.Tests.C.M"), control: onCounts), e => e.Contains("control.diff names ci/test-baseline.txt", StringComparison.Ordinal));
+    }
+
     /// <summary>P15-06: a test that reaches its class needs a reason or a control too. Sabotage S-reach-2.</summary>
     [Fact]
     public void AClassReachTargetNeedsAReasonOrAControl()
