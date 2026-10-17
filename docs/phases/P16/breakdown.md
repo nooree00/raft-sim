@@ -5,7 +5,15 @@ entry's output (spec §11 phase 16, added at phase 15's acceptance; its done cri
 write, at this breakdown's approval). Format as in `docs/phases/P15/breakdown.md`, parsed by `gates
 breakdown`; outcomes will say `(evidence)` or `(forcing)`.
 
-**Draft, for review.** Nothing in it is built before approval.
+**Approved** (reviewer), decisions 1 to 3 and 5 to 7; **decision 4 replaced:** the rule is sent to the
+reviewer between P16-03 and P16-04, committed, pushed and sent as a message, and P16-04 starts only on
+the reviewer's answer. Machine contention was the wrong objection: reviewing a rule costs no machine
+time, only wall-clock. And showing that the rule's commit precedes the reading's records proves
+ordering, not independence: the rule would be written from P16-02's numbers and then used to read
+P16-04, with nothing between them, the loop a rule fixed in advance exists to break. P15-04's rule was
+wrong in its branches and that was learned only afterwards; a rule derived from the data it will judge
+is weaker than that one was. Whether a rule written from P16-02 can be independent of P16-04 at all is
+answered under decision 4, so that what the reading is worth is decided before it is taken.
 
 **Out of scope, stated first: the replication pipeline.** Past the capacity (9,375 writes a second) the
 pipeline's one append in flight per follower is the candidate limit, and widening it would reverse
@@ -40,12 +48,14 @@ before the reading it governs.
 - **the hand-offs in the tail are measured apart:** client-to-leader into the kernel's delivery and the
   leader's reader after it, leader-to-send into the time before emission, the hold, and the sender's
   hand-off after release; each part guarded by a planted delay that must appear in it alone;
-- **the corrected tail rule is written after that measurement and before the reading it governs,**
-  each branch's numeric test written apart from its reading, a branch for no branch fitting, and each
-  branch's reading checked against the segments it names before the branch is reported;
-- **the tail at 3,125 writes a second is read by it** from traced runs each within 1.5 times the
-  untraced 99th percentile at the same rate (per run, phase 15's decision 4); no remedy for the tail is
-  built in this phase, the reading naming the next subject;
+- **the corrected tail rule is written after that measurement and sent to the reviewer before the
+  reading it governs,** each branch's numeric test written apart from its reading, a branch for no
+  branch fitting, each branch's reading checked against the segments it names before the branch is
+  reported, and each branch's direction stated for a held-out condition P16-02 does not measure;
+- **the tail at 3,125 writes a second is read by it,** after the reviewer's answer, at the operating
+  point and, if the reviewer takes it, in the held-out condition, from traced runs each within 1.5 times
+  the untraced 99th percentile at the same rate and condition (per run, phase 15's decision 4); no
+  remedy for the tail is built in this phase, the reading naming the next subject;
 - **the sabotage harness keeps each entry's output** for any outcome it did not expect, so an
   unclassified result can be read when it happens;
 - **S-ran-2's patch carries no count,** and no sabotage patch or control names the count file;
@@ -71,8 +81,8 @@ The spec's row first (P16-00). Then the two mechanical tasks, which need no meas
 host code: S-ran-2 anchored away from the counts (P16-05) and the harness's per-entry output (P16-06),
 so the rest of the phase runs with both. Then the instrument (P16-01), because the parts are read
 through it; then the hand-offs measured apart (P16-02); then the rule, written from what P16-02 found
-(P16-03); then the reading on fresh runs (P16-04). Then the margin audit at the last host change
-(P16-07) and the cost in CI (P16-08).
+and sent to the reviewer (P16-03); then, on the reviewer's answer, the reading on fresh runs (P16-04).
+Then the margin audit at the last host change (P16-07) and the cost in CI (P16-08).
 
 ## Decisions for review
 
@@ -93,13 +103,28 @@ through it; then the hand-offs measured apart (P16-02); then the rule, written f
    takes). leader-to-send then splits into *before emission* (P15-03's), *hold* (emission to release)
    and *sender* (release to the socket write). Responses need no stamp: the loop writes them itself,
    and `Responded` is their release.
-4. **The rule is written after P16-02 and before P16-04's runs,** committed as an amendment to this
-   breakdown, its form fixed now: each branch a numeric test over the measured parts and, apart from
-   it, a reading; a branch for no branch fitting; each reading checked against the parts it names
-   before its branch is reported. It is not sent for review before the reading (the phase would stop
-   between two measurements of one machine); its commit is an ancestor of every P16-04 record's, and
-   the report shows that. **Not chosen:** writing the rule now, before the parts are known, which is
-   P14-04's mistake again.
+4. **The rule is written after P16-02 and sent to the reviewer before P16-04** (replaced at approval).
+   It is committed as an amendment to this breakdown, pushed, and sent to the reviewer as a message;
+   P16-04 starts on the reviewer's answer, with whatever the reviewer changes. Its form is fixed now:
+   each branch a numeric test over the measured parts and, apart from it, a reading; a branch for no
+   branch fitting; each reading checked against the parts it names before its branch is reported; and,
+   for the held-out condition below, the direction each branch's reading predicts.
+   **Can a rule written from P16-02 be independent of P16-04? Not if P16-04 only measures P16-02's
+   condition again.** The rule will be written knowing which parts dominate at 3,125 writes a second.
+   Fresh runs of the same condition on the same machine will reproduce that composition within its
+   spread, so the rule's numbers will select the branch P16-02 already points to, almost surely. Such a
+   reading tests two things: that P16-02's composition replicates, and that each branch's reading
+   survives its check against the parts. It does not test whether the rule is right, and the reviewer's
+   reading of the rule before it is used is then the only independent check on it. What would let the
+   reading test something is a condition P16-02 does not measure, **fixed now, before P16-02's numbers
+   exist**, for which each branch's reading must predict a direction: **3,125 writes a second beside one
+   busy process** (a spinning loop, as the margin audit's busy mode runs three). If the tail's hand-offs
+   are the hosts' threads waiting for processors, the reader's and the sender's parts grow there and
+   delivery does not; if they are the kernel's delivery, delivery grows; if neither moves, the hand-offs
+   are not contention for processors. The reviewer decides at the rule's review what each of P16-04's
+   two readings is worth, and whether the held-out one is taken, before either is. **Not chosen:**
+   writing the rule now, before the parts are known, which is P14-04's mistake again; reading a
+   resample alone and calling it a test.
 5. **No remedy for the tail in this phase.** The reading names the next subject, as P14-04's did. The
    tail criterion (5,051 µs) is reported against; the median's is a stated limit (§8).
 6. **The harness's output, kept where it is read** (P16-06): for any entry whose outcome is not the one
@@ -144,22 +169,22 @@ through it; then the hand-offs measured apart (P16-02); then the rule, written f
 - **Prediction:** Of client-to-leader's share of the tail's excess, the reader's part holds at least three quarters and delivery under 0.05 of the excess, delivery's median about 20 µs and the reader's 99th percentile over a millisecond: the reader's wake, not the network, is client-to-leader's tail. Of leader-to-send's share, the sender's part holds 0.05 to 0.10 of the excess, the time before emission 0.04 to 0.10 and the hold under 0.03. **Observable:** the records' part shares and percentiles.
 - **Outcome:** pending
 
-### P16-03 — The corrected tail rule
+### P16-03 — The corrected tail rule, sent to the reviewer
 
-- **Task:** Decision 4. Written from P16-02's description and committed as an amendment to this breakdown before P16-04's first run: branches whose numeric tests range over the measured parts (the persists; the loop's queues; the hosts' thread hand-offs, reader and sender; the generator's lateness; the rest), each with its reading written apart, a branch for no branch fitting, and, for each reading, the part it must be checked against before its branch is reported. What each branch implies for the next subject is written with it.
-- **Vacuity:** A rule written after the reading it governs fits that reading by construction; guarded by its commit being an ancestor of every P16-04 record's commit, checked and reported.
-- **Sabotage:** ; manual: the rule's commit against P16-04's records' commits
-- **Verifiable here:** partial — git says which commit came first, checked by hand
-- **Prediction:** The rule is written in one commit before P16-04 starts and is not amended during it. **Observable:** the breakdown's history and the records' commits.
+- **Task:** Decision 4. Written from P16-02's description, committed as an amendment to this breakdown, pushed, and sent to the reviewer as a message; the phase waits for the answer before P16-04. Branches whose numeric tests range over the measured parts (the persists; the loop's queues; the hosts' thread hand-offs, reader and sender; the kernel's delivery; the generator's lateness; the rest), each with its reading written apart, a branch for no branch fitting, for each reading the part it must be checked against before its branch is reported, the direction each reading predicts in the held-out condition (3,125 writes a second beside one busy process), and what each branch implies for the next subject.
+- **Vacuity:** A rule written from the data it will judge fits that data by construction; guarded by the reviewer's reading of it before it is used, and by the held-out condition, fixed at approval before P16-02's numbers existed, where each branch must predict a direction.
+- **Sabotage:** ; manual: the reviewer's review; the rule's commit against P16-04's records' commits
+- **Verifiable here:** partial — git orders the commits; the rule's independence is the reviewer's to judge
+- **Prediction:** The rule is written in one commit, sent before P16-04 starts, and changed only as the reviewer's answer directs. **Observable:** the breakdown's history, the message, the records' commits.
 - **Outcome:** pending
 
 ### P16-04 — The tail read by the corrected rule
 
-- **Task:** Fresh runs after P16-03's commit: generator separate, five traced (one write in ten) and five untraced at 3,125 writes a second, interleaved; the rule applied to the traced runs each within 1.5 times the untraced, each branch's reading checked against its part before it is reported. No remedy built; the reading names the next subject.
-- **Vacuity:** A reading taken from runs beyond the threshold reads the trace again; guarded by the per-run threshold, checked first, from the records.
-- **Sabotage:** ; manual: the threshold against each traced run, the branch's reading against its part
+- **Task:** On the reviewer's answer, fresh runs after the rule's commit, generator separate: five traced (one write in ten) and five untraced at 3,125 writes a second, interleaved; and, if the reviewer takes it, the same beside one busy process; the rule applied to the traced runs each within 1.5 times the untraced of their condition, each branch's reading checked against its part before it is reported, and in the held-out condition each part's direction against the one its branch predicted. No remedy built; the reading names the next subject, and says what each reading is worth as the reviewer decided.
+- **Vacuity:** A reading taken from runs beyond the threshold reads the trace again; guarded by the per-run threshold, checked first, from the records. A reading of a resample presented as a test of the rule; guarded by decision 4's statement of what each reading tests, carried into the outcome.
+- **Sabotage:** ; manual: the threshold against each traced run, the branch's reading against its part, the held-out directions against the rule's
 - **Verifiable here:** partial — measured here; whether the rule is the right one is the reviewer's
-- **Prediction:** The rule's numbers select the hosts' thread hand-offs, reader and sender together holding more than half of the tail's excess, and its reading holds against the parts: the reader's wake on four processors shared by three hosts, a loop 0.96 busy and about 200 threads. The persists hold 0.15 to 0.25, the generator's lateness under 0.05. **Observable:** the records and the rule.
+- **Prediction:** At the operating point the rule's numbers select the hosts' thread hand-offs, reader and sender together holding more than half of the tail's excess, and its reading holds against the parts; the persists hold 0.15 to 0.25, the generator's lateness under 0.05. Beside one busy process the reader's and the sender's parts grow by more than half again in share while delivery stays under 0.05, as a processor-contention reading predicts. **Observable:** the records and the rule.
 - **Outcome:** pending
 
 ### P16-05 — S-ran-2 anchored away from the counts
