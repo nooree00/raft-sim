@@ -1,11 +1,11 @@
 --- a/src/Raft.Host/HandOffTrace.cs
 +++ b/src/Raft.Host/HandOffTrace.cs
-@@ -127,7 +127,7 @@
-             case Kind.Durable:
-                 return payload is ReadOnlyMemory<byte> records && DurableKeeps(records.Span);
-             case Kind.PeerTaken:
--                return payload is byte[] array && _keptReads.TryRemove(array, out _);
-+                return false;
-             case Kind.PeerRead when payload is byte[] read && MessageKeeps(kind, id, read):
-                 _keptReads[read] = 0;
-                 return true;
+@@ -161,7 +161,7 @@
+ 
+                 break;
+             case Kind.PeerTaken when payload is byte[] array:
+-                if (_keptReads.TryRemove(array, out var readAt))
++                if (_keptReads.TryRemove(array, out var readAt) && readAt < 0)
+                 {
+                     _arena!.AddShared(at, kind, id, readAt);
+                 }

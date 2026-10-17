@@ -39,13 +39,19 @@ public sealed class LocalCluster(string root, int basePort = 27_000) : IAsyncDis
     /// <summary>One write in this many traced, when traced (P15-01).</summary>
     public int TraceSample { get; private set; } = 1;
 
+    /// <summary>
+    /// A sampled trace's room, in stamps (P16-01): a run of 13 s at 3,125 writes a second, one in ten traced,
+    /// keeps about 33,000 on the leader; this is room for eight times that, 72 MB a host allocated at the start.
+    /// </summary>
+    public const int TraceCapacity = 1 << 18;
+
     public void Start(RaftOptions? options = null, bool traced = false, int traceSample = 1)
     {
         TraceSample = Math.Max(1, traceSample);
         var ids = Enumerable.Range(1, 3).Select(i => new NodeId(i)).ToList();
         var peers = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + n.Value));
         Clients = ids.ToDictionary(n => n, n => new DnsEndPoint("127.0.0.1", basePort + 100 + n.Value));
-        Traces = traced ? ids.ToDictionary(n => n, _ => new HandOffTrace(TraceSample)) : new Dictionary<NodeId, HandOffTrace>();
+        Traces = traced ? ids.ToDictionary(n => n, _ => new HandOffTrace(TraceSample, TraceCapacity)) : new Dictionary<NodeId, HandOffTrace>();
         foreach (var n in ids)
         {
             var dir = Path.Combine(root, n.ToString());

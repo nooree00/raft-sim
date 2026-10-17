@@ -225,6 +225,26 @@ public sealed class DecompositionTests
     }
 
     /// <summary>
+    /// P16-01: a sampled trace keeps its stamps in arrays allocated at its start; past their room it keeps no
+    /// more and counts what it drops, and a drain empties it.
+    /// </summary>
+    [Fact]
+    public void ASampledTracePastItsRoomDropsAndCounts()
+    {
+        var (traces, _) = Build();
+        var trace = new HandOffTrace(sample: 2, capacity: 5);
+        foreach (var s in traces[Leader])
+        {
+            trace.Offer(s);
+        }
+
+        Assert.Equal(5, trace.Snapshot().Count);
+        Assert.Equal(21, trace.Dropped);
+        Assert.Equal(5, trace.Drain().Count);
+        Assert.Empty(trace.Snapshot());
+    }
+
+    /// <summary>
     /// P15-03: leader-to-send and commit-respond split at their outputs' emission. Each write's append to the
     /// fast follower is emitted 5 us after its take (before its persist is durable, so nothing waits before it
     /// and the whole segment is the hold, class A); its response 3 us after the answer's take (class C), the
