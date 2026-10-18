@@ -1,0 +1,12 @@
+diff --git a/scripts/host-sabotages.sh b/scripts/host-sabotages.sh
+--- a/scripts/host-sabotages.sh
++++ b/scripts/host-sabotages.sh
+@@ -17,7 +17,7 @@
+   # A container may have left root-owned files there (the Compose run's build output); on a non-root
+   # runner they stopped the worktree's removal (exit 255). Hand them back through the pinned image.
+   if [ "$(id -u)" != 0 ]; then docker run --rm -v "$tmp:/w" "$(cat ci/image.digest)" chown -R "$(id -u):$(id -g)" /w >/dev/null 2>&1 || true; fi
+-  git worktree remove --force "$tmp/wt"; rm -rf "$tmp"; tmp=
++  git worktree remove --force "$tmp/wt"; tmp=
+ }
+ trap 'drop || true' EXIT
+ for f in sabotage/*/sabotage.txt; do

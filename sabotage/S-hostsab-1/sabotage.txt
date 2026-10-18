@@ -1,0 +1,7 @@
+description: The host sabotages leave each entry's directory behind again: the worktree is removed but not the directory made for it, nor the temporary directories its baseline and command made, so every run keeps the secret-scan entries' clones of the repository and the worktrees' parents (P16-10; the README walk's copies once filled the disk, P16-09)
+mechanism: the host sabotages remove each entry's directory
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.HostSabotagesTests.AFailingBaselineLeavesNothingBehind
+expect: caught
+changes-assemblies: no

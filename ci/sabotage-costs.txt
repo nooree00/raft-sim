@@ -156,6 +156,7 @@ S-hist-6 4.9
 S-hist-7 4.9
 S-host-1 61.5
 S-hostdisk-1 3.4
+S-hostsab-1 5.0
 S-iface-1 5.7
 S-iface-2 5.8
 S-iface-3 6.3

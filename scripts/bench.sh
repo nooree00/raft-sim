@@ -60,7 +60,17 @@ decompose=(); [ "${RAFT_BENCH_DECOMPOSE:-0}" = 1 ] && decompose=(--decompose 1)
 # P14-04: the tail criterion the decomposition's tail rule reads the writes over (the run's own 99th percentile when unset).
 [ -n "${RAFT_BENCH_TAIL_OVER:-}" ] && decompose+=(--tail-over "$RAFT_BENCH_TAIL_OVER")
 test -z "$(git status --porcelain -- src)" || { echo "bench: src has uncommitted changes; a record names the commit it measured"; exit 1; }
-volume="raft-bench-$$"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+volume="raft-bench-$$"
+# P16-10: other commits' trees are exported under one directory, removed with the data volume on any exit;
+# each was once left behind in a directory of its own. The SDK container builds as root, so on a non-root
+# host their build output is handed back through the pinned image first, as host-sabotages.sh does.
+trees="$(mktemp -d)"
+leave() {
+  docker volume rm -f "$volume" >/dev/null 2>&1 || true
+  if [ "$(id -u)" != 0 ] && [ -n "$(ls -A "$trees")" ]; then docker run --rm -v "$trees:/w" "$image" chown -R "$(id -u):$(id -g)" /w >/dev/null 2>&1 || true; fi
+  rm -rf "$trees" || echo "bench: could not remove $trees"
+}
+trap leave EXIT
 # Built once, in Release, through the same container as every other build (restore needs the
 # network); each measurement then runs with no network at all, beside nothing else of ours.
 scripts/in-sdk.sh dotnet build src/Raft.Host -c Release -nologo -v:q >/dev/null
@@ -96,7 +106,7 @@ load_in() {
   fi
 }
 mode="local"; [ "${RAFT_BENCH_SEPARATE:-0}" = 1 ] && mode=separate
-trap 'docker rm -f "$cluster" >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+trap 'docker rm -f "$cluster" >/dev/null 2>&1 || true; leave' EXIT
 case "$what" in
   inputs)
     for r in $(seq 1 "$reps"); do
@@ -119,7 +129,7 @@ case "$what" in
     export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)"
     docker compose -f compose/compose.yaml build n1 >/dev/null
     net="raft-hop-$$"; docker network create "$net" >/dev/null
-    trap 'docker rm -f raft-hop-reader >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    trap 'docker rm -f raft-hop-reader >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; leave' EXIT
     for r in $(seq 1 "$reps"); do
       docker run -d --name raft-hop-reader --hostname raft-hop-reader --network "$net" --user "$(id -u):$(id -g)" -v "$PWD/measurements:/out" \
         -e RAFT_COMMIT="$commit" -e RAFT_IMAGE="$image" -e RAFT_SDK="$sdk" raft-host:local \
@@ -158,11 +168,11 @@ POINTS
     # fresh cluster for every run, the commits interleaved within each repetition.
     export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE=0
     dc() { docker compose -f compose/compose.yaml "$@"; }
-    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    trap 'dc --profile client down -v >/dev/null 2>&1 || true; leave' EXIT
     dc build n1 >/dev/null
     commits="${RAFT_BENCH_AB_COMMITS:?compose-ab needs RAFT_BENCH_AB_COMMITS}"
     for c in $commits; do
-      at="$(git rev-parse --short "$c")"; tree="$(mktemp -d)/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
+      at="$(git rev-parse --short "$c")"; tree="$trees/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
       docker build -q -f "$tree/compose/Dockerfile" --build-arg SDK_IMAGE="$image" -t "raft-host:ab-$at" "$tree" >/dev/null
     done
     for r in $(seq 1 "$reps"); do
@@ -189,12 +199,12 @@ POINTS
     export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE=0
     dc() { docker compose -f compose/compose.yaml "$@"; }
     gen="raft-host:ab-gen-$(git rev-parse --short HEAD)"
-    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker tag "$gen" raft-host:local >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker tag "$gen" raft-host:local >/dev/null 2>&1 || true; leave' EXIT
     dc build n1 >/dev/null
     docker tag raft-host:local "$gen"
     commits="${RAFT_BENCH_AB_COMMITS:?compose-node-ab needs RAFT_BENCH_AB_COMMITS}"
     for c in $commits; do
-      at="$(git rev-parse --short "$c")"; tree="$(mktemp -d)/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
+      at="$(git rev-parse --short "$c")"; tree="$trees/$at"; mkdir -p "$tree"; git archive "$at" | tar -x -C "$tree"
       docker build -q -f "$tree/compose/Dockerfile" --build-arg SDK_IMAGE="$image" -t "raft-host:ab-$at" "$tree" >/dev/null
     done
     for r in $(seq 1 "$reps"); do
@@ -249,7 +259,7 @@ POINTS
     # Phase 10's head, exported (this tree stays as it is), both hosts built in Release.
     # The task is P11-05's unless RAFT_BENCH_AB_TASK names another (P12-04: the generator, against P12-03's head).
     ab_task="${RAFT_BENCH_AB_TASK:-P11-05}"
-    base="${RAFT_BENCH_AB_BASE:-58bed2b}"; old="$(mktemp -d)/base"; mkdir -p "$old"; git archive "$base" | tar -x -C "$old"
+    base="${RAFT_BENCH_AB_BASE:-58bed2b}"; old="$trees/base"; mkdir -p "$old"; git archive "$base" | tar -x -C "$old"
     docker run --rm -v "$old:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src ${HTTPS_PROXY:+--network host -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY} \
       ${SSL_CERT_FILE:+-v "$SSL_CERT_FILE:/etc/ssl/certs/proxy-ca.pem:ro" -e SSL_CERT_FILE=/etc/ssl/certs/proxy-ca.pem} "$image" \
       dotnet build src/Raft.Host -c Release -nologo -v:q >/dev/null
@@ -264,7 +274,7 @@ POINTS
     done ;;
   soak-ab)
     # Phase 8's head, exported (not checked out: this tree stays as it is), both built in Release.
-    p8="$(mktemp -d)/p8"; mkdir -p "$p8"; git archive 6f5001d | tar -x -C "$p8"
+    p8="$trees/p8"; mkdir -p "$p8"; git archive 6f5001d | tar -x -C "$p8"
     for side in "$PWD" "$p8"; do
       docker run --rm -v "$side:/src" -v "${RAFT_NUGET_VOLUME:-raft-sim-nuget}:/root/.nuget/packages" -w /src ${HTTPS_PROXY:+--network host -e HTTPS_PROXY -e HTTP_PROXY -e NO_PROXY} \
         ${SSL_CERT_FILE:+-v "$SSL_CERT_FILE:/etc/ssl/certs/proxy-ca.pem:ro" -e SSL_CERT_FILE=/etc/ssl/certs/proxy-ca.pem} "$image" \
@@ -287,7 +297,7 @@ POINTS
   load-compose)
     export SDK_IMAGE="$image" RAFT_OUT="$PWD/measurements" RAFT_UID="$(id -u)" RAFT_GID="$(id -g)" RAFT_BENCH_ROLES=1 RAFT_HANDOFF_TRACE="${RAFT_BENCH_DECOMPOSE:-0}"
     dc() { docker compose -f compose/compose.yaml "$@"; }
-    trap 'dc --profile client down -v >/dev/null 2>&1 || true; docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+    trap 'dc --profile client down -v >/dev/null 2>&1 || true; leave' EXIT
     dc build n1 >/dev/null
     for r in $(seq 1 "$reps"); do
       for rate in $rates; do
