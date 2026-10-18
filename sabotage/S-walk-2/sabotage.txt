@@ -1,4 +1,4 @@
-description: The README walk leaves its copy of the working tree behind again: neither exit trap removes its temporary directory, so every walk, passing or failing, keeps about 109 MB in a fresh directory (P16-09; 195 of them once filled the disk)
+description: The README walk leaves its copy of the working tree behind again: its exit cleanup keeps the temporary directory, so every walk, passing or failing, keeps about 109 MB in a fresh directory (P16-09; 195 of them once filled the disk)
 mechanism: the README walk removes its copy of the working tree on exit
 kind: test
 project: tests/Raft.Gates.Tests
