@@ -318,6 +318,15 @@ read against runs of the same hours.
 - **Prediction:** The phase adds five entries (S-hand-1 to S-hand-3, S-patch-2, S-out-1) and retires none; no head shard passes 400 s against phase 15's slowest of 374; the soaks' effect counts are phase 15's line for line; every job is given a runner. **Observable:** the shards' slowest step, the manifest, the soaks' reports, the job list.
 - **Outcome:** partly (evidence) — the phase's push ran on its first attempt with every job given a runner and its head green but for one observer, and its per-commit matrix red where the known-red commits are. Run:38997459747, at `83750c0`: 204 jobs, all with steps; five entries added (S-hand-1 to S-hand-3, S-patch-2, S-out-1), none retired (364 live to 369); the slowest head shard's harness step 328 s (its job 377 s) against phase 15's 374 (right); the baseline soak's effect lines are phase 15's line for line (run:38843960353), Core and the simulator unchanged since phase 15's acceptance (right); soak 784 s, soak-membership 857 s (phase 15: 780 and 771), Compose 91 s. **Wrong:** 40 of the 182 per-commit jobs failed, at the eleven commits from `7b4d8ad` to `8a55d6c` (S-harness-6's patch, S-proc-4's patch, and S-patch-1's baseline, which runs the patch gate, one cause; the breakdown gate refusing P16-00's outcome, "right so far", at the eight commits from `c125c6d` to `ef16618`, with S-bd-1, S-bd-2 and S-bd-7's baselines, which run that gate, a second, left out of this outcome and the report's table until the phase's acceptance; and S-ci-1's baseline once at `27744b7`), accepted by the reviewer as known-red; and the head's build failed on the class-reach observer, which named the sampled trace's room test (`ASampledTracePastItsRoomDropsAndCounts`, red beside three of its class's four other entries), listed in `9c3fe8d`. The report's first push (`9719e96`, run:39062045985) failed one shard on S-group-1's baseline, the group commit control answering 21 writes in a crowded shard (an election on the default 150 to 300 ms timeout is inferred, not read: the baseline check of a target keeps no output); a re-run of the failed jobs passed it but could not make the collector green, and the control was given the bench controls' 1 to 2 s (`0f75a29`), the audit run again after it. The report's own run at its final head is the certifying one.
 
+### P16-09 — The README walk removes its copy
+
+- **Task:** Maintenance, added after the phase's acceptance (the reviewer). `scripts/readme-walk.sh` copies the working tree into a fresh `mktemp -d` and never removes it: 195 copies of about 109 MB each had filled the disk by the acceptance push's local run, and its touched-file stage failed its baseline builds with "No space left on device". The walk removes its temporary directory on exit, whether the walk passes or fails, after printing what it prints now; a test runs the script on a small repository of its own with a passing walk and a failing one, each under an empty `TMPDIR`, and requires that directory empty afterwards.
+- **Vacuity:** A cleanup on the success path only leaves a failing walk's copy, the case a person debugging it creates most often; guarded by the failing walk's test. A test that reads the real `/tmp` passes or fails with whatever else ran; guarded by giving each run its own `TMPDIR` (S-walk-2: the removal dropped, both tests red).
+- **Sabotage:** S-walk-2
+- **Verifiable here:** yes — the test here and in CI; the local walk's leftovers counted in `/tmp` before and after
+- **Prediction:** The change touches `scripts/readme-walk.sh` (the trap that already removes its NuGet volume removes its directory too), one new test class with two tests, the Gates count (230 to 232), S-walk-2's entry and its cost line, and nothing else; S-walk-2 is caught by both tests; S-walk-1 is still caught for its reason; the walk's CI job passes, and a local walk leaves no `tmp.*` directory behind. **Observable:** the diff, the touched-file stage, the walk job, `/tmp` counted before and after a local walk.
+- **Outcome:** pending
+
 ## Sabotage ids
 
 New series: S-hand (P16-01), S-out (P16-06). Each id's `sabotage/<id>/` entry lands in the same commit
@@ -329,6 +338,7 @@ as the check it proves and is run on that commit before it is pushed.
 - **S-hand-3:** the kernel's clock taken as the trace's, without the offset.
 - **S-patch-2:** the loader accepts a patch naming the count file.
 - **S-out-1:** the harness reports an unexpected outcome without the entry's output.
+- **S-walk-2:** the README walk leaves its copy of the working tree behind (P16-09, after acceptance).
 
 ## Register rows
 
