@@ -543,6 +543,22 @@ floor, and on this machine the floor is above the criterion. Overlapping the nex
 the sync would lower it and is not built: 280 µs on a criterion already restated twice, with most of
 the remainder in one mechanism, does not justify it. The limit is a measured property of the design.
 
+**Known limit: the tail at the operating point waits for the same loop's thread** (phase 16's
+acceptance, decision 1). At 3,125 writes a second the 99th percentile is 5.4 ms untraced, the median of
+five runs (4.9 to 8.2 ms; m:p16-02-set2-untraced-r1-local-3125-1 to -r5), against the criterion's 5,051
+µs. Measured apart through a trace that no longer costs the tail (P16-01), most of the tail writes'
+excess over the median write is in the leader's input queue (the loop's queues 0.40 at P16-02, 0.25 to
+0.42 at P16-04), then the pipeline's wait and the persists; the hosts' thread hand-offs as split hold
+0.03 to 0.12, and the kernel's delivery none. Beside one busy process, the leader's queue grew while its
+loop was less busy and did less work a write (0.95 busy to 0.91, 288 µs of execution a write to 278, the
+queue's 99th percentile 1.6 to 2.4 ms; m:p16-04-busy-s10-r1-local-3125-1 to -r5 against
+m:p16-04-plain-s10-r1-local-3125-1 to -r5). The inputs were not queued behind a saturated loop. They
+waited for the loop's thread to be run, a hand-off inside leader-queue that no part separates. That
+thread is the one loop the limit above describes, with its sync inline. Splitting leader-queue at the
+loop thread's wake would locate the wait more precisely. It is not done: it would be a further phase
+of host work against a criterion already restated twice, and the floor of one sync at a time is
+already stated. The tail stands as reported.
+
 **Anything that removes data participates in every invariant the data
 participated in.** Log compaction discards entries the snapshot covers. Before
 writing it, enumerate every property the log satisfies — referential (an index
