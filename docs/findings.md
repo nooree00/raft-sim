@@ -1589,6 +1589,77 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   changed one commit's id after nineteen records named it. The tree was byte-identical, and the
   measurements gate's own failure text names the remedy (relabel to a commit with the same tree), as
   phase 12 did. *Rule:* run the trailer gate on a commit before measuring at it.
+
+## Phase 16
+
+- **Four times in three phases a measurement's category was wrong, not its value** (the reviewer, at
+  phase 16's acceptance: the strongest argument for the held-out condition this project has).
+  - Phase 14 read commit-respond's and leader-to-send's growth as the batch holding every output until
+    its sync. P15-03's emission stamp found the replication pipeline's wait inside it, 0.27 of the
+    growth.
+  - P14-04's rule filed everything but the persists and the loop's queues as the machine's pauses.
+    P15-04 found the generator's lateness at 0.03 and the rest in the leader's hand-offs.
+  - Phase 15 read client-to-leader's 0.26 to 0.32 as the leader's reader. P16-01's collector counters
+    found the sampled trace's collections there.
+  - P16-03's group Q, the loop's queues, held the wait for the loop's thread to be run. P16-04 showed
+    Q's share growing while the loop was less busy and did less work a write.
+
+  Each time the number was measured correctly and filed under the wrong mechanism. The first three
+  were found a phase after the reading was reported, by a finer instrument. The fourth was found in
+  its own phase, by a condition fixed before the reading: under it, the mechanism the group named had
+  to move other numbers in stated directions, and one moved the other way. A value can be checked
+  against a repeat of itself. A category can only be checked against what its mechanism predicts
+  elsewhere. *Rule:* a reading that names a mechanism carries a held-out condition, fixed before it is
+  taken, in which that mechanism predicts the direction of something other than the quantity read. A
+  reading without one has measured a value and guessed its name.
+- **A rule's checks did not say what they are read on, and only a disagreement showed it** (P16-04; the
+  reviewer). P16-03's branches test each group's share and check its mechanism (for Q, the loop at
+  least 0.85 busy), but never say whether those are read on the mean of the runs kept or run by run.
+  On P16-02's runs the two agree, so the gap was invisible when the rule was written and when it was
+  reviewed. Beside the busy process they differ. On the means the answer is branch 7, the loop's queues
+  then the persists. Run by run it is branch 8: Q's check fails in one run, with the loop 0.847 busy.
+  An ambiguity in a rule costs nothing until the readings it leaves open disagree, and here they
+  disagreed in the condition chosen to test the rule. *Rule:* a rule fixed in advance states the unit
+  each test and check is read on (each run, or the runs' aggregate), and what a split between runs
+  means, before it is sent.
+- **The reading judged worthless was the one that tested the rule's source** (P16-04; the reviewer). The
+  resample at the operating point was judged worth little as a test of the rule, rightly: a rule
+  written from P16-02 nearly determines its own answer on fresh runs of P16-02's condition. It was
+  taken anyway, as the held-out reading's interleaved baseline, and it did not replicate P16-02 at all.
+  The resample read the pipeline's wait 0.27 and the loop's queues 0.25, branch 7 with W first. P16-02
+  had read Q 0.40 and W 0.18, branch 8 (m:p16-04-plain-s10-r1-local-3125-1 to -r5 against
+  m:p16-02-set2-s10-r1-local-3125-1 to -r5; the machine slower in the resample's hours). So the rule
+  was written from one window's composition. *Rule:* before dropping a reading as worthless, name every
+  question it answers. A reading worthless as a test of a rule can be the only test of the data the
+  rule was written from.
+- **A one-sided gate met the side it cannot see** (P16-04; the reviewer: the shape of phase 2's secret
+  scan, "could not ask", in a threshold). The per-run gate admits a traced run whose 99th percentile is
+  within 1.5 times the untraced median, so that a trace cannot inflate the tail it reads. Beside the
+  busy process the traced runs' 99th percentile was below the untraced in all five, 0.33 to 0.75 of it
+  (m:p16-04-busy-s10-r1-local-3125-1 to -r5, m:p16-04-busy-untraced-r1-local-3125-1 to -r5), and the
+  gate passed all five. A pass could say "not inflated" but not "the traced host behaves differently".
+  The traced host reads its clients with one blocking `recvmsg` a line and the untraced host with the
+  stream reader, and which of the two contention favours is not measured. *Rule:* a gate on an
+  instrument's distortion bounds both sides, or says in its name which side it cannot see. A run past
+  the unchecked side is a finding about the instrument, not a pass.
+- **A table of causes written from the fixes, not from the failures, missed a cause** (phase 16's
+  acceptance). The report's known-red table gave each red commit's per-commit jobs a cause:
+  S-harness-6's and S-proc-4's patches, S-patch-1's baseline, and S-ci-1's baseline once. The reviewer
+  accepted it. Recording the acceptance, I read every failed job's annotations in run:38997459747 and
+  found a second cause. At the eight commits from `c125c6d` to `ef16618` the breakdown gate refused
+  P16-00's outcome, written "right so far (evidence)" in `c125c6d` and corrected in `8a55d6c`, and
+  S-bd-1, S-bd-2 and S-bd-7's baselines, which run that gate, failed with it. The job counts were right,
+  because the patch cause made the same shards red. The causes were written from what I remembered
+  fixing, and `c125c6d` was a documentation commit made with no gate run at it. *Rule:* a table of
+  failures is built from the failures' own records, each failed job's annotations, not from the list of
+  fixes; and a documentation commit runs the gates that parse what it changes.
+- **A hedge dropped between the commit and the report** (phase 16's acceptance). `0f75a29`'s message
+  says a pause on a crowded runner "most likely" left S-group-1's burst without a leader. The report,
+  its table and a finding then gave the default election timeout as the cause, "fixed in `0f75a29`".
+  Nothing had been read that could confirm it: the baseline check of a test entry's target keeps only
+  its assertion's message, a path P16-06's output does not cover. The commit was careful and my
+  summaries of it were not, `0223f91`'s shape one step later. *Rule:* a report quotes a cause with the
+  certainty its source gave it, and an inferred cause is written as inferred wherever it is repeated.
 - **An instrument's cost can land on the part it measures, and a gate on the total does not see where**
   (P16-01, P16-02). Phase 15's sampled trace kept each sampled stamp as an object until the run ended;
   they outlived the young generation, and at 3,125 writes a second the hosts' process paused 125 to 133
@@ -1621,8 +1692,8 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   smaller than the effect; and when an instrument's largest cost is removed, measure it again, because
   the next one down becomes the largest.
 - **A partial re-run cannot certify a run whose collector reads every job's notices** (P16-08). The
-  report's first run failed one harness shard on an intermittent control (S-group-1's baseline, the
-  group commit control on default election timeouts); re-running the failed jobs passed the shard, but
+  report's first run failed one harness shard on an intermittent control (S-group-1's baseline; an
+  election on the group commit control's default timeouts is inferred, not read, as corrected above); re-running the failed jobs passed the shard, but
   `build-collect` reads each shard's entry-time and red-neighbour notices from the attempt it runs in, and
   the twelve shards not re-run had theirs only in the first, so the run stayed red (run:39062045985). A
   re-run of the failed jobs is therefore no remedy for this workflow; only a full run is, and that is a

@@ -376,3 +376,18 @@ P14-01's interleaved runs after the revert landed (m:p14-01-ab-fix-*), five runs
 - **A traced tail is read only from runs each within 1.5 times the untraced** (decision 4): the gate is
   per run, not set-wide; a set-wide gate would discard valid runs because others were out.
 
+
+## At phase 16's acceptance (reviewer)
+
+- **The 99th-percentile criterion at 3,125 writes a second stands missed, as reported** (decision 1):
+  5.4 ms untraced against 5,051 µs (m:p16-02-set2-untraced-r1-local-3125-1 to -r5), stated in spec §8
+  beside the floor of one sync at a time (`7916784`). Its excess is mostly the leader's input queue.
+  Beside one busy process that queue grew while the loop was less busy and did less work a write
+  (m:p16-04-busy-s10-r1-local-3125-1 to -r5): the inputs waited for the loop's thread to be run, not
+  behind a saturated loop. Splitting leader-queue at the loop's wake is not done, and the criterion is
+  not chased further.
+- **P16-03's rule is retired** (decision 2): no reading follows decision 1, so its two defects (a
+  group holding a hand-off its name does not cover, and checks that do not say whether they are read
+  on the runs' means or run by run) are findings, not repairs. A later reading through the trace
+  starts from a rule written fresh, after the kernel reader is measured against the stream reader
+  under contention (decision 3).

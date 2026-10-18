@@ -1,6 +1,44 @@
 # Phase 16 — report
 
-**Status: for review.**
+**Status: accepted** (reviewer, on run:39070810146, the report's head `776658d`). **The held-out reading
+leads** (the reviewer): beside a busy process the loop did less work a write and its queue grew anyway,
+which falsifies the mechanism of branch 7's reading, not its threshold. The inputs were waiting for the
+loop's thread to be run. Q contains that hand-off with nothing separating it, so the group answered a
+different question from the one it names. This is the fourth time in three phases that a
+measurement's category was wrong rather than its value: the strongest argument for the held-out
+condition this project has (a finding). Decided at acceptance, by the reviewer's direction:
+- **the tail stands as reported** (decision 1): 5.4 ms against 5,051 µs. Its inputs wait for the loop's
+  thread to be run, not behind a saturated loop. That is stated in spec §8 beside the floor of one sync
+  at a time (`7916784`). Splitting leader-queue at the loop thread's wake would be a seventeenth phase
+  of host work against a criterion restated twice. The row is open, unhomed, and not to be pursued,
+  like the limit past 9,375;
+- **the rule is retired, not fixed** (decision 2): with no next reading, its two defects (Q holding a
+  hand-off its name does not cover; checks that do not say whether they are read on means or run by
+  run) are recorded as findings, and any later reading starts from a rule written fresh;
+- **the kernel reader against the stream reader is a condition on the tail's row** (decision 3), not
+  work now: it is measured under contention before any reading through the trace;
+- **both new rows unhomed** (decision 4): S-ci-1's unexplained baseline failure joins S-fsync-1's,
+  cross-referenced, each needing the per-entry output P16-06 built;
+- **findings** (the reviewer: each worth as much as the main one): the category wrong four times; a
+  rule's checks not saying what they are read on, exposed only where the readings disagree; the
+  resample, judged worthless, finding that P16-02's composition did not replicate; a one-sided gate
+  meeting the side it cannot see.
+
+**Corrected at acceptance: two things the reviewer accepted as I wrote them.**
+- **The known-red table missed a cause.** Recording the acceptance, I read every failed job's
+  annotations in run:38997459747. At the eight commits from `c125c6d` to `ef16618` the breakdown gate
+  also refused P16-00's outcome ("right so far", corrected in `8a55d6c`), and S-bd-1, S-bd-2 and S-bd-7's
+  baselines, which run that gate, failed with it. The table below now carries that cause. Its job
+  counts were right, because the patch cause had made the same shards red. I wrote the causes from
+  what I had fixed, not from the failures (a finding).
+- **There are three unexplained harness results, but not the three counted at acceptance.** The Gates
+  failure at `27744b7` is S-ci-1's baseline: one event, which my earlier summary named twice. The third
+  is S-group-1's baseline at `9719e96`. This report had said it was caused by the default election
+  timeout and "fixed in `0f75a29`". That cause was inferred, not read: `0f75a29`'s own message says
+  "most likely". The baseline check of a test entry's target keeps only the assertion's message, a path
+  P16-06's output does not cover. It joins the unexplained row with that path; keeping that output is
+  not built, and is the reviewer's to schedule (a finding: a hedge dropped between the commit and the
+  report).
 
 The leader's hand-offs, measured apart; the tail rule restated after them; the harness keeps each
 entry's output (spec §11 phase 16, P16-00's row): P16-00 to P16-08 as approved, with decision 4
@@ -17,8 +55,8 @@ judged, and phase 15's was stale with phase 16's audit not yet measured (run:390
 margins gate, twelve rows; its 13 shards, both soaks and Compose green). Phase 15's report is changed
 again here, so this report's run certifies it. **And the report itself was pushed once before**, at
 `9719e96` (run:39062045985): its first attempt failed one harness shard, S-group-1's baseline answering
-21 writes of its burst, the group commit control running on the default 150 to 300 ms election timeout
-in a crowded shard; one re-run of the failed jobs passed that shard, but the collector reads the other
+21 writes of its burst in a crowded shard (an election on the default 150 to 300 ms timeout is inferred,
+not read; corrected at acceptance); one re-run of the failed jobs passed that shard, but the collector reads the other
 shards' notices only from the attempt that ran them, so the run stayed red. The control now runs on the
 bench controls' 1 to 2 s (`0f75a29`), the margin audit was run again after it, and the report is
 pushed again at this head.
@@ -115,37 +153,42 @@ Three more things the reading shows, each stated rather than smoothed:
   stream reader under contention is not measured, and the held-out reading describes the traced host.
 
 No remedy was built. The reading names the next subject: **leader-queue split at the loop thread's
-wake**, the channel's hand-off to the loop apart from the wait behind a batch in its sync.
+wake**, the channel's hand-off to the loop apart from the wait behind a batch in its sync. **Not to be
+pursued** (decision 1, at acceptance): the tail stands as reported, stated in spec §8; the rule is
+retired (decision 2).
 
-## Third: eleven known-red commits, and a check that ran too late (P16-06)
+## Third: thirteen known-red commits, and gates run too late (P16-06, P16-00)
 
 Drawing the harness's test-run classification out of the entry's run (`7b4d8ad`, P16-06) moved the line
 after S-harness-6's hunk, and its patch stopped applying. I ran that commit with its own two sabotages
 only, S-out-1 and S-patch-2; the per-commit patch check exists for exactly this, and it ran after the
 push. The local run before the push runs the patch gate at the head only, where the fix (`83750c0`) had
-already landed. The P16-01 commit then broke S-proc-4's context the same way (fixed in `03cd5f7`). The
-reviewer accepted the commits as known-red: rewriting them would orphan the measurement records that
+already landed. The P16-01 commit then broke S-proc-4's context the same way (fixed in `03cd5f7`). And
+`c125c6d`, a documentation commit, wrote P16-00's outcome as "right so far (evidence)", which the
+breakdown gate refuses; no gate ran at that commit, and `8a55d6c` corrected it. That cause was left out
+of this table until the phase's acceptance. The reviewer accepted the commits as known-red: rewriting them would orphan the measurement records that
 name them, and `7b4d8ad` is the cost A/B's base.
 
 | Commit | What it is | Red in its per-commit jobs because | jobs red | run |
 |---|---|---|---|---|
 | `7b4d8ad` | P16-06, the harness's output | S-harness-6's patch; S-patch-1's baseline (the patch gate) | 3 | run:38997459747 |
 | `bcba8fc` | P16-01, the instrument | the same, and S-proc-4's patch | 4 | run:38997459747 |
-| `c125c6d` | P16-00's outcome | the same three | 4 | run:38997459747 |
-| `3846e50` | P16-02's first set | the same three | 4 | run:38997459747 |
-| `0223f91` | the reader's buffers | the same three | 4 | run:38997459747 |
-| `f81c74b` | the blocking reader | the same three | 4 | run:38997459747 |
-| `71a5acd` | the collector's pauses | the same three | 4 | run:38997459747 |
-| `03cd5f7` | the arena (S-proc-4 restored) | S-harness-6's patch; S-patch-1's baseline | 3 | run:38997459747 |
-| `27744b7` | the cost records | the same two, and S-ci-1's baseline once (a Gates test; unexplained, a register row) | 4 | run:38997459747 |
-| `ef16618` | P16-02's second set | S-harness-6's patch; S-patch-1's baseline | 3 | run:38997459747 |
+| `c125c6d` | P16-00's outcome | the same three, and the breakdown gate on P16-00's outcome with S-bd-1, S-bd-2 and S-bd-7's baselines | 4 | run:38997459747 |
+| `3846e50` | P16-02's first set | the same three, and the breakdown gate on P16-00's outcome with S-bd-1, S-bd-2 and S-bd-7's baselines | 4 | run:38997459747 |
+| `0223f91` | the reader's buffers | the same three, and the breakdown gate on P16-00's outcome with S-bd-1, S-bd-2 and S-bd-7's baselines | 4 | run:38997459747 |
+| `f81c74b` | the blocking reader | the same three, and the breakdown gate on P16-00's outcome with S-bd-1, S-bd-2 and S-bd-7's baselines | 4 | run:38997459747 |
+| `71a5acd` | the collector's pauses | the same three, and the breakdown gate on P16-00's outcome with S-bd-1, S-bd-2 and S-bd-7's baselines | 4 | run:38997459747 |
+| `03cd5f7` | the arena (S-proc-4 restored) | S-harness-6's patch; S-patch-1's baseline; the breakdown gate on P16-00's outcome, with its three baselines | 3 | run:38997459747 |
+| `27744b7` | the cost records | the same three, and S-ci-1's baseline once (a Gates test; unexplained, a register row) | 4 | run:38997459747 |
+| `ef16618` | P16-02's second set | S-harness-6's patch; S-patch-1's baseline; the breakdown gate on P16-00's outcome, with its three baselines | 3 | run:38997459747 |
 | `8a55d6c` | the rule | S-harness-6's patch; S-patch-1's baseline | 3 | run:38997459747 |
 | `5872758` | the floor at 0.2; phase 15's superseded lines | pushed alone as its own head; it carries a report, so the margins gate judges phase 15's table, twelve rows stale since the host changed (phase 16's audit came after) | its head's `build-core` | run:39057523276 |
-| `9719e96` | this report, first pushed | its head's run: S-group-1's baseline once (the control on default election timeouts, fixed in `0f75a29`), then a partial re-run whose collector cannot read the other shards' notices | shard 8, then `build` | run:39062045985 |
+| `9719e96` | this report, first pushed | its head's run: S-group-1's baseline once (its cause inferred, not read: an election on the default timeouts; the control given 1 to 2 s in `0f75a29`; unexplained, a register row), then a partial re-run whose collector cannot read the other shards' notices | shard 8, then `build` | run:39062045985 |
 
-All in run:38997459747, 40 of its 182 per-commit jobs. *Rule, from this:* a commit that changes a file a
-sabotage patch names runs the patch gate at that commit before the next commit; checking a commit with
-its own sabotages only does not see the patches it breaks.
+The first eleven are all in run:38997459747, 40 of its 182 per-commit jobs. *Rule, from this:* a commit
+that changes a file a sabotage patch names runs the patch gate at that commit before the next commit;
+checking a commit with its own sabotages only does not see the patches it breaks. And a documentation
+commit runs the gates that parse what it changes, at that commit.
 
 ## The result of the phase
 
@@ -217,16 +260,21 @@ S-patch-2, S-out-1), none retired.
    no longer inflates it. The held-out reading points at the leader's queue under contention: the
    loop's thread woken late, not the loop saturated. Is splitting leader-queue at the loop's wake the
    next subject, or does a tail 7% over its criterion, with its largest part in §8's limit at the
-   operating point, stand as reported?
+   operating point, stand as reported? **Decided:** it stands as reported, stated in spec §8; its row
+   open, unhomed, not to be pursued.
 2. **The rule's two defects** (P16-04): whether a group's check is read on the runs' means or run by
    run, and the reader's channel to the loop inside the loop's queues. Fix them in the rule before the
-   next reading, or let the next subject's rule be written fresh?
+   next reading, or let the next subject's rule be written fresh? **Decided:** neither; with no next
+   reading the rule is retired and its defects are findings; a later rule is written fresh.
 3. **The traced host under contention** (P16-04): beside a busy process its tail was below the untraced
    host's in all five runs, a difference the per-run gate cannot see. Measure the kernel reader against
    the stream reader under contention before the next reading through the trace, or accept the reading
-   as the traced host's?
+   as the traced host's? **Decided:** a condition on the tail's row, measured before any reading through
+   the trace, not work now.
 4. **The unexplained baseline failure** (a row, open, unhomed): S-ci-1's baseline at `27744b7`, one
    Gates test, once. Its output is now kept; nothing more can be learned from this occurrence.
+   **Decided:** unhomed, joined with S-fsync-1's, cross-referenced; S-group-1's inferred cause added at
+   acceptance (above).
 
 ## Deviations and choices
 
@@ -262,13 +310,17 @@ S-patch-2, S-out-1), none retired.
   the same rate and condition, what each reading is worth stated, no remedy built:** P16-04; met; the
   held-out reading falsified the loop's-queue reading's mechanism.
 - **The harness prints an entry's output for any outcome it did not expect:** P16-06; met, extended to
-  baseline commands after the first unexpected result it did not cover.
+  baseline commands after the first unexpected result it did not cover; a test entry's baseline target,
+  checked before any entry runs, still keeps only its assertion's message (S-group-1's at `9719e96`,
+  found at acceptance).
 - **S-ran-2's patch carries no count; the loader refuses a patch or control naming the count file:**
   P16-05; met.
 - **Every bench control's margins measured again after the host's changes:** P16-07; met, the release
   control's rows added.
 - **Every row promised to phase 16 closed:** the tail's row done for what was promised (the hand-offs
-  measured apart), the tail itself carried by a new open row; the harness's output done.
+  measured apart), the tail itself carried by a new open row, unhomed and not to be pursued at
+  acceptance; the harness's output done, for an entry's outcome and a baseline command (a test entry's
+  baseline target keeps no output, found at acceptance).
 - **The replication pipeline untouched:** met; no commit of the phase changes it.
 
 ## Predictions
@@ -309,14 +361,21 @@ S-patch-2, S-out-1), none retired.
 
 Two rows were promised to phase 16, and both are done: the tail at 3,125 in the leader's hand-offs, for
 what was promised (the hand-offs measured apart and the rule read, proven by the release control), and
-the harness keeping each entry's output (`HarnessOutputTests`). Two rows were opened, both unhomed for the
-reviewer: the tail at 3,125 as it now stands, and S-ci-1's unexplained baseline failure. The rate's limit
-past the capacity stays open and unhomed, out of this phase's scope.
+the harness keeping each entry's output (`HarnessOutputTests`). Two rows were opened, both left unhomed
+at acceptance: the tail at 3,125 as it now stands (decision 1: not to be pursued, its cause and number in
+spec §8; decision 3's condition on it), and the unexplained harness results (decision 4: S-ci-1's
+baseline joined with S-fsync-1's occurrence, cross-referenced; S-group-1's inferred cause and the
+baseline target's missing output added at acceptance). The rate's limit past the capacity stays open
+and unhomed, out of this phase's scope.
 
 ## Findings added this phase
 
-In `docs/findings.md`, under phase 16: an instrument's cost can land on the part it measures, and a gate
-on the total does not see where; a cause named in a commit before the test that could refute it (the
+In `docs/findings.md`, under phase 16: four times in three phases a measurement's category was wrong,
+not its value (the reviewer, at acceptance); a rule's checks that did not say what they are read on (the
+reviewer); the reading judged worthless was the one that tested the rule's source (the reviewer); a
+one-sided gate met the side it cannot see (the reviewer); a table of causes written from the fixes, not
+the failures; a hedge dropped between the commit and the report; an instrument's cost can land on the
+part it measures, and a gate on the total does not see where; a cause named in a commit before the test that could refute it (the
 reviewer: a commit message is a claim); this project has measured its own instruments three times, and
 each time the instrument was the larger term (the reviewer); a partial re-run cannot certify a run whose
 collector reads every job's notices.
