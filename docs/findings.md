@@ -1,6 +1,204 @@
 # Findings log
 
-## Patterns
+Sixteen phases of a Raft implementation and its fault-injecting simulator, built under a working
+agreement in which every check is sabotaged to prove it can fail and every task's outcome is
+predicted before the work (spec §12). These findings are the project's most transferable result,
+more than the Raft. **Read the first part.** It gives the fifteen findings with the widest reach,
+grouped by theme, each with the concrete failure that produced it. The second part is the full log,
+by phase, as each entry was written at the time, with the reviewer's titles and rules where they gave
+them. Every finding in the first part points back into it.
+
+## The findings with the widest reach
+
+### A measurement's category can be wrong while its value is right
+
+The cluster that generalises furthest. In each case the number was measured correctly and filed
+under the wrong mechanism, and no check on the number itself could have shown it.
+
+1. **Four times in three phases a correct number was given the wrong name** (phases 14 to 16; the
+   reviewer, at phase 16's acceptance). Phase 14 read the growth of two segments as a batch holding
+   its outputs; part of it was the replication pipeline's wait (0.27 of it, P15-03). P14-04's tail
+   rule filed everything but the persists and the queues as "the machine's pauses"; the generator's
+   lateness was 0.03 and the rest sat in the leader's hand-offs (P15-04). Phase 15 read 0.26 to 0.32
+   of the tail as the leader's reader; it was the trace's own garbage collections (P16-01). P16-03's
+   group "the loop's queues" held the wait for the loop's thread to be scheduled. The first three
+   were found a phase later by a finer instrument. The fourth was found in its own phase by a
+   held-out condition fixed before the reading. Beside a busy process the named mechanism had to
+   make the loop busier; the loop did less work and was less busy, while the queue grew anyway
+   (P16-04). *Rule:* a value can be checked against a repeat of itself, a category only against what
+   its mechanism predicts elsewhere. A reading that names a mechanism carries a condition, fixed in
+   advance, under which that mechanism predicts the direction of some other quantity.
+2. **Two mechanisms can share one signature, and a test of the signature tests neither** (phase 15;
+   phase 6). Two segments each grew by about one leader sync. That fits the batch holding outputs
+   until its sync, and equally the one append in flight per follower that P11-02 introduced. The
+   trace stamped outputs only on release, so it could not tell them apart. Stamped at emission
+   too, they split 0.73 and 0.27. A remedy built against the first alone would still have
+   "worked", and the second's share would have read as its shortfall. In phase 6, a coverage
+   dimension named for an effect, "node isolated for a timeout", was counted from the peers' view
+   and so measured the mechanism: 10.8% of executions, against 30.9% from the isolated node's own.
+   *Rule:* before building against an effect, list every mechanism that produces it and make the
+   instrument separate them; observe an effect from the party it happens to.
+3. **A rule fixed in advance can be wrong in its branches, not only its threshold** (P15-04,
+   P16-04). P14-04's rule named two places a tail could concentrate and called the rest the
+   machine's pauses. The tail satisfied that branch's numbers while contradicting its description.
+   P16-03's rule never said whether its checks were read on the runs' mean or run by run. The two
+   readings agreed on the data it was written from, and disagreed in the held-out condition, the
+   one built to test it: branch 7 on the means, branch 8 run by run. *Rule:* the tell is an answer
+   that fits a branch and contradicts what the branch says. Report the rule as wrong rather than
+   read through its least-bad branch, and state the unit every check is read on.
+
+### The instrument is often the larger term
+
+4. **Three times this project measured its own instrument, and each time the instrument was larger
+   than the effect** (P12-04, P14-04 and P15-01, P16-01).
+   - Fixing the load generator's `Task.Delay` schedule cut the median 62% at 625 writes a second
+     and 74% at 3,125. Phases 10 and 11 had partly measured the generator, and their latencies are
+     marked superseded.
+   - The traced tail was first the generator's lateness in the hosts' process: 37 ms at its 99th
+     percentile there, 0.4 ms in a process of its own. Then it was the trace's per-message cost.
+   - Then the sampled trace's retained stamps paused the hosts' process 125 to 133 ms a run,
+     against 38 to 46 untraced. The pauses landed on exactly the segment phase 15 had blamed.
+   Each number had the system's name, and each record carried its configuration. Nothing in the
+   numbers showed the instrument until the instrument itself was measured. *Rule:* a figure read
+   through an instrument is provisional until the instrument's cost at the percentile read is
+   measured and found smaller than the effect. When its largest cost is removed, measure it again,
+   because the next one down becomes the largest.
+5. **An instrument's cost model is itself a measurement, and the cost lands where it lands**
+   (P15-01, P16-01, P12-04).
+   - Keeping one write in a million instead of one in ten left the traced tail 2.9 times the
+     untraced instead of 2.5. The cost was per message, which the sample never touched, so the
+     sampled trace had to be built twice.
+   - Garbage-collector pauses showed up as one segment's tail, and the per-run gate on the traced
+     total admitted the runs carrying them.
+   - A load generator that spun took a processor in Compose. The cluster's 99th percentile there
+     was 474 ms against 86 with a sleeping generator.
+   The measurement and the verification also compete for one machine, so nothing else runs during
+   a measurement. *Rule:* measure an instrument at its parameter's extreme before tuning the
+   parameter; measure its cost where it is paid; and treat a part that dominates only when traced as
+   the instrument's until shown otherwise.
+
+### A check must be able to fail, and must say when it could not ask
+
+6. **The oracle stands outside the thing it tests** (pattern 1, phases 2 to 9). A check whose answer
+   comes from the system under test reproduces that system's bugs exactly. Each new oracle had to be
+   placed where the node could not influence it:
+   - entries identified by the simulator's ghost ids, not the node's bytes;
+   - commitment computed from the copies the simulator saw, not the leader's commit index;
+   - the configuration the simulator recorded, not the one the node reports;
+   - client retries recorded as what they are;
+   - history times from the real client's one clock.
+   The checkers needed guards of their own as much as the node did. By phase 6 the checker had been
+   wrong about a correct node four times, and the node wrong twice.
+7. **"Could not ask" must never read as an answer** (phase 2; P16-04). The secret scan reported a
+   dead Docker daemon as "leaks found", because exit 1 meant both "found something" and "could not
+   run". It now has three outcomes, and a harness entry takes the daemon away to prove the third.
+   The same shape appeared in a threshold fourteen phases later. The gate on a trace's distortion
+   bounded traced runs only from above, and beside a busy process it passed five traced runs whose
+   99th percentile was 0.33 to 0.75 of the untraced one. *Rule:* a check says when it did not run.
+   A one-sided bound names the side it cannot see, and a run past that side is a finding, not a
+   pass.
+8. **A check nobody has seen fail for its stated reason may not be able to** (P3, P7-07, P12-03,
+   phase 12).
+   - Two sabotages reported "caught" on every push from the day they were written, because an
+     exception fired before the assertion they claimed to test. Every entry now names the failure
+     message it must produce.
+   - A guard on the latency segments' sum could not move under the sabotage it was meant to catch,
+     because the segments sum to the whole span by algebra.
+   - A test construction passed against the very bug it targeted: the two snapshots' chunks were
+     byte-identical at the offset it checked.
+   - Upper bounds that no sabotage could cross were rejected five times.
+   *Rule:* write down the sabotage's effect on the checked quantity before calling a check its
+   guard; run a new construction against the wrong implementation before the fix; and require the
+   reason, not just the red.
+
+### Evidence is about the commit it measured, and memory is not a currency check
+
+9. **A current-looking audit of a stale tree was accepted** (P14-06; P15-07; P13-01).
+   - When it was first applied, the margins currency observer failed eight of eleven rows in
+     phase 13's accepted audit: they were measured before the host changed.
+   - A phase later the same observer fired on my own edit to the audit script and marked all
+     eighteen rows stale. Nothing about the edit had felt related.
+   - The generic currency mechanism's first run found fifteen records naming commits rewritten
+     three phases earlier, after a relabelling believed to have left none.
+   *Rule:* evidence describes the commit it measured. Before it is accepted, check that nothing it
+   depends on has changed since, and make that check read the dependencies from git, not from
+   anyone's memory.
+10. **A gate that reads a hand-kept file is defeated by the file, not its logic** (phase 12;
+    P15-09). No phase was marked complete after phase 7, so the register gate could not fire for
+    four phases, and an open row survived its own phase's report. This was the fourth instance
+    across this project and the one before it, after the test-count baseline, the cost file and
+    stale sabotage patches. The converse appeared in P15-09. The register's schema required every
+    row to name a phase, so a row the reviewer had decided not to schedule had to claim a home: the
+    gate was forcing a false statement. *Rule:* when a gate reads a file, ask what would tell you
+    the file is wrong; if the answer is a person, that is a register row. Widen a schema only for a
+    state that is true and that it rejects, and keep rejecting every state it rightly rejects.
+
+### A claim is a record, and it is written from its sources
+
+11. **A causal account written from recall is a measurement read through memory** (phase 16's
+    acceptance; P10-08). The table of thirteen known-red commits gave each a cause, and it was
+    accepted. Reading every failed job's annotations afterwards found a second cause at eight of
+    them: the breakdown gate refusing an outcome's wording. The causes had been written from what I
+    remembered fixing, though the annotations were there to read. It is the previous project's §13.38
+    applied to a record rather than a number (the reviewer). In phase 10 an unexplained exit
+    255 had been reasoned about from a recalled exit code (128). Reproduced as the CI's unprivileged
+    user, it was git's own 255. *Rule:* build a table of failures from the failures' own records; an
+    exit code is a fact to look up, not to recall.
+12. **A hedge is part of a claim** (phase 16's acceptance; P16-01; P10-08). A commit said a pause
+    "most likely" caused a control's failure. The report citing it said the failure was that cause,
+    "fixed" by the commit, and so made a different claim from the commit it cited. Earlier in the
+    phase a commit message named a cause before the A/B that then refuted it. The converse held in
+    phase 10: a fix applied without its cause shown was rightly recorded as unexplained, even though
+    its guess later proved right. *Rule:* a report quotes a cause with the certainty its source
+    gave it. A commit names a cause only when a measurement in the tree supports it, and a fix's
+    status follows the evidence for its cause, not whether it turns out to have been right.
+13. **A threshold or model fitted to the data it judges is not a test** (P13; P10-02; P16-03).
+    - A queueing model of the latency allowance predicted 127 µs, close to what was later measured,
+      yet both of its inputs were wrong. The serial work was 1.43 times the sync, and the arrivals
+      were evenly spaced: either alone moves the prediction far away.
+    - A throughput target of 200,000 writes a second described a design with a group commit the
+      system did not have.
+    - A rule's floor of 0.15 was chosen knowing that the second group sat at 0.18. Disclosed, it
+      was moved to 0.2 before the reading, and the disclosure is what made the rule usable.
+    *Rule:* check a model input by input, never by its output agreeing. Every input of a target is
+    a property of the system as built. Fix a threshold blind, or say that you did not.
+
+### The process's own machinery needs the discipline the code gets
+
+14. **A repair made twice is a mechanism, and a rule whose premise has gone is sunk cost** (phases 0
+    to 16).
+    - Sabotage patches rotted whenever ordinary work changed the text under them. S-ran-2's broke
+      three times in one phase, until it was anchored away from that text.
+    - Eleven commits of phase 16 stayed red for good: the patch and breakdown gates ran at them only
+      after the push that carried them.
+    - In phase 3 a report commit that was not its push's head could never be certified, and that
+      became the rule that a report is its push's head.
+    - The broad-target rule went on flagging three narrow tests and none of its twelve listed ones
+      after the harness change that removed its premise. It was retired, not patched.
+    *Rule:* when the same repair is made a second time, remove what makes it necessary. When a
+    rule's premise changes, restate what the rule was for, and replace or retire it.
+
+### The Raft
+
+15. **The bugs lived where the model was gentler than reality, or measured something other than
+    cost** (P3, P4, P7-05, P9-03, P10-04).
+    - A deposed leader truncated its log before persisting the term that authorised it.
+    - A recovery cut a torn tail in memory only, so the next record landed after the torn bytes and
+      the node could not restart.
+    - A rename barrier held the writes before the rename but not those after it.
+    - A created file was lost without a directory sync, a loss the simulator had never modelled.
+    - The leader resent every unacknowledged entry on every write: about 200 messages a write past
+      the knee, a backlog that never drained. That defect broke no invariant, and the simulator
+      could not see it, because it judges correctness per event, not cost per write.
+    *Rule:* a barrier has two sides; a kind of loss the model leaves out is one the code leaves
+    unhandled; and a protocol whose per-operation cost grows with its backlog has a second stable
+    state, found only with an open-loop load.
+
+---
+
+## The full log, by phase
+
+### Patterns
 
 Numbered when a lesson has recurred often enough to be named (reviewer, at phase 8's approval).
 
@@ -19,7 +217,7 @@ Numbered when a lesson has recurred often enough to be named (reviewer, at phase
 Spec §12: the bugs are less valuable than the reasons the tests did not catch them. One entry per
 finding: what happened, why no existing check caught it, what now catches it.
 
-## Phase 0
+### Phase 0
 
 - **The workflow could not run git at all.** actions/checkout marks the workspace safe only under a
   temporary HOME; later steps in the container job hit "dubious ownership". *Not caught* because
@@ -64,7 +262,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   patches documentation. *Now:* S-reg-1 no longer depends on the report's absence; and the harness
   runs locally before every push, documentation included.
 
-## Phase 1
+### Phase 1
 
 **The limits of shrinking — the most important finding of phase 1** (reviewer, at acceptance):
 
@@ -169,7 +367,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *The pattern* (reviewer): measure use, not existence. P2-03's check reads what reached the
     world, not what was declared or constructed. Any later "every X is covered" check follows it.
 
-## Phase 2
+### Phase 2
 
 - **P2-01's first push went red on GitHub: the sharded harness jobs could not run git.** In GitHub's
   SDK container the checkout belongs to another user, so git refuses it ("dubious ownership") until
@@ -292,7 +490,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   evidence/forcing classification exists to catch, and it would have been easy to count as
   "right". *Now:* it is classed forcing and excluded from the counts.
 
-## After phase 2
+### After phase 2
 
 - **The secret scan reported a dead Docker daemon as "leaks found".** During P2's report run the
   daemon went down; the scan printed `secret-scan: leaks found (exit 1)`. I read it correctly only
@@ -314,7 +512,7 @@ finding: what happened, why no existing check caught it, what now catches it.
     too. The rule going forward: a gate that depends on a tool must say when the tool did not run,
     and a harness entry must take the tool away to prove it.
 
-## Phase 3
+### Phase 3
 
 - **Two sabotages were caught for the wrong reason, and had been since they were written.** S-cov-5
   renamed the isolation dimension; the undeclared name crashed the shared coverage measurement
@@ -451,7 +649,7 @@ finding: what happened, why no existing check caught it, what now catches it.
     that commit" and I do not propose it.
 
 
-## Phase 4
+### Phase 4
 
 - **An index in each log record was not enough: a surviving write can depend on a lost one.** P4-02
   predicted that records carrying their index, with a later record for an index overriding
@@ -647,7 +845,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   - *And the rule applied to itself:* P4-12's own prediction commit carries the tooling before
     P4-12, so it too is checked with the slow harness as predicted: in run [36810331470](https://github.com/nooree00/raft-sim/actions/runs/36810331470), `50f1720` shard 3 failed the ceiling (its checks step about 16.5 min) while the head's seven shards, with P4-12's tooling, passed (slowest 12.75 min). P4-12 was measured on GitHub, the enforcing machine, and still missed its 12-minute observable by about 0.75 min; it was under the ceiling, which is what the rule protects.
 
-## Phase 5
+### Phase 5
 
 - **An identifier that resolves to the wrong thing produces a green verdict about something that
   was not tested.** The first draft of the phase-5 breakdown gave P5-01 the sabotage ids S-hist-1..3,
@@ -728,7 +926,7 @@ finding: what happened, why no existing check caught it, what now catches it.
     in a deterministic quantity (states explored, executions, entries). Phase 6's P6-01 and P6-10
     were restated before they started.
 
-## Phase 6
+### Phase 6
 
 - **The first generated sample with membership changes found the checker wrong, not the node.**
   Invariant 6 (P6-04) asked a committed entry to stay durable on a quorum of the configuration at
@@ -795,7 +993,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   generated executions found the node wrong twice (P6-14, P6-15), and the measures of what happened
   wrong six times (P6-07 four times, the isolation detector, and S-cov-11 caught for the wrong reason).
 
-## Phase 7
+### Phase 7
 
 - **The model's leniency is the dangerous direction: P6-15 and the rename, a pair.** In P6-15 the
   simulated disk was stricter than a real file system (an append lands at the end of whatever file
@@ -868,7 +1066,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   keep, measure which part of it is expensive; the rule may be cheap once that part moves.
 
 
-## Phase 8
+### Phase 8
 
 - **The undecided histories were made by how retries were recorded.** Until P8-00 a retry was a new
   operation with the same bytes, and a retry the client gave up on was indeterminate, open to the
@@ -935,7 +1133,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   construction catches it, though no construction in the breakdown named it. *Rule:* "a heartbeat
   round" in a description is a set of requests, and a set needs a name on the wire.
 
-## Phase 9
+### Phase 9
 
 - **A prediction about my own next mistake prevents it, and tests nothing.** Four of phase 9's
   predictions named a mistake I expected to make in code not yet written: an LRU that misses cached
@@ -1024,7 +1222,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   the one to investigate. A first firing dismissed as a flake is recorded as such, with what was done
   about it, so that the second is recognised as a second.
 
-## Phase 10
+### Phase 10
 
 - **The cluster gets slower in total as more writes are outstanding, so a backlog never drains.**
   One closed-loop client completes about 1,080 writes a second, eight about 1,380, thirty-two about
@@ -1114,7 +1312,7 @@ finding: what happened, why no existing check caught it, what now catches it.
   per write (6,250 a second): the cluster reaches a tenth to a sixth of it. Same error as §13.37's
   tuned limits, applied to a target. *Rule:* a target's every input is a property of the system as
   built, or it is labelled as the capability of a different design.
-## Phase 11
+### Phase 11
 
 The first three were written during phase 10's acceptance push and P11-08, before the rest of the phase.
 
@@ -1212,7 +1410,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   know the phases. *Rule:* a gate's inputs are derived from the artefacts they describe, or checked
   against them; P12-01 checks the file against the reports' status lines.
 
-## Phase 12
+### Phase 12
 
 - **A gate defeated by its input, not its logic: the class.** Any gate that reads a file kept by
   hand needs a check that the file is current, and the gate itself cannot be that check: it reads
@@ -1370,7 +1568,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   *Rule:* a ratio names its baseline, and the edit that moves a baseline re-reads every ratio quoted
   against it, in the message as well as the documents.
 
-## Phase 13
+### Phase 13
 
 - **Moving the serial work moved its queue, not its load.** Phase 12 named the cap as the leader's
   loop running its syncs inline, and phase 13 moved the effects to a thread of their own, as the
@@ -1449,7 +1647,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   environment by what its nodes share; a number from nodes that share a machine is not a number for
   nodes that do not.
 
-## Phase 14
+### Phase 14
 
 - **A current-looking audit of a stale tree** (the reviewer's title, at phase 14's acceptance: the
   report's most important result). Applied to phase 13's report, P14-06's observer fails eight of its
@@ -1508,7 +1706,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   rather than smoothed, it is carried into phase 15 as an observation the queue's measurement can
   explain, which would corroborate that mechanism, or fail to, which would make it a second thing.
 
-## Phase 15
+### Phase 15
 
 - **Mechanism substitution arrives in performance measurements too** (the reviewer, at phase 15's
   approval). Phase 14 read commit-respond and leader-to-send each growing by about one leader sync as
@@ -1590,7 +1788,7 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   measurements gate's own failure text names the remedy (relabel to a commit with the same tree), as
   phase 12 did. *Rule:* run the trailer gate on a commit before measuring at it.
 
-## Phase 16
+### Phase 16
 
 - **Four times in three phases a measurement's category was wrong, not its value** (the reviewer, at
   phase 16's acceptance: the strongest argument for the held-out condition this project has).
@@ -1643,7 +1841,9 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   instrument's distortion bounds both sides, or says in its name which side it cannot see. A run past
   the unchecked side is a finding about the instrument, not a pass.
 - **A table of causes written from the fixes, not from the failures, missed a cause** (phase 16's
-  acceptance). The report's known-red table gave each red commit's per-commit jobs a cause:
+  acceptance; the reviewer, after it: the more serious of the two corrections, a causal account written
+  from recall when the annotations were available, the CRDT project's §13.38 applied to a record
+  rather than a number). The report's known-red table gave each red commit's per-commit jobs a cause:
   S-harness-6's and S-proc-4's patches, S-patch-1's baseline, and S-ci-1's baseline once. The reviewer
   accepted it. Recording the acceptance, I read every failed job's annotations in run:38997459747 and
   found a second cause. At the eight commits from `c125c6d` to `ef16618` the breakdown gate refused
@@ -1653,7 +1853,9 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   fixing, and `c125c6d` was a documentation commit made with no gate run at it. *Rule:* a table of
   failures is built from the failures' own records, each failed job's annotations, not from the list of
   fixes; and a documentation commit runs the gates that parse what it changes.
-- **A hedge dropped between the commit and the report** (phase 16's acceptance). `0f75a29`'s message
+- **A hedge is part of a claim, and a report that drops it makes a different claim from the commit it
+  cites** (phase 16's acceptance; the reviewer, after it: the better catch; drafted as "a hedge dropped
+  between the commit and the report"). `0f75a29`'s message
   says a pause on a crowded runner "most likely" left S-group-1's burst without a leader. The report,
   its table and a finding then gave the default election timeout as the cause, "fixed in `0f75a29`".
   Nothing had been read that could confirm it: the baseline check of a test entry's target keeps only

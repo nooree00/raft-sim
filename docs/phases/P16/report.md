@@ -37,8 +37,23 @@ condition this project has (a finding). Decided at acceptance, by the reviewer's
   timeout and "fixed in `0f75a29`". That cause was inferred, not read: `0f75a29`'s own message says
   "most likely". The baseline check of a test entry's target keeps only the assertion's message, a path
   P16-06's output does not cover. It joins the unexplained row with that path; keeping that output is
-  not built, and is the reviewer's to schedule (a finding: a hedge dropped between the commit and the
-  report).
+  not to be built (the reviewer, after acceptance: a third occurrence, but no reading needs it), and the
+  path is named on the row for a future reader (a finding: a hedge is part of a claim, and a report that
+  drops it makes a different claim from the commit it cites).
+
+**After acceptance, the project's close** (the reviewer). Both corrections were accepted; the first, a
+causal account written from recall when the annotations were available, is the more serious.
+- **P16-09, maintenance:** the README walk removes its copy of the working tree. 195 copies of about
+  109 MB had filled the disk. Its first version (`d8bfc17`) was red on GitHub's unprivileged runner
+  (run:39105627374), where the SDK container's root-owned build output stopped the removal. It was
+  fixed in `e81223f` and reproduced as uid 1001 before the push (below, and a finding).
+- **There is no phase 17.** §11's table is complete, and everything left is either marked not to be
+  pursued or waits on a reading that will not happen.
+- **The close-out:** `docs/findings.md` opens with the fifteen findings with the widest reach, grouped
+  by theme, each with the failure that produced it, before the full log by phase. The README orients
+  a reader arriving cold. Every open item is left open: the missed latency criteria, the limit past
+  9,375, the tail, the three unexplained harness results, the two leaks P16-09 found, and the person's
+  walk. This report is pushed again at the project's close, and its run is the project's last.
 
 The leader's hand-offs, measured apart; the tail rule restated after them; the harness keeps each
 entry's output (spec §11 phase 16, P16-00's row): P16-00 to P16-08 as approved, with decision 4
@@ -253,6 +268,32 @@ The baseline soak's effect lines are phase 15's line for line (run:38843960353):
 are unchanged. The manifest goes from 364 live entries to 369: five added (S-hand-1 to S-hand-3,
 S-patch-2, S-out-1), none retired.
 
+### The README walk removes its copy (P16-09, after acceptance)
+
+`scripts/readme-walk.sh` copied the working tree into a fresh temporary directory and never removed
+it. 195 copies of about 109 MB each filled the disk during the acceptance push's local run, and its
+touched-file stage failed its baseline builds. The walk now removes its copy on exit, whether it
+passes, fails or is refused. `ReadmeWalkTests` walks a small repository of its own under an empty
+`TMPDIR`, once with a passing step and once with a failing one, and requires the directory empty
+afterwards (S-walk-2: the removal dropped; both tests red).
+
+The first version (`d8bfc17`) passed every local stage, run as root. On GitHub the walk job failed,
+and so did S-readme-1's baseline in the secrets job (run:39105627374): the runner is unprivileged, the
+SDK container builds as root, and the removal could not delete the copy's `bin/` and `obj/`. With
+`set -e`, the failed removal also replaced the walk's own exit status. `e81223f` hands the copy back
+through the pinned image on a non-root runner, as `host-sabotages.sh` has done for its worktrees since
+phase 9, keeps the walk's exit status, and fails a passing walk whose copy it cannot remove.
+
+Reproduced as uid 1001 with the Docker socket, the pushed script's walk exited 1 and left its copy.
+With the fix, the full walk passed and a failing one kept exit 3, both leaving `TMPDIR` empty. That
+path has no test of its own: the tests run as root. The walk job in this report's run is its check.
+The README gained a walked step running the simulator once from a seed, and the manifest goes to 370
+live entries.
+
+Counting `/tmp` around the local run found two more leaks of the walk's kind, which are not fixed: the
+secret-scan host entries' clones (about 24 MB each, four a run) and `host-sabotages.sh`'s empty worktree
+parents (seven a run), a register row.
+
 ## Decisions for you
 
 1. **The tail at 3,125** (a row, open, unhomed): 5.4 ms untraced at its 99th percentile against the
@@ -325,7 +366,7 @@ S-patch-2, S-out-1), none retired.
 
 ## Predictions
 
-**Evidence 8, forcing 1.** Right 4, partly 4, wrong 1.
+**Evidence 9, forcing 1.** Right 4, partly 5, wrong 1 (P16-09 added after acceptance).
 
 - **P16-00, right.**
 - **P16-01, partly:** the timestamp, the joins and the release control as predicted; the instrument as
@@ -343,6 +384,8 @@ S-patch-2, S-out-1), none retired.
 - **P16-08, partly:** no shard past 400 s, the soaks identical, every job given a runner, five entries
   added; 40 per-commit jobs red at the known-red commits and the head's build on the class-reach
   observer.
+- **P16-09, partly** (after acceptance): the copy removed and both tests holding it, every local stage
+  green; the walk job red on GitHub's unprivileged runner until `e81223f`.
 
 ## What exists
 
@@ -356,6 +399,7 @@ S-patch-2, S-out-1), none retired.
 - **P16-06:** `Sabotage.Outcome.Output`, `EntryRun`, `ClassifyTestRun`, `Report`, `OutputFor`,
   `OutputLines`; `HarnessOutputTests`; S-out-1.
 - **P16-07:** the release control's rows in `scripts/margins.sh`; `docs/phases/P16/margins-bench.tsv`.
+- **P16-09:** the walk's exit cleanup in `scripts/readme-walk.sh`; `ReadmeWalkTests`; S-walk-2.
 
 ## Register
 
@@ -365,8 +409,9 @@ the harness keeping each entry's output (`HarnessOutputTests`). Two rows were op
 at acceptance: the tail at 3,125 as it now stands (decision 1: not to be pursued, its cause and number in
 spec §8; decision 3's condition on it), and the unexplained harness results (decision 4: S-ci-1's
 baseline joined with S-fsync-1's occurrence, cross-referenced; S-group-1's inferred cause and the
-baseline target's missing output added at acceptance). The rate's limit past the capacity stays open
-and unhomed, out of this phase's scope.
+baseline target's missing output added at acceptance; keeping it not to be built). P16-09 opened a
+third, also unhomed: the two leaks of the walk's kind it found and did not fix. The rate's limit past
+the capacity stays open and unhomed, out of this phase's scope.
 
 ## Findings added this phase
 
@@ -374,11 +419,13 @@ In `docs/findings.md`, under phase 16: four times in three phases a measurement'
 not its value (the reviewer, at acceptance); a rule's checks that did not say what they are read on (the
 reviewer); the reading judged worthless was the one that tested the rule's source (the reviewer); a
 one-sided gate met the side it cannot see (the reviewer); a table of causes written from the fixes, not
-the failures; a hedge dropped between the commit and the report; an instrument's cost can land on the
+the failures (the reviewer: the more serious correction); a hedge is part of a claim (the reviewer); a
+cleanup verified as root removes what root can (P16-09); an instrument's cost can land on the
 part it measures, and a gate on the total does not see where; a cause named in a commit before the test that could refute it (the
 reviewer: a commit message is a claim); this project has measured its own instruments three times, and
 each time the instrument was the larger term (the reviewer); a partial re-run cannot certify a run whose
-collector reads every job's notices.
+collector reads every job's notices. At the project's close the file was given a first part: the
+fifteen findings with the widest reach, grouped by theme.
 
 ## Still the person's
 
@@ -390,4 +437,7 @@ collector reads every job's notices.
 None. Every commit of the phase's first push ran in its own per-commit jobs (run:38997459747), and
 `5872758` as the head of its own push; `9c3fe8d` and `1f6c10d` in their per-commit jobs of
 run:39062045985, all green, and `9719e96` as its head; the red ones are the known-red commits above.
-`0f75a29` runs in this report's run.
+`0f75a29` runs in this report's run. After acceptance: `7916784` in its per-commit jobs and `48b0b54`
+as the head of run:39097989911, green; `886133f` in its per-commit jobs of run:39105627374, green, and
+`d8bfc17` as that run's head, red on the walk job (P16-09); `e81223f` and `de6e1f6` run in their
+per-commit jobs of this report's run.
