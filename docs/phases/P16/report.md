@@ -54,6 +54,10 @@ causal account written from recall when the annotations were available, is the m
   a reader arriving cold. Every open item is left open: the missed latency criteria, the limit past
   9,375, the tail, the three unexplained harness results, the two leaks P16-09 found, and the person's
   walk. This report is pushed again at the project's close, and its run is the project's last.
+- **P16-10, maintenance after the close** (the person: the walk's leak, looked for in
+  `host-sabotages.sh` and `bench.sh` and fixed where it recurs): the two leaks P16-09 found, and the
+  bench's exported trees, the same defect, are fixed, and their row is done. This report is pushed
+  once more for it, and that run is now the project's last.
 
 The leader's hand-offs, measured apart; the tail rule restated after them; the harness keeps each
 entry's output (spec §11 phase 16, P16-00's row): P16-00 to P16-08 as approved, with decision 4
@@ -292,7 +296,36 @@ live entries.
 
 Counting `/tmp` around the local run found two more leaks of the walk's kind, which are not fixed: the
 secret-scan host entries' clones (about 24 MB each, four a run) and `host-sabotages.sh`'s empty worktree
-parents (seven a run), a register row.
+parents (seven a run), a register row. P16-10 fixed both after the close (below).
+
+### The host sabotages and the bench remove their temporary directories (P16-10, after the close)
+
+The person asked for the walk's leak to be looked for in `host-sabotages.sh` and `bench.sh`, and
+fixed where it recurs. It recurs in both. `host-sabotages.sh` made a fresh directory for each entry's
+worktree and removed only the worktree. The secret-scan entries' baseline and commands cloned the
+repository into fresh directories that nothing removed. `bench.sh` exported other commits' trees into
+fresh directories it never removed, two of them holding root's build output.
+
+Each host entry now has one directory. It holds the entry's worktree and is its baseline's and
+command's `TMPDIR`, so the clones land inside it. It is removed after the entry and on any exit, and
+root's files are handed back first on a non-root runner, as before. The bench exports into one
+directory, removed with its data volume by every mode's exit trap. `HostSabotagesTests` runs the
+script on a small repository of its own under an empty `TMPDIR`, once with every entry caught and
+once with a failing baseline. It requires the directory empty and no worktree registered afterwards
+(S-hostsab-1: the entry's directory no longer removed; both tests red).
+
+Around the local run, in a fresh container, `/tmp` held no `tmp.*` directory before the run and none
+after; P16-09's count had risen by eleven. The host entries were caught as uid 1001 on a clone of
+their own, with that user's `TMPDIR` empty afterwards. On GitHub's unprivileged runner they were
+caught in the secrets job (run:39126188489). One `load-ab` run left nothing behind. The bench's
+hand-back as a non-root user was not run.
+
+That run was red for a reason outside the change. It was the first push of a new branch, and the
+each-commit list takes a new branch's range from the merge-base with `origin/main`, which is still the
+repository's first commit. Its range was therefore the project's whole history, and it refused the 52
+earlier commits that change a report without being a push's head. The harness shards and the
+per-commit jobs were skipped, and the build and each-commit collectors failed with them; every other
+job passed. The run of this report's push takes its range from that push, and runs both.
 
 ## Decisions for you
 
@@ -366,7 +399,8 @@ parents (seven a run), a register row.
 
 ## Predictions
 
-**Evidence 9, forcing 1.** Right 4, partly 5, wrong 1 (P16-09 added after acceptance).
+**Evidence 10, forcing 1.** Right 5, partly 5, wrong 1 (P16-09 added after acceptance, P16-10 after the
+close).
 
 - **P16-00, right.**
 - **P16-01, partly:** the timestamp, the joins and the release control as predicted; the instrument as
@@ -386,6 +420,10 @@ parents (seven a run), a register row.
   observer.
 - **P16-09, partly** (after acceptance): the copy removed and both tests holding it, every local stage
   green; the walk job red on GitHub's unprivileged runner until `e81223f`.
+- **P16-10, right** (after the close): the directories removed and both tests holding it, the host
+  entries caught as root, as uid 1001 and on GitHub's runner, `/tmp` the same before and after. The
+  scripts were drafted before the prediction was committed; the prediction was written about what
+  they had not yet been run against.
 
 ## What exists
 
@@ -400,6 +438,8 @@ parents (seven a run), a register row.
   `OutputLines`; `HarnessOutputTests`; S-out-1.
 - **P16-07:** the release control's rows in `scripts/margins.sh`; `docs/phases/P16/margins-bench.tsv`.
 - **P16-09:** the walk's exit cleanup in `scripts/readme-walk.sh`; `ReadmeWalkTests`; S-walk-2.
+- **P16-10:** each entry's directory and its removal in `scripts/host-sabotages.sh`; the exported trees'
+  directory in `scripts/bench.sh`; `HostSabotagesTests`; S-hostsab-1.
 
 ## Register
 
@@ -410,7 +450,8 @@ at acceptance: the tail at 3,125 as it now stands (decision 1: not to be pursued
 spec §8; decision 3's condition on it), and the unexplained harness results (decision 4: S-ci-1's
 baseline joined with S-fsync-1's occurrence, cross-referenced; S-group-1's inferred cause and the
 baseline target's missing output added at acceptance; keeping it not to be built). P16-09 opened a
-third, also unhomed: the two leaks of the walk's kind it found and did not fix. The rate's limit past
+third, also unhomed: the two leaks of the walk's kind it found and did not fix. P16-10 did them after
+the close, and that row is done (`HostSabotagesTests`). The rate's limit past
 the capacity stays open and unhomed, out of this phase's scope.
 
 ## Findings added this phase
@@ -420,7 +461,7 @@ not its value (the reviewer, at acceptance); a rule's checks that did not say wh
 reviewer); the reading judged worthless was the one that tested the rule's source (the reviewer); a
 one-sided gate met the side it cannot see (the reviewer); a table of causes written from the fixes, not
 the failures (the reviewer: the more serious correction); a hedge is part of a claim (the reviewer); a
-cleanup verified as root removes what root can (P16-09); an instrument's cost can land on the
+cleanup verified as root removes what root can (P16-09); a new branch's first push is judged from a default branch that never moved (P16-10); an instrument's cost can land on the
 part it measures, and a gate on the total does not see where; a cause named in a commit before the test that could refute it (the
 reviewer: a commit message is a claim); this project has measured its own instruments three times, and
 each time the instrument was the larger term (the reviewer); a partial re-run cannot certify a run whose
@@ -434,10 +475,14 @@ fifteen findings with the widest reach, grouped by theme.
 
 ## Commits never verified in CI
 
-None. Every commit of the phase's first push ran in its own per-commit jobs (run:38997459747), and
+One, `e8e3dcf` (P16-10's prediction, after the close; below). Every commit of the phase's first push
+ran in its own per-commit jobs (run:38997459747), and
 `5872758` as the head of its own push; `9c3fe8d` and `1f6c10d` in their per-commit jobs of
 run:39062045985, all green, and `9719e96` as its head; the red ones are the known-red commits above.
 `0f75a29` runs in this report's run. After acceptance: `7916784` in its per-commit jobs and `48b0b54`
 as the head of run:39097989911, green; `886133f` in its per-commit jobs of run:39105627374, green, and
-`d8bfc17` as that run's head, red on the walk job (P16-09); `e81223f` and `de6e1f6` run in their
-per-commit jobs of this report's run.
+`d8bfc17` as that run's head, red on the walk job (P16-09); `e81223f` and `de6e1f6` in their
+per-commit jobs of run:39109388600, green, and `582c9ff` as its head. After the close (P16-10):
+`e8e3dcf` ran in no per-commit job, since run:39126188489 skipped them (above); its preflight, build and
+gates were run locally, green. `a375735` was that run's head, its harness shards skipped with them; this
+report's run runs them at a head with the same code.

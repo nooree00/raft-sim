@@ -136,10 +136,6 @@ The project closed with these items open, deliberately. None is expected to chan
   baseline command. It does not keep it for a test entry's target that fails unpatched (the
   baseline-target branch of `BaselineChecks` in `tools/Raft.Gates/Sabotage.cs`), the path the third
   took, and that is not to be built.
-- **Two scripts still leave temporary directories behind** (one register row, found at P16-09). The
-  host entries that test the secret scan never remove their clones of the repository, and
-  `host-sabotages.sh` never removes its worktrees' parent directories. The README walk's own leak,
-  which once filled the disk, is fixed.
 - **The person's cold walk of this README** (phase 0's row): not scripted, never done by the agent.
   `scripts/readme-walk.sh` catches README rot; it is not that walk.
 - **Known limits stated in the spec:** the rename barrier is a simplification, not the contract

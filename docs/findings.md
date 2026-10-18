@@ -1910,3 +1910,12 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   (P10-08); the walk's trap was written without looking there. *Rule:* a script that removes what a
   container wrote is checked as the runner's user, not only as root; and a cleanup's failure must not
   replace the status of the work it cleans up after.
+- **A new branch's first push is judged from the default branch, which never moved** (P16-10). The
+  project's history lives on one branch, and `origin/main` is still the repository's first commit.
+  The each-commit list takes a new branch's range from the merge-base with `origin/main`, so the first
+  push of a second branch carried all sixteen phases and refused the 52 earlier commits that change a
+  report without being a push's head; the harness shards and the per-commit jobs were skipped
+  (run:39126188489). The local report check had passed, given the previous head as its start, a range
+  CI does not take for a new branch. *Rule:* before a new branch's first push, check the range CI will
+  take (`--since` all zeros), not the one the work started from; while `main` is the first commit, work
+  continues on the branch that holds the history, or `main` is moved, which is the person's.
