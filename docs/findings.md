@@ -1700,3 +1700,11 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   second re-run. *Rule:* fix what failed and push, rather than re-run part of a run whose collector
   depends on all of it; and give every timing control the long election timeout the bench controls
   have, since an election is not what any of them measures.
+- **A cleanup verified as root removes what root can** (P16-09). The README walk's exit trap removed
+  its copy in every local run and in both of its tests, all as root. On GitHub's unprivileged runner it
+  met the SDK container's root-owned build output and failed, and with `set -e` the failed removal
+  replaced the walk's own exit status (run:39105627374). The host sabotages had met the same output in
+  their worktrees in phase 9, and `host-sabotages.sh` already hands it back through the pinned image
+  (P10-08); the walk's trap was written without looking there. *Rule:* a script that removes what a
+  container wrote is checked as the runner's user, not only as root; and a cleanup's failure must not
+  replace the status of the work it cleans up after.
