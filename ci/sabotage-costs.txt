@@ -330,6 +330,7 @@ S-tool-2 15.1
 S-tool-3 4.0
 S-trace-1 3.0
 S-trace-2 2.8
+S-walk-2 5.0
 S-wgl-1 4.2
 S-wgl-10 4.6
 S-wgl-11 4.2

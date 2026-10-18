@@ -5,7 +5,10 @@
 # container with an empty NuGet cache. It catches README rot; it is not the person's walk.
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
-dest="$(mktemp -d)/raft-sim"; mkdir -p "$dest"; log="$(dirname "$dest")/walk.log"
+# P16-09: the copy and its log are removed on exit, the walk passing, failing or refused; the log is
+# printed as it runs. Every copy was once left behind, and 195 of them filled the disk.
+tmp="$(mktemp -d)"; dest="$tmp/raft-sim"; mkdir -p "$dest"; log="$tmp/walk.log"
+trap 'rm -rf "$tmp"' EXIT
 (cd "$here" && git ls-files -z --cached --others --exclude-standard | tar -c --null -T - -f -) | tar -x -C "$dest"
 steps="$(awk '/^```sh cold-walk$/{on=1; next} /^```$/{on=0} on' "$dest/README.md")"
 [ -n "$steps" ] || { echo "readme-walk: no cold-walk steps in README.md"; exit 1; }
@@ -18,7 +21,7 @@ echo "readme-walk: $(printf '%s\n' "$steps" | grep -c .) step(s) in $dest"
 cd "$dest"
 # Only network plumbing survives the scrub (a person behind a proxy has it too); CI's variables do not.
 # A fresh NuGet volume per walk: the cache starts empty, as on a new machine.
-volume="raft-walk-$$-$RANDOM"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true' EXIT
+volume="raft-walk-$$-$RANDOM"; trap 'docker volume rm -f "$volume" >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
 set +e
 env -i HOME="$HOME" PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" RAFT_NUGET_VOLUME="$volume" \
   ${HTTPS_PROXY:+HTTPS_PROXY="$HTTPS_PROXY"} ${HTTP_PROXY:+HTTP_PROXY="$HTTP_PROXY"} ${NO_PROXY:+NO_PROXY="$NO_PROXY"} \
