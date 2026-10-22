@@ -430,9 +430,10 @@ bad, nothing it accepts means anything.
 
 Hand-written histories share their author's model of linearizability, so
 they are backed by two sources that do not: the published examples from
-Herlihy & Wing, whose verdicts come from outside the project, and histories
-produced in the simulator by a deliberately broken non-Raft store (e.g.
-asynchronous primary-backup reading from the backup).
+Herlihy & Wing (*ACM TOPLAS* 12(3), 1990, Fig. 1; DOI and link in
+`docs/references/REFERENCES.md`), whose verdicts come from outside the
+project, and histories produced in the simulator by a deliberately broken
+non-Raft store (e.g. asynchronous primary-backup reading from the backup).
 
 ## 7. The simulator
 

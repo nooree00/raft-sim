@@ -9,8 +9,9 @@ namespace Raft.Checker.Tests;
 /// <summary>
 /// Verdicts that do not come from me: the FIFO queue histories of Herlihy &amp; Wing, "Linearizability:
 /// A Correctness Condition for Concurrent Objects", TOPLAS 12:3 (1990), Fig. 1, as event sequences
-/// on pp. 468 and 470 (docs/references/herlihy-wing-1990.pdf). Each is transcribed as the paper's
-/// literal event list, so review is a line-by-line comparison; the event index is the time.
+/// on pp. 468 and 470 (DOI 10.1145/78969.78972; docs/references/REFERENCES.md). Each is transcribed
+/// as the paper's literal event list, so review is a line-by-line comparison; the event index is the
+/// time.
 /// Vacuity risk: a transcription error that happens to agree with a wrong oracle. The events are
 /// verbatim, and the two rejecting histories fail for different reasons in the paper (order, and
 /// a duplicate dequeue), so one error cannot flip both.
