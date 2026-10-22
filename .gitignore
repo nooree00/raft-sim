@@ -4,3 +4,8 @@ TestResults/
 *.trx
 .vs/
 compose-out/
+
+# Secret-bearing files. None lives here today; a guard is cheaper before the first one does.
+.env
+*.pem
+*.key
