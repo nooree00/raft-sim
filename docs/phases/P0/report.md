@@ -4,11 +4,11 @@
 walk of the README, which the reviewer is doing — so `docs/phases/status.md` still says
 `P0: in progress`.
 
-**Update after acceptance.** The Herlihy & Wing paper was supplied and committed
-(`docs/references/herlihy-wing-1990.pdf`). Fig. 1's H1–H4 are transcribed as the paper's literal
-event lists and the oracle agrees with every published verdict; Theorem 1 (locality) is a property
-test over 400 seeded two-key histories. Sabotages S-hist-4 and S-hist-5 prove both. That register
-row is done.
+**Update after acceptance.** The Herlihy & Wing paper was supplied and committed (*ACM TOPLAS*
+12(3), 1990; DOI and link in `docs/references/REFERENCES.md`, which also records the PDF's later
+removal as the publisher's copy). Fig. 1's H1–H4 are transcribed as the paper's literal event lists
+and the oracle agrees with every published verdict; Theorem 1 (locality) is a property test over 400
+seeded two-key histories. Sabotages S-hist-4 and S-hist-5 prove both. That register row is done.
 
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
