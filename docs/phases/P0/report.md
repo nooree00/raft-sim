@@ -10,6 +10,11 @@ removal as the publisher's copy). Fig. 1's H1–H4 are transcribed as the paper'
 and the oracle agrees with every published verdict; Theorem 1 (locality) is a property test over 400
 seeded two-key histories. Sabotages S-hist-4 and S-hist-5 prove both. That register row is done.
 
+**Re-committed (2026-10-26)** because its certifying run, `main`'s on `c03906f`, went red on the
+release control, a host timing control unrelated to this report, and `gates reports` fails every
+later run until the report changes: the register's certification and unexplained-harness-results
+rows hold the account.
+
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
