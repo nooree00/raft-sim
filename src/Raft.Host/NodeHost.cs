@@ -180,9 +180,9 @@ public sealed class NodeHost : IAsyncDisposable
     public (long Spins, double Micros) PeerHandOffSpun => (Interlocked.Read(ref _handOffSpins), Bench.Micros(Interlocked.Read(ref _handOffSpunTicks)));
 
     /// <summary>
-    /// A measurement's hook (P16-01, the release's control): each time a peer's sender wakes to frames, it
-    /// waits this long, never less, off the loop's thread, before it takes them, so a delay of known size
-    /// lies between a frame's release (<see cref="HandOffTrace.Kind.Released"/>) and its send.
+    /// A measurement's hook (P16-01, the release's control): before a peer's sender takes each frame, it
+    /// waits this long, never less, off the loop's thread, so a delay of known size lies between every
+    /// frame's release (<see cref="HandOffTrace.Kind.Released"/>) and its send (P16-11; once per wake before).
     /// </summary>
     public TimeSpan SenderDelay
     {
@@ -190,7 +190,7 @@ public sealed class NodeHost : IAsyncDisposable
         set => Interlocked.Exchange(ref _senderDelayTicks, value.Ticks);
     }
 
-    /// <summary>The planted sender delays so far, and the time they actually took (as <see cref="PeerHandOffSpun"/>).</summary>
+    /// <summary>The planted sender delays so far, one per frame, and the time they actually took (as <see cref="PeerHandOffSpun"/>).</summary>
     public (long Spins, double Micros) SenderSpun => (Interlocked.Read(ref _senderSpins), Bench.Micros(Interlocked.Read(ref _senderSpunTicks)));
 
     /// <summary>The persist barrier's cost so far (P10-05): see <see cref="DiskExecutor.Barrier"/>.</summary>
@@ -642,13 +642,22 @@ public sealed class NodeHost : IAsyncDisposable
                 await stream.WriteAsync(hello, _stop.Token).ConfigureAwait(false);
                 while (await frames.WaitToReadAsync(_stop.Token).ConfigureAwait(false))
                 {
-                    if (Interlocked.Read(ref _senderDelayTicks) > 0)
+                    while (true)
                     {
-                        await Task.Run(DelaySender, _stop.Token).ConfigureAwait(false);
-                    }
+                        // P16-11: the planted delay is waited once per frame, before the frame is taken, so
+                        // every frame waits it in full. Waited once per wake (P16-01), a frame queued during
+                        // the wait was taken at its end with only the remainder, and how often that happened
+                        // was the machine's scheduling, not the plant.
+                        if (Interlocked.Read(ref _senderDelayTicks) > 0 && frames.TryPeek(out _))
+                        {
+                            await Task.Run(DelaySender, _stop.Token).ConfigureAwait(false);
+                        }
 
-                    while (frames.TryRead(out var frame))
-                    {
+                        if (!frames.TryRead(out var frame))
+                        {
+                            break;
+                        }
+
                         // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
                         _config.Trace?.Add(HandOffTrace.Kind.Sent, peer.Value, frame);
                         await stream.WriteAsync(frame, _stop.Token).ConfigureAwait(false);

@@ -16,7 +16,7 @@ namespace Raft.Host.Slow.Tests;
 /// P16-01: the release's control, on the in-process cluster, traced, as the hand-off control is run
 /// (<see cref="BenchControlTests.APlantedHandOffDelayAppearsInItsSegmentOnly"/>): windows alternating off
 /// and on, a delay of 2 ms planted on the leader's senders between a frame's release and its send (each
-/// sender waiting it off the loop's thread whenever it wakes to frames). The sender's part must rise by
+/// sender waiting it off the loop's thread before it takes each frame, P16-11). The sender's part must rise by
 /// the delay actually waited, at its 5th percentile, and no other part by more than 0.4 of it, the hand-off
 /// control's bounds. The same runs read every joined write's arrival and release within its segment: the
 /// kernel's timestamps on the leader's client sockets and the release stamp, through the host. Vacuity
@@ -70,7 +70,11 @@ public sealed class ReleaseControlTests
         var rise = Decomposition.Parts.ToDictionary(p => p, p => Low(delayed[p]) - Low(plain[p]), StringComparer.Ordinal);
         var spun = c.Host(leader)!.SenderSpun;
         var waited = spun.Spins == 0 ? 0 : spun.Micros / spun.Spins;
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "bench-release.txt"), FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; arrivals {arrivals} within, {arrivalsOutside} outside; releases {releases} within, {releasesOutside} outside; {PlantedMicros} us set, {waited:F0} us waited on average over {spun.Spins} wakes; 5th percentile rise: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))) + "\n");
+        // P16-11: every delayed write's frame waits the planted delay in full, so none is short of it.
+        var sender = delayed["leader-to-send.sender"];
+        var smallest = sender.Count == 0 ? 0 : sender.Min();
+        var belowDelay = sender.Count(m => m < 0.95 * PlantedMicros);
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "bench-release.txt"), FormattableString.Invariant($"{joined} of {writes} writes joined, {left} left out; arrivals {arrivals} within, {arrivalsOutside} outside; releases {releases} within, {releasesOutside} outside; {PlantedMicros} us set, {waited:F0} us waited on average over {spun.Spins} spins; delayed windows' smallest sender part {smallest:F0} us, {belowDelay} of {sender.Count} below 95% of the delay; 5th percentile rise: ") + string.Join(", ", rise.Select(r => FormattableString.Invariant($"{r.Key} {r.Value:F0}"))) + "\n");
         Assert.True(joined >= 0.95 * writes && left == 0, $"{joined} of {writes} writes joined, {left} left out: the control did not measure the writes it ran");
         Assert.True(arrivals >= 0.95 * joined && arrivalsOutside == 0, $"{arrivals} of {joined} joined writes have their line's kernel arrival within client-to-leader, {arrivalsOutside} outside it");
         Assert.True(releases >= 0.95 * joined && releasesOutside == 0, $"{releases} of {joined} joined writes have their append's release within leader-to-send's hold, {releasesOutside} outside it");

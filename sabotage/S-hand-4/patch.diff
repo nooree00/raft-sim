@@ -1,0 +1,25 @@
+--- a/src/Raft.Host/NodeHost.cs
++++ b/src/Raft.Host/NodeHost.cs
+@@ -648,11 +648,6 @@
+                         // every frame waits it in full. Waited once per wake (P16-01), a frame queued during
+                         // the wait was taken at its end with only the remainder, and how often that happened
+                         // was the machine's scheduling, not the plant.
+-                        if (Interlocked.Read(ref _senderDelayTicks) > 0 && frames.TryPeek(out _))
+-                        {
+-                            await Task.Run(DelaySender, _stop.Token).ConfigureAwait(false);
+-                        }
+-
+                         if (!frames.TryRead(out var frame))
+                         {
+                             break;
+@@ -661,6 +656,10 @@
+                         // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
+                         _config.Trace?.Add(HandOffTrace.Kind.Sent, peer.Value, frame);
+                         await stream.WriteAsync(frame, _stop.Token).ConfigureAwait(false);
++                        if (Interlocked.Read(ref _senderDelayTicks) > 0)
++                        {
++                            await Task.Run(DelaySender, _stop.Token).ConfigureAwait(false);
++                        }
+                     }
+                 }
+             }

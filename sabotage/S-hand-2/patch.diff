@@ -9,10 +9,10 @@
              queue.Writer.TryWrite(frame);
          }
      }
-@@ -649,6 +647,7 @@
+@@ -658,6 +656,7 @@
+                             break;
+                         }
  
-                     while (frames.TryRead(out var frame))
-                     {
 +                        _config.Trace?.Add(HandOffTrace.Kind.Released, peer.Value, frame);
                          // Stamped as the frame is handed to the socket: the peer can read it before the write returns.
                          _config.Trace?.Add(HandOffTrace.Kind.Sent, peer.Value, frame);

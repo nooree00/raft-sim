@@ -1,0 +1,7 @@
+description: The release control's delay is waited after each frame's send rather than before its take, so the planted delay lies outside the release-to-send segment the control reads while the average wait still reads 2 ms (P16-11)
+mechanism: the per-frame wait moved from before the frame is taken to after it is written
+kind: test
+project: tests/Raft.Host.Slow.Tests
+target: Raft.Host.Slow.Tests.ReleaseControlTests.APlantedSenderDelayAppearsInTheSendersPartOnly
+reason: Assert.InRange() Failure
+expect: caught
