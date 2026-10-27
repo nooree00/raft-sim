@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -18,19 +19,25 @@ namespace Raft.Host.Tests;
 /// <summary>
 /// P16-12: an exception on a reader thread ends its connection, logged, and never the host's process. The
 /// host runs in a process of its own (`Raft.Host node`, one node, traced), so a process the exception ends
-/// is this test's failure, with the host's exit code and standard error, and not the end of the test run.
-/// The trigger is the one that fires on demand: a client line past 64 KiB, which a traced host's reader
+/// is this test's failure, with the host's exit code and output, and not the end of the test run. The
+/// trigger is the one that fires on demand: a client line past 64 KiB, which a traced host's reader
 /// (<see cref="KernelLineReader"/>) refuses with an exception outside <c>ServeClient</c>'s list of quiet
 /// endings. The stop race that found the defect (run 40421775799: a connection disposed by a stop as its
-/// reader started) does not happen on demand; the root's catch covers it by covering every type. Vacuity
-/// risk: a line the host never reads to its limit leaves the reader waiting and passes on any code; guarded
-/// by the host closing that connection and logging its ending. Sabotage S-thread-1.
+/// reader started) does not happen on demand; the root's catch covers it by covering every type. The
+/// host's life is read from its process, never from an answer: an <c>ok|</c> on its port once stood in
+/// for it, and in one run on GitHub (40464503656, S-thread-1 at <c>30be2ed</c>) something answered
+/// while the test went on as though the host had (the person: a proxy satisfied by something other than
+/// what it names). The port is the child's because its own <c>host-start</c>, written after both
+/// listeners bind, is read first. Every assertion's message carries the child's state (its process, its
+/// standard output and error), so a wrong result can be read from the message alone. Vacuity risk: a line
+/// the host never reads to its limit leaves the reader waiting and passes on any code; guarded by the host
+/// ending that connection and logging why. Sabotage S-thread-1.
 /// </summary>
 public sealed class ReaderThreadTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    /// <summary>A line past the traced reader's 64 KiB, its exception logged, its connection closed, the host still answering. Sabotage S-thread-1.</summary>
+    /// <summary>A line past the traced reader's 64 KiB, its exception logged, its connection ended, the host's process still running and answering. Sabotage S-thread-1.</summary>
     [Fact]
     public async Task AReaderThreadsExceptionEndsItsConnectionNotTheProcess()
     {
@@ -51,47 +58,31 @@ public sealed class ReaderThreadTests
         host.ErrorDataReceived += (_, e) => Keep(errors, e.Data);
         host.BeginOutputReadLine();
         host.BeginErrorReadLine();
+        string State() => Observed(host, output, errors);
         try
         {
-            string? answer = null;
-            for (var start = Stopwatch.GetTimestamp(); answer is null && !host.HasExited && Stopwatch.GetElapsedTime(start) < TimeSpan.FromSeconds(20);)
-            {
-                answer = await RequestAsync(client, "Status|", TimeSpan.FromSeconds(1));
-            }
+            await UntilAsync(() => host.HasExited || Events(output, "host-start").Length > 0, TimeSpan.FromSeconds(20));
+            Assert.True(!host.HasExited && Events(output, "host-start").Length == 1, $"the host did not start, its listeners bound, within 20 s: {State()}");
+            var before = await RequestAsync(client, "Status|", TimeSpan.FromSeconds(5));
+            Assert.True(before is not null && before.StartsWith("ok|", StringComparison.Ordinal) && !host.HasExited, $"the host's answer to Status| before the line was '{before ?? "none"}': {State()}");
 
-            Assert.True(answer is not null && answer.StartsWith("ok|", StringComparison.Ordinal), $"the host never answered Status| before the line was sent: {Gone(host, errors)}");
-
-            bool closed;
+            string ending;
             using (var tcp = new TcpClient())
             {
                 await tcp.ConnectAsync(client, Ct);
-                closed = await ClosedAfterOverLongLineAsync(tcp.GetStream(), TimeSpan.FromSeconds(10));
+                ending = await EndingAfterOverLongLineAsync(tcp.GetStream(), TimeSpan.FromSeconds(10));
             }
 
-            Assert.True(closed, "the host did not close the over-long line's connection within 10 s: its reader never reached the line's limit, so nothing was tested");
-            answer = await RequestAsync(client, "Status|", TimeSpan.FromSeconds(5));
-            if (answer is null)
-            {
-                // A host the exception ended may still be exiting: its exit code is the failure's message.
-                using var exit = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                try
-                {
-                    await host.WaitForExitAsync(exit.Token);
-                }
-                catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
-                {
-                }
-            }
+            Assert.True(ending != Open, $"the over-long line's connection was {ending}: the reader never reached the line's limit, so nothing was tested; {State()}");
 
-            Assert.True(answer is not null && answer.StartsWith("ok|", StringComparison.Ordinal), $"the host stopped answering after a reader thread's exception: {Gone(host, errors)}");
-            string[] logged = [];
-            for (var start = Stopwatch.GetTimestamp(); logged.Length == 0 && Stopwatch.GetElapsedTime(start) < TimeSpan.FromSeconds(5);)
-            {
-                await Task.Delay(20, Ct);
-                logged = [.. output.Select(Event).Where(e => e.Name == "reader-failed").Select(e => e.Error)];
-            }
-
-            Assert.Equal("System.IO.InvalidDataException", Assert.Single(logged));
+            // The reader's ending or the process's, whichever comes: a process the exception ends exits
+            // without logging, and this waits for it rather than inferring it from an answer.
+            await UntilAsync(() => host.HasExited || Events(output, "reader-failed").Length > 0, TimeSpan.FromSeconds(10));
+            Assert.True(!host.HasExited, $"the host's process ended after a reader thread's exception: {State()}");
+            var logged = Events(output, "reader-failed");
+            Assert.True(logged is ["System.IO.InvalidDataException"], $"the host logged {logged.Length} reader-failed event(s) ({string.Join(", ", logged)}), not one naming System.IO.InvalidDataException: {State()}");
+            var after = await RequestAsync(client, "Status|", TimeSpan.FromSeconds(5));
+            Assert.True(after is not null && after.StartsWith("ok|", StringComparison.Ordinal) && !host.HasExited, $"the host's answer to Status| after the line was '{after ?? "none"}': {State()}");
         }
         finally
         {
@@ -105,6 +96,16 @@ public sealed class ReaderThreadTests
         }
     }
 
+    private const string Open = "still open after 10 s";
+
+    private static async Task UntilAsync(Func<bool> done, TimeSpan timeout)
+    {
+        for (var start = Stopwatch.GetTimestamp(); !done() && Stopwatch.GetElapsedTime(start) < timeout;)
+        {
+            await Task.Delay(20, Ct);
+        }
+    }
+
     private static void Keep(ConcurrentQueue<string> lines, string? line)
     {
         if (line is not null)
@@ -113,9 +114,23 @@ public sealed class ReaderThreadTests
         }
     }
 
-    /// <summary>What the host's process shows when it stops answering: its exit code if it ended, and its standard error's first lines.</summary>
-    private static string Gone(Process host, ConcurrentQueue<string> errors) =>
-        (host.HasExited ? FormattableString.Invariant($"its process exited with code {host.ExitCode}") : "its process is still running") + "; standard error: " + string.Join(" / ", errors.Take(4));
+    /// <summary>
+    /// The child as this test observed it, for every assertion's message: its process (running, or its exit
+    /// code), the last lines of its standard output (its latest events) and the first of its standard error
+    /// (a crash's exception comes first), each line shortened.
+    /// </summary>
+    private static string Observed(Process host, ConcurrentQueue<string> output, ConcurrentQueue<string> errors)
+    {
+        static string Lines(IEnumerable<string> lines) =>
+            lines.Any() ? string.Join(" / ", lines.Select(l => l.Length > 200 ? l[..200] + "…" : l)) : "nothing";
+
+        var process = host.HasExited ? FormattableString.Invariant($"its process exited with code {host.ExitCode}") : FormattableString.Invariant($"its process is running (pid {host.Id})");
+        return $"{process}; standard output: {Lines(output.TakeLast(6))}; standard error: {Lines(errors.Take(6))}";
+    }
+
+    /// <summary>The <c>error</c> field of each of the host's events named <paramref name="name"/>, in order.</summary>
+    private static string[] Events(ConcurrentQueue<string> output, string name) =>
+        [.. output.Select(Event).Where(e => e.Name == name).Select(e => e.Error)];
 
     /// <summary>A host event's name and, for a reader's ending, its exception's type; a line that is not an event is neither.</summary>
     private static (string Name, string Error) Event(string line)
@@ -132,26 +147,27 @@ public sealed class ReaderThreadTests
     }
 
     /// <summary>
-    /// Sends a line one byte past the traced reader's 64 KiB buffer, with no newline, and waits for the host
-    /// to end the connection: a read that returns nothing, or one the host's reset fails. False if the
-    /// connection is still open at the timeout.
+    /// Sends a line one byte past the traced reader's 64 KiB buffer, with no newline, and reports how the
+    /// host's end of the connection behaved: ended (a read returned nothing), reset (a read or the write
+    /// failed, with the error), or <see cref="Open"/> at the timeout.
     /// </summary>
-    private static async Task<bool> ClosedAfterOverLongLineAsync(NetworkStream stream, TimeSpan timeout)
+    private static async Task<string> EndingAfterOverLongLineAsync(NetworkStream stream, TimeSpan timeout)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         limit.CancelAfter(timeout);
         try
         {
             await stream.WriteAsync(Enumerable.Repeat((byte)'x', (64 * 1024) + 1).ToArray(), limit.Token);
-            return await stream.ReadAsync(new byte[1], limit.Token) == 0;
+            var read = await stream.ReadAsync(new byte[1], limit.Token);
+            return read == 0 ? "ended" : "answered with a byte, not ended";
         }
-        catch (IOException)
+        catch (IOException e)
         {
-            return true;
+            return $"reset ({e.Message})";
         }
         catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
         {
-            return false;
+            return Open;
         }
     }
 
