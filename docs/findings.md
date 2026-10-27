@@ -1919,3 +1919,19 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   CI does not take for a new branch. *Rule:* before a new branch's first push, check the range CI will
   take (`--since` all zeros), not the one the work started from; while `main` is the first commit, work
   continues on the branch that holds the history, or `main` is moved, which is the person's.
+- **A gap closed for the harness reopened in the test written for its own finding** (P16-12; the
+  person: the third occurrence of a pattern appearing inside its own defence). P16-06 made the harness
+  keep an entry's output because two of its results could not be diagnosed, and that output is what
+  read S-fsync-1's `target-not-run` in run:40421775799 as a reader thread's exception ending the host.
+  The regression test written for that finding then failed for the wrong reason once in
+  run:40464503656 (S-thread-1 `wrong-reason` at `30be2ed`), and its messages carried none of the state of
+  the host it was observing, so that result could not be diagnosed either. Recording each instance had
+  not stopped the next. *Rule* (AGENTS.md, conventions): any check that can fail carries, in its failure
+  message, the state of whatever it was observing, written in when the check is written, not added as a
+  repair.
+- **An answer stood in for the host that should have given it** (P16-12; the person). The test took an
+  `ok|` on its host's port as proof that the host's process was alive, and in one run something answered
+  while the process the test was about had, by every local probe of that path, already ended. The
+  observable was satisfied by something other than what it names, the family of every
+  mechanism-substitution finding here. *Rule:* assert the thing itself (here the child process, and its
+  own `host-start` read before its port is used), not an effect something else can produce.

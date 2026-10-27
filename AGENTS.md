@@ -31,6 +31,13 @@ names the script that enforces it, or says plainly that nothing does.
 - A sabotage lives in `sabotage/<id>/` (`patch.diff`, `sabotage.txt`) and lands in the same commit
   as the check it proves.
 - A changed test count means editing `ci/test-baseline.txt` in the same commit.
+- **A check that can fail carries, in its failure message, the state of whatever it was observing**
+  (the person, 2026-10-27): the values it compared, and for a process its exit state and output. It is
+  written in when the check is written, as a default, not added as a repair after a result nobody could
+  read. The rule replaces recording instances: its gap had appeared inside its own defence a third time,
+  in the test written for P16-06's own finding (P16-12, findings log). **Not scripted:** spec §10
+  predicts such a rule will not hold on its own, and nothing mechanical tells a message that carries the
+  observed state from one that does not; review is the check.
 - A prediction's outcome is `(evidence)` or `(forcing)`. Forcing: writing it changed the work, so
   it could not come true. Evidence: it could have been wrong about something that was then not
   changed. Only evidence tests the prediction; report the two counts separately.
