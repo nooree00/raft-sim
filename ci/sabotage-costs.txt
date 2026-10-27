@@ -273,6 +273,7 @@ S-hand-1 10.0
 S-hand-2 45.0
 S-hand-3 10.0
 S-hand-4 45.0
+S-thread-1 8.0
 S-repl-1 4.7
 S-repl-2 5.2
 S-repl-3 4.8

@@ -706,7 +706,27 @@ public sealed class NodeHost : IAsyncDisposable
             // reader when bytes arrive. Read on the pool, a line waited for the pool to run its
             // continuation: the client's hop to the leader was 112 µs at its median at 625 writes a
             // second in process, the largest host segment after the generator's change (P12-04).
-            new Thread(() => serve(client)) { IsBackground = true, Name = $"raft-{_config.Id}-read" }.Start();
+            new Thread(() => Read(serve, client)) { IsBackground = true, Name = $"raft-{_config.Id}-read" }.Start();
+        }
+    }
+
+    /// <summary>
+    /// A reader thread's root (P16-12): whatever its body throws ends the thread, logged, and never the
+    /// process, as an exception leaving a plain thread would. The bodies' catches name the endings that are
+    /// quiet, a connection closed or refused; they were the only guard, and missed a type the host throws
+    /// itself (a traced reader's line past 64 KiB) and one a stop throws (a connection disposed inside
+    /// <c>GetStream()</c> as its reader started, run 40421775799). The next type would not be on a list
+    /// either, so this catch has none.
+    /// </summary>
+    private void Read(Action<TcpClient> serve, TcpClient client)
+    {
+        try
+        {
+            serve(client);
+        }
+        catch (Exception e)
+        {
+            Emit(new Emit("reader-failed", [new("error", e.GetType().FullName ?? e.GetType().Name), new("message", e.Message)]));
         }
     }
 

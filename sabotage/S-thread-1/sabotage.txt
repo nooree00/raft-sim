@@ -1,0 +1,7 @@
+description: A reader thread's exception leaves the thread, as before P16-12, so any exception its body's list of quiet endings misses ends the host's process
+mechanism: the reader threads' root catch removed: each connection's thread runs its body directly
+kind: test
+project: tests/Raft.Host.Tests
+target: Raft.Host.Tests.ReaderThreadTests.AReaderThreadsExceptionEndsItsConnectionNotTheProcess
+reason: its process exited with code 134
+expect: caught

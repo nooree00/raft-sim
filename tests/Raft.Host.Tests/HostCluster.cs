@@ -168,7 +168,7 @@ internal sealed class HostCluster : IAsyncDisposable
         throw new InvalidOperationException("no free block of test ports: 120 test processes hold one each");
     }
 
-    private static int FreePort()
+    internal static int FreePort()
     {
         for (var tries = 0; tries < 100; tries++)
         {
