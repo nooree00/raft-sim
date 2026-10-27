@@ -20,6 +20,10 @@ went red on a host crash that run found, unrelated to this report (a reader thre
 process, fixed as P16-12): the same rows hold the account, and the certification row records what these
 re-commits cost.
 
+**Re-committed a third time (2026-10-27)** because its certifying run, the branch's on `380f7bd`
+(40464503656), went red on a sabotage caught for the wrong reason by the test written for P16-12
+(S-thread-1; the test since fixed), unrelated to this report: the same rows hold the account.
+
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
