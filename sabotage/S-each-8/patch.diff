@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -121,7 +121,7 @@
+                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+             foreach (var path in changed.Where(IsReport))
+             {
+-                last[path] = (order, c);
++                last[path] = (order, head);
+             }
+         }
+ 

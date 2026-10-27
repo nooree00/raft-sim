@@ -1,0 +1,7 @@
+description: The report-at-head rule takes every report change as superseded by the push's head because a later commit exists, so the P3 acceptance push's shape passes again and the relaxation swallows the rule
+mechanism: each report's last change is recorded as the head whatever commit changed it
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AReportCommitThatIsNotThePushHeadFails
+reason: Assert.Contains() Failure
+expect: caught

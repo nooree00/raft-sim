@@ -1,0 +1,7 @@
+description: The report-at-head rule exempts a mid-range report change whenever the head changes any report, not the same one, so a phase's report pushed beside another phase's report at the head is never certified
+mechanism: the exemption tests whether the head changes some report rather than whether the same report changes again
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AReportChangedMidRangeFailsWhenTheHeadChangesAnotherReport
+reason: Assert.Single() Failure
+expect: caught

@@ -154,6 +154,65 @@ public sealed class EachCommitTests
         }
     }
 
+    /// <summary>
+    /// P16-13: a report changed mid-range and again at the push head passes. Only its last change reaches
+    /// the head's tree, and the head's run certifies it; nothing asks for the superseded change's run.
+    /// </summary>
+    [Fact]
+    public void AReportChangedAgainAtThePushHeadPasses()
+    {
+        var (g, b) = Push(("docs/phases/P3/report.md", "report"), ("docs/phases/P4/breakdown.md", "x"), ("docs/phases/P3/report.md", "report, re-committed"));
+        using (g)
+        {
+            Assert.Empty(EachCommit.Run(g.Repo, ["--since", b, "--check", Check]).Failures);
+        }
+    }
+
+    /// <summary>P16-13: the exemption is the same report's later change, not any report's: a P3 report mid-range fails beside a P4 report at the head. Sabotage S-each-7.</summary>
+    [Fact]
+    public void AReportChangedMidRangeFailsWhenTheHeadChangesAnotherReport()
+    {
+        var (g, b) = Push(("docs/phases/P3/report.md", "report"), ("docs/phases/P4/breakdown.md", "x"), ("docs/phases/P4/report.md", "report"));
+        using (g)
+        {
+            var report = g.Git("rev-parse", "HEAD~2").Trim();
+            var failure = Assert.Single(EachCommit.Run(g.Repo, ["--since", b, "--check", Check]).Failures);
+
+            Assert.StartsWith(report[..7] + " changes docs/phases/P3/report.md but is not the head of this push", failure, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// P16-13: a report changed at two non-head commits fails at the later only, the change whose state
+    /// reaches the head's tree; the earlier is superseded. Sabotage S-each-9.
+    /// </summary>
+    [Fact]
+    public void AReportChangedTwiceBeforeTheHeadFailsAtItsLastChangeOnly()
+    {
+        var (g, b) = Push(("docs/phases/P3/report.md", "report"), ("docs/phases/P3/report.md", "report, again"), ("docs/phases/P4/breakdown.md", "x"));
+        using (g)
+        {
+            var last = g.Git("rev-parse", "HEAD~1").Trim();
+            var failure = Assert.Single(EachCommit.Run(g.Repo, ["--since", b, "--check", Check]).Failures);
+
+            Assert.StartsWith(last[..7] + " changes docs/phases/P3/report.md but is not the head of this push", failure, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>A push of one commit per (path, content), oldest first, on a base that passes the check; the base's id.</summary>
+    private static (GitFixture G, string Base) Push(params (string Path, string Content)[] commits)
+    {
+        var g = new GitFixture();
+        g.Write("Raft.slnx", "<Solution />").Write("ok", "").Commit("base");
+        var b = g.Git("rev-parse", "HEAD").Trim();
+        foreach (var (path, content) in commits)
+        {
+            g.Write(path, content).Commit(path);
+        }
+
+        return (g, b);
+    }
+
     private static (GitFixture G, string Base) ReportPush(bool reportLast, string path = "docs/phases/P3/report.md")
     {
         var g = new GitFixture();

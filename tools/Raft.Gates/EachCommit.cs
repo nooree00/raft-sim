@@ -103,21 +103,31 @@ internal static class EachCommit
     }
 
     /// <summary>
-    /// A phase report certifies the commit that contains it (spec §12), and GitHub runs CI only for a
-    /// push's head. A non-head commit that changes a report therefore makes a report no run can ever
-    /// certify; `gates reports`, the one gate the local sequence skips, would be the only other place
-    /// it shows (P4-10, from the red P3 acceptance run).
+    /// A phase report certifies the commit that contains it (spec §12), GitHub runs CI only for a push's
+    /// head, and `gates reports` asks for the run of the commit that last changed each report. A report
+    /// whose last change in the push is not the head is therefore one no run can ever certify; `gates
+    /// reports`, the one gate the local sequence skips, would be the only other place it shows (P4-10,
+    /// from the red P3 acceptance run). A change the same push changes again is superseded: its state
+    /// never reaches the head's tree and nothing asks for its run, so only each report's last change in
+    /// the push is held to the head (P16-13).
     /// </summary>
     internal static void ReportsOnlyAtTheHead(Repo repo, IEnumerable<string> nonHead, Findings f)
     {
-        foreach (var c in nonHead)
+        var head = repo.Git("rev-parse", "HEAD").StdOut.Trim();
+        var last = new Dictionary<string, (int Order, string Commit)>(StringComparer.Ordinal);
+        foreach (var (c, order) in nonHead.Append(head).Select((c, i) => (c, i)))
         {
             var changed = repo.Git("diff-tree", "--no-commit-id", "--name-only", "-r", c).StdOut
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
             foreach (var path in changed.Where(IsReport))
             {
-                f.Fail($"{c[..7]} changes {path} but is not the head of this push: a report certifies the commit that contains it and CI runs only a push's head, so this report could never be certified. Push the report's commit last.");
+                last[path] = (order, c);
             }
+        }
+
+        foreach (var (path, (_, c)) in last.Where(l => l.Value.Commit != head).OrderBy(l => l.Value.Order).ThenBy(l => l.Key, StringComparer.Ordinal))
+        {
+            f.Fail($"{c[..7]} changes {path} but is not the head of this push, and no later commit of the push changes it again: a report certifies the commit that contains it and CI runs only a push's head, so this report could never be certified. Push the report's commit last.");
         }
     }
 

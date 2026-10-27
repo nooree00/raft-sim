@@ -132,6 +132,9 @@ S-each-3 5.2
 S-each-4 6.1
 S-each-5 8.4
 S-each-6 5.8
+S-each-7 8.0
+S-each-8 8.0
+S-each-9 8.0
 S-elect-1 3.7
 S-elect-2 7.8
 S-elect-3 6.3

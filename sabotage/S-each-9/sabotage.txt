@@ -1,0 +1,7 @@
+description: The report-at-head rule holds each report's first change in the range, not its last, so the failure names a superseded commit and the change whose state reaches the head goes free
+mechanism: the first change of each report is kept and later changes to it are ignored
+kind: test
+project: tests/Raft.Gates.Tests
+target: Raft.Gates.Tests.EachCommitTests.AReportChangedTwiceBeforeTheHeadFailsAtItsLastChangeOnly
+reason: Assert.StartsWith() Failure
+expect: caught

@@ -1,0 +1,11 @@
+--- a/tools/Raft.Gates/EachCommit.cs
++++ b/tools/Raft.Gates/EachCommit.cs
+@@ -125,7 +125,7 @@
+             }
+         }
+ 
+-        foreach (var (path, (_, c)) in last.Where(l => l.Value.Commit != head).OrderBy(l => l.Value.Order).ThenBy(l => l.Key, StringComparer.Ordinal))
++        foreach (var (path, (_, c)) in last.Where(l => l.Value.Commit != head && !last.Values.Any(v => v.Commit == head)).OrderBy(l => l.Value.Order).ThenBy(l => l.Key, StringComparer.Ordinal))
+         {
+             f.Fail($"{c[..7]} changes {path} but is not the head of this push, and no later commit of the push changes it again: a report certifies the commit that contains it and CI runs only a push's head, so this report could never be certified. Push the report's commit last.");
+         }
