@@ -15,6 +15,11 @@ release control, a host timing control unrelated to this report, and `gates repo
 later run until the report changes: the register's certification and unexplained-harness-results
 rows hold the account.
 
+**Re-committed again (2026-10-27)** because its certifying run, the branch's on `ed6964a` (40421775799),
+went red on a host crash that run found, unrelated to this report (a reader thread's exception ending the
+process, fixed as P16-12): the same rows hold the account, and the certification row records what these
+re-commits cost.
+
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
