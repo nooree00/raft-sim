@@ -24,6 +24,11 @@ re-commits cost.
 (40464503656), went red on a sabotage caught for the wrong reason by the test written for P16-12
 (S-thread-1; the test since fixed), unrelated to this report: the same rows hold the account.
 
+**Re-committed a fourth time (2026-10-29)** because `main`'s run on `9b9e528` (40843840366) went red
+on S-thread-1's old test at `355c2a2`, a test already replaced, at a commit no later push runs, while
+every head job at `9b9e528` passed. The certification moves to a run that reflects the code, not away
+from one that found a defect; the certification row holds the count and the account.
+
 Branch protection on `main` (making these checks required) is the reviewer's, after this.
 
 This report certifies the commit that contains it. `gates reports` verifies that commit's CI run
