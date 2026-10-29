@@ -1935,3 +1935,18 @@ The first three were written during phase 10's acceptance push and P11-08, befor
   observable was satisfied by something other than what it names, the family of every
   mechanism-substitution finding here. *Rule:* assert the thing itself (here the child process, and its
   own `host-start` read before its port is used), not an effect something else can produce.
+- **A limit discovered by reaching it, not by measuring toward it** (the person). GitHub caps a job's
+  matrix at 256 jobs, and at 14 harness shards a commit that is 18 non-head commits a push. Every other
+  ceiling in this project was measured toward, each with a number and a row; this one was invisible
+  because nothing counts jobs, and it fails before any check runs, so an oversized push reports an
+  infrastructure failure, not a check result. Found when `main`'s planned move reached it (24 non-head
+  commits, 336 jobs). The arithmetic is on the register's row. *Rule:* a limit the platform imposes is
+  counted toward like the project's own, by the gate that produces what it limits.
+- **Done is declared, not arrived at** (the person, 2026-10-29). The work that began on 2026-10-22 as
+  removing two PDFs produced a control redesign (P16-11), a host race fix (P16-12), a gate relaxation
+  (P16-13), a margins audit, register rows and the matrix-cap finding. Each was real: the apparatus
+  doing what it was built to do. That is the point. A repository this instrumented does not reach
+  "green and done", because its checks keep finding true things. *Rule:* done is declared at a stated
+  point (here `main` at `9b9e528`, and one push on top of it to land this record and move P0's
+  certification); open rows stay open; nothing the merge turns up is started unless it blocks the merge;
+  and what a later run turns up goes on a row, not into a fix.
